@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CC Manager — Full Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0b0d14;--surface:#12151f;--card:#171b28;--border:#1e2338;
+  --text:#e2e8f0;--muted:#4b5680;--dim:#252a3d;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;
+  --blue:#3b82f6;--purple:#a855f7;--cyan:#06b6d4;--orange:#f97316;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;height:100vh;overflow:hidden;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+/* ══ SIDEBAR ══ */
+.sidebar{width:52px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:2px;flex-shrink:0;}
+.logo{font-size:20px;margin-bottom:10px;cursor:default;}
+.sbi{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:all .15s;position:relative;border:1px solid transparent;color:var(--muted);}
+.sbi:hover{background:var(--card);color:var(--text);}
+.sbi.active{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.3);color:#60a5fa;}
+.sbi-tip{position:absolute;left:46px;background:#1e2338;border:1px solid var(--border);color:var(--text);font-size:11px;padding:4px 8px;border-radius:5px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;}
+.sbi:hover .sbi-tip{opacity:1;}
+.badge{position:absolute;top:3px;right:3px;min-width:15px;height:15px;border-radius:8px;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;padding:0 3px;}
+.badge.y{background:var(--yellow);color:#000;}
+.badge.g{background:var(--green);color:#000;}
+.spacer{flex:1;}
+.offline-pill{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#f87171;font-size:8px;font-weight:700;padding:3px 5px;border-radius:5px;text-align:center;width:38px;margin-top:4px;}
+
+/* ══ MAIN ══ */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;flex-shrink:0;height:44px;}
+.tab{padding:0 16px;height:44px;display:flex;align-items:center;font-size:12px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);transition:all .15s;white-space:nowrap;gap:6px;}
+.tab:hover{color:var(--text);}
+.tab.active{color:#60a5fa;border-bottom-color:var(--blue);}
+.tbadge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;font-family:'JetBrains Mono',monospace;}
+.tbadge.y{background:var(--yellow);color:#000;}
+.content{flex:1;overflow-y:auto;padding:20px;}
+
+/* ══ PAGES ══ */
+.page{display:none;}.page.active{display:block;}
+
+/* ══ COMMON ══ */
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.ph-title{font-size:18px;font-weight:700;color:#f1f5f9;letter-spacing:-.02em;}
+.ph-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.ph-actions{display:flex;gap:7px;align-items:center;}
+.btn{padding:7px 13px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.btn:hover{filter:brightness(1.15);}
+.btn-g{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.25);color:#4ade80;}
+.btn-b{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.25);color:#60a5fa;}
+.btn-r{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.25);color:#f87171;}
+.btn-y{background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.25);color:#facc15;}
+.btn-p{background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.25);color:#c084fc;}
+.btn-o{background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.25);color:#fb923c;}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted);}
+.btn-sm{padding:4px 9px;font-size:11px;}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;}
+.ptitle{font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.slabel{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.12em;margin-bottom:7px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+
+/* STATUS BADGES */
+.st{font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:4px;white-space:nowrap;}
+.st-pending  {background:rgba(234,179,8,.15);color:#facc15;}
+.st-processing{background:rgba(249,115,22,.15);color:#fb923c;}
+.st-shipped  {background:rgba(59,130,246,.15);color:#60a5fa;}
+.st-transit  {background:rgba(6,182,212,.15);color:#22d3ee;}
+.st-delivered{background:rgba(34,197,94,.15);color:#4ade80;}
+.st-decline  {background:rgba(239,68,68,.15);color:#f87171;}
+.st-cancelled{background:rgba(107,114,128,.15);color:#9ca3af;}
+.st-free     {background:rgba(34,197,94,.12);color:#4ade80;}
+.st-inuse    {background:rgba(59,130,246,.12);color:#60a5fa;}
+.st-dead     {background:rgba(239,68,68,.12);color:#f87171;}
+.st-archive  {background:rgba(107,114,128,.12);color:#9ca3af;}
+.st-active   {background:rgba(34,197,94,.12);color:#4ade80;}
+.st-clean    {background:rgba(34,197,94,.12);color:#4ade80;}
+.st-used     {background:rgba(234,179,8,.12);color:#facc15;}
+.st-blocked  {background:rgba(239,68,68,.12);color:#f87171;}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:0 10px 8px;text-align:left;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.tbl th:first-child{padding-left:0;}
+.tbl td{padding:9px 10px;border-bottom:1px solid #0d1018;vertical-align:middle;}
+.tbl td:first-child{padding-left:0;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+.tbl-actions{display:flex;gap:5px;opacity:0;transition:opacity .15s;}
+.tbl tr:hover .tbl-actions{opacity:1;}
+
+/* FILTERS */
+.filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.flt{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.flt.active{background:var(--card);border-color:var(--blue);color:#60a5fa;}
+.flt:hover:not(.active){color:var(--text);}
+.search-box{flex:1;max-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-size:12px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;}
+.search-box:focus{border-color:rgba(59,130,246,.5);}
+.search-box::placeholder{color:var(--muted);}
+
+/* CHECKBOX */
+.cb{width:14px;height:14px;accent-color:var(--blue);cursor:pointer;}
+
+/* FORM */
+.form-group{margin-bottom:14px;}
+.form-label{font-size:11px;color:var(--muted);margin-bottom:5px;display:block;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;}
+.form-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;transition:border-color .15s;}
+.form-input:focus{border-color:rgba(59,130,246,.5);}
+.form-row{display:grid;gap:10px;margin-bottom:14px;}
+.form-row.col2{grid-template-columns:1fr 1fr;}
+.form-row.col3{grid-template-columns:1fr 1fr 1fr;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000;display:none;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;width:600px;max-height:85vh;overflow-y:auto;padding:24px;}
+.modal-title{font-size:16px;font-weight:700;color:#f1f5f9;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;}
+.modal-close:hover{color:var(--text);}
+
+/* ══ DASHBOARD SPECIFIC ══ */
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite;display:inline-block;margin-right:6px;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.period-bar{display:flex;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:3px;width:fit-content;margin-bottom:14px;}
+.pb{padding:4px 11px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid transparent;color:var(--muted);background:transparent;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.pb.active{background:var(--card);border-color:var(--border);color:var(--text);}
+.base-strip{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 0;margin-bottom:12px;overflow:hidden;}
+.bsi{flex:1;text-align:center;border-right:1px solid var(--border);padding:0 14px;}
+.bsi:last-child{border-right:none;}
+.bsi-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.bsi-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;}
+.cards7{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-bottom:18px;}
+.sc{background:var(--card);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;border:1px solid var(--border);border-left:3px solid;overflow:hidden;}
+.sc:hover{transform:translateY(-1px);}
+.sc-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
+.sc-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;line-height:1;}
+.sc-sub{font-size:10px;color:var(--muted);margin-top:3px;}
+.up{color:var(--green);}.dn{color:var(--red);}
+.cg{border-left-color:var(--green);}.cg .sc-val,.cg .sc-sub.clr{color:#4ade80;}.cg:hover{box-shadow:0 4px 20px rgba(34,197,94,.1);}
+.cr{border-left-color:var(--red);}.cr .sc-val{color:#f87171;}.cr:hover{box-shadow:0 4px 20px rgba(239,68,68,.1);}
+.cy{border-left-color:var(--yellow);}.cy .sc-val{color:#facc15;}.cy:hover{box-shadow:0 4px 20px rgba(234,179,8,.1);}
+.cb2{border-left-color:var(--blue);}.cb2 .sc-val{color:#60a5fa;}.cb2:hover{box-shadow:0 4px 20px rgba(59,130,246,.1);}
+.cp{border-left-color:var(--purple);}.cp .sc-val{color:#c084fc;}.cp:hover{box-shadow:0 4px 20px rgba(168,85,247,.1);}
+.cp2{border-left-color:#d946ef;}.cp2 .sc-val{color:#e879f9;}.cp2:hover{box-shadow:0 4px 20px rgba(217,70,239,.1);}
+.cgr{border-left-color:#374151;}.cgr .sc-val{color:#94a3b8;}
+.alert-row{display:flex;align-items:center;gap:9px;padding:7px 13px;border-radius:7px;font-size:12px;cursor:pointer;transition:all .15s;margin-bottom:5px;}
+.alert-r{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.18);color:#f87171;}
+.alert-y{background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.18);color:#facc15;}
+.alert-b{background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.18);color:#60a5fa;}
+.arr{margin-left:auto;opacity:.4;font-size:10px;}
+.hm{width:100%;border-collapse:collapse;}
+.hm th{font-size:10px;color:var(--muted);font-weight:600;padding:0 3px 8px;text-align:center;}
+.hm td.bn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);padding-right:6px;padding-bottom:4px;white-space:nowrap;}
+.hc{border-radius:5px;padding:6px 3px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;font-family:'JetBrains Mono',monospace;display:block;}
+.hc:hover{transform:scale(1.08);filter:brightness(1.2);}
+.hg{background:#14532d;color:#4ade80;}.hm2{background:#713f12;color:#facc15;}.hb{background:#450a0a;color:#f87171;}
+.pool-bar{display:flex;border-radius:5px;overflow:hidden;height:7px;margin:8px 0;}
+.pool-c{background:var(--green);}.pool-u{background:#1e3a5f;}.pool-b{background:#450a0a;}
+.order-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #0d1018;cursor:pointer;transition:padding .15s;}
+.order-row:last-child{border-bottom:none;}
+.order-row:hover{padding-left:4px;}
+
+/* ══ PROFILE DETAIL ══ */
+.prof-header{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-bottom:14px;display:flex;align-items:center;gap:16px;}
+.prof-avatar{width:48px;height:48px;border-radius:11px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.field-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #0d1018;font-size:12px;}
+.field-row:last-child{border-bottom:none;}
+.fl{color:var(--muted);font-size:11px;}
+.fv{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);display:flex;align-items:center;gap:5px;}
+.copy-btn{background:none;border:none;color:var(--dim);cursor:pointer;font-size:11px;transition:color .15s;padding:0;}
+.copy-btn:hover{color:#60a5fa;}
+.proxy-cur{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px;}
+.proxy-old{display:flex;align-items:center;gap:10px;padding:7px 11px;background:rgba(107,114,128,.05);border:1px solid var(--border);border-radius:7px;margin-bottom:5px;font-size:11px;}
+.drop-box{border-radius:8px;padding:10px 13px;margin-bottom:7px;}
+.drop-primary{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);}
+.drop-secondary{background:var(--surface);border:1px solid var(--border);}
+.rebid-btn{padding:4px 9px;border-radius:5px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);color:#fb923c;font-size:10px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;}
+.rebid-btn:hover{background:rgba(249,115,22,.2);}
+
+/* ══ RISK CHECK ══ */
+.risk-block{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 15px;margin-top:10px;}
+.risk-ok{color:#4ade80;font-size:12px;padding:4px 0;}
+.risk-warn{color:#facc15;font-size:12px;padding:4px 0;}
+.risk-bad{color:#f87171;font-size:12px;padding:4px 0;}
+.rebid-note{background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:7px;padding:9px 12px;font-size:11px;color:#fb923c;margin-top:8px;display:flex;gap:7px;}
+
+/* ══ UPDATES SPECIFIC ══ */
+.sum-bar{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:16px;}
+.sum-item{flex:1;padding:16px 20px;text-align:center;border-right:1px solid var(--border);}
+.sum-item:last-child{border-right:none;}
+.sum-num{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;line-height:1;}
+.sum-lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+.upd-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:14px 18px;margin-bottom:9px;transition:border-color .2s;}
+.upd-card:hover{border-color:#2d3555;}
+.upd-head{display:flex;align-items:center;gap:12px;}
+.upd-icon{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.ui-trk{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.2);}
+.ui-del{background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.2);}
+.ui-can{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.2);}
+.ui-con{background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.2);}
+.ui-wrn{background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.2);}
+.trk-box{display:flex;align-items:center;gap:12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:8px;padding:11px 14px;margin-top:11px;}
+.trk-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#4ade80;}
+.trk-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.trk-acts{margin-left:auto;display:flex;gap:7px;flex-shrink:0;}
+.cancel-box{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px;padding:12px 14px;margin-top:11px;}
+.status-row{display:flex;align-items:center;gap:9px;margin-top:11px;}
+
+/* ══ FLOAT WINDOW SPECIFIC ══ */
+.float-tabs{display:flex;background:var(--surface);border-radius:8px;padding:3px;gap:3px;margin-bottom:14px;}
+.ftab{flex:1;padding:6px;text-align:center;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .15s;border:1px solid transparent;}
+.ftab.active{background:var(--card);border-color:var(--border);color:var(--text);}
+.float-field{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;margin-bottom:6px;}
+.float-lbl{font-size:10px;color:var(--muted);}
+.float-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);font-weight:600;}
+.float-copy{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:0;transition:color .15s;}
+.float-copy:hover{color:#4ade80;}
+
+/* ══ SETTINGS ══ */
+.setting-section{margin-bottom:20px;}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #0d1018;}
+.setting-row:last-child{border-bottom:none;}
+.setting-info{flex:1;}
+.setting-title{font-size:13px;color:var(--text);}
+.setting-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+.toggle{width:38px;height:22px;border-radius:11px;background:var(--border);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.toggle.on{background:var(--green);}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left .2s;}
+.toggle.on::after{left:19px;}
+.sync-status{display:flex;align-items:center;gap:8px;font-size:12px;}
+.sync-dot{width:8px;height:8px;border-radius:50%;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sidebar">
+  <div class="logo">💳</div>
+  <div class="sbi active" onclick="nav('dashboard',this)" title="">📊<span class="sbi-tip">Dashboard</span></div>
+  <div class="sbi" onclick="nav('updates',this)" style="position:relative">📬<div class="badge">7</div><span class="sbi-tip">Updates</span></div>
+  <div class="sbi" onclick="nav('cc',this)" style="position:relative">💳<div class="badge y">3</div><span class="sbi-tip">CC</span></div>
+  <div class="sbi" onclick="nav('profiles',this)">👤<span class="sbi-tip">Profiles</span></div>
+  <div class="sbi" onclick="nav('orders',this)" style="position:relative">📦<div class="badge y">89</div><span class="sbi-tip">Orders</span></div>
+  <div class="sbi" onclick="nav('shops',this)">🏪<span class="sbi-tip">Shops</span></div>
+  <div class="sbi" onclick="nav('proxy',this)">🌐<span class="sbi-tip">Proxy</span></div>
+  <div class="sbi" onclick="nav('email',this)" style="position:relative">📧<div class="badge g">47</div><span class="sbi-tip">Email Pool</span></div>
+  <div class="sbi" onclick="nav('imap',this)">🔌<span class="sbi-tip">IMAP</span></div>
+  <div class="sbi" onclick="nav('log',this)">📋<span class="sbi-tip">Activity Log</span></div>
+  <div class="spacer"></div>
+  <div class="sbi" onclick="nav('float',this)">🪟<span class="sbi-tip">Float Window</span></div>
+  <div class="sbi" onclick="nav('settings',this)">⚙️<span class="sbi-tip">Settings</span></div>
+  <div class="offline-pill">⚠️ Off</div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+  <div class="topbar" id="topbar"></div>
+  <div class="content">
+
+<!-- ════════════════════════════════
+     DASHBOARD
+════════════════════════════════ -->
+<div id="page-dashboard" class="page active">
+  <div class="ph">
+    <div><div class="ph-title"><span class="live-dot"></span>Dashboard</div><div class="ph-sub">Автообновление каждые 30с</div></div>
+    <div class="ph-actions">
+      <button class="btn btn-b">+ Import CC</button>
+      <button class="btn btn-g">+ Create Profile</button>
+      <button class="btn btn-p">+ New Order</button>
+      <button class="btn btn-ghost btn-sm">Export Stats</button>
+    </div>
+  </div>
+
+  <div class="period-bar">
+    <button class="pb" onclick="setPeriod(this)">Today</button>
+    <button class="pb active" onclick="setPeriod(this)">7d</button>
+    <button class="pb" onclick="setPeriod(this)">30d</button>
+    <button class="pb" onclick="setPeriod(this)">All time</button>
+    <button class="pb" onclick="setPeriod(this)">Custom ▾</button>
+  </div>
+
+  <div class="alert-b alert-row" onclick="nav('updates')">📬 Пока ты спал — 7 новых событий &nbsp;·&nbsp; <b>3 трека</b> · <b style="color:#f87171">1 кенсел</b> · 2 доставки <span class="arr">Смотреть →</span></div>
+  <div class="alert-r alert-row">⚠️ 3 карты истекают в ближайшие 7 дней <span class="arr">→ CC</span></div>
+  <div class="alert-y alert-row">🕐 7 заказов без обновления > 5 дней <span class="arr">→ Orders</span></div>
+  <div class="alert-y alert-row" style="margin-bottom:12px;">📭 5 профилей без адреса доставки <span class="arr">→ Profiles</span></div>
+
+  <div class="slabel">База · всего в системе</div>
+  <div class="base-strip" style="margin-bottom:12px;">
+    <div class="bsi"><div class="bsi-lbl">Total CC</div><div class="bsi-val" style="color:#94a3b8">4,821</div></div>
+    <div class="bsi"><div class="bsi-lbl">Free</div><div class="bsi-val" style="color:#4ade80">1,204</div></div>
+    <div class="bsi"><div class="bsi-lbl">In Use</div><div class="bsi-val" style="color:#60a5fa">2,893</div></div>
+    <div class="bsi"><div class="bsi-lbl">Dead</div><div class="bsi-val" style="color:#f87171">724</div></div>
+    <div class="bsi"><div class="bsi-lbl">Profiles</div><div class="bsi-val" style="color:#60a5fa">2,891</div></div>
+    <div class="bsi"><div class="bsi-lbl">No Drop ⚠</div><div class="bsi-val" style="color:#facc15">143</div></div>
+  </div>
+
+  <div class="slabel">Активность · 7 дней</div>
+  <div class="cards7">
+    <div class="sc cgr"><div class="sc-lbl">Orders</div><div class="sc-val">312</div><div class="sc-sub">за период</div></div>
+    <div class="sc cy"><div class="sc-lbl">Pending</div><div class="sc-val">89</div><div class="sc-sub">ожидают</div></div>
+    <div class="sc cb2"><div class="sc-lbl">Shipped</div><div class="sc-val">134</div><div class="sc-sub up">↑ 18%</div></div>
+    <div class="sc cg"><div class="sc-lbl">Delivered</div><div class="sc-val">67</div><div class="sc-sub up">↑ 11%</div></div>
+    <div class="sc cr"><div class="sc-lbl">Declined</div><div class="sc-val">41</div><div class="sc-sub dn">↑ 5%</div></div>
+    <div class="sc cp"><div class="sc-lbl">Revenue</div><div class="sc-val" style="font-size:17px">$18,420</div><div class="sc-sub up">↑ 22%</div></div>
+    <div class="sc cp2"><div class="sc-lbl">Net Profit</div><div class="sc-val" style="font-size:17px">$7,140</div><div class="sc-sub">38.8%</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="ptitle">Revenue / Profit
+        <div style="display:flex;gap:10px;font-size:11px;">
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#a855f7;margin-right:4px"></span>Revenue</span>
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:4px"></span>Profit</span>
+        </div>
+      </div>
+      <canvas id="dashChart" height="150"></canvas>
+    </div>
+    <div class="panel">
+      <div class="ptitle">Банк × Магазин <span style="color:var(--muted);font-size:11px;font-weight:400">% успеха</span></div>
+      <table class="hm"><thead><tr><th></th><th>Nike</th><th>ASOS</th><th>Adidas</th><th>H&M</th><th>Zara</th></tr></thead><tbody id="hmBody"></tbody></table>
+      <div style="display:flex;gap:10px;margin-top:9px;font-size:10px;">
+        <span style="color:#4ade80">■ ≥70%</span><span style="color:#facc15">■ 45–69%</span><span style="color:#f87171">■ &lt;45%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="ptitle">Email Pool <span style="color:#4ade80;font-size:11px">47 чистых</span></div>
+      <div class="pool-bar"><div class="pool-c" style="width:60%"></div><div class="pool-u" style="width:32%"></div><div class="pool-b" style="width:8%"></div></div>
+      <div style="display:flex;gap:12px;font-size:11px;margin-bottom:12px;">
+        <span style="color:#4ade80">✓ 47 чистых</span><span style="color:#3b6497">● 24 использованы</span><span style="color:#f87171">✕ 6 заблок.</span>
+      </div>
+      <div id="poolShops"></div>
+    </div>
+    <div class="panel">
+      <div class="ptitle">Последние заказы <span style="color:var(--muted);font-size:11px">live</span></div>
+      <div id="recentOrders"></div>
+    </div>
+  </div>
+
+  <!-- Expiring -->
+  <div class="panel" style="margin-top:12px;">
+    <div class="ptitle">Истекающие карты <span style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:10px;border-radius:5px;padding:2px 8px;">3 карты</span></div>
+    <div style="display:flex;gap:8px;" id="expiryCards"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     UPDATES
+════════════════════════════════ -->
+<div id="page-updates" class="page">
+  <div class="ph">
+    <div><div class="ph-title">📬 Updates <span style="color:var(--dim);font-size:14px;font-weight:400">/ Пока ты спал</span></div>
+    <div class="ph-sub">IMAP работал пока приложение было закрыто · 02:14 → 14:37</div></div>
+    <div class="ph-actions">
+      <button class="btn btn-ghost">Отметить все прочитанными</button>
+      <button class="btn btn-g">✓ Применить все треки</button>
+    </div>
+  </div>
+  <div class="sum-bar">
+    <div class="sum-item"><div class="sum-num" style="color:#4ade80">3</div><div class="sum-lbl">📦 Новых трека</div></div>
+    <div class="sum-item"><div class="sum-num" style="color:#22d3ee">2</div><div class="sum-lbl">✅ Доставлено</div></div>
+    <div class="sum-item"><div class="sum-num" style="color:#fb923c">1</div><div class="sum-lbl">🧾 Подтверждение</div></div>
+    <div class="sum-item"><div class="sum-num" style="color:#f87171">1</div><div class="sum-lbl">❌ Кенсел</div></div>
+    <div class="sum-item"><div class="sum-num" style="color:#facc15">1</div><div class="sum-lbl">⚠️ Нужно внимание</div></div>
+  </div>
+  <div class="filters">
+    <button class="flt active" onclick="setF(this)">Все (8)</button>
+    <button class="flt" onclick="setF(this)">📦 Треки (3)</button>
+    <button class="flt" onclick="setF(this)">✅ Доставлено (2)</button>
+    <button class="flt" onclick="setF(this)">❌ Кенселы (1)</button>
+    <button class="flt" onclick="setF(this)">⚠️ Внимание (1)</button>
+  </div>
+
+  <div class="slabel" style="margin-top:4px;">Новые треки</div>
+  <div class="upd-card">
+    <div class="upd-head"><div class="upd-icon ui-trk">📦</div><div><div style="font-size:13px;font-weight:600">Трек найден — Nike / James Miller ••4821</div><div style="font-size:11px;color:var(--muted);margin-top:2px">orders@nike.com → j.miller.shop@gmail.com · Заказ #NK-88421</div></div><div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace">02:41</div></div>
+    <div class="trk-box"><div><div class="trk-num">9400111899223397591196</div><div class="trk-sub">USPS · In Transit → идёт к дропу</div></div><div class="trk-acts"><button class="btn btn-g btn-sm" onclick="applyTrack(this)">✓ Применить трек</button><button class="btn btn-ghost btn-sm">Игнор</button></div></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:7px">После применения: #NK-88421 → <span class="st st-transit">In Transit</span></div>
+  </div>
+  <div class="upd-card">
+    <div class="upd-head"><div class="upd-icon ui-trk">📦</div><div><div style="font-size:13px;font-weight:600">Трек найден — ASOS / Sarah Connor ••7734</div><div style="font-size:11px;color:var(--muted);margin-top:2px">noreply@asos.com → s.connor.mail@gmail.com · Заказ #AS-12091</div></div><div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace">04:17</div></div>
+    <div class="trk-box"><div><div class="trk-num">1Z999AA10123456784</div><div class="trk-sub">UPS · Out for Delivery</div></div><div class="trk-acts"><button class="btn btn-g btn-sm" onclick="applyTrack(this)">✓ Применить трек</button><button class="btn btn-ghost btn-sm">Игнор</button></div></div>
+  </div>
+  <div class="upd-card" style="border-color:rgba(234,179,8,.25);">
+    <div class="upd-head"><div class="upd-icon ui-wrn">⚠️</div><div><div style="font-size:13px;font-weight:600;color:#facc15">Трек найден — не удалось сопоставить заказ</div><div style="font-size:11px;color:var(--muted);margin-top:2px">shipping@amazon.com → t.clark.buy@gmail.com</div></div><div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace">13:48</div></div>
+    <div class="trk-box" style="background:rgba(234,179,8,.05);border-color:rgba(234,179,8,.2)"><div><div class="trk-num" style="color:#facc15">TBA123456789000</div><div class="trk-sub">Amazon Logistics · номер заказа не найден в БД</div></div><div class="trk-acts"><button class="btn btn-y btn-sm">Привязать вручную</button></div></div>
+  </div>
+
+  <div class="slabel" style="margin-top:16px;">Доставлено</div>
+  <div class="upd-card">
+    <div class="upd-head"><div class="upd-icon ui-del">✅</div><div><div style="font-size:13px;font-weight:600">Доставлено — Adidas / Robert Walsh ••1190</div><div style="font-size:11px;color:var(--muted);margin-top:2px">UPS · Заказ #AD-55012 · трек 1Z999AA10123456700</div></div><div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace">06:52</div></div>
+    <div class="status-row"><span class="st st-delivered">Delivered</span><span style="font-size:11px;color:var(--muted)">→ статус обновлён автоматически</span><button class="btn btn-o btn-sm" style="margin-left:auto">↻ Перебить</button></div>
+  </div>
+  <div class="upd-card" style="border-color:rgba(249,115,22,.2);">
+    <div class="upd-head"><div class="upd-icon ui-con">🔄</div><div><div style="font-size:13px;font-weight:600">Доставлено — Zara / Kevin Lee ••5544 <span style="font-size:10px;font-family:'JetBrains Mono',monospace;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);color:#fb923c;padding:2px 6px;border-radius:3px;margin-left:5px">перебит 1×</span></div><div style="font-size:11px;color:var(--muted);margin-top:2px">FedEx · Заказ #ZR-77841</div></div><div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace">08:14</div></div>
+    <div class="status-row"><span class="st st-delivered">Delivered</span><span style="font-size:11px;color:#fb923c">Профиль уже перебивался — снова доехало 💪</span><button class="btn btn-o btn-sm" style="margin-left:auto">↻ Перебить снова</button></div>
+  </div>
+
+  <div class="slabel" style="margin-top:16px;">Другие события</div>
+  <div class="upd-card">
+    <div class="upd-head"><div class="upd-icon ui-con">🧾</div><div><div style="font-size:13px;font-weight:600">Заказ подтверждён — H&M / Anna Brown ••3312</div><div style="font-size:11px;color:var(--muted);margin-top:2px">confirmation@hm.com · Заказ #HM-20041 принят магазином</div></div><div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace">09:33</div></div>
+    <div class="status-row"><span class="st st-processing">Processing</span><span style="font-size:11px;color:var(--muted)">→ статус обновлён автоматически · теперь ждём трек</span></div>
+  </div>
+  <div class="upd-card" style="border-color:rgba(239,68,68,.2);">
+    <div class="upd-head"><div class="upd-icon ui-can">❌</div><div><div style="font-size:13px;font-weight:600;color:#f87171">Кенсел — Nike / Marcus Davis ••9901</div><div style="font-size:11px;color:var(--muted);margin-top:2px">orders@nike.com · Заказ #NK-71234 отменён</div></div><div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:'JetBrains Mono',monospace">12:05</div></div>
+    <div class="cancel-box"><div style="font-size:12px;color:#f87171;margin-bottom:8px">Магазин отменил заказ. Карта ••9901 жива — кенсел ≠ dead.</div><div style="display:flex;gap:7px"><button class="btn btn-o btn-sm">↻ Перебить</button><button class="btn btn-r btn-sm">💀 Пометить dead</button><button class="btn btn-ghost btn-sm">Оставить</button></div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     CC LIST
+════════════════════════════════ -->
+<div id="page-cc" class="page">
+  <div class="ph">
+    <div><div class="ph-title">💳 CC <span style="color:var(--dim);font-size:14px;font-weight:400">4,821 карт</span></div></div>
+    <div class="ph-actions">
+      <button class="btn btn-b">Import</button>
+      <button class="btn btn-ghost btn-sm">Enrich BINs</button>
+      <button class="btn btn-ghost btn-sm">Duplicates</button>
+      <button class="btn btn-ghost btn-sm">Export</button>
+    </div>
+  </div>
+  <div class="filters">
+    <button class="flt active" onclick="setF(this)">All (4821)</button>
+    <button class="flt" onclick="setF(this)">Free (1204)</button>
+    <button class="flt" onclick="setF(this)">In Use (2893)</button>
+    <button class="flt" onclick="setF(this)">Dead (724)</button>
+    <button class="flt" onclick="setF(this)">Archive</button>
+    <input class="search-box" placeholder="🔍  номер, имя, email, BIN...">
+    <button class="btn btn-ghost btn-sm">Columns</button>
+    <button class="btn btn-ghost btn-sm">Compact</button>
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr>
+        <th><input type="checkbox" class="cb"></th>
+        <th>Карта</th><th>Банк / BIN</th><th>Тип</th><th>Держатель</th><th>Страна</th><th>Источник</th><th>Статус</th><th>Заказы</th><th>Ревеню</th><th>Действия</th>
+      </tr></thead>
+      <tbody id="ccTable"></tbody>
+    </table>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--muted);">
+    <span>Показано 1–50 из 4,821</span>
+    <div style="display:flex;gap:5px;">
+      <button class="btn btn-ghost btn-sm">← Пред</button>
+      <button class="btn btn-ghost btn-sm" style="color:#60a5fa;border-color:rgba(59,130,246,.4)">1</button>
+      <button class="btn btn-ghost btn-sm">2</button><button class="btn btn-ghost btn-sm">3</button>
+      <button class="btn btn-ghost btn-sm">След →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PROFILES LIST
+════════════════════════════════ -->
+<div id="page-profiles" class="page">
+  <div class="ph">
+    <div><div class="ph-title">👤 Profiles <span style="color:var(--dim);font-size:14px;font-weight:400">2,891 профиль</span></div></div>
+    <div class="ph-actions">
+      <button class="btn btn-g" onclick="openModal('createProfile')">+ Create Profile</button>
+      <button class="btn btn-ghost btn-sm">Find Duplicates</button>
+    </div>
+  </div>
+  <div class="filters">
+    <button class="flt active" onclick="setF(this)">All (2891)</button>
+    <button class="flt" onclick="setF(this)">Active</button>
+    <button class="flt" onclick="setF(this)">Dead</button>
+    <button class="flt" onclick="setF(this)">Archive</button>
+    <button class="flt" onclick="setF(this)">⚠️ No Drop (143)</button>
+    <input class="search-box" placeholder="🔍  имя, карта...">
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr>
+        <th><input type="checkbox" class="cb"></th>
+        <th>Профиль</th><th>Карта</th><th>Банк</th><th>Страна</th><th>Статус</th><th>Дропов</th><th>Заказов</th><th>Shipped</th><th>Действия</th>
+      </tr></thead>
+      <tbody id="profileTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PROFILE DETAIL
+════════════════════════════════ -->
+<div id="page-profiledetail" class="page">
+  <div class="ph">
+    <div style="display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--muted);font-size:12px" onclick="nav('profiles')">← Profiles</div>
+  </div>
+  <div class="prof-header">
+    <div class="prof-avatar">👤</div>
+    <div style="flex:1">
+      <div style="font-size:17px;font-weight:700">James Miller ••4821</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">Chase Visa Gold · US · <span style="color:#4ade80">Active</span></div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <span class="st st-active">Active</span>
+      <span style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);color:#60a5fa;font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace">3 заказа</span>
+      <span style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:#4ade80;font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace">2 delivered</span>
+      <span style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);color:#fb923c;font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace">Перебит 1×</span>
+    </div>
+    <div style="display:flex;gap:7px;margin-left:12px">
+      <button class="btn btn-ghost btn-sm">Float Window 🪟</button>
+      <button class="btn btn-b btn-sm">Copy All</button>
+      <button class="btn btn-o btn-sm">↻ Перебить</button>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel">
+        <div class="ptitle">Card Data <button class="btn btn-ghost btn-sm">Copy Card</button></div>
+        <div class="field-row"><span class="fl">Номер</span><span class="fv">****-****-****-4821 <button class="copy-btn">👁</button><button class="copy-btn">📋</button></span></div>
+        <div class="field-row"><span class="fl">Expiry / CVV</span><span class="fv">09/26 &nbsp;·&nbsp; ••• <button class="copy-btn">👁</button></span></div>
+        <div class="field-row"><span class="fl">Держатель</span><span class="fv">James Miller <button class="copy-btn">📋</button></span></div>
+        <div class="field-row"><span class="fl">Банк</span><span class="fv">Chase · Visa Gold</span></div>
+        <div class="field-row"><span class="fl">Email</span><span class="fv">j.miller@email.com <button class="copy-btn">📋</button></span></div>
+        <div class="field-row"><span class="fl">Phone</span><span class="fv">+1 (555) 012-3456 <button class="copy-btn">📋</button></span></div>
+        <div class="field-row"><span class="fl">IP (дамп)</span><span class="fv">192.168.0.1 <button class="copy-btn">📋</button></span></div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">Billing Address <button class="btn btn-ghost btn-sm">Copy Billing</button></div>
+        <div class="field-row"><span class="fl">Адрес</span><span class="fv">123 Main St <button class="copy-btn">📋</button></span></div>
+        <div class="field-row"><span class="fl">City / State</span><span class="fv">New York, NY 10001</span></div>
+        <div class="field-row"><span class="fl">Country</span><span class="fv">US</span></div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">Прокси <button class="btn btn-ghost btn-sm">Сменить</button></div>
+        <div class="proxy-cur">
+          <span style="font-size:16px">🌐</span>
+          <div style="flex:1"><div class="mono" style="font-size:12px;color:#4ade80">192.168.1.101:1080</div><div style="font-size:10px;color:var(--muted);margin-top:2px">PPTP · NY Proxy 4 · текущий</div></div>
+          <span style="font-size:10px;color:#4ade80">✓ чистый</span>
+        </div>
+        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin:8px 0 5px;font-family:'JetBrains Mono',monospace">История</div>
+        <div class="proxy-old"><span>🔌</span><div style="flex:1"><div class="mono" style="font-size:11px;color:#6b7280">45.33.32.156:1080</div><div style="font-size:10px;color:var(--dim)">NY Proxy 2 · заменён 3д назад</div></div><span style="font-size:10px;color:var(--dim)">Nike ✓</span></div>
+        <div class="proxy-old"><span>🔌</span><div style="flex:1"><div class="mono" style="font-size:11px;color:#6b7280">104.21.14.101:1080</div><div style="font-size:10px;color:var(--dim)">NY Proxy 1 · заменён 12д назад</div></div><span style="font-size:10px;color:var(--dim)">Nike ✓</span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel">
+        <div class="ptitle">Shipping Drops <button class="btn btn-g btn-sm">+ Add Drop</button></div>
+        <div class="drop-box drop-primary">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px"><span style="font-size:9px;background:rgba(34,197,94,.2);color:#4ade80;padding:2px 7px;border-radius:3px;font-weight:700">PRIMARY</span><button class="btn btn-ghost btn-sm">Copy</button></div>
+          <div class="mono" style="font-size:12px">James Miller</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">456 Oak Ave, Brooklyn, NY 11201 · US</div>
+          <div style="font-size:10px;color:#4ade80;margin-top:4px">Nike ✓ (заказ #NK-88421)</div>
+        </div>
+        <div class="drop-box drop-secondary">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px"><span style="font-size:10px;color:var(--muted)">Drop #2</span><button class="btn btn-ghost btn-sm">Copy</button></div>
+          <div class="mono" style="font-size:12px">James Miller</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">789 Pine St, Queens, NY 11432 · US</div>
+          <div style="font-size:10px;color:#4ade80;margin-top:4px">✓ Чистый для всех магазинов</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">История заказов <button class="btn btn-g btn-sm">+ New Order</button></div>
+        <div style="padding:8px 0;border-bottom:1px solid #0d1018;display:flex;align-items:center;gap:8px;cursor:pointer">
+          <div style="flex:1"><div style="font-size:12px;display:flex;gap:7px;align-items:center">#NK-88421 <span class="st st-transit">In Transit</span></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Nike · $149 · 2д назад</div><div style="font-size:10px;color:#22d3ee;font-family:'JetBrains Mono',monospace;margin-top:1px">9400111899... · USPS</div></div>
+        </div>
+        <div style="padding:8px 0;border-bottom:1px solid #0d1018;display:flex;align-items:center;gap:8px;cursor:pointer">
+          <div style="flex:1"><div style="font-size:12px;display:flex;gap:7px;align-items:center">#NK-71100 <span class="st st-delivered">Delivered</span><span style="font-size:9px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);color:#fb923c;padding:2px 5px;border-radius:3px">↻ Перебит</span></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Nike · $210 · 14д назад</div></div>
+          <button class="rebid-btn">↻ Перебить снова</button>
+        </div>
+        <div style="padding:8px 0;display:flex;align-items:center;gap:8px;cursor:pointer">
+          <div style="flex:1"><div style="font-size:12px;display:flex;gap:7px;align-items:center">#NK-55203 <span class="st st-delivered">Delivered</span></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Nike · $189 · 28д назад · первый заказ</div></div>
+          <button class="rebid-btn">↻ Перебить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     ORDERS
+════════════════════════════════ -->
+<div id="page-orders" class="page">
+  <div class="ph">
+    <div><div class="ph-title">📦 Orders <span style="color:var(--dim);font-size:14px;font-weight:400">312 за 7 дней</span></div></div>
+    <div class="ph-actions"><button class="btn btn-g" onclick="openModal('newOrder')">+ New Order</button><button class="btn btn-ghost btn-sm">Export</button></div>
+  </div>
+  <div class="filters">
+    <button class="flt active" onclick="setF(this)">All</button>
+    <button class="flt" onclick="setF(this)">Pending (89)</button>
+    <button class="flt" onclick="setF(this)">Processing</button>
+    <button class="flt" onclick="setF(this)">Shipped</button>
+    <button class="flt" onclick="setF(this)">In Transit</button>
+    <button class="flt" onclick="setF(this)">Delivered</button>
+    <button class="flt" onclick="setF(this)">Declined</button>
+    <button class="flt" onclick="setF(this)">Cancelled</button>
+    <input class="search-box" placeholder="🔍  номер заказа, профиль...">
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr>
+        <th><input type="checkbox" class="cb"></th>
+        <th>Заказ №</th><th>Профиль</th><th>Магазин</th><th>Статус</th><th>Сумма</th><th>Трек</th><th>Прокси</th><th>Email</th><th>Создан</th><th></th>
+      </tr></thead>
+      <tbody id="ordersTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SHOPS
+════════════════════════════════ -->
+<div id="page-shops" class="page">
+  <div class="ph">
+    <div><div class="ph-title">🏪 Shops</div></div>
+    <div class="ph-actions"><button class="btn btn-g">+ Add Shop</button></div>
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr><th>Магазин</th><th>Domain</th><th>Категория</th><th>Флаги</th><th>Заказов</th><th>Success %</th><th>Decline %</th><th>Revenue</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Nike</b></td><td class="mono" style="color:var(--muted);font-size:11px">nike.com</td><td>Fashion</td>
+          <td><span style="font-size:10px;background:rgba(239,68,68,.1);color:#f87171;padding:2px 6px;border-radius:3px;margin-right:3px">Blocks VPN</span><span style="font-size:10px;background:rgba(234,179,8,.1);color:#facc15;padding:2px 6px;border-radius:3px">CVV Match</span></td>
+          <td>87</td><td style="color:#4ade80;font-weight:700">78%</td><td style="color:#f87171">12%</td><td style="color:#c084fc">$5,240</td>
+          <td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-b btn-sm">Products</button></div></td>
+        </tr>
+        <tr>
+          <td><b>ASOS</b></td><td class="mono" style="color:var(--muted);font-size:11px">asos.com</td><td>Fashion</td>
+          <td><span style="font-size:10px;background:rgba(239,68,68,.1);color:#f87171;padding:2px 6px;border-radius:3px">High Cancel</span></td>
+          <td>61</td><td style="color:#4ade80;font-weight:700">83%</td><td style="color:#4ade80">8%</td><td style="color:#c084fc">$3,810</td>
+          <td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-b btn-sm">Products</button></div></td>
+        </tr>
+        <tr>
+          <td><b>Adidas</b></td><td class="mono" style="color:var(--muted);font-size:11px">adidas.com</td><td>Sports</td><td>—</td>
+          <td>43</td><td style="color:#facc15;font-weight:700">45%</td><td style="color:#facc15">32%</td><td style="color:#c084fc">$1,890</td>
+          <td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-b btn-sm">Products</button></div></td>
+        </tr>
+        <tr>
+          <td><b>H&M</b></td><td class="mono" style="color:var(--muted);font-size:11px">hm.com</td><td>Fashion</td>
+          <td><span style="font-size:10px;background:rgba(234,179,8,.1);color:#facc15;padding:2px 6px;border-radius:3px">AVS</span></td>
+          <td>34</td><td style="color:#f87171;font-weight:700">9%</td><td style="color:#f87171">71%</td><td style="color:#c084fc">$480</td>
+          <td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-b btn-sm">Products</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PROXY
+════════════════════════════════ -->
+<div id="page-proxy" class="page">
+  <div class="ph">
+    <div><div class="ph-title">🌐 Proxy Manager</div><div class="ph-sub">78 прокси в пуле</div></div>
+    <div class="ph-actions"><button class="btn btn-b">Import</button></div>
+  </div>
+  <div class="filters">
+    <button class="flt active" onclick="setF(this)">All (78)</button>
+    <button class="flt" onclick="setF(this)">Чистые (54)</button>
+    <button class="flt" onclick="setF(this)">Использованные (18)</button>
+    <button class="flt" onclick="setF(this)">Заблокированные (6)</button>
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr><th>Лейбл</th><th>Host:Port</th><th>Тип</th><th>Статус</th><th>Засвечен в</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><b>NY Proxy 4</b></td><td class="mono" style="font-size:11px;color:var(--muted)">192.168.1.101:1080</td><td>PPTP</td><td><span class="st st-clean">Чистый</span></td><td style="color:var(--muted);font-size:11px">—</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-r btn-sm">Block</button></div></td></tr>
+        <tr><td><b>NY Proxy 2</b></td><td class="mono" style="font-size:11px;color:var(--muted)">45.33.32.156:1080</td><td>PPTP</td><td><span class="st st-used">Использован</span></td><td style="font-size:11px">Nike · ASOS</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-r btn-sm">Block</button></div></td></tr>
+        <tr><td><b>LA Proxy 1</b></td><td class="mono" style="font-size:11px;color:var(--muted)">104.21.14.101:1080</td><td>SOCKS5</td><td><span class="st st-blocked">Заблокирован</span></td><td style="font-size:11px">Nike · Adidas · H&M</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Unblock</button></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     EMAIL POOL
+════════════════════════════════ -->
+<div id="page-email" class="page">
+  <div class="ph">
+    <div><div class="ph-title">📧 Email Pool</div><div class="ph-sub">77 ящиков · 47 чистых</div></div>
+    <div class="ph-actions"><button class="btn btn-g">+ Add Email</button><button class="btn btn-b btn-sm">Import</button></div>
+  </div>
+  <div class="filters">
+    <button class="flt active" onclick="setF(this)">All (77)</button>
+    <button class="flt" onclick="setF(this)">Чистые (47)</button>
+    <button class="flt" onclick="setF(this)">Использованные (24)</button>
+    <button class="flt" onclick="setF(this)">Заблокированные (6)</button>
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr><th>Email</th><th>Лейбл</th><th>IMAP</th><th>Статус</th><th>Засвечен в</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:11px">j.miller.shop@gmail.com</td><td>Miller shop</td><td style="color:#4ade80;font-size:11px">✓ Подключён</td><td><span class="st st-used">Использован</span></td><td style="font-size:11px">Nike</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-r btn-sm">Block</button></div></td></tr>
+        <tr><td class="mono" style="font-size:11px">s.connor.mail@gmail.com</td><td>Connor</td><td style="color:#4ade80;font-size:11px">✓ Подключён</td><td><span class="st st-used">Использован</span></td><td style="font-size:11px">ASOS</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-r btn-sm">Block</button></div></td></tr>
+        <tr><td class="mono" style="font-size:11px">fresh.buyer01@gmail.com</td><td>Fresh 01</td><td style="color:var(--muted);font-size:11px">—</td><td><span class="st st-clean">Чистый</span></td><td style="color:var(--muted);font-size:11px">—</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-b btn-sm">Link IMAP</button></div></td></tr>
+        <tr><td class="mono" style="font-size:11px">fresh.buyer02@gmail.com</td><td>Fresh 02</td><td style="color:var(--muted);font-size:11px">—</td><td><span class="st st-clean">Чистый</span></td><td style="color:var(--muted);font-size:11px">—</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-b btn-sm">Link IMAP</button></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     IMAP
+════════════════════════════════ -->
+<div id="page-imap" class="page">
+  <div class="ph">
+    <div><div class="ph-title">🔌 IMAP <span style="color:var(--dim);font-size:14px;font-weight:400">Почтовая автоматизация</span></div></div>
+    <div class="ph-actions"><button class="btn btn-g">+ Add Account</button></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="panel" style="margin-bottom:12px;">
+        <div class="ptitle">IMAP Ящики</div>
+        <table class="tbl">
+          <thead><tr><th>Ящик</th><th>Email</th><th>Статус</th><th>Последняя проверка</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Gmail Shop 1</b></td><td class="mono" style="font-size:11px">j.miller.shop@gmail.com</td><td><span class="st st-active">Active</span></td><td style="font-size:11px;color:var(--muted)">2м назад</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-r btn-sm">Disable</button></div></td></tr>
+            <tr><td><b>Gmail Shop 2</b></td><td class="mono" style="font-size:11px">s.connor.mail@gmail.com</td><td><span class="st st-active">Active</span></td><td style="font-size:11px;color:var(--muted)">5м назад</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-r btn-sm">Disable</button></div></td></tr>
+            <tr><td><b>Shop 3</b></td><td class="mono" style="font-size:11px">t.clark.buy@gmail.com</td><td><span class="st st-active">Active</span></td><td style="font-size:11px;color:var(--muted)">8м назад</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-r btn-sm">Disable</button></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <div class="ptitle">Настройки автопарсинга</div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-title">Интервал проверки</div><div class="setting-desc">Как часто IMAP читает письма</div></div><select style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-family:'DM Sans',sans-serif;font-size:12px;"><option>5 минут</option><option>10 минут</option><option>15 минут</option></select></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-title">Автоприменение треков</div><div class="setting-desc">Автоматически обновлять статус заказа при нахождении трека</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-title">Уведомление при запуске</div><div class="setting-desc">Показывать экран Updates при наличии новых событий</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ptitle">Последние события IMAP</div>
+      <div id="imapLog"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     ACTIVITY LOG
+════════════════════════════════ -->
+<div id="page-log" class="page">
+  <div class="ph">
+    <div><div class="ph-title">📋 Activity Log</div></div>
+    <div class="ph-actions"><button class="btn btn-r btn-sm">Clear Log</button></div>
+  </div>
+  <div class="filters">
+    <button class="flt active" onclick="setF(this)">Все</button>
+    <button class="flt" onclick="setF(this)">💳 Карты</button>
+    <button class="flt" onclick="setF(this)">👤 Профили</button>
+    <button class="flt" onclick="setF(this)">📦 Заказы</button>
+    <button class="flt" onclick="setF(this)">🔌 IMAP</button>
+    <button class="flt" onclick="setF(this)">🔄 Синхронизация</button>
+    <button class="flt" onclick="setF(this)">⚙️ Система</button>
+    <input class="search-box" placeholder="🔍  поиск по описанию...">
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr><th>Время</th><th>Категория</th><th>Событие</th><th>Объект</th></tr></thead>
+      <tbody id="logTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     FLOAT WINDOW
+════════════════════════════════ -->
+<div id="page-float" class="page">
+  <div class="ph"><div><div class="ph-title">🪟 Float Window <span style="color:var(--dim);font-size:14px;font-weight:400">/ Preview</span></div><div class="ph-sub">Отдельное Tauri окно 620×360px · always on top</div></div></div>
+  <div style="max-width:620px;margin:0 auto;">
+    <div style="background:#0f1218;border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div><div style="font-size:14px;font-weight:700">James Miller ••4821</div><div style="font-size:11px;color:var(--muted)">Chase Visa Gold · <span style="color:#4ade80">Active</span></div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:6px;padding:3px 9px;font-size:11px;color:#4ade80;cursor:pointer">🟢 Safe</div>
+          <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#f87171;border-radius:6px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">×</div>
+        </div>
+      </div>
+      <div class="float-tabs" id="floatTabs">
+        <div class="ftab active" onclick="setFloatTab(this,'card')">Card</div>
+        <div class="ftab" onclick="setFloatTab(this,'billing')">Billing</div>
+        <div class="ftab" onclick="setFloatTab(this,'shipping')">Shipping</div>
+      </div>
+      <div id="float-card">
+        <div class="float-field"><div><div class="float-lbl">Card Number</div><div class="float-val">****-****-****-4821</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div class="float-field"><div><div class="float-lbl">Expiry</div><div class="float-val">09/26</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+          <div class="float-field"><div><div class="float-lbl">CVV</div><div class="float-val">•••</div></div><button class="float-copy" onclick="this.previousSibling.lastChild.textContent='847';flashCopy(this)">👁</button></div>
+        </div>
+        <div class="float-field"><div><div class="float-lbl">Holder Name</div><div class="float-val">James Miller</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        <div class="float-field"><div><div class="float-lbl">Email</div><div class="float-val">j.miller.shop@gmail.com</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        <div class="float-field"><div><div class="float-lbl">Phone</div><div class="float-val">+1 (555) 012-3456</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+      </div>
+      <div id="float-billing" style="display:none">
+        <div class="float-field"><div><div class="float-lbl">Name</div><div class="float-val">James Miller</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        <div class="float-field"><div><div class="float-lbl">Address</div><div class="float-val">123 Main St</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+          <div class="float-field"><div><div class="float-lbl">City</div><div class="float-val">New York</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+          <div class="float-field"><div><div class="float-lbl">State</div><div class="float-val">NY</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+          <div class="float-field"><div><div class="float-lbl">ZIP</div><div class="float-val">10001</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        </div>
+        <button class="btn btn-ghost" style="width:100%;margin-top:4px">Copy All Billing</button>
+      </div>
+      <div id="float-shipping" style="display:none">
+        <div class="float-field"><div><div class="float-lbl">Name</div><div class="float-val">James Miller</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        <div class="float-field"><div><div class="float-lbl">Address</div><div class="float-val">456 Oak Ave</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+          <div class="float-field"><div><div class="float-lbl">City</div><div class="float-val">Brooklyn</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+          <div class="float-field"><div><div class="float-lbl">State</div><div class="float-val">NY</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+          <div class="float-field"><div><div class="float-lbl">ZIP</div><div class="float-val">11201</div></div><button class="float-copy" onclick="flashCopy(this)">📋</button></div>
+        </div>
+        <button class="btn btn-ghost" style="width:100%;margin-top:4px">Copy All Shipping</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-g" style="flex:1">✓ Success</button>
+        <button class="btn btn-r" style="flex:1">✗ Decline</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SETTINGS
+════════════════════════════════ -->
+<div id="page-settings" class="page">
+  <div class="ph"><div class="ph-title">⚙️ Settings</div></div>
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel">
+        <div class="ptitle">Security</div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-title">Auto-lock timeout</div><div class="setting-desc">Блокировка при бездействии</div></div><select style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-family:'DM Sans',sans-serif;font-size:12px;"><option>1 мин</option><option selected>5 мин</option><option>15 мин</option><option>30 мин</option><option>Никогда</option></select></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-title">Always on top</div><div class="setting-desc">Главное окно поверх всех</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+        <div style="margin-top:12px"><button class="btn btn-r" style="width:100%">🔒 Lock Now</button></div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">Change Password</div>
+        <div class="form-group"><label class="form-label">Текущий пароль</label><input class="form-input" type="password" placeholder="••••••••••••"></div>
+        <div class="form-group"><label class="form-label">Новый пароль</label><input class="form-input" type="password" placeholder="Мин. 12 символов"></div>
+        <div class="form-group"><label class="form-label">Повторить</label><input class="form-input" type="password" placeholder="••••••••••••"></div>
+        <button class="btn btn-b" style="width:100%">Сменить пароль</button>
+      </div>
+      <div class="panel">
+        <div class="ptitle">Language</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-b" style="flex:1">🇺🇸 English</button>
+          <button class="btn btn-ghost" style="flex:1">🇷🇺 Русский</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel">
+        <div class="ptitle">Database / Backup</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Автобэкап создаётся при каждом запуске. Файл зашифрован.</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-b" style="flex:1">Export Backup .ccbak</button>
+          <button class="btn btn-ghost" style="flex:1">Restore</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Последний бэкап: <span style="color:var(--text)">сегодня 09:14</span></div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">Sync Status</div>
+        <div class="sync-status" style="margin-bottom:10px"><div class="sync-dot" style="background:#f87171;box-shadow:0 0 6px #f87171"></div><span style="color:#f87171">Offline</span><span style="color:var(--muted);font-size:11px;margin-left:4px">— сервер недоступен</span></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Footprints ожидают: <span style="color:#facc15">23</span></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Последняя синхронизация: <span style="color:var(--text)">3д назад</span></div>
+        <button class="btn btn-b" style="width:100%">Sync Now</button>
+      </div>
+      <div class="panel">
+        <div class="ptitle">IINAPI Key</div>
+        <div class="form-group"><label class="form-label">API Key (iinapi.com)</label><input class="form-input" type="password" placeholder="Ключ для BIN enrichment" value="••••••••••••••••"></div>
+        <button class="btn btn-g" style="width:100%">Сохранить ключ</button>
+      </div>
+      <div class="panel">
+        <div class="ptitle">License</div>
+        <div class="field-row"><span class="fl">Installation ID</span><span class="fv" style="font-size:10px">CC-A1B2-C3D4-E5F6 <button class="copy-btn">📋</button></span></div>
+        <div class="field-row"><span class="fl">Статус</span><span style="color:#4ade80;font-size:12px;font-weight:600">✓ Активна</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ════════════════════════════════
+     MODALS
+════════════════════════════════ -->
+<!-- New Order Modal -->
+<div class="modal-overlay" id="modal-newOrder" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title">+ New Order <button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="form-row col2">
+      <div><label class="form-label">Профиль</label><input class="form-input" placeholder="Введите имя или карту..."></div>
+      <div><label class="form-label">Магазин</label><input class="form-input" placeholder="Введите название..." oninput="showShopSuggestions(this)"></div>
+    </div>
+    <div id="shopSuggestions" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:7px;margin-top:-10px;margin-bottom:14px;overflow:hidden;">
+      <div onclick="selectShop(this,'Nike','nike.com')" style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><span>Nike</span><span style="font-size:10px;color:var(--muted)">nike.com</span></div>
+      <div onclick="selectShop(this,'Nine West','ninewest.com')" style="padding:8px 12px;cursor:pointer;font-size:12px;display:flex;justify-content:space-between;align-items:center"><span>Nine West</span><span style="font-size:10px;color:var(--muted)">ninewest.com</span></div>
+    </div>
+    <div id="shopFlags" style="display:none;background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.2);border-radius:7px;padding:9px 12px;font-size:11px;color:#facc15;margin-bottom:14px">
+      ⚠️ Nike: Blocks VPN · CVV Match required &nbsp;·&nbsp; <span style="color:#4ade80">✓ Mastercard Gold — 78% успеха</span>
+    </div>
+    <div class="form-row col2">
+      <div><label class="form-label">Дроп</label><select class="form-input"><option>456 Oak Ave, Brooklyn NY (Primary)</option><option>789 Pine St, Queens NY</option></select></div>
+      <div><label class="form-label">Email из пула</label><input class="form-input" value="j.miller.shop@gmail.com"></div>
+    </div>
+    <div class="form-row col2">
+      <div><label class="form-label">Прокси</label><select class="form-input"><option>NY Proxy 4 — чистый ✓</option><option>NY Proxy 2 — Nike ✗</option></select></div>
+      <div><label class="form-label">Номер заказа</label><input class="form-input" placeholder="#NK-..."></div>
+    </div>
+    <label class="form-label">Товары</label>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:8px;font-size:11px">
+        <input class="form-input" placeholder="Название товара" style="font-size:12px">
+        <input class="form-input" placeholder="Кол-во" style="width:60px;font-size:12px;text-align:center">
+        <input class="form-input" placeholder="$0.00" style="width:80px;font-size:12px">
+      </div>
+      <button class="btn btn-ghost btn-sm">+ Add Item</button>
+    </div>
+    <!-- Risk Check -->
+    <div class="risk-block">
+      <div class="slabel">Risk Check</div>
+      <div class="risk-ok">✓ Прокси NY Proxy 4 — чистый для Nike</div>
+      <div class="risk-ok">✓ Дроп 456 Oak Ave — чистый для Nike</div>
+      <div class="risk-warn">⚠️ Email j.miller.shop@gmail.com уже в Nike (заказ #NK-88421)</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;font-style:italic">⚠️ Offline — check is local only</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-g" style="flex:1">Создать заказ</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Profile Modal -->
+<div class="modal-overlay" id="modal-createProfile" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title">+ Create Profile <button class="modal-close" onclick="closeModal()">×</button></div>
+    <label class="form-label">Выбор карты</label>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input class="form-input" placeholder="Имя, последние 4 цифры или ZIP..." style="flex:1" oninput="showCardSuggestions(this)">
+      <button class="btn btn-ghost btn-sm">📍 Find Near ZIP</button>
+    </div>
+    <div id="cardSuggestions" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:7px;margin-top:-10px;margin-bottom:14px;overflow:hidden">
+      <div style="padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)" onclick="selectCard(this)"><div>****4821 — James Miller — Chase Visa Gold</div><div style="font-size:10px;color:var(--muted);margin-top:2px">New York, NY 10001</div></div>
+      <div style="padding:9px 12px;cursor:pointer;font-size:12px" onclick="selectCard(this)"><div>****4822 — James Walsh — BofA Mastercard</div><div style="font-size:10px;color:var(--muted);margin-top:2px">Brooklyn, NY 11201 · 8mi</div></div>
+    </div>
+    <div class="form-row col2">
+      <div><label class="form-label">Имя держателя</label><input class="form-input" id="cp-name" value="James Miller"></div>
+      <div><label class="form-label">Телефон</label><input class="form-input" id="cp-phone" value="+1 (555) 012-3456"></div>
+    </div>
+    <div class="form-row col2">
+      <div><label class="form-label">Billing Address</label><input class="form-input" value="123 Main St"></div>
+      <div><label class="form-label">ZIP</label><input class="form-input" value="10001"></div>
+    </div>
+    <div class="form-row col3">
+      <div><label class="form-label">City</label><input class="form-input" value="New York"></div>
+      <div><label class="form-label">State</label><input class="form-input" value="NY"></div>
+      <div><label class="form-label">Country</label><input class="form-input" value="US"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <label class="form-label" style="margin:0">Shipping Drops</label>
+      <button class="btn btn-g btn-sm">+ Add Drop</button>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:14px">
+      <div class="form-row col2" style="margin-bottom:8px">
+        <div><label class="form-label">Имя получателя</label><input class="form-input" placeholder="John Doe" style="font-size:12px"></div>
+        <div><label class="form-label">Адрес</label><input class="form-input" placeholder="456 Oak Ave" style="font-size:12px"></div>
+      </div>
+      <div class="form-row col3" style="margin-bottom:0">
+        <input class="form-input" placeholder="City" style="font-size:12px">
+        <input class="form-input" placeholder="State" style="font-size:12px">
+        <input class="form-input" placeholder="ZIP" style="font-size:12px">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Название профиля</label><input class="form-input" value="James Miller ••4821"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-g" style="flex:1">Создать профиль</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── DATA ── */
+const ccData=[
+  {num:'****4821',bin:'411111',bank:'Chase',type:'Visa Gold',holder:'James Miller',country:'US',src:'nike-dump',status:'in_use',orders:3,rev:'$548'},
+  {num:'****7734',bin:'521234',bank:'Wells Fargo',type:'MC Platinum',holder:'Sarah Connor',country:'US',src:'asos-jan',status:'in_use',orders:1,rev:'$149'},
+  {num:'****1190',bin:'601100',bank:'Citi',type:'Visa Classic',holder:'Robert Walsh',country:'US',src:'dump',status:'free',orders:0,rev:'—'},
+  {num:'****3312',bin:'411111',bank:'Chase',type:'Visa Gold',holder:'Anna Brown',country:'US',src:'dump',status:'free',orders:0,rev:'—'},
+  {num:'****9901',bin:'545454',bank:'Capital One',type:'MC Gold',holder:'Marcus Davis',country:'US',src:'nike-dump',status:'dead',orders:2,rev:'$210'},
+];
+const profileData=[
+  {name:'James Miller ••4821',bank:'Chase Visa Gold',country:'US',status:'active',drops:2,orders:3,shipped:2},
+  {name:'Sarah Connor ••7734',bank:'Wells MC Platinum',country:'US',status:'active',drops:1,orders:1,shipped:0},
+  {name:'Robert Walsh ••1190',bank:'Citi Visa Classic',country:'US',status:'active',drops:0,orders:0,shipped:0},
+  {name:'Anna Brown ••3312',bank:'Chase Visa Gold',country:'US',status:'active',drops:1,orders:1,shipped:1},
+  {name:'Marcus Davis ••9901',bank:'Cap1 MC Gold',country:'US',status:'dead',drops:1,orders:2,shipped:1},
+];
+const ordersData=[
+  {num:'#NK-88421',profile:'J. Miller ••4821',shop:'Nike',status:'transit',sum:'$149',track:'9400...96',proxy:'NY Proxy 4',email:'j.miller.shop@',date:'2д назад'},
+  {num:'#AS-12091',profile:'S. Connor ••7734',shop:'ASOS',status:'pending',sum:'$220',track:'—',proxy:'LA Proxy 2',email:'s.connor.mail@',date:'3д назад'},
+  {num:'#AD-55012',profile:'R. Walsh ••1190',shop:'Adidas',status:'delivered',sum:'$189',track:'1Z999...00',proxy:'—',email:'r.walsh.buy@',date:'5д назад'},
+  {num:'#HM-20041',profile:'A. Brown ••3312',shop:'H&M',status:'processing',sum:'$78',track:'—',proxy:'NY Proxy 1',email:'a.brown.shop@',date:'1д назад'},
+  {num:'#NK-71234',profile:'M. Davis ••9901',shop:'Nike',status:'cancelled',sum:'$312',track:'—',proxy:'LA Proxy 3',email:'m.davis.buy@',date:'7д назад'},
+];
+const logData=[
+  {time:'14:37',cat:'🔌 IMAP',ev:'Трек извлечён из письма Nike',obj:'Заказ #NK-88421'},
+  {time:'14:35',cat:'📦 Заказы',ev:'Статус обновлён: shipped → in_transit',obj:'#NK-88421'},
+  {time:'12:05',cat:'🔌 IMAP',ev:'Обнаружен кенсел — Nike, заказ #NK-71234',obj:'Marcus Davis'},
+  {time:'09:33',cat:'🔌 IMAP',ev:'Письмо подтверждения H&M',obj:'Заказ #HM-20041'},
+  {time:'09:14',cat:'⚙️ Система',ev:'Автобэкап создан',obj:'backup_20260306_091400.db'},
+  {time:'08:00',cat:'🔄 Синх.',ev:'Footprints: 23 в очереди (offline)',obj:'—'},
+  {time:'07:45',cat:'💳 Карты',ev:'BIN enrichment завершён: 47 карт',obj:'iinapi.com'},
+  {time:'07:40',cat:'⚙️ Система',ev:'Приложение запущено / Разблокировано',obj:'—'},
+];
+const imapLogData=[
+  {time:'14:37',icon:'📦',text:'Трек найден: 9400111899... → Заказ #NK-88421',color:'#4ade80'},
+  {time:'12:05',icon:'❌',text:'Кенсел обнаружен → Заказ #NK-71234',color:'#f87171'},
+  {time:'09:33',icon:'🧾',text:'Подтверждение заказа #HM-20041',color:'#fb923c'},
+  {time:'08:14',icon:'✅',text:'Доставка подтверждена: Заказ #ZR-77841',color:'#22d3ee'},
+  {time:'06:52',icon:'✅',text:'Доставка подтверждена: Заказ #AD-55012',color:'#22d3ee'},
+  {time:'04:17',icon:'📦',text:'Трек найден: 1Z999AA... → Заказ #AS-12091',color:'#4ade80'},
+  {time:'02:41',icon:'📦',text:'Трек найден: 9400111... → Заказ #NK-88421',color:'#4ade80'},
+];
+
+/* ── INIT ── */
+function init(){
+  // Heatmap
+  const banks=['Chase','Wells','BofA','Citi'];
+  const vals=[[78,12,45,61,33],[51,83,8,70,44],[9,40,71,15,55],[66,29,52,88,21]];
+  const hb=document.getElementById('hmBody');
+  banks.forEach((b,bi)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="bn">${b}</td>`;
+    vals[bi].forEach(v=>{const td=document.createElement('td');td.style.padding='0 2px 3px';td.innerHTML=`<div class="hc ${v>=70?'hg':v>=45?'hm2':'hb'}">${v}%</div>`;tr.appendChild(td);});
+    hb.appendChild(tr);
+  });
+
+  // Chart
+  const ctx=document.getElementById('dashChart').getContext('2d');
+  new Chart(ctx,{type:'line',data:{labels:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],datasets:[
+    {data:[1240,2180,870,3450,2890,4120,3670],borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,.07)',borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:.4,fill:true},
+    {data:[420,890,210,1320,980,1750,1410],borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.05)',borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:.4,fill:true}
+  ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1d27',borderColor:'#2d3148',borderWidth:1,titleColor:'#6b7280',bodyColor:'#e2e8f0',padding:10}},scales:{x:{grid:{color:'#1e2338'},ticks:{color:'#4b5680',font:{size:10}},border:{display:false}},y:{grid:{color:'#1e2338'},ticks:{color:'#4b5680',font:{size:10},callback:v=>'$'+v.toLocaleString()},border:{display:false}}}}});
+
+  // Pool shops
+  [{name:'Nike',c:8,u:2},{name:'ASOS',c:12,u:0},{name:'Adidas',c:3,u:5,warn:true},{name:'H&M',c:0,u:8,critical:true}].forEach(s=>{
+    const color=s.critical?'#f87171':s.warn?'#facc15':'#4ade80';
+    const txt=s.critical?'исчерпан!':s.warn?`${s.c} осталось`:`${s.c} чистых`;
+    document.getElementById('poolShops').innerHTML+=`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #0d1018;font-size:12px"><span style="color:#94a3b8;font-family:'JetBrains Mono',monospace;font-size:11px">${s.name}</span><span style="color:${color};font-size:11px;font-weight:600">${txt}</span></div>`;
+  });
+
+  // Recent orders
+  [{p:'J. Miller ••4821',sh:'Nike',st:'transit',t:'2м'},{p:'S. Connor ••7734',sh:'ASOS',st:'pending',t:'14м'},{p:'R. Walsh ••1190',sh:'Adidas',st:'delivered',t:'1ч'},{p:'A. Brown ••3312',sh:'Nike',st:'decline',t:'2ч'}].forEach(o=>{
+    const smap={transit:'st-transit',pending:'st-pending',delivered:'st-delivered',decline:'st-decline'};
+    const slbl={transit:'In Transit',pending:'Pending',delivered:'Delivered',decline:'Declined'};
+    document.getElementById('recentOrders').innerHTML+=`<div class="order-row"><div style="flex:1"><div class="mono" style="font-size:11px;color:#e2e8f0">${o.p}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${o.sh}</div></div><span class="st ${smap[o.st]}">${slbl[o.st]}</span><span style="font-size:10px;color:var(--muted);width:35px;text-align:right">${o.t}</span></div>`;
+  });
+
+  // Expiring
+  [{num:'****4821',h:'J. Miller',bank:'Chase',days:4},{num:'****7734',h:'S. Connor',bank:'Wells',days:12},{num:'****1190',h:'R. Walsh',bank:'Citi',days:27}].forEach(c=>{
+    const dc=c.days<=7?'#f87171':c.days<=20?'#facc15':'#6b7280';
+    document.getElementById('expiryCards').innerHTML+=`<div style="flex:1;background:rgba(239,68,68,.06);border:1px solid ${dc}30;border-radius:8px;padding:10px 13px;display:flex;align-items:center;gap:10px;cursor:pointer"><div style="flex:1"><div class="mono" style="font-size:11px;color:#e2e8f0">${c.num} — ${c.h}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">${c.bank}</div></div><div class="mono" style="font-size:16px;font-weight:700;color:${dc}">${c.days}д</div></div>`;
+  });
+
+  // CC Table
+  const stmap={free:'st-free',in_use:'st-inuse',dead:'st-dead',archive:'st-archive'};
+  const stlbl={free:'Free',in_use:'In Use',dead:'Dead',archive:'Archive'};
+  ccData.forEach(c=>{
+    document.getElementById('ccTable').innerHTML+=`<tr><td><input type="checkbox" class="cb"></td><td class="mono" style="font-size:11px">${c.num}</td><td style="font-size:11px">${c.bin} · ${c.bank}</td><td style="font-size:11px;color:var(--muted)">${c.type}</td><td>${c.holder}</td><td style="font-size:11px">${c.country}</td><td style="font-size:11px;color:var(--muted)">${c.src}</td><td><span class="st ${stmap[c.status]}">${stlbl[c.status]}</span></td><td style="font-size:11px">${c.orders}</td><td style="font-size:11px;color:#c084fc">${c.rev}</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">👁 Reveal</button><button class="btn btn-g btn-sm" onclick="nav('profiledetail')">+ Profile</button><button class="btn btn-r btn-sm">✗ Dead</button></div></td></tr>`;
+  });
+
+  // Profiles Table
+  const pstmap={active:'st-active',dead:'st-dead',archive:'st-archive'};
+  profileData.forEach(p=>{
+    const ndrop=p.drops===0?'<span style="color:#facc15;font-size:11px">⚠️ нет</span>':`<span style="color:#4ade80;font-size:11px">${p.drops}</span>`;
+    document.getElementById('profileTable').innerHTML+=`<tr><td><input type="checkbox" class="cb"></td><td style="cursor:pointer;font-size:12px" onclick="nav('profiledetail')">${p.name}</td><td class="mono" style="font-size:10px;color:var(--muted)">${p.name.split(' ').pop()}</td><td style="font-size:11px">${p.bank}</td><td style="font-size:11px">${p.country}</td><td><span class="st ${pstmap[p.status]}">${p.status}</span></td><td>${ndrop}</td><td style="font-size:11px">${p.orders}</td><td style="font-size:11px;color:#4ade80">${p.shipped}</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Copy</button><button class="btn btn-ghost btn-sm">🪟 Float</button><button class="btn btn-o btn-sm">↻</button><button class="btn btn-ghost btn-sm">✂️ Dup</button></div></td></tr>`;
+  });
+
+  // Orders Table
+  const ostmap={transit:'st-transit',pending:'st-pending',delivered:'st-delivered',processing:'st-processing',cancelled:'st-cancelled',decline:'st-decline'};
+  const ostlbl={transit:'In Transit',pending:'Pending',delivered:'Delivered',processing:'Processing',cancelled:'Cancelled',decline:'Declined'};
+  ordersData.forEach(o=>{
+    document.getElementById('ordersTable').innerHTML+=`<tr><td><input type="checkbox" class="cb"></td><td class="mono" style="font-size:11px">${o.num}</td><td style="font-size:11px">${o.profile}</td><td style="font-size:11px">${o.shop}</td><td><span class="st ${ostmap[o.status]}">${ostlbl[o.status]}</span></td><td style="font-size:11px;color:#c084fc">${o.sum}</td><td class="mono" style="font-size:10px;color:#22d3ee">${o.track}</td><td style="font-size:11px;color:var(--muted)">${o.proxy}</td><td class="mono" style="font-size:10px;color:var(--muted)">${o.email}</td><td style="font-size:11px;color:var(--muted)">${o.date}</td><td><div class="tbl-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-o btn-sm">↻</button></div></td></tr>`;
+  });
+
+  // Log Table
+  const catColors={IMAP:'#60a5fa',Заказы:'#facc15',Карты:'#a855f7',Синх:'#22d3ee',Система:'#94a3b8'};
+  logData.forEach(l=>{
+    const cat=l.cat.split(' ')[1]||'';
+    const color=catColors[cat]||'#94a3b8';
+    document.getElementById('logTable').innerHTML+=`<tr><td class="mono" style="font-size:11px;color:var(--muted)">${l.time}</td><td><span style="font-size:10px;color:${color};background:${color}18;padding:2px 7px;border-radius:3px">${l.cat}</span></td><td style="font-size:12px">${l.ev}</td><td style="font-size:11px;color:var(--muted)">${l.obj}</td></tr>`;
+  });
+
+  // IMAP log
+  const il=document.getElementById('imapLog');
+  imapLogData.forEach(e=>{
+    il.innerHTML+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #0d1018;font-size:12px"><span class="mono" style="font-size:10px;color:var(--muted);width:35px">${e.time}</span><span>${e.icon}</span><span style="flex:1;color:var(--text)">${e.text}</span></div>`;
+  });
+
+  buildTopbar('dashboard');
+}
+
+/* ── NAV ── */
+const pages={
+  dashboard:{label:'📊 Dashboard'},updates:{label:'📬 Updates'},
+  cc:{label:'💳 CC'},profiles:{label:'👤 Profiles'},profiledetail:{label:'👤 Profile Detail'},
+  orders:{label:'📦 Orders'},shops:{label:'🏪 Shops'},
+  proxy:{label:'🌐 Proxy'},email:{label:'📧 Email Pool'},
+  imap:{label:'🔌 IMAP'},log:{label:'📋 Log'},
+  float:{label:'🪟 Float Window'},settings:{label:'⚙️ Settings'},
+};
+let history=[];
+
+function nav(id,sbEl){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const pg=document.getElementById('page-'+id);
+  if(pg) pg.classList.add('active');
+  document.querySelectorAll('.sbi').forEach(s=>s.classList.remove('active'));
+  if(sbEl) sbEl.classList.add('active');
+  if(!history.includes(id)) history.push(id);
+  buildTopbar(id);
+}
+
+function buildTopbar(current){
+  const bar=document.getElementById('topbar');
+  const tabs=['dashboard','updates','cc','profiles','orders','shops','proxy','email','imap','log','settings'];
+  const badges={updates:'<span class="tbadge">7</span>',orders:'<span class="tbadge y">89</span>'};
+  bar.innerHTML=tabs.map(t=>`<div class="tab ${t===current?'active':''}" onclick="nav('${t}',null)">${pages[t]?.label||t}${badges[t]||''}</div>`).join('');
+}
+
+/* ── UI HELPERS ── */
+function setPeriod(el){document.querySelectorAll('.pb').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function setF(el){document.querySelectorAll('.flt').forEach(f=>f.classList.remove('active'));el.classList.add('active');}
+function openModal(id){document.getElementById('modal-'+id).classList.add('show');}
+function closeModal(e){if(!e||e.target.classList.contains('modal-overlay')||e===undefined)document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('show'));}
+function applyTrack(btn){const box=btn.closest('.trk-box');box.style.background='rgba(34,197,94,.12)';box.style.borderColor='rgba(34,197,94,.4)';btn.textContent='✓ Применено';btn.disabled=true;btn.style.opacity='.5';}
+function flashCopy(btn){const orig=btn.textContent;btn.textContent='✓';btn.style.color='#4ade80';setTimeout(()=>{btn.textContent=orig;btn.style.color='';},1500);}
+function setFloatTab(el,tab){
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  ['card','billing','shipping'].forEach(t=>document.getElementById('float-'+t).style.display=t===tab?'block':'none');
+}
+function showShopSuggestions(el){
+  const s=document.getElementById('shopSuggestions');
+  s.style.display=el.value.length>0?'block':'none';
+}
+function selectShop(el,name,domain){
+  document.querySelector('#modal-newOrder input[placeholder="Введите название..."]').value=name;
+  document.getElementById('shopSuggestions').style.display='none';
+  document.getElementById('shopFlags').style.display='block';
+}
+function showCardSuggestions(el){
+  document.getElementById('cardSuggestions').style.display=el.value.length>0?'block':'none';
+}
+function selectCard(el){
+  document.getElementById('cardSuggestions').style.display='none';
+  document.querySelector('#modal-createProfile input[placeholder="Имя, последние 4 цифры или ZIP..."]').value=el.querySelector('div').textContent;
+}
+
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
