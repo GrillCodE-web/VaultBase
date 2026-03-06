@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CC Manager — Admin</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--card:#1a1d27;--card2:#12141f;--border:#2d3148;
+  --green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;
+  --purple:#a855f7;--gray:#6b7280;--text:#e2e8f0;--text2:#a0aec0;
+}
+body{background:var(--bg);color:var(--text);font-size:13px;font-family:'Inter',system-ui,sans-serif;display:flex;min-height:100vh}
+
+/* ── Sidebar ── */
+#sidebar{width:220px;min-height:100vh;background:var(--card2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:.25s}
+#sidebar .logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+#sidebar .logo .icon{width:32px;height:32px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+#sidebar .logo .name{font-weight:700;font-size:14px;color:var(--text)}
+#sidebar .logo .sub{font-size:10px;color:var(--gray);margin-top:1px}
+#sidebar nav{flex:1;padding:12px 0;overflow-y:auto}
+#sidebar nav a{display:flex;align-items:center;gap:10px;padding:9px 18px;color:var(--text2);
+  text-decoration:none;font-size:13px;transition:.15s;cursor:pointer;border-left:3px solid transparent}
+#sidebar nav a:hover{background:rgba(255,255,255,.05);color:var(--text)}
+#sidebar nav a.active{background:rgba(59,130,246,.1);color:var(--blue);border-left-color:var(--blue)}
+#sidebar nav a .ico{font-size:15px;width:20px;text-align:center}
+#sidebar nav a .badge-nav{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;
+  padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+#sidebar .sidebar-footer{padding:14px 18px;border-top:1px solid var(--border)}
+#sidebar .server-url{font-size:10px;color:var(--gray);word-break:break-all}
+.uptime-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);
+  margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Main ── */
+#main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+#topbar{height:52px;background:var(--card2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:50}
+#topbar .page-title{font-weight:600;font-size:15px}
+#topbar .topbar-right{display:flex;align-items:center;gap:14px}
+.refresh-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:4px 12px;
+  border-radius:6px;font-size:12px;cursor:pointer;transition:.15s}
+.refresh-btn:hover{border-color:var(--blue);color:var(--blue)}
+.last-refresh{font-size:11px;color:var(--gray)}
+#content{padding:24px;flex:1}
+
+/* ── Sections ── */
+.section{display:none}.section.active{display:block}
+
+/* ── Stat cards ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;border-radius:3px 0 0 3px}
+.stat-card.green::before{background:var(--green)}
+.stat-card.blue::before{background:var(--blue)}
+.stat-card.purple::before{background:var(--purple)}
+.stat-card.yellow::before{background:var(--yellow)}
+.stat-card.red::before{background:var(--red)}
+.stat-card .s-label{font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+.stat-card .s-value{font-size:28px;font-weight:700;line-height:1.2;margin-top:4px}
+.stat-card .s-sub{font-size:11px;color:var(--gray);margin-top:2px}
+.stat-card.green .s-value{color:var(--green)}
+.stat-card.blue  .s-value{color:var(--blue)}
+.stat-card.purple .s-value{color:var(--purple)}
+.stat-card.yellow .s-value{color:var(--yellow)}
+.stat-card.red   .s-value{color:var(--red)}
+
+/* ── Panel ── */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;overflow:hidden}
+.panel-header{background:var(--card2);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border)}
+.panel-header .ph-title{font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+.panel-header .ph-actions{display:flex;gap:8px;align-items:center}
+
+/* ── Table ── */
+.data-table{width:100%;border-collapse:collapse}
+.data-table thead th{background:var(--card2);color:var(--text2);font-size:11px;text-transform:uppercase;
+  letter-spacing:.5px;padding:9px 14px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap}
+.data-table tbody td{padding:10px 14px;border-bottom:1px solid #1e2135;vertical-align:middle}
+.data-table tbody tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover{background:rgba(255,255,255,.03)}
+.data-table .text-mono{font-family:'Courier New',monospace;font-size:11px;color:var(--purple)}
+
+/* ── Badges ── */
+.badge-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:500}
+.b-active{background:#14532d;color:var(--green)}
+.b-revoked{background:#450a0a;color:var(--red)}
+.b-never{background:#1e2135;color:var(--gray)}
+
+/* ── Buttons ── */
+.btn-xs{padding:3px 10px;font-size:11px;border-radius:5px;border:none;cursor:pointer;transition:.15s;font-weight:500}
+.btn-xs.danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.btn-xs.danger:hover{background:var(--red);color:#fff}
+.btn-xs.success{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.btn-xs.success:hover{background:var(--green);color:#000}
+.btn-xs.primary{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.btn-xs.primary:hover{background:var(--blue);color:#fff}
+.btn-xs.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-xs.ghost:hover{border-color:var(--text);color:var(--text)}
+.btn-main{padding:7px 16px;font-size:12px;border-radius:7px;border:none;cursor:pointer;
+  transition:.15s;font-weight:500;background:var(--blue);color:#fff}
+.btn-main:hover{background:#2563eb}
+.btn-main.green{background:var(--green);color:#000}
+.btn-main.green:hover{background:#16a34a}
+
+/* ── Forms ── */
+.form-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.form-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px}
+.form-group label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{
+  background:var(--card2);border:1px solid var(--border);color:var(--text);
+  padding:7px 10px;border-radius:7px;font-size:13px;outline:none;transition:.15s}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(59,130,246,.2)}
+.form-group input::placeholder{color:var(--gray)}
+
+/* ── Key display ── */
+.key-box{background:var(--card2);border:1px solid var(--green);border-radius:8px;padding:14px;
+  font-family:'Courier New',monospace;font-size:20px;color:var(--green);letter-spacing:4px;
+  text-align:center;cursor:pointer;position:relative;transition:.15s}
+.key-box:hover{background:#0d1f12}
+.key-box .copy-hint{font-size:10px;color:var(--gray);letter-spacing:0;display:block;margin-top:4px;font-family:system-ui}
+
+/* ── Search bar ── */
+.search-bar{display:flex;gap:8px;padding:12px 18px;background:var(--card2);border-bottom:1px solid var(--border)}
+.search-bar input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  padding:6px 12px;border-radius:6px;font-size:12px;outline:none}
+.search-bar input:focus{border-color:var(--blue)}
+.search-bar select{background:var(--bg);border:1px solid var(--border);color:var(--text);
+  padding:6px 10px;border-radius:6px;font-size:12px;outline:none}
+
+/* ── Activity feed ── */
+.feed-item{display:flex;gap:10px;padding:9px 18px;border-bottom:1px solid #1e2135;align-items:flex-start}
+.feed-item:last-child{border-bottom:none}
+.feed-dot{width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.feed-item .feed-meta{font-size:11px;color:var(--gray);margin-top:2px}
+.feed-item.type-saved .feed-dot{background:var(--green)}
+.feed-item.type-check .feed-dot{background:var(--blue)}
+.feed-item.type-verify .feed-dot{background:var(--purple)}
+.feed-item.type-activate .feed-dot{background:var(--yellow)}
+
+/* ── Mini bar chart ── */
+.mini-bar-wrap{display:flex;gap:3px;align-items:flex-end;height:40px;padding:0 18px 12px}
+.mini-bar{flex:1;background:rgba(59,130,246,.3);border-radius:3px 3px 0 0;transition:.3s;min-width:8px;cursor:default}
+.mini-bar:hover{background:var(--blue)}
+.bar-labels{display:flex;gap:3px;padding:0 18px;margin-bottom:14px}
+.bar-labels span{flex:1;text-align:center;font-size:9px;color:var(--gray)}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;
+  align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:12px;width:480px;
+  max-width:95vw;overflow:hidden;animation:slideUp .2s}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{background:var(--card2);padding:14px 20px;display:flex;justify-content:space-between;
+  align-items:center;border-bottom:1px solid var(--border)}
+.modal-header h3{font-size:14px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* ── Progress bar ── */
+.fp-type-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.fp-type-name{width:60px;font-size:12px;color:var(--text2);text-transform:uppercase;font-size:11px}
+.fp-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.fp-bar{height:100%;border-radius:3px;transition:.4s}
+.fp-count{font-size:11px;color:var(--gray);width:50px;text-align:right}
+
+/* ── Toasts ── */
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast-item{padding:10px 16px;border-radius:8px;font-size:12px;animation:fadeIn .2s;
+  display:flex;align-items:center;gap:8px;max-width:320px}
+.toast-success{background:#0d1f12;color:var(--green);border:1px solid rgba(34,197,94,.4)}
+.toast-error{background:#1f0d0d;color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.toast-info{background:#0d1524;color:#60a5fa;border:1px solid rgba(59,130,246,.4)}
+.toast-warn{background:#1f1a0d;color:var(--yellow);border:1px solid rgba(234,179,8,.4)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Confirm dialog ── */
+#confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;
+  align-items:center;justify-content:center}
+#confirm-overlay.show{display:flex}
+#confirm-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;
+  max-width:360px;width:90%;animation:slideUp .15s}
+#confirm-box h4{font-size:14px;margin-bottom:8px}
+#confirm-box p{font-size:13px;color:var(--text2);margin-bottom:20px}
+#confirm-box .actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* ── Misc ── */
+.divider{height:1px;background:var(--border);margin:0 18px}
+.empty-state{padding:40px;text-align:center;color:var(--gray)}
+.pill-tabs{display:flex;gap:4px;padding:10px 18px;border-bottom:1px solid var(--border)}
+.pill-tab{padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;
+  border:1px solid var(--border);color:var(--text2);background:none;transition:.15s}
+.pill-tab.active{background:rgba(59,130,246,.15);color:var(--blue);border-color:rgba(59,130,246,.4)}
+.copy-btn{cursor:pointer;padding:1px 5px;border-radius:3px;color:var(--gray);font-size:10px;
+  background:var(--border);border:none;transition:.1s}
+.copy-btn:hover{background:var(--blue);color:#fff}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;
+  background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3)}
+</style>
+</head>
+<body>
+
+<!-- ─────────────────────────── SIDEBAR ─────────────────────────── -->
+<div id="sidebar">
+  <div class="logo">
+    <div class="icon">⬡</div>
+    <div>
+      <div class="name">CC Manager</div>
+      <div class="sub">Sync Server Admin</div>
+    </div>
+  </div>
+  <nav>
+    <a class="active" data-section="dashboard">
+      <span class="ico">📊</span> Dashboard
+    </a>
+    <a data-section="licenses">
+      <span class="ico">🔑</span> Licenses
+      <span class="badge-nav" id="nav-badge-lic">0</span>
+    </a>
+    <a data-section="footprints">
+      <span class="ico">📍</span> Footprints
+    </a>
+    <a data-section="versions">
+      <span class="ico">📦</span> Versions
+    </a>
+    <a data-section="releases">
+      <span class="ico">🚀</span> Releases
+    </a>
+    <a data-section="activity">
+      <span class="ico">⚡</span> Activity Log
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div style="display:flex;align-items:center;margin-bottom:4px">
+      <span class="uptime-dot"></span>
+      <span style="font-size:11px;color:var(--green)">Server Online</span>
+    </div>
+    <div class="server-url" id="footer-host">—</div>
+  </div>
+</div>
+
+<!-- ─────────────────────────── MAIN ─────────────────────────── -->
+<div id="main">
+  <div id="topbar">
+    <div class="page-title" id="page-title">Dashboard</div>
+    <div class="topbar-right">
+      <span class="last-refresh" id="last-refresh">—</span>
+      <button class="refresh-btn" onclick="refreshAll()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="section active" id="section-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card green">
+          <div class="s-label">Active Licenses</div>
+          <div class="s-value" id="s-active">—</div>
+          <div class="s-sub" id="s-active-sub"></div>
+        </div>
+        <div class="stat-card blue">
+          <div class="s-label">Total Footprints</div>
+          <div class="s-value" id="s-fp-total">—</div>
+          <div class="s-sub" id="s-fp-sub"></div>
+        </div>
+        <div class="stat-card purple">
+          <div class="s-label">Footprints (7 days)</div>
+          <div class="s-value" id="s-fp7d">—</div>
+          <div class="s-sub">last 7 days</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="s-label">Current Version</div>
+          <div class="s-value" id="s-version">—</div>
+          <div class="s-sub">latest release</div>
+        </div>
+        <div class="stat-card red">
+          <div class="s-label">Revoked</div>
+          <div class="s-value" id="s-revoked">—</div>
+          <div class="s-sub">licenses</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <!-- Activity chart (last 7 days) -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="ph-title">📈 Footprints — last 7 days</div>
+          </div>
+          <div class="mini-bar-wrap" id="chart-bars"></div>
+          <div class="bar-labels" id="chart-labels"></div>
+          <div class="divider"></div>
+          <div style="padding:12px 18px">
+            <div id="fp-type-breakdown"></div>
+          </div>
+        </div>
+
+        <!-- Recent licenses -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="ph-title">🔑 Recent Licenses</div>
+            <button class="btn-xs primary" onclick="showSection('licenses')">View All →</button>
+          </div>
+          <table class="data-table" id="dash-lic-table">
+            <thead><tr>
+              <th>Label</th><th>Status</th><th>Last Seen</th>
+            </tr></thead>
+            <tbody id="dash-lic-tbody">
+              <tr><td colspan="3" class="empty-state">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ LICENSES ══ -->
+    <div class="section" id="section-licenses">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="ph-title">🔑 License Management</div>
+          <div class="ph-actions">
+            <button class="btn-main green" onclick="openAddLicense()">+ New License</button>
+          </div>
+        </div>
+        <div class="search-bar">
+          <input type="text" id="lic-search" placeholder="Search by label or installation ID…" oninput="filterLicenses()"/>
+          <select id="lic-filter" onchange="filterLicenses()" style="width:120px">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="revoked">Revoked</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr>
+              <th style="padding-left:18px">Installation ID</th>
+              <th>Label</th>
+              <th>Challenge</th>
+              <th>Token</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Last Seen</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="lic-tbody">
+              <tr><td colspan="8" class="empty-state">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FOOTPRINTS ══ -->
+    <div class="section" id="section-footprints">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="ph-title">📍 Footprint Explorer</div>
+          <div class="ph-actions">
+            <div class="s-sub" id="fp-total-label" style="color:var(--gray);font-size:11px"></div>
+          </div>
+        </div>
+        <div class="search-bar">
+          <input type="text" id="fp-domain-search" placeholder="Filter by shop domain (e.g. nike.com)…" 
+            oninput="filterFootprints()"/>
+          <select id="fp-type-filter" onchange="filterFootprints()">
+            <option value="all">All types</option>
+            <option value="email">email</option>
+            <option value="ip">ip</option>
+            <option value="drop">drop</option>
+            <option value="bin">bin</option>
+            <option value="phone">phone</option>
+            <option value="name">name</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+          <table class="data-table">
+            <thead style="position:sticky;top:0;z-index:1"><tr>
+              <th style="padding-left:18px">Shop Domain</th>
+              <th>Type</th>
+              <th>Hash Value</th>
+              <th>User Token</th>
+              <th>Created</th>
+            </tr></thead>
+            <tbody id="fp-tbody">
+              <tr><td colspan="5" class="empty-state">Enter a domain above or click Load All</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;align-items:center;gap:12px">
+          <button class="btn-xs primary" onclick="loadFootprints(true)">Load All</button>
+          <span class="last-refresh" id="fp-count-label" style="color:var(--gray)"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ VERSIONS ══ -->
+    <div class="section" id="section-versions">
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="ph-title">📦 Version History</div>
+          </div>
+          <table class="data-table">
+            <thead><tr>
+              <th style="padding-left:18px">Version</th>
+              <th>Release Notes</th>
+              <th>Published</th>
+            </tr></thead>
+            <tbody id="ver-tbody">
+              <tr><td colspan="3" class="empty-state">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel" style="height:fit-content">
+          <div class="panel-header">
+            <div class="ph-title">➕ Publish New Version</div>
+          </div>
+          <div style="padding:16px">
+            <div class="form-group" style="margin-bottom:12px">
+              <label>Version Number</label>
+              <input id="v-ver" placeholder="1.2.0" />
+            </div>
+            <div class="form-group" style="margin-bottom:16px">
+              <label>Release Notes</label>
+              <textarea id="v-notes" rows="3" style="background:var(--card2);border:1px solid var(--border);
+                color:var(--text);padding:7px 10px;border-radius:7px;font-size:13px;outline:none;
+                width:100%;resize:vertical" placeholder="What's new in this version…"></textarea>
+            </div>
+            <button class="btn-main" style="width:100%" onclick="addVersion()">Publish Version</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ RELEASES ══ -->
+    <div class="section" id="section-releases">
+
+      <!-- Upload panel -->
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header">
+          <div class="ph-title">🚀 Upload New Release</div>
+          <div class="ph-actions">
+            <a href="/update/check" target="_blank" class="btn-xs ghost">Test /update endpoint ↗</a>
+          </div>
+        </div>
+        <div style="padding:20px">
+          <!-- Drop zone -->
+          <div id="drop-zone" style="border:2px dashed var(--border);border-radius:10px;padding:32px;
+            text-align:center;cursor:pointer;transition:.2s;margin-bottom:20px;position:relative"
+            onclick="document.getElementById('file-input').click()"
+            ondragover="dropZoneDrag(event,true)" ondragleave="dropZoneDrag(event,false)"
+            ondrop="handleDrop(event)">
+            <div style="font-size:28px;margin-bottom:8px">📁</div>
+            <div style="font-weight:600;margin-bottom:4px">Drop .dmg or .tar.gz here</div>
+            <div style="font-size:12px;color:var(--gray)">or click to browse — max 500 MB</div>
+            <div id="drop-filename" style="margin-top:10px;font-size:13px;color:var(--green);
+              display:none;font-weight:600"></div>
+            <input type="file" id="file-input" style="display:none"
+              accept=".dmg,.tar.gz,.gz" onchange="onFileSelect(this)"/>
+          </div>
+
+          <div class="form-row" style="margin-bottom:16px">
+            <div class="form-group" style="flex:0.6">
+              <label>Version</label>
+              <input id="up-version" placeholder="1.2.0" />
+            </div>
+            <div class="form-group">
+              <label>Platform</label>
+              <select id="up-platform" style="background:var(--card2);border:1px solid var(--border);
+                color:var(--text);padding:7px 10px;border-radius:7px;font-size:13px;outline:none">
+                <option value="darwin-aarch64">macOS Apple Silicon (darwin-aarch64)</option>
+                <option value="darwin-x86_64">macOS Intel (darwin-x86_64)</option>
+                <option value="linux-x86_64">Linux x86_64</option>
+                <option value="windows-x86_64">Windows x86_64</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0.5;justify-content:flex-end">
+              <label>Publish immediately</label>
+              <div style="display:flex;align-items:center;gap:8px;height:36px">
+                <input type="checkbox" id="up-publish" style="width:16px;height:16px;accent-color:var(--green)"/>
+                <span style="font-size:12px;color:var(--text2)">Live after upload</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px">
+            <label>Release Notes</label>
+            <textarea id="up-notes" rows="3" style="background:var(--card2);border:1px solid var(--border);
+              color:var(--text);padding:8px 12px;border-radius:7px;font-size:13px;outline:none;
+              width:100%;resize:vertical" placeholder="What's new in this version…"></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom:20px">
+            <label>Tauri Signature (.sig file content)</label>
+            <textarea id="up-sig" rows="2" style="background:var(--card2);border:1px solid var(--border);
+              color:var(--text);padding:8px 12px;border-radius:7px;font-size:12px;outline:none;
+              width:100%;resize:vertical;font-family:monospace"
+              placeholder="Paste contents of the .sig file generated by tauri build --bundles updater…"></textarea>
+            <div style="font-size:11px;color:var(--gray);margin-top:4px">
+              Run <code style="color:var(--purple);background:var(--card2);padding:1px 5px;border-radius:3px">
+              cat src-tauri/target/release/bundle/dmg/CCManager_1.2.0_aarch64.dmg.tar.gz.sig</code>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div id="upload-progress" style="display:none;margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;
+              color:var(--text2);margin-bottom:6px">
+              <span>Uploading…</span>
+              <span id="upload-pct">0%</span>
+            </div>
+            <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+              <div id="upload-bar" style="height:100%;background:var(--blue);transition:.1s;width:0%"></div>
+            </div>
+          </div>
+
+          <button class="btn-main" id="upload-btn" style="width:100%;padding:10px"
+            onclick="uploadRelease()">
+            Upload Release
+          </button>
+        </div>
+      </div>
+
+      <!-- Releases table -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="ph-title">📋 All Releases</div>
+          <div class="ph-actions">
+            <a href="/update" target="_blank" class="btn-xs ghost" style="font-size:11px">
+              /update JSON ↗
+            </a>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr>
+              <th style="padding-left:18px">Version</th>
+              <th>Platform</th>
+              <th>Size</th>
+              <th>Signature</th>
+              <th>Status</th>
+              <th>Published</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="releases-tbody">
+              <tr><td colspan="7" class="empty-state">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- How it works info box -->
+      <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);
+        border-radius:10px;padding:18px 20px;margin-top:16px">
+        <div style="font-weight:600;font-size:13px;color:var(--blue);margin-bottom:10px">
+          ℹ️ How the update flow works
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">
+          <b style="color:var(--text)">1. Build</b> — run <code>npm run tauri build</code> on your Mac.
+          Tauri generates <code>.dmg</code> + <code>.dmg.tar.gz</code> + <code>.sig</code> signature file.<br>
+          <b style="color:var(--text)">2. Upload</b> — drag the <code>.dmg.tar.gz</code> file here, paste the
+          <code>.sig</code> contents, publish.<br>
+          <b style="color:var(--text)">3. Distribute</b> — the <code>/update</code> endpoint returns Tauri-compatible
+          JSON. App checks on startup and auto-downloads if newer version found.<br>
+          <b style="color:var(--text)">4. Keys</b> — Tauri updater needs your
+          <code>pubkey</code> set in <code>tauri.conf.json</code>. Generate with:
+          <code>npx tauri signer generate -w ~/.tauri/cc-manager.key</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ACTIVITY ══ -->
+    <div class="section" id="section-activity">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="ph-title">⚡ Recent API Activity</div>
+          <div class="ph-actions">
+            <div class="pill-tabs" style="padding:0;border:none;gap:4px">
+              <button class="pill-tab active" onclick="setActivityTab('all',this)">All</button>
+              <button class="pill-tab" onclick="setActivityTab('footprint',this)">Footprints</button>
+              <button class="pill-tab" onclick="setActivityTab('verify',this)">Verifies</button>
+              <button class="pill-tab" onclick="setActivityTab('activate',this)">Activations</button>
+            </div>
+            <button class="btn-xs ghost" onclick="loadActivity()" style="margin-left:8px">↻</button>
+          </div>
+        </div>
+        <div id="activity-feed" style="max-height:500px;overflow-y:auto">
+          <div class="empty-state">Loading activity…</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─────────────────────────── MODALS ─────────────────────────── -->
+
+<!-- Add License Modal -->
+<div class="modal-overlay" id="modal-add-lic">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>🔑 Create New License</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-lic')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Installation ID</label>
+          <input id="m-inst" placeholder="Paste machine UUID from the app"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Challenge Code</label>
+          <input id="m-challenge" placeholder="A3F9BE21" maxlength="8"
+            style="font-family:monospace;letter-spacing:2px;text-transform:uppercase"
+            oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+        <div class="form-group" style="flex:2">
+          <label>Label / Customer Name</label>
+          <input id="m-label" placeholder="John Doe — Team Plan"/>
+        </div>
+      </div>
+      <div id="m-key-result" style="display:none;margin-top:16px">
+        <div style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
+          Activation Key — click to copy
+        </div>
+        <div class="key-box" id="m-key-val" onclick="copyKey()">
+          ————————————
+          <span class="copy-hint">click to copy to clipboard</span>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--gray)">
+          ℹ️ Send this key to the customer. They enter it with their Installation ID + Challenge to activate.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-xs ghost" onclick="closeModal('modal-add-lic')">Cancel</button>
+      <button class="btn-main" onclick="submitAddLicense()">Generate Activation Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Token Modal -->
+<div class="modal-overlay" id="modal-token">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>🪙 License Token</h3>
+      <button class="modal-close" onclick="closeModal('modal-token')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Installation ID</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--purple);margin-bottom:16px;
+        background:var(--card2);padding:8px 12px;border-radius:6px;word-break:break-all" id="tok-instid"></div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Bearer Token</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--green);
+        background:var(--card2);padding:12px;border-radius:8px;word-break:break-all;
+        cursor:pointer;border:1px solid rgba(34,197,94,.2)" id="tok-val" onclick="copyToken()"></div>
+      <div style="font-size:11px;color:var(--gray);margin-top:8px">Click token to copy</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-xs ghost" onclick="closeModal('modal-token')">Close</button>
+      <button class="btn-main" onclick="copyToken()">Copy Token</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h4 id="confirm-title">Confirm Action</h4>
+    <p id="confirm-msg"></p>
+    <div class="actions">
+      <button class="btn-xs ghost" onclick="confirmResolve(false)">Cancel</button>
+      <button class="btn-xs danger" id="confirm-ok-btn" onclick="confirmResolve(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- ─────────────────────────── SCRIPT ─────────────────────────── -->
+<script>
+const API = '/admin/api';
+let allLicenses = [];
+let allFootprints = [];
+let activityTab = 'all';
+let confirmResolver = null;
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const SECTIONS = {
+  dashboard: 'Dashboard',
+  licenses: 'License Management',
+  footprints: 'Footprint Explorer',
+  versions: 'Version History',
+  releases: 'Release Manager',
+  activity: 'Activity Log',
+};
+
+document.querySelectorAll('#sidebar nav a').forEach(a => {
+  a.addEventListener('click', () => showSection(a.dataset.section));
+});
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('section-' + id)?.classList.add('active');
+  document.querySelector(`[data-section="${id}"]`)?.classList.add('active');
+  document.getElementById('page-title').textContent = SECTIONS[id] || id;
+  if (id === 'footprints') loadFootprints(false);
+  if (id === 'activity')   loadActivity();
+  if (id === 'versions')   loadVersions();
+  if (id === 'releases')   loadReleases();
+}
+
+// ── API helper ────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const json = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(json.error || r.statusText);
+  return json;
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const icons = { success: '✓', error: '✗', info: 'ℹ', warn: '⚠' };
+  const w = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = `toast-item toast-${type}`;
+  el.innerHTML = `<span>${icons[type] || 'ℹ'}</span><span>${esc(msg)}</span>`;
+  w.appendChild(el);
+  setTimeout(() => el.style.opacity = '0', 3000);
+  setTimeout(() => el.remove(), 3300);
+}
+
+// ── Confirm ───────────────────────────────────────────────────────────────────
+function confirm2(title, msg, okLabel = 'Confirm', danger = true) {
+  return new Promise(resolve => {
+    confirmResolver = resolve;
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-msg').textContent = msg;
+    const btn = document.getElementById('confirm-ok-btn');
+    btn.textContent = okLabel;
+    btn.className = danger ? 'btn-xs danger' : 'btn-xs primary';
+    document.getElementById('confirm-overlay').classList.add('show');
+  });
+}
+function confirmResolve(val) {
+  document.getElementById('confirm-overlay').classList.remove('show');
+  if (confirmResolver) { confirmResolver(val); confirmResolver = null; }
+}
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) confirmResolve(false);
+});
+
+// ── Stats / Dashboard ─────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await api('GET', '/stats');
+    document.getElementById('s-active').textContent   = s.active_licenses;
+    document.getElementById('s-fp-total').textContent = fmtNum(s.total_footprints);
+    document.getElementById('s-fp7d').textContent     = fmtNum(s.footprints_7d);
+    document.getElementById('s-version').textContent  = s.version;
+    document.getElementById('s-revoked').textContent  = s.revoked_licenses ?? '—';
+    document.getElementById('s-active-sub').textContent = `of ${(s.active_licenses + (s.revoked_licenses||0))} total`;
+    document.getElementById('s-fp-sub').textContent   = `${fmtNum(s.footprints_7d)} new this week`;
+    document.getElementById('nav-badge-lic').textContent = s.active_licenses;
+    document.getElementById('footer-host').textContent = window.location.host;
+    document.getElementById('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+    if (s.fp_by_day) renderChart(s.fp_by_day);
+    if (s.fp_by_type) renderTypeBreakdown(s.fp_by_type);
+  } catch(e) { toast('Stats failed: ' + e.message, 'error'); }
+}
+
+function renderChart(byDay) {
+  const bars = document.getElementById('chart-bars');
+  const labels = document.getElementById('chart-labels');
+  const max = Math.max(...byDay.map(d => d.count), 1);
+  bars.innerHTML = byDay.map(d => {
+    const pct = Math.max(4, Math.round((d.count / max) * 100));
+    return `<div class="mini-bar" style="height:${pct}%" title="${d.date}: ${d.count} footprints"></div>`;
+  }).join('');
+  labels.innerHTML = byDay.map(d => {
+    const dt = new Date(d.date);
+    return `<span>${dt.toLocaleDateString('en',{weekday:'short'})}</span>`;
+  }).join('');
+}
+
+function renderTypeBreakdown(byType) {
+  const container = document.getElementById('fp-type-breakdown');
+  const total = byType.reduce((s, t) => s + t.count, 0) || 1;
+  const colors = { email:'#3b82f6', ip:'#22c55e', drop:'#a855f7', bin:'#eab308', phone:'#ef4444', name:'#6b7280' };
+  container.innerHTML = byType.map(t => `
+    <div class="fp-type-row">
+      <div class="fp-type-name">${esc(t.type)}</div>
+      <div class="fp-bar-wrap">
+        <div class="fp-bar" style="width:${Math.round(t.count/total*100)}%;background:${colors[t.type]||'#6b7280'}"></div>
+      </div>
+      <div class="fp-count">${fmtNum(t.count)}</div>
+    </div>
+  `).join('') || '<div style="color:var(--gray);font-size:12px">No data</div>';
+}
+
+// ── Licenses ──────────────────────────────────────────────────────────────────
+async function loadLicenses() {
+  try {
+    allLicenses = await api('GET', '/licenses');
+    renderLicenses(allLicenses);
+    renderDashLicenses(allLicenses);
+  } catch(e) { toast('Licenses failed: ' + e.message, 'error'); }
+}
+
+function renderLicenses(rows) {
+  const tbody = document.getElementById('lic-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No licenses yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td style="padding-left:18px">
+        <span class="text-mono" style="font-size:11px">${esc(r.installation_id.slice(0,20))}…</span>
+        <button class="copy-btn ms-1" onclick="copyText('${esc(r.installation_id)}','ID copied')">⎘</button>
+      </td>
+      <td><span style="font-size:13px">${esc(r.label || '—')}</span></td>
+      <td><code style="color:var(--purple);font-size:12px">${esc(r.challenge)}</code></td>
+      <td>
+        ${r.token
+          ? `<button class="btn-xs primary" onclick="viewToken('${esc(r.installation_id)}','${esc(r.token)}')">View Token</button>`
+          : `<span style="color:var(--gray);font-size:11px">Not activated</span>`
+        }
+      </td>
+      <td>
+        <span class="badge-pill ${r.is_active ? 'b-active' : 'b-revoked'}">
+          ${r.is_active ? '● Active' : '○ Revoked'}
+        </span>
+      </td>
+      <td style="color:var(--gray);font-size:11px">${r.created_at ? r.created_at.slice(0,10) : '—'}</td>
+      <td style="color:var(--gray);font-size:11px">${r.last_seen ? timeAgo(r.last_seen) : '<span class="badge-pill b-never">Never</span>'}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          ${r.is_active
+            ? `<button class="btn-xs danger" onclick="revokeRestore('${esc(r.installation_id)}', false)">Revoke</button>`
+            : `<button class="btn-xs success" onclick="revokeRestore('${esc(r.installation_id)}', true)">Restore</button>`
+          }
+          <button class="btn-xs ghost" onclick="showRegenerateKey('${esc(r.installation_id)}','${esc(r.challenge)}','${esc(r.label||'')}')">Key</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderDashLicenses(rows) {
+  const tbody = document.getElementById('dash-lic-tbody');
+  const recent = [...rows].slice(0, 8);
+  tbody.innerHTML = recent.map(r => `
+    <tr>
+      <td style="padding-left:14px">${esc(r.label || '<em style="color:var(--gray)">No label</em>')}</td>
+      <td><span class="badge-pill ${r.is_active ? 'b-active' : 'b-revoked'}" style="font-size:10px">
+        ${r.is_active ? 'Active' : 'Revoked'}</span></td>
+      <td style="color:var(--gray);font-size:11px">${r.last_seen ? timeAgo(r.last_seen) : 'Never'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="3" class="empty-state">No licenses</td></tr>';
+}
+
+function filterLicenses() {
+  const q = document.getElementById('lic-search').value.toLowerCase();
+  const f = document.getElementById('lic-filter').value;
+  const filtered = allLicenses.filter(r => {
+    const matchText = !q || r.installation_id.toLowerCase().includes(q) || (r.label||'').toLowerCase().includes(q);
+    const matchStatus = f === 'all' || (f === 'active' && r.is_active) || (f === 'revoked' && !r.is_active);
+    return matchText && matchStatus;
+  });
+  renderLicenses(filtered);
+}
+
+function openAddLicense() {
+  document.getElementById('m-inst').value = '';
+  document.getElementById('m-challenge').value = '';
+  document.getElementById('m-label').value = '';
+  document.getElementById('m-key-result').style.display = 'none';
+  openModal('modal-add-lic');
+}
+
+async function submitAddLicense() {
+  const installation_id = document.getElementById('m-inst').value.trim();
+  const challenge = document.getElementById('m-challenge').value.trim().toUpperCase();
+  const label = document.getElementById('m-label').value.trim();
+  if (!installation_id || challenge.length < 4) return toast('Installation ID and Challenge required', 'error');
+  try {
+    const res = await api('POST', '/licenses', { installation_id, challenge, label });
+    document.getElementById('m-key-val').childNodes[0].textContent = res.activation_key;
+    document.getElementById('m-key-result').style.display = '';
+    toast('License created!', 'success');
+    loadLicenses(); loadStats();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function showRegenerateKey(id, challenge, label) {
+  document.getElementById('m-inst').value = id;
+  document.getElementById('m-challenge').value = challenge;
+  document.getElementById('m-label').value = label;
+  document.getElementById('m-key-result').style.display = 'none';
+  openModal('modal-add-lic');
+}
+
+function viewToken(id, token) {
+  document.getElementById('tok-instid').textContent = id;
+  document.getElementById('tok-val').textContent = token;
+  openModal('modal-token');
+}
+
+function copyToken() {
+  const t = document.getElementById('tok-val').textContent;
+  copyText(t, 'Token copied!');
+}
+
+function copyKey() {
+  const t = document.getElementById('m-key-val').childNodes[0].textContent.trim();
+  copyText(t, 'Key copied!');
+}
+
+async function revokeRestore(id, restore) {
+  const action = restore ? 'restore' : 'revoke';
+  if (!restore) {
+    const ok = await confirm2('Revoke License', `Revoke access for ${id.slice(0,20)}…? The client will no longer be able to sync.`, 'Revoke', true);
+    if (!ok) return;
+  }
+  try {
+    await api('POST', `/licenses/${encodeURIComponent(id)}/${action}`);
+    toast(`License ${action}d`, restore ? 'success' : 'warn');
+    loadLicenses(); loadStats();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── Footprints ────────────────────────────────────────────────────────────────
+async function loadFootprints(forceAll) {
+  const domain = document.getElementById('fp-domain-search').value.trim();
+  if (!forceAll && !domain) return;
+  try {
+    const url = domain ? `/footprints?domain=${encodeURIComponent(domain)}` : '/footprints';
+    allFootprints = await api('GET', url);
+    document.getElementById('fp-count-label').textContent = `${allFootprints.length} records loaded`;
+    document.getElementById('fp-total-label').textContent = `${allFootprints.length} footprints`;
+    renderFootprints(allFootprints);
+  } catch(e) { toast('Footprints failed: ' + e.message, 'error'); }
+}
+
+function filterFootprints() {
+  const domain = document.getElementById('fp-domain-search').value.toLowerCase();
+  const type = document.getElementById('fp-type-filter').value;
+  const filtered = allFootprints.filter(f => {
+    return (!domain || f.shop_domain.includes(domain)) &&
+           (type === 'all' || f.hash_type === type);
+  });
+  renderFootprints(filtered);
+  document.getElementById('fp-count-label').textContent = `${filtered.length} / ${allFootprints.length} records`;
+  if (domain && allFootprints.length === 0) loadFootprints(false);
+}
+
+function renderFootprints(rows) {
+  const tbody = document.getElementById('fp-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No footprints found</td></tr>';
+    return;
+  }
+  const typeColors = { email:'#3b82f6', ip:'#22c55e', drop:'#a855f7', bin:'#eab308', phone:'#ef4444', name:'#6b7280' };
+  tbody.innerHTML = rows.slice(0, 500).map(r => `
+    <tr>
+      <td style="padding-left:18px"><span style="color:var(--blue);font-size:12px">${esc(r.shop_domain)}</span></td>
+      <td><span class="tag" style="color:${typeColors[r.hash_type]||'#6b7280'};background:${typeColors[r.hash_type]||'#6b7280'}22;border-color:${typeColors[r.hash_type]||'#6b7280'}44">
+        ${esc(r.hash_type)}</span></td>
+      <td><span class="text-mono" style="font-size:10px">${esc(r.hash_value.slice(0,32))}…</span>
+        <button class="copy-btn" onclick="copyText('${esc(r.hash_value)}','Hash copied')">⎘</button></td>
+      <td><span class="text-mono" style="font-size:10px;color:var(--gray)">${esc(r.user_token.slice(0,12))}…</span></td>
+      <td style="color:var(--gray);font-size:11px">${r.created_at ? r.created_at.slice(0,16) : '—'}</td>
+    </tr>
+  `).join('');
+  if (rows.length > 500) {
+    tbody.innerHTML += `<tr><td colspan="5" style="text-align:center;padding:10px;color:var(--gray);font-size:12px">
+      … ${rows.length - 500} more rows hidden. Refine your search.</td></tr>`;
+  }
+}
+
+// ── Versions ──────────────────────────────────────────────────────────────────
+async function loadVersions() {
+  try {
+    const rows = await api('GET', '/versions');
+    const tbody = document.getElementById('ver-tbody');
+    tbody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td style="padding-left:18px">
+          <span style="color:var(--yellow);font-weight:700;font-size:14px">${esc(r.version)}</span>
+          ${i === 0 ? '<span class="tag" style="margin-left:6px;color:var(--green);background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3)">LATEST</span>' : ''}
+        </td>
+        <td style="color:var(--text2);font-size:12px">${esc(r.notes || '—')}</td>
+        <td style="color:var(--gray);font-size:11px">${r.published_at ? r.published_at.slice(0,10) : '—'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="3" class="empty-state">No versions published</td></tr>';
+  } catch(e) { toast('Versions failed: ' + e.message, 'error'); }
+}
+
+async function addVersion() {
+  const version = document.getElementById('v-ver').value.trim();
+  const notes = document.getElementById('v-notes').value.trim();
+  if (!version) return toast('Version number required', 'error');
+  try {
+    await api('POST', '/versions', { version, notes });
+    document.getElementById('v-ver').value = '';
+    document.getElementById('v-notes').value = '';
+    toast(`Version ${version} published`, 'success');
+    loadVersions(); loadStats();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── Activity ──────────────────────────────────────────────────────────────────
+async function loadActivity() {
+  try {
+    const rows = await api('GET', `/activity?type=${activityTab}`);
+    const feed = document.getElementById('activity-feed');
+    if (!rows.length) {
+      feed.innerHTML = '<div class="empty-state">No activity recorded yet</div>';
+      return;
+    }
+    feed.innerHTML = rows.map(r => {
+      const typeClass = r.event_type?.includes('footprint') ? 'type-saved'
+                      : r.event_type?.includes('verify') ? 'type-verify'
+                      : r.event_type?.includes('activate') ? 'type-activate' : 'type-check';
+      return `
+        <div class="feed-item ${typeClass}">
+          <div class="feed-dot"></div>
+          <div>
+            <div style="font-size:12px">${esc(r.description || r.event_type || '—')}</div>
+            <div class="feed-meta">${r.created_at ? r.created_at.slice(0,19).replace('T',' ') : '—'}
+              ${r.user_token ? ` · <span style="color:var(--purple);font-family:monospace">${r.user_token.slice(0,12)}…</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    document.getElementById('activity-feed').innerHTML =
+      `<div class="empty-state" style="color:var(--gray)">Activity endpoint not yet implemented<br><small>Will show footprint/verify/activate events</small></div>`;
+  }
+}
+
+function setActivityTab(tab, btn) {
+  activityTab = tab;
+  document.querySelectorAll('.pill-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadActivity();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+function copyText(text, msg = 'Copied!') {
+  navigator.clipboard.writeText(text).then(() => toast(msg, 'success')).catch(() => toast('Copy failed', 'error'));
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtNum(n) {
+  return Number(n).toLocaleString();
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+async function refreshAll() {
+  await Promise.all([loadStats(), loadLicenses()]);
+  toast('Refreshed', 'success');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadStats();
+loadLicenses();
+
+// ── Releases ──────────────────────────────────────────────────────────────────
+let selectedFile = null;
+
+function dropZoneDrag(e, active) {
+  e.preventDefault();
+  document.getElementById('drop-zone').style.borderColor = active ? 'var(--blue)' : 'var(--border)';
+  document.getElementById('drop-zone').style.background  = active ? 'rgba(59,130,246,.05)' : '';
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  dropZoneDrag(e, false);
+  const file = e.dataTransfer.files[0];
+  if (file) setSelectedFile(file);
+}
+
+function onFileSelect(input) {
+  if (input.files[0]) setSelectedFile(input.files[0]);
+}
+
+function setSelectedFile(file) {
+  selectedFile = file;
+  const el = document.getElementById('drop-filename');
+  el.textContent = `✓ ${file.name}  (${(file.size/1024/1024).toFixed(1)} MB)`;
+  el.style.display = '';
+  // Auto-detect version from filename e.g. CCManager_1.2.0_aarch64.dmg.tar.gz
+  const m = file.name.match(/[_-](\d+\.\d+\.\d+)[_-]/);
+  if (m && !document.getElementById('up-version').value) {
+    document.getElementById('up-version').value = m[1];
+  }
+}
+
+async function uploadRelease() {
+  if (!selectedFile) return toast('Select a file first', 'error');
+  const version = document.getElementById('up-version').value.trim();
+  if (!version) return toast('Version required', 'error');
+
+  const sig     = document.getElementById('up-sig').value.trim();
+  const notes   = document.getElementById('up-notes').value.trim();
+  const platform = document.getElementById('up-platform').value;
+  const publish  = document.getElementById('up-publish').checked;
+
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+
+  const progress = document.getElementById('upload-progress');
+  const bar = document.getElementById('upload-bar');
+  const pct = document.getElementById('upload-pct');
+  progress.style.display = '';
+
+  return new Promise(resolve => {
+    const form = new FormData();
+    form.append('file', selectedFile);
+    form.append('version', version);
+    form.append('notes', notes);
+    form.append('platform', platform);
+    form.append('signature', sig);
+    form.append('publish', publish ? '1' : '0');
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) {
+        const p = Math.round(e.loaded / e.total * 100);
+        bar.style.width = p + '%';
+        pct.textContent = p + '%';
+      }
+    };
+    xhr.onload = () => {
+      progress.style.display = 'none';
+      btn.disabled = false; btn.textContent = 'Upload Release';
+      try {
+        const r = JSON.parse(xhr.responseText);
+        if (xhr.status === 200 && r.ok) {
+          toast(`v${r.version} uploaded (${r.file_size_mb} MB)${r.needs_signature ? ' — add signature!' : ''}`, 'success');
+          selectedFile = null;
+          document.getElementById('drop-filename').style.display = 'none';
+          document.getElementById('file-input').value = '';
+          document.getElementById('up-sig').value = '';
+          document.getElementById('up-version').value = '';
+          document.getElementById('up-notes').value = '';
+          loadReleases(); loadStats(); loadVersions();
+        } else {
+          toast('Upload failed: ' + (r.error || xhr.statusText), 'error');
+        }
+      } catch(e) { toast('Upload error: ' + e.message, 'error'); }
+      resolve();
+    };
+    xhr.onerror = () => {
+      progress.style.display = 'none';
+      btn.disabled = false; btn.textContent = 'Upload Release';
+      toast('Network error', 'error');
+      resolve();
+    };
+    xhr.open('POST', '/admin/upload');
+    xhr.send(form);
+  });
+}
+
+async function loadReleases() {
+  try {
+    const rows = await api('GET', '/versions');
+    const tbody = document.getElementById('releases-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No releases yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const sizeMB = r.file_size ? (r.file_size/1024/1024).toFixed(1) + ' MB' : '—';
+      const hasSig  = !!r.signature;
+      const hasUrl  = !!r.download_url;
+      const canPublish = hasSig && hasUrl;
+      return `<tr>
+        <td style="padding-left:18px">
+          <span style="color:var(--yellow);font-weight:700">${esc(r.version)}</span>
+        </td>
+        <td><span class="tag">${esc(r.platform || 'darwin-aarch64')}</span></td>
+        <td style="color:var(--text2);font-size:12px">${sizeMB}</td>
+        <td>
+          ${hasSig
+            ? `<span style="color:var(--green);font-size:12px">✓ Signed</span>`
+            : `<button class="btn-xs warn" onclick="addSignaturePrompt('${esc(r.version)}')"
+                style="background:rgba(234,179,8,.15);color:var(--yellow);border:1px solid rgba(234,179,8,.3)">
+                ⚠ Add Sig</button>`
+          }
+        </td>
+        <td>
+          ${r.is_published
+            ? `<span class="badge-pill b-active">● Live</span>`
+            : `<span class="badge-pill" style="background:rgba(107,114,128,.15);color:var(--gray)">○ Draft</span>`
+          }
+        </td>
+        <td style="color:var(--gray);font-size:11px">${r.published_at ? r.published_at.slice(0,10) : '—'}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${r.is_published
+              ? `<button class="btn-xs danger" onclick="togglePublish('${esc(r.version)}', false)">Unpublish</button>`
+              : `<button class="btn-xs success" ${canPublish ? '' : 'disabled title="Need file + signature first"'}
+                  onclick="togglePublish('${esc(r.version)}', true)">Publish</button>`
+            }
+            ${hasUrl ? `<a href="${esc(r.download_url)}" target="_blank" class="btn-xs ghost">↓ DL</a>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { toast('Releases load failed: ' + e.message, 'error'); }
+}
+
+async function togglePublish(version, publish) {
+  if (publish) {
+    const ok = await confirm2('Publish Release',
+      `Publish v${version}? It will be served to all clients via /update endpoint.`,
+      'Publish', false);
+    if (!ok) return;
+  }
+  try {
+    await fetch('/admin/upload/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version, publish })
+    });
+    toast(publish ? `v${version} is now live!` : `v${version} unpublished`, publish ? 'success' : 'info');
+    loadReleases(); loadStats();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function addSignaturePrompt(version) {
+  const sig = prompt(`Paste .sig file content for v${version}:`);
+  if (!sig || !sig.trim()) return;
+  try {
+    await fetch('/admin/upload/signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version, signature: sig.trim() })
+    });
+    toast('Signature saved', 'success');
+    loadReleases();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+setInterval(refreshAll, 30000);
+
+// Keyboard: Escape closes modals
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+    confirmResolve(false);
+  }
+});
+</script>
+</body>
+</html>
