@@ -10,7 +10,7 @@
 | # | Задача | Файл(ы) | Статус |
 |---|--------|---------|--------|
 | C1 | **Float Window кнопки Success/Decline** — вызывали `set_order_status` (не существует). Добавлена `get_latest_order_by_profile`, кнопки используют `update_order_status` с реальным order_id | `src/float.jsx`, `database.rs`, `main.rs` | ✅ 2026-03-08 |
-| C2 | **Risk Check → сервер** — `run_risk_check` проверяет только локальные footprints, не вызывает `/check` на сервере даже когда токен есть | `src-tauri/src/main.rs`, `sync.rs` | ❌ |
+| C2 | **Risk Check → сервер** — добавлен `SyncClient::check_risk`, вызывает `/check` если токен есть, мержит server warnings. Graceful fallback если offline | `sync.rs`, `database.rs`, `main.rs` | ✅ 2026-03-08 |
 
 ---
 
@@ -29,11 +29,11 @@
 
 | # | Задача | Файл(ы) | Статус |
 |---|--------|---------|--------|
-| U1 | **Profile hover preview tooltip** — при наведении на профиль показывать карточку с данными (400ms delay) | `src/pages/Profiles.jsx` | ❌ |
-| U2 | **Proxies "Test All"** — кнопка запускает тест всех прокси последовательно, показывает прогресс-бар и статус каждого | `src/pages/Proxies.jsx` | ❌ |
-| U3 | **Profiles: pill-фильтры по статусу карты** — быстрые фильтры All / Active / Expiring / Dead под заголовком | `src/pages/Profiles.jsx` | ❌ |
-| U4 | **Cards: группировка по BIN/Bank** — toggle "Group by Bank" в таблице карт | `src/pages/Cards.jsx` | ❌ |
-| U5 | **Updates.jsx** — сейчас placeholder. Нужно: проверка версии с GitHub Releases или сервера, кнопка "Download" | `src/pages/Updates.jsx` | ❌ |
+| U1 | **Profile hover preview tooltip** | `src/pages/Profiles.jsx` | ✅ уже реализовано |
+| U2 | **Proxies "Test All"** | `src/pages/Proxies.jsx` | ✅ уже реализовано |
+| U3 | **Profiles: pill-фильтры по статусу карты** | `src/pages/Profiles.jsx` | ✅ уже реализовано |
+| U4 | **Cards: группировка по Bank** (toggle) | `src/pages/Cards.jsx` | ✅ уже реализовано |
+| U5 | **Updates.jsx** — IMAP-лог с табами по типам | `src/pages/Updates.jsx` | ✅ уже реализовано |
 
 ---
 

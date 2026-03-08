@@ -527,7 +527,20 @@ fn delete_order(id: i64) -> Result<(), String> {
 }
 #[tauri::command]
 fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i64>, email_pool_id: Option<i64>, proxy_id: Option<i64>) -> Result<RiskCheckResult, String> {
-    with_db!(db, { db.run_risk_check(&profile_id, shop_id) })
+    with_db!(db, {
+        let mut result = db.run_risk_check(&profile_id, shop_id)?;
+        // Merge global footprint check from server (gracefully skipped if offline/no token)
+        let server_warnings = sync::SyncClient::check_risk(&db, &profile_id, shop_id);
+        if server_warnings.is_empty() {
+            result.offline = true;
+        } else {
+            result.offline = false;
+            result.score = result.score.saturating_add(30);
+            result.warnings.extend(server_warnings);
+            result.level = if result.score >= 40 { "high" } else if result.score >= 20 { "warning" } else { "safe" }.into();
+        }
+        Ok(result)
+    })
 }
 #[tauri::command]
 fn save_order_template(input: SaveTemplateInput) -> Result<(), String> {

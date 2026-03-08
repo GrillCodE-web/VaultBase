@@ -1336,6 +1336,22 @@ impl Database {
         Ok(items)
     }
 
+    pub fn get_footprint_for_profile_shop(&self, profile_id: &str, shop_id: i64) -> Option<Footprint> {
+        self.conn.query_row(
+            "SELECT id,shop_id,shop_domain,order_id,email_hash,ip_hash,drop_hash,bin,phone_hash,name_hash,synced,user_token,created_at \
+             FROM shop_footprints WHERE shop_id=?1 AND order_id IN (SELECT id FROM orders WHERE profile_id=?2) \
+             ORDER BY created_at DESC LIMIT 1",
+            params![shop_id, profile_id],
+            |r| Ok(Footprint {
+                id: r.get(0)?, shop_id: r.get(1)?, shop_domain: r.get(2)?, order_id: r.get(3)?,
+                email_hash: r.get(4)?, ip_hash: r.get(5)?, drop_hash: r.get(6)?, bin: r.get(7)?,
+                phone_hash: r.get(8)?, name_hash: r.get(9)?,
+                synced: r.get::<_,i64>(10).unwrap_or(0) != 0,
+                user_token: r.get(11)?, created_at: r.get(12)?,
+            }),
+        ).ok()
+    }
+
     pub fn mark_footprints_synced_db(&self, ids: &[i64]) -> Result<(), String> {
         if ids.is_empty() { return Ok(()); }
         let placeholders = ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
