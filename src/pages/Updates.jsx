@@ -110,8 +110,6 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
   );
 }
 
-const CURRENT_VERSION = "1.0.0";
-
 export default function Updates() {
   const toast = useToast();
   const [items, setItems] = useState([]);
@@ -119,23 +117,24 @@ export default function Updates() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState("0.1.0");
   const [serverVersion, setServerVersion] = useState(null); // { version, notes } | null
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const [logResult, versionResult] = await Promise.allSettled([
+      const [logResult, versionResult, appVerResult] = await Promise.allSettled([
         invoke("get_activity_log", {
           filter: { event_type: null, entity_type: null, from_date: null, to_date: null },
           page: 1,
         }),
         invoke("get_server_version"),
+        invoke("get_app_version"),
       ]);
       if (logResult.status === "fulfilled") setItems(logResult.value.items ?? []);
-      if (versionResult.status === "fulfilled" && versionResult.value) {
-        setServerVersion(versionResult.value);
-      }
+      if (versionResult.status === "fulfilled" && versionResult.value) setServerVersion(versionResult.value);
+      if (appVerResult.status === "fulfilled") setCurrentVersion(appVerResult.value);
     } catch (err) {
       const msg = err?.toString?.() ?? "Unknown error";
       setError(msg);
@@ -174,7 +173,7 @@ export default function Updates() {
       </div>
 
       {/* Version banner */}
-      {serverVersion && serverVersion.version !== CURRENT_VERSION && (
+      {serverVersion && serverVersion.version !== currentVersion && (
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "10px 14px", marginBottom: 12, borderRadius: 8,
@@ -197,13 +196,13 @@ export default function Updates() {
           </a>
         </div>
       )}
-      {serverVersion && serverVersion.version === CURRENT_VERSION && (
+      {serverVersion && serverVersion.version === currentVersion && (
         <div style={{
           fontSize: 11, color: "var(--muted)", marginBottom: 12,
           padding: "6px 14px", background: "rgba(34,197,94,0.05)",
           border: "1px solid rgba(34,197,94,0.1)", borderRadius: 6,
         }}>
-          ✓ Актуальная версия v{CURRENT_VERSION}
+          ✓ Актуальная версия v{currentVersion}
         </div>
       )}
 

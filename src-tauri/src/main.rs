@@ -681,6 +681,10 @@ fn sync_now() -> Result<SyncResult, String> {
 
 // Version check
 #[tauri::command]
+fn get_app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+#[tauri::command]
 fn get_server_version() -> Result<Option<serde_json::Value>, String> {
     Ok(sync::SyncClient::check_version().map(|(version, notes)| {
         serde_json::json!({ "version": version, "notes": notes })
@@ -904,7 +908,7 @@ fn main() {
             get_config, set_config, export_backup, import_backup,
             get_installation_id, get_challenge_code, activate_license,
             get_license_status, retry_license_connection,
-            global_search, open_float_window, get_server_version,
+            global_search, open_float_window, get_server_version, get_app_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
