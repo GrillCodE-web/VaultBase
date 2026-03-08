@@ -514,6 +514,10 @@ fn get_order(id: i64) -> Result<OrderDetail, String> {
     with_db!(db, { db.get_order(id) })
 }
 #[tauri::command]
+fn get_latest_order_by_profile(profile_id: String) -> Result<Option<Order>, String> {
+    with_db!(db, { db.get_latest_order_by_profile(&profile_id) })
+}
+#[tauri::command]
 fn update_order_status(id: i64, status: String, meta: Option<StatusMeta>) -> Result<(), String> {
     with_db!(db, { db.update_order_status(id, &status, meta.as_ref()) })
 }
@@ -866,7 +870,7 @@ fn main() {
             add_proxy, import_proxies, get_proxies, update_proxy, block_proxy, delete_proxy, test_proxy_connection,
             create_shop, get_shops, get_shop, update_shop, delete_shop,
             add_shop_product, update_shop_product, delete_shop_product, get_shop_smart_suggestions,
-            create_order, get_orders, get_order, update_order_status, delete_order,
+            create_order, get_orders, get_order, get_latest_order_by_profile, update_order_status, delete_order,
             run_risk_check, save_order_template, get_order_templates,
             get_unsynced_footprints, mark_footprints_synced, sync_now,
             get_dashboard_stats, get_revenue_chart, get_heatmap_data, get_top_banks,

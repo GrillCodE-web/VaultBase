@@ -2091,6 +2091,18 @@ impl Database {
         self.build_order(id)
     }
 
+    pub fn get_latest_order_by_profile(&self, profile_id: &str) -> Result<Option<Order>, String> {
+        let id: Option<i64> = self.conn.query_row(
+            "SELECT id FROM orders WHERE profile_id=?1 ORDER BY created_at DESC LIMIT 1",
+            params![profile_id],
+            |r| r.get(0),
+        ).ok();
+        match id {
+            Some(oid) => self.build_order(oid).map(Some),
+            None => Ok(None),
+        }
+    }
+
     pub fn update_order_status(&self, id: i64, status: &str, meta: Option<&StatusMeta>) -> Result<(), String> {
         if let Some(m) = meta {
             self.conn.execute(

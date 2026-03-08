@@ -1,88 +1,105 @@
-# CC Manager — Delivered Files (M00 → M09)
+# CC Manager
 
-## Quick Integration Guide
+A secure desktop application for managing payment cards, profiles, orders, and related data. Built with Tauri v2, React 18, and Rust.
 
-### File map — where each file goes in your project
+## Features
 
-```
-cc-manager/
-├── src-tauri/src/
-│   ├── license.rs                    ← REPLACE stub (M08)
-│   ├── main_license_patch.rs         ← PATCH instructions for main.rs (M08)
-│   ├── models_dashboard_patch.rs     ← APPEND to models.rs (M09)
-│   ├── database_dashboard_patch.rs   ← APPEND inside impl Database in database.rs (M09)
-│   └── main_dashboard_patch.rs       ← PATCH instructions for main.rs (M09)
-│
-└── src/
-    ├── App.jsx                        ← REPLACE (M09 — badges + 5-state machine)
-    ├── pages/
-    │   ├── Activate.jsx               ← NEW page (M08)
-    │   └── Dashboard.jsx              ← REPLACE stub (M09)
-    ├── components/
-    │   └── LicenseSection.jsx         ← NEW component (M08) — import in Settings.jsx
-    └── i18n/
-        ├── i18n_license_patch.js      ← MERGE keys into en.js + ru.js (M08)
-        └── i18n_dashboard_patch.js    ← MERGE keys into en.js + ru.js (M09)
-```
+- **Encrypted Storage** — All sensitive data (card numbers, CVVs) encrypted at rest with AES-256
+- **Card Management** — Import, organize, and manage payment cards with BIN enrichment
+- **Profile Management** — Link cards to delivery profiles and drops
+- **Order Tracking** — Full order lifecycle management with status tracking
+- **Dashboard** — Revenue analytics, heatmaps, and statistics
+- **Updates Feed** — Activity log for all data changes
+- **Multi-language** — English and Russian UI
+- **Auto-lock** — Configurable inactivity timeout
 
----
+## Requirements
 
-## Step-by-step integration
+- **macOS** 12.0+ (Monterey or later)
+- **Node.js** 18+ and npm
+- **Rust** 1.75+  (`rustup install stable`)
+- **Xcode Command Line Tools** (`xcode-select --install`)
 
-### 1. license.rs
-Replace `src-tauri/src/license.rs` entirely.
+## Development Setup
 
-### 2. models.rs
-Append the contents of `models_dashboard_patch.rs` to the bottom of `models.rs`.
-
-### 3. database.rs
-Append the contents of `database_dashboard_patch.rs` inside `impl Database { ... }`.
-
-> Note: The `period_bounds()` and `trend_pct()` helpers go **outside** `impl Database`,
-> just before the `impl Database` block (or as free functions in the same file).
-
-### 4. main.rs
-Follow the patch comments in `main_license_patch.rs` and `main_dashboard_patch.rs`:
-- Add the `#[tauri::command]` functions
-- Add them to `invoke_handler![ ... ]`
-- Replace the `.setup()` closure with the license boot flow (see `main_license_patch.rs`)
-
-### 5. Cargo.toml — confirm these deps are present
-```toml
-ureq = { version = "2", features = ["json"] }
-serde_json = "1"
-sha2 = "0.10"
-uuid = { version = "1", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
-```
-
-### 6. React files
-- Copy `App.jsx` → `src/App.jsx`
-- Copy `Activate.jsx` → `src/pages/Activate.jsx`
-- Copy `Dashboard.jsx` → `src/pages/Dashboard.jsx`
-- Copy `LicenseSection.jsx` → `src/components/LicenseSection.jsx`
-- Merge i18n patch keys into `src/i18n/en.js` and `ru.js`
-
-### 7. Settings.jsx — add LicenseSection
-```jsx
-import { LicenseSection } from "../components/LicenseSection";
-// ... inside Settings render:
-<LicenseSection />
-```
-
-### 8. recharts dependency
 ```bash
-npm install recharts
+# 1. Clone the repository
+git clone <repo-url>
+cd manager-work
+
+# 2. Install frontend dependencies
+npm install
+
+# 3. Run in development mode (hot reload)
+npm run tauri dev
 ```
 
-### 9. Dashboard navigation
-`Dashboard.jsx` calls `onNavigate(page, props)` — this is wired through `App.jsx`'s
-`MainShell` → `handleNavigate`. All page components should accept an `onNavigate` prop
-for cross-page routing.
+## Building for Production
 
----
+```bash
+# Build the app bundle (.app + .dmg) — Intel
+npm run tauri build
 
-## Module summary
+# Build for Apple Silicon (M1/M2/M3)
+npm run tauri build -- --target aarch64-apple-darwin
+
+# Build for Intel Mac explicitly
+npm run tauri build -- --target x86_64-apple-darwin
+```
+
+Output files will be in `src-tauri/target/release/bundle/`:
+- `macos/CC Manager.app` — Application bundle
+- `dmg/CC Manager_*.dmg` — Disk image installer
+
+## Generating Icons
+
+If you update `icon.svg`, regenerate all icon sizes:
+
+```bash
+# Requires: pip3 install Pillow
+cd src-tauri
+python3 generate_icons.py
+```
+
+This generates `src-tauri/icons/` with all required sizes including `.icns` and `.ico`.
+
+## Project Structure
+
+```
+manager-work/
+├── src/                    # React frontend
+│   ├── pages/              # Page components (Cards, Orders, Profiles, etc.)
+│   ├── hooks/              # Custom hooks (useToast, useConfirm, useLang)
+│   ├── components/         # Shared components
+│   ├── i18n/               # Translations (en.js, ru.js)
+│   └── App.jsx             # Root component + navigation
+├── src-tauri/              # Rust backend
+│   ├── src/
+│   │   ├── main.rs         # Tauri commands entry point
+│   │   ├── database.rs     # SQLite database operations
+│   │   ├── models.rs       # Data models
+│   │   └── license.rs      # License validation
+│   ├── icons/              # App icons (generated)
+│   ├── generate_icons.py   # Icon generation script
+│   └── tauri.conf.json     # Tauri configuration
+└── package.json
+```
+
+## Database
+
+The SQLite database is stored at:
+- macOS: `~/Library/Application Support/com.ccmanager.app/cc_manager.db`
+
+The database is automatically created and migrated on first launch.
+
+## Security
+
+- Master password is required on launch
+- All card data encrypted with the derived key
+- Auto-lock after configurable timeout (1m, 5m, 15m, 30m, or never)
+- Card numbers only decrypted on explicit "Reveal" action
+
+## Module Summary
 
 | Module | Contents |
 |--------|----------|
@@ -96,3 +113,19 @@ for cross-page routing.
 | M07 | Sync server, admin panel, auto-updater |
 | M08 | License — challenge-response activation, startup check |
 | M09 | Dashboard — analytics, heatmap, charts, sidebar badges |
+
+## Rust Dependencies
+
+Key crates used in `src-tauri/Cargo.toml`:
+
+```toml
+ureq = { version = "2", features = ["json"] }
+serde_json = "1"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+```
+
+## License
+
+Proprietary. License key required for activation.
