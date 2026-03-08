@@ -17,7 +17,9 @@ function formatKey(raw) {
 export default function Activate({ onActivated }) {
   const { t } = useLang();
   const [challengeCode, setChallengeCode] = useState("");
+  const [installationId, setInstallationId] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
   const [activationKey, setActivationKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -27,6 +29,9 @@ export default function Activate({ onActivated }) {
     invoke("get_challenge_code")
       .then(setChallengeCode)
       .catch(() => setChallengeCode("????-????-????-????"));
+    invoke("get_installation_id")
+      .then(setInstallationId)
+      .catch(() => {});
   }, []);
 
   const handleCopy = useCallback(() => {
@@ -36,6 +41,14 @@ export default function Activate({ onActivated }) {
       setTimeout(() => setCopied(false), 2000);
     });
   }, [challengeCode]);
+
+  const handleCopyId = useCallback(() => {
+    if (!installationId) return;
+    navigator.clipboard.writeText(installationId).then(() => {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    });
+  }, [installationId]);
 
   const handleKeyChange = (e) => {
     const formatted = formatKey(e.target.value);
@@ -78,11 +91,11 @@ export default function Activate({ onActivated }) {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ backgroundColor: "#0f1117" }}
+      style={{ backgroundColor: "#0b0d14" }}
     >
       <div
         className="w-full max-w-md rounded-2xl p-8 shadow-2xl"
-        style={{ backgroundColor: "#1a1d27", border: "1px solid #2a2d3a" }}
+        style={{ backgroundColor: "#171b28", border: "1px solid #1e2338" }}
       >
         {/* Header */}
         <div className="flex flex-col items-center mb-8">
@@ -103,20 +116,20 @@ export default function Activate({ onActivated }) {
         {/* Installation Code Block */}
         <div
           className="rounded-xl p-4 mb-6"
-          style={{ backgroundColor: "#111318", border: "1px solid #2a2d3a" }}
+          style={{ backgroundColor: "#111318", border: "1px solid #1e2338" }}
         >
           <p className="text-xs font-medium mb-3" style={{ color: "#6b7280" }}>
             {t("activate_your_code") || "Your installation code:"}
           </p>
 
-          <div className="flex items-center gap-3">
+          {/* Challenge code */}
+          <div className="flex items-center gap-3 mb-3">
             <span
               className="flex-1 text-center text-lg font-mono font-bold tracking-widest select-all"
               style={{ color: "#3b82f6", letterSpacing: "0.15em" }}
             >
               {challengeCode || "Loading..."}
             </span>
-
             <button
               onClick={handleCopy}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
@@ -131,6 +144,29 @@ export default function Activate({ onActivated }) {
               {copied ? (t("copied") || "Copied") : (t("copy") || "Copy")}
             </button>
           </div>
+
+          {/* Installation ID (required by admin panel) */}
+          {installationId && (
+            <div style={{ borderTop: "1px solid #1e2338", paddingTop: 10 }}>
+              <p className="text-xs mb-2" style={{ color: "#4b5563" }}>Installation ID:</p>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 text-xs font-mono select-all truncate" style={{ color: "#6b7280" }}>
+                  {installationId}
+                </span>
+                <button
+                  onClick={handleCopyId}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-all flex-shrink-0"
+                  style={{
+                    backgroundColor: copiedId ? "rgba(34,197,94,0.1)" : "rgba(75,85,99,0.15)",
+                    color: copiedId ? "#22c55e" : "#6b7280",
+                    border: "1px solid transparent",
+                  }}
+                >
+                  {copiedId ? <Check size={11} /> : <Copy size={11} />}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Instruction */}
@@ -165,7 +201,7 @@ export default function Activate({ onActivated }) {
               className="w-full pl-9 pr-4 py-3 rounded-xl text-sm font-mono text-center tracking-widest outline-none transition-all"
               style={{
                 backgroundColor: "#111318",
-                border: `1px solid ${error ? "#ef4444" : "#2a2d3a"}`,
+                border: `1px solid ${error ? "#ef4444" : "#1e2338"}`,
                 color: "#ffffff",
                 caretColor: "#3b82f6",
               }}
@@ -173,7 +209,7 @@ export default function Activate({ onActivated }) {
                 (e.target.style.borderColor = error ? "#ef4444" : "#3b82f6")
               }
               onBlur={(e) =>
-                (e.target.style.borderColor = error ? "#ef4444" : "#2a2d3a")
+                (e.target.style.borderColor = error ? "#ef4444" : "#1e2338")
               }
             />
           </div>
