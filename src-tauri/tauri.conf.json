@@ -20,6 +20,17 @@
         "minHeight": 600,
         "resizable": true,
         "decorations": true
+      },
+      {
+        "label": "float",
+        "title": "Profile",
+        "url": "float.html",
+        "width": 620,
+        "height": 360,
+        "resizable": false,
+        "decorations": true,
+        "alwaysOnTop": true,
+        "visible": false
       }
     ],
     "security": {
@@ -28,7 +39,15 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"]
+    "targets": ["dmg", "app"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    },
+    "updater": {
+      "active": true,
+      "endpoints": ["https://api.eulivehub.com/update"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMwQkE3QjI4MUU4MEVBMUMKUldRYzZvQWVLSHU2TUtZSHM1L0pEN2hkb0l2TU8reHdGUlJxZis4djRteVU0ZC9KaURjVzFFL2EK"
+    }
   }
 }

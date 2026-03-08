@@ -854,19 +854,79 @@ fn start_background_threads(handle: tauri::AppHandle) {
         }
     });
 
-    // ── Tracking thread (every 30 min, no-op if no API key) ──
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_secs(1800));
-        if let Some(st) = STATE.get() {
-            let api_key = st.db.lock().ok()
-                .and_then(|d| d.get_config("tracking_api_key").ok().flatten())
-                .filter(|k| !k.is_empty());
-            if api_key.is_some() {
-                // Tracking API integration would go here
-                // (AfterShip/Track17 — requires separate implementation)
+    // ── Tracking thread (every 30 min) ──
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(300)); // first check after 5 min
+        loop {
+            if let Some(st) = STATE.get() {
+                let api_key = st.db.lock().ok()
+                    .and_then(|d| d.get_config("tracking_api_key").ok().flatten())
+                    .filter(|k| !k.is_empty());
+                if let Some(key) = api_key {
+                    run_tracking_update(&key);
+                }
             }
+            std::thread::sleep(std::time::Duration::from_secs(1800));
         }
     });
+}
+
+fn run_tracking_update(api_key: &str) {
+    // Get all active orders with tracking numbers
+    let orders = match STATE.get() {
+        Some(st) => st.db.lock().ok()
+            .and_then(|db| db.get_orders_with_tracking().ok())
+            .unwrap_or_default(),
+        None => return,
+    };
+    if orders.is_empty() { return; }
+
+    // Build request body: [{"number": "tracking_num"}]
+    let body: Vec<serde_json::Value> = orders.iter()
+        .filter_map(|(_, num)| num.as_ref())
+        .map(|n| serde_json::json!({ "number": n }))
+        .collect();
+    if body.is_empty() { return; }
+
+    let resp = ureq::post("https://api.17track.net/track/v2.2/gettrackinfo")
+        .set("17token", api_key)
+        .set("Content-Type", "application/json")
+        .timeout(std::time::Duration::from_secs(15))
+        .send_string(&serde_json::json!(body).to_string());
+
+    let data = match resp {
+        Ok(r) => match r.into_json::<serde_json::Value>() {
+            Ok(j) => j,
+            Err(_) => return,
+        },
+        Err(_) => return,
+    };
+
+    let accepted = match data["data"]["accepted"].as_array() {
+        Some(a) => a.clone(),
+        None => return,
+    };
+
+    for item in accepted {
+        let number = match item["number"].as_str() { Some(n) => n, None => continue };
+        let status_str = item["track_info"]["latest_status"]["status"].as_str().unwrap_or("");
+
+        let new_status = match status_str {
+            "Delivered"                              => Some("delivered"),
+            "InTransit" | "Pickup" | "OutForDelivery" => Some("shipped"),
+            "Expired"                                => Some("failed"),
+            _                                        => None,
+        };
+
+        if let Some(status) = new_status {
+            if let Some(st) = STATE.get() {
+                if let Ok(mut db) = st.db.lock() {
+                    // Find order by tracking number and update if status changed
+                    let _ = db.update_order_status_by_tracking(number, status);
+                }
+            }
+        }
+    }
 }
 
 fn main() {
@@ -877,6 +937,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             start_background_threads(app.handle().clone());
             Ok(())

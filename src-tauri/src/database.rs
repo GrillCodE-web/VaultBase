@@ -2140,6 +2140,37 @@ impl Database {
         Ok(())
     }
 
+    /// Returns (order_id, tracking_number) for active orders that have a tracking number
+    pub fn get_orders_with_tracking(&self) -> Result<Vec<(i64, Option<String>)>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, tracking_number FROM orders WHERE tracking_number IS NOT NULL AND tracking_number != '' \
+             AND status NOT IN ('delivered','cancelled','failed') LIMIT 200"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_,i64>(0)?, r.get::<_,Option<String>>(1)?)))
+            .map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+        Ok(rows)
+    }
+
+    /// Update order status by tracking number (used by background tracking thread)
+    pub fn update_order_status_by_tracking(&self, tracking: &str, status: &str) -> Result<(), String> {
+        let id: Option<i64> = self.conn.query_row(
+            "SELECT id FROM orders WHERE tracking_number=?1 AND status NOT IN ('delivered','cancelled','failed') LIMIT 1",
+            params![tracking], |r| r.get(0),
+        ).ok();
+        if let Some(oid) = id {
+            self.conn.execute(
+                "UPDATE orders SET status=?1,updated_at=datetime('now') WHERE id=?2",
+                params![status, oid],
+            ).map_err(|e| e.to_string())?;
+            let _ = self.log_event(
+                "order.tracking_updated",
+                &format!("Order {} → {} (Track17)", oid, status),
+                Some("order"), Some(&oid.to_string()),
+            );
+        }
+        Ok(())
+    }
+
     pub fn run_risk_check(&self, profile_id: &str, shop_id: i64) -> Result<RiskCheckResult, String> {
         let mut warnings = vec![];
         let mut score = 0u32;
