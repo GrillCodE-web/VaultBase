@@ -42,7 +42,7 @@
 | # | Задача | Файл(ы) | Статус |
 |---|--------|---------|--------|
 | D1 | **README: macOS build target** — добавить `cargo tauri build --target aarch64-apple-darwin` в секцию Build | `README.md` | ✅ 2026-03-08 |
-| D2 | **cc-sync-server** — убедиться что сервер (Node.js) деплоится и `/activate`, `/verify`, `/footprint`, `/check` эндпоинты работают на `api.eulivehub.com` | `cc-sync-server/` | ❌ |
+| D2 | **cc-sync-server** — сервер задеплоен на `api.eulivehub.com`. Исправлены форматы: footprint expand, `/footprint/check`, `/version`. Activate.jsx показывает installation_id | `sync.rs`, `Activate.jsx` | ✅ 2026-03-08 |
 
 ---
 
