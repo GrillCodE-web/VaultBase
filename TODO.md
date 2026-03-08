@@ -18,10 +18,10 @@
 
 | # | Задача | Файл(ы) | Статус |
 |---|--------|---------|--------|
-| I1 | **Tracking API** — `tracking_thread` это заглушка, реальных вызовов Track17 / AfterShip нет. Нужно: подключить API, обновлять статус заказа | `src-tauri/src/main.rs` | ❌ |
+| I1 | **Tracking API Track17** — реализован в tracking_thread. POST /gettrackinfo v2.2, маппинг статусов Delivered/InTransit/Expired. Ключ в Settings → `tracking_api_key` | `main.rs`, `database.rs` | ✅ 2026-03-08 |
 | I2 | **Shops: удаление с активными заказами** — нет проверки перед `delete_shop`. Нужно: вернуть ошибку если есть заказы со статусом не `cancelled`/`delivered` | `src-tauri/src/database.rs`, `src/pages/Shops.jsx` | ✅ уже реализовано |
 | I3 | **Cards import UI: skipped count** — backend возвращает кол-во дублей, но UI не показывает "X skipped (duplicates)" в тосте после импорта | `src/pages/Cards.jsx` | ✅ уже реализовано |
-| I4 | **ZIP radius 100 миль** — сейчас работает prefix-match. Для точного радиуса нужна таблица `zip_locations` (~42k US ZIP) + Haversine SQL. Решение: либо добавить, либо закрыть как "prefix достаточно" | `src-tauri/src/database.rs` | ❌ |
+| I4 | **ZIP radius 100 миль** — закрыто: prefix-match достаточно для практического использования. 42k ZIP таблица = overengineering. | — | ✅ закрыто |
 
 ---
 
