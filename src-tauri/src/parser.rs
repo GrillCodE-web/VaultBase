@@ -14,6 +14,55 @@ pub struct ParseResult {
 }
 
 // ─────────────────────────────────────────
+//  US State abbreviations
+// ─────────────────────────────────────────
+
+const US_STATES: &[&str] = &[
+    "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+    "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+    "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+    "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+    "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
+    "DC","PR","VI","GU","AS","MP",
+];
+
+fn is_us_state(s: &str) -> bool {
+    let up = s.to_uppercase();
+    US_STATES.contains(&up.as_str())
+}
+
+// ─────────────────────────────────────────
+//  Street suffixes for billing_address
+// ─────────────────────────────────────────
+
+const STREET_SUFFIXES: &[&str] = &[
+    "ave","avenue","st","street","rd","road","blvd","boulevard",
+    "dr","drive","ln","lane","ct","court","pl","place","way",
+    "circle","cir","terrace","ter","trail","trl","pkwy","parkway",
+    "hwy","highway","n","s","e","w","ne","nw","se","sw",
+];
+
+// ─────────────────────────────────────────
+//  Log-line prefix stripping
+//  Handles: "[2025-10-26 12:48:52] IP: x.x.x.x | Domain: foo.com | Data: <carddata>"
+// ─────────────────────────────────────────
+
+fn strip_log_prefix(line: &str) -> &str {
+    // Look for "| Data: " (case-insensitive search using lowercase)
+    let lower = line.to_lowercase();
+    if let Some(pos) = lower.rfind("| data: ") {
+        return &line[pos + 8..];
+    }
+    if let Some(pos) = lower.find("data: ") {
+        // Only strip if it looks like a log line (starts with '[')
+        if line.trim_start().starts_with('[') {
+            return &line[pos + 6..];
+        }
+    }
+    line
+}
+
+// ─────────────────────────────────────────
 //  Luhn validation
 // ─────────────────────────────────────────
 
@@ -85,7 +134,7 @@ fn parse_expiry(raw: &str) -> Option<String> {
 fn detect_delimiter(raw: &str) -> char {
     let candidates = ['|', '\t', ';', ',', ' '];
     let lines: Vec<&str> = raw.lines()
-        .map(|l| l.trim())
+        .map(|l| strip_log_prefix(l.trim()))
         .filter(|l| !l.is_empty())
         .take(10)
         .collect();
@@ -100,7 +149,6 @@ fn detect_delimiter(raw: &str) -> char {
             .map(|l| l.split(delim).count())
             .collect();
         if counts.iter().all(|&c| c <= 1) { continue; }
-        // Score = how uniform the field counts are (low variance = good)
         let mode = {
             let mut freq = std::collections::HashMap::new();
             for &c in &counts { *freq.entry(c).or_insert(0usize) += 1; }
@@ -115,6 +163,29 @@ fn detect_delimiter(raw: &str) -> char {
 }
 
 // ─────────────────────────────────────────
+//  Billing address heuristic
+// ─────────────────────────────────────────
+
+fn is_billing_address(s: &str) -> bool {
+    let has_digit = s.chars().any(|c| c.is_ascii_digit());
+    let has_alpha = s.chars().any(|c| c.is_alphabetic());
+    if !has_digit || !has_alpha { return false; }
+
+    let words: Vec<&str> = s.split_whitespace().collect();
+    if words.len() < 2 { return false; }
+
+    // First token should start with or be a digit (house number)
+    let first_has_digit = words[0].chars().any(|c| c.is_ascii_digit());
+    if !first_has_digit { return false; }
+
+    // Must contain a known street suffix OR be long enough (3+ words)
+    let has_suffix = words.iter().any(|w| {
+        STREET_SUFFIXES.contains(&w.to_lowercase().as_str())
+    });
+    has_suffix || words.len() >= 3
+}
+
+// ─────────────────────────────────────────
 //  Column type heuristics
 // ─────────────────────────────────────────
 
@@ -122,61 +193,82 @@ fn classify_column(samples: &[&str]) -> String {
     let non_empty: Vec<&str> = samples.iter().copied().filter(|s| !s.is_empty()).collect();
     if non_empty.is_empty() { return "skip".into(); }
 
+    let n = non_empty.len();
+
     // card_number: Luhn valid + 13-19 digits
     let card_hits = non_empty.iter().filter(|s| {
         let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
         d.len() >= 13 && d.len() <= 19 && luhn_valid(s)
     }).count();
-    if card_hits > non_empty.len() / 2 { return "card_number".into(); }
+    if card_hits > n / 2 { return "card_number".into(); }
 
     // expiry: MM/YY-ish patterns
     let exp_hits = non_empty.iter().filter(|s| parse_expiry(s).is_some()).count();
-    if exp_hits > non_empty.len() / 2 { return "expiry_date".into(); }
+    if exp_hits > n / 2 { return "expiry_date".into(); }
 
     // email
     let email_hits = non_empty.iter().filter(|s| s.contains('@') && s.contains('.')).count();
-    if email_hits > non_empty.len() / 2 { return "email".into(); }
+    if email_hits > n / 2 { return "email".into(); }
 
     // ip_address: N.N.N.N
     let ip_hits = non_empty.iter().filter(|s| {
         let parts: Vec<&str> = s.split('.').collect();
         parts.len() == 4 && parts.iter().all(|p| p.parse::<u32>().is_ok())
     }).count();
-    if ip_hits > non_empty.len() / 2 { return "ip_address".into(); }
+    if ip_hits > n / 2 { return "ip_address".into(); }
+
+    // billing_address: "123 Main St" pattern — check BEFORE cvv/phone
+    let addr_hits = non_empty.iter().filter(|s| is_billing_address(s)).count();
+    if addr_hits > n / 2 { return "billing_address".into(); }
 
     // cvv: 3-4 digits only
     let cvv_hits = non_empty.iter().filter(|s| {
         let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
         (d.len() == 3 || d.len() == 4) && *s == &d
     }).count();
-    if cvv_hits > non_empty.len() * 2 / 3 { return "cvv".into(); }
+    if cvv_hits > n * 2 / 3 { return "cvv".into(); }
 
-    // phone: 10+ chars with digits, dashes, parens
+    // phone: 10+ digit chars, total len ≤ 20
     let phone_hits = non_empty.iter().filter(|s| {
         let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
         digits.len() >= 10 && s.len() <= 20
     }).count();
-    if phone_hits > non_empty.len() * 2 / 3 { return "phone".into(); }
+    if phone_hits > n * 2 / 3 { return "phone".into(); }
 
-    // country: 2-letter ISO
-    let country_hits = non_empty.iter().filter(|s| {
+    // 2-letter alphabetic — disambiguate state vs country
+    let two_letter: Vec<&&str> = non_empty.iter().filter(|s| {
         s.len() == 2 && s.chars().all(|c| c.is_ascii_alphabetic())
-    }).count();
-    if country_hits > non_empty.len() * 2 / 3 { return "country".into(); }
+    }).collect();
+    if two_letter.len() > n * 2 / 3 {
+        // Count how many are known US states
+        let state_hits = two_letter.iter().filter(|s| is_us_state(s)).count();
+        if state_hits > two_letter.len() / 2 {
+            return "state".into();
+        }
+        return "country".into();
+    }
 
-    // zip: 5 digits or short numeric
+    // zip: 5 digits or short numeric (4-10 chars)
     let zip_hits = non_empty.iter().filter(|s| {
         let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
         d.len() == s.len() && s.len() >= 4 && s.len() <= 10
     }).count();
-    if zip_hits > non_empty.len() * 2 / 3 { return "zip".into(); }
+    if zip_hits > n * 2 / 3 { return "zip".into(); }
 
-    // holder_name: 2+ words, alpha + spaces
+    // holder_name: 2+ words, alpha + spaces + hyphens
     let name_hits = non_empty.iter().filter(|s| {
         let words: Vec<&str> = s.split_whitespace().collect();
         words.len() >= 2 && words.iter().all(|w| w.chars().all(|c| c.is_alphabetic() || c == '-'))
     }).count();
-    if name_hits > non_empty.len() / 2 { return "holder_name".into(); }
+    if name_hits > n / 2 { return "holder_name".into(); }
+
+    // city: 1+ words, all alpha (+ space/hyphen/period), length >= 3, not 2-letter
+    let city_hits = non_empty.iter().filter(|s| {
+        s.len() >= 3
+            && s.chars().all(|c| c.is_alphabetic() || c == ' ' || c == '-' || c == '.')
+            && !s.trim().is_empty()
+    }).count();
+    if city_hits > n / 2 { return "city".into(); }
 
     "skip".into()
 }
@@ -188,7 +280,7 @@ fn classify_column(samples: &[&str]) -> String {
 pub fn detect_mapping(raw: &str) -> Vec<String> {
     let delim = detect_delimiter(raw);
     let lines: Vec<Vec<&str>> = raw.lines()
-        .map(|l| l.trim())
+        .map(|l| strip_log_prefix(l.trim()))
         .filter(|l| !l.is_empty())
         .take(10)
         .map(|l| l.split(delim).map(|s| s.trim()).collect())
@@ -206,7 +298,7 @@ pub fn detect_mapping(raw: &str) -> Vec<String> {
         mapping.push(classify_column(&samples));
     }
 
-    // Ensure only one card_number column (first wins, rest → skip)
+    // Ensure only one card_number (first wins → rest skip)
     let mut saw_card = false;
     for m in mapping.iter_mut() {
         if m == "card_number" {
@@ -224,7 +316,7 @@ pub fn detect_mapping(raw: &str) -> Vec<String> {
 pub fn mapping_preview(raw: &str) -> MappingPreview {
     let delim = detect_delimiter(raw);
     let rows: Vec<Vec<String>> = raw.lines()
-        .map(|l| l.trim())
+        .map(|l| strip_log_prefix(l.trim()))
         .filter(|l| !l.is_empty())
         .take(5)
         .map(|l| l.split(delim).map(|s| s.trim().to_string()).collect())
@@ -248,12 +340,11 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
     let mut errors  = Vec::new();
 
     for (line_no, line) in raw.lines().enumerate() {
-        let line = line.trim();
+        let line = strip_log_prefix(line.trim());
         if line.is_empty() { continue; }
 
         let parts: Vec<&str> = line.split(delim).map(|s| s.trim()).collect();
 
-        // Build a CardInput from mapping
         let mut input = CardInput {
             source: source.to_string(),
             ..Default::default()
@@ -267,7 +358,6 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
 
             match field.as_str() {
                 "card_number" => {
-                    // Strip spaces, dashes
                     let clean: String = val.chars().filter(|c| c.is_ascii_digit()).collect();
                     if luhn_valid(&clean) {
                         input.card_number = clean;
@@ -294,7 +384,6 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
         }
 
         if !has_card_number {
-            // Only count as skipped if we didn't already count an error above
             if !errors.last().map(|e: &String| e.starts_with(&format!("Line {}:", line_no+1))).unwrap_or(false) {
                 errors.push(format!("Line {}: missing card_number", line_no+1));
                 skipped += 1;

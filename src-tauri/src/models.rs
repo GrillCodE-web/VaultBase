@@ -1,7 +1,8 @@
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 
 // ─────────────────────────────────────────
-//  Core domain models
+//  Cards (M02)
 // ─────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -50,38 +51,162 @@ pub struct CardDecrypted {
     pub created_at: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CardFilter {
+    pub status: Option<String>,
+    pub source: Option<String>,
+    pub bank_name: Option<String>,
+    pub card_type: Option<String>,
+    pub country: Option<String>,
+    pub state: Option<String>,
+    pub zip_prefix: Option<String>,
+    pub search: Option<String>,
+    pub bin: Option<String>,
+    pub expiring_soon: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct CardInput {
+    pub card_number: String,
+    pub expiry_date: Option<String>,
+    pub cvv: Option<String>,
+    pub holder_name: Option<String>,
+    pub billing_address: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub zip: Option<String>,
+    pub country: Option<String>,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub ip_address: Option<String>,
+    pub source: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedCards {
+    pub items: Vec<Card>,
+    pub total: u32,
+    pub free_total: u32,
+    pub page: u32,
+    pub per_page: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MappingPreview {
+    pub preview_rows: Vec<Vec<String>>,
+    pub detected_mapping: Vec<String>,
+}
+
+// ─────────────────────────────────────────
+//  Profiles + Drops (M03)
+// ─────────────────────────────────────────
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Profile {
     pub id: String,
     pub card_id: i64,
     pub notes: Option<String>,
     pub created_at: String,
+    pub updated_at: String,
+    // Joined from credit_cards
+    pub bin: Option<String>,
+    pub last4: Option<String>,
+    pub bank_name: Option<String>,
+    pub card_type: Option<String>,
+    pub country: Option<String>,
+    pub card_status: Option<String>,
+    pub holder_masked: Option<String>,
+    // Aggregates
+    pub drop_count: i64,
+    pub order_count: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProfileDetail {
+// Internal row used during query_map before masking
+pub(crate) struct ProfileRow {
     pub id: String,
     pub card_id: i64,
     pub notes: Option<String>,
     pub created_at: String,
-    pub card: Option<Card>,
-    pub drops: Vec<Drop>,
-    pub orders: Vec<Order>,
+    pub updated_at: String,
+    pub bin: Option<String>,
+    pub last4: Option<String>,
+    pub bank_name: Option<String>,
+    pub card_type: Option<String>,
+    pub country: Option<String>,
+    pub card_status: Option<String>,
+    pub holder_name_enc: Option<String>,
+    pub drop_count: i64,
+    pub order_count: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Drop {
     pub id: i64,
     pub profile_id: String,
-    pub recipient_name: Option<String>,
-    pub address: Option<String>,
-    pub city: Option<String>,
+    pub recipient_name: String,
+    pub address: String,
+    pub city: String,
     pub state: Option<String>,
-    pub zip: Option<String>,
-    pub country: Option<String>,
+    pub zip: String,
+    pub country: String,
     pub phone: Option<String>,
     pub is_primary: bool,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DropInput {
+    pub recipient_name: String,
+    pub address: String,
+    pub city: String,
+    pub state: String,
+    pub zip: String,
+    pub country: String,
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ProfileFilter {
+    pub has_drop: Option<bool>,
+    pub search: Option<String>,
+    pub card_status: Option<String>,  // "free" | "in_use" | "dead" | "archive"
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedProfiles {
+    pub items: Vec<Profile>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub total_pages: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProfileDetail {
+    pub profile: Profile,
+    pub card: CardDecrypted,
+    pub drops: Vec<Drop>,
+    pub orders: Vec<OrderSummary>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OrderSummary {
+    pub id: i64,
+    pub status: String,
+    pub shop_name: Option<String>,
+    pub total_amount: Option<f64>,
+    pub tracking_number: Option<String>,
+    pub created_at: String,
+}
+
+// ─────────────────────────────────────────
+//  Email Pool + Proxies (M04)
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ShopRef {
+    pub id: i64,
+    pub name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -89,10 +214,27 @@ pub struct EmailPoolEntry {
     pub id: i64,
     pub email: String,
     pub label: Option<String>,
-    pub imap_account_id: Option<i64>,
-    pub is_blocked: bool,
     pub notes: Option<String>,
+    pub is_blocked: bool,
+    pub imap_account_id: Option<i64>,
+    pub shops_used: Vec<ShopRef>,
     pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct EmailFilter {
+    pub is_blocked: Option<bool>,
+    pub is_used: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedEmails {
+    pub items: Vec<EmailPoolEntry>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub total_pages: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -100,12 +242,60 @@ pub struct Proxy {
     pub id: i64,
     pub host: String,
     pub port: i64,
-    pub username: Option<String>,
     pub proxy_type: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
     pub label: Option<String>,
-    pub is_blocked: bool,
     pub notes: Option<String>,
+    pub is_blocked: bool,
+    pub shops_used: Vec<ShopRef>,
     pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProxyInput {
+    pub host: String,
+    pub port: i64,
+    pub proxy_type: String,
+    pub username: String,
+    pub password: String,
+    pub label: String,
+    pub notes: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ProxyFilter {
+    pub is_blocked: Option<bool>,
+    pub is_used: Option<bool>,
+    pub proxy_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedProxies {
+    pub items: Vec<Proxy>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub total_pages: u32,
+}
+
+// ─────────────────────────────────────────
+//  Shops + Products (M05)
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ShopInput {
+    pub name: String,
+    pub url: String,
+    pub category: String,
+    pub notes: String,
+    pub requires_cvv_match: bool,
+    pub blocks_vpn: bool,
+    pub phone_must_match: bool,
+    pub accepts_amex: bool,
+    pub requires_avs: bool,
+    pub high_cancel_risk: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -113,7 +303,7 @@ pub struct Shop {
     pub id: i64,
     pub name: String,
     pub domain: String,
-    pub url: Option<String>,
+    pub url: String,
     pub category: Option<String>,
     pub notes: Option<String>,
     pub requires_cvv_match: bool,
@@ -122,55 +312,196 @@ pub struct Shop {
     pub accepts_amex: bool,
     pub requires_avs: bool,
     pub high_cancel_risk: bool,
+    // Computed stats
+    pub total_orders: i64,
+    pub delivered: i64,
+    pub declined: i64,
+    pub success_rate: f64,
+    pub avg_order_value: f64,
     pub created_at: String,
+    pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ShopStats {
+    pub total: i64,
+    pub pending: i64,
+    pub processing: i64,
+    pub shipped: i64,
+    pub delivered: i64,
+    pub declined: i64,
+    pub cancelled: i64,
+    pub success_rate: f64,
+    pub decline_rate: f64,
+    pub avg_order_value: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ShopDetail {
     pub shop: Shop,
+    pub stats: ShopStats,
+    pub recent_orders: Vec<OrderSummary>,
     pub products: Vec<Product>,
-    pub recent_orders: Vec<Order>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedShops {
+    pub items: Vec<Shop>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub total_pages: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Product {
     pub id: i64,
     pub shop_id: i64,
+    pub asin: Option<String>,
     pub name: String,
-    pub price: f64,
-    pub sku: Option<String>,
+    pub amazon_price: Option<f64>,
+    pub shop_price: Option<f64>,
+    pub margin: Option<f64>,
+    pub url: Option<String>,
     pub notes: Option<String>,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProductInput {
+    pub asin: String,
+    pub name: String,
+    pub amazon_price: Option<f64>,
+    pub shop_price: Option<f64>,
+    pub url: String,
+    pub notes: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Suggestion {
+    pub level: String,
+    pub message: String,
+}
+
+// ─────────────────────────────────────────
+//  Orders + Risk (M06)
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct OrderItemInput {
+    pub name: String,
+    pub sku: String,
+    pub qty: i64,
+    pub price: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct OrderInput {
+    pub profile_id: String,
+    pub shop_id: i64,
+    pub drop_id: i64,
+    pub email_pool_id: Option<i64>,
+    pub proxy_id: Option<i64>,
+    pub order_number: Option<String>,
+    pub notes: Option<String>,
+    pub items: Vec<OrderItemInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Order {
     pub id: i64,
     pub profile_id: String,
-    pub shop_id: Option<i64>,
-    pub drop_id: Option<i64>,
+    pub shop_id: i64,
+    pub drop_id: i64,
     pub email_pool_id: Option<i64>,
     pub proxy_id: Option<i64>,
     pub order_number: Option<String>,
     pub status: String,
-    pub items: Option<String>,
     pub total_amount: Option<f64>,
     pub tracking_number: Option<String>,
     pub carrier: Option<String>,
     pub notes: Option<String>,
+    pub items_json: Option<String>,
+    // Joined
+    pub card_id: Option<i64>,
+    pub shop_name: Option<String>,
+    pub holder_masked: Option<String>,
+    pub last4: Option<String>,
+    pub bank_name: Option<String>,
+    // Joined extras
+    pub proxy_label: Option<String>,
+    pub email_addr: Option<String>,
+    // Flags
+    pub pending_too_long: bool,
+    pub card_expiring: bool,
+    pub bin_declined_here: bool,
     pub created_at: String,
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OrderDetail {
-    pub order: Order,
-    pub profile: Option<Profile>,
-    pub shop: Option<Shop>,
-    pub drop: Option<Drop>,
-    pub email: Option<EmailPoolEntry>,
-    pub proxy: Option<Proxy>,
+pub type OrderDetail = Order;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedOrders {
+    pub items: Vec<Order>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub total_pages: u32,
 }
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct OrderFilter {
+    pub status: Option<String>,
+    pub shop_id: Option<i64>,
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
+    pub search: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct StatusMeta {
+    pub tracking_number: Option<String>,
+    pub carrier: Option<String>,
+    pub order_number: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RiskCheckResult {
+    pub level: String,
+    pub score: u32,
+    pub warnings: Vec<RiskWarning>,
+    pub offline: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RiskWarning {
+    pub kind: String,
+    pub severity: String,
+    pub message: String,
+    pub related_order_id: Option<i64>,
+    pub related_order_status: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OrderTemplate {
+    pub id: i64,
+    pub name: String,
+    pub shop_tag: Option<String>,
+    pub items_json: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SaveTemplateInput {
+    pub name: String,
+    pub shop_tag: Option<String>,
+    pub items_json: String,
+}
+
+// ─────────────────────────────────────────
+//  IMAP (M10)
+// ─────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImapAccount {
@@ -188,11 +519,55 @@ pub struct ImapAccount {
 pub struct ImapMessage {
     pub id: i64,
     pub account_id: i64,
+    pub message_uid: Option<String>,
     pub subject: Option<String>,
-    pub from_addr: Option<String>,
-    pub body_preview: Option<String>,
+    pub from_email: Option<String>,
     pub received_at: Option<String>,
+    pub extracted_order_number: Option<String>,
+    pub extracted_tracking: Option<String>,
+    pub action_taken: Option<String>,
+    pub processed: bool,
+    pub created_at: String,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImapInput {
+    pub label: String,
+    pub host: String,
+    pub port: i64,
+    pub login: String,
+    pub password: String,
+    pub poll_interval: i64,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ImapMsgFilter {
+    pub account_id: Option<i64>,
+    pub processed: Option<bool>,
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImapCheckResult {
+    pub accounts_checked: u32,
+    pub messages_found: u32,
+    pub orders_updated: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedMessages {
+    pub items: Vec<ImapMessage>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub pages: u32,
+}
+
+// ─────────────────────────────────────────
+//  Footprints + Activity Log
+// ─────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Footprint {
@@ -221,126 +596,7 @@ pub struct ActivityLog {
     pub created_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OrderTemplate {
-    pub id: i64,
-    pub name: String,
-    pub shop_tag: Option<String>,
-    pub items: Option<String>,
-    pub created_at: String,
-}
-
-// ─────────────────────────────────────────
-//  Input / DTO structures
-// ─────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DropInput {
-    pub recipient_name: Option<String>,
-    pub address: Option<String>,
-    pub city: Option<String>,
-    pub state: Option<String>,
-    pub zip: Option<String>,
-    pub country: Option<String>,
-    pub phone: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProxyInput {
-    pub host: String,
-    pub port: i64,
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub proxy_type: String,
-    pub label: Option<String>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ShopInput {
-    pub name: String,
-    pub domain: String,
-    pub url: Option<String>,
-    pub category: Option<String>,
-    pub notes: Option<String>,
-    pub requires_cvv_match: bool,
-    pub blocks_vpn: bool,
-    pub phone_must_match: bool,
-    pub accepts_amex: bool,
-    pub requires_avs: bool,
-    pub high_cancel_risk: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProductInput {
-    pub name: String,
-    pub price: f64,
-    pub sku: Option<String>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OrderInput {
-    pub profile_id: String,
-    pub shop_id: Option<i64>,
-    pub drop_id: Option<i64>,
-    pub email_pool_id: Option<i64>,
-    pub proxy_id: Option<i64>,
-    pub order_number: Option<String>,
-    pub items: Option<String>,
-    pub total_amount: Option<f64>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct StatusMeta {
-    pub tracking_number: Option<String>,
-    pub carrier: Option<String>,
-    pub notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImapInput {
-    pub label: String,
-    pub host: String,
-    pub port: i64,
-    pub login: String,
-    pub password: String,
-    pub poll_interval: i64,
-}
-
-// ─────────────────────────────────────────
-//  Filter structures
-// ─────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct CardFilter {
-    pub status: Option<String>,
-    pub source: Option<String>,
-    pub bank_name: Option<String>,
-    pub card_type: Option<String>,
-    pub country: Option<String>,
-    pub search: Option<String>,
-    pub bin: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct ProfileFilter {
-    pub search: Option<String>,
-    pub has_orders: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct OrderFilter {
-    pub status: Option<String>,
-    pub shop_id: Option<i64>,
-    pub profile_id: Option<String>,
-    pub from_date: Option<String>,
-    pub to_date: Option<String>,
-    pub search: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LogFilter {
     pub event_type: Option<String>,
     pub entity_type: Option<String>,
@@ -348,157 +604,12 @@ pub struct LogFilter {
     pub to_date: Option<String>,
 }
 
-// ─────────────────────────────────────────
-//  Result / paginated structures
-// ─────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ImportResult {
-    pub total: u32,
-    pub imported: u32,
-    pub skipped: u32,
-    pub errors: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PaginatedCards {
-    pub items: Vec<Card>,
-    pub total: u32,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PaginatedProfiles {
-    pub items: Vec<Profile>,
-    pub total: u32,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PaginatedEmails {
-    pub items: Vec<EmailPoolEntry>,
-    pub total: u32,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PaginatedProxies {
-    pub items: Vec<Proxy>,
-    pub total: u32,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PaginatedShops {
-    pub items: Vec<Shop>,
-    pub total: u32,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PaginatedOrders {
-    pub items: Vec<Order>,
-    pub total: u32,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PaginatedMessages {
-    pub items: Vec<ImapMessage>,
-    pub total: u32,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PaginatedLog {
     pub items: Vec<ActivityLog>,
     pub total: u32,
     pub page: u32,
     pub per_page: u32,
-}
-
-// ─────────────────────────────────────────
-//  Analytics / Dashboard
-// ─────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DashboardStats {
-    pub total_cards: u32,
-    pub cards_free: u32,
-    pub cards_in_use: u32,
-    pub cards_dead: u32,
-    pub total_profiles: u32,
-    pub total_orders: u32,
-    pub orders_pending: u32,
-    pub orders_success: u32,
-    pub orders_failed: u32,
-    pub total_shops: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct HeatmapCell {
-    pub date: String,
-    pub count: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct BankStats {
-    pub bank_name: String,
-    pub count: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CountryStats {
-    pub country: String,
-    pub count: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SourceStats {
-    pub source: String,
-    pub count: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ExpiringCard {
-    pub id: i64,
-    pub last4: Option<String>,
-    pub expiry_date: String,
-    pub holder_name: Option<String>,
-    pub days_remaining: i64,
-}
-
-// ─────────────────────────────────────────
-//  Risk / Suggestions
-// ─────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RiskCheckResult {
-    pub score: u32,
-    pub level: String, // low | medium | high | critical
-    pub flags: Vec<RiskFlag>,
-    pub recommendation: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RiskFlag {
-    pub code: String,
-    pub message: String,
-    pub severity: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Suggestion {
-    pub suggestion_type: String,
-    pub message: String,
-    pub data: Option<serde_json::Value>,
 }
 
 // ─────────────────────────────────────────
@@ -516,68 +627,142 @@ pub struct BinInfo {
 }
 
 // ─────────────────────────────────────────
+//  Import result
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImportResult {
+    pub total: u32,
+    pub imported: u32,
+    pub skipped: u32,
+    pub errors: Vec<String>,
+}
+
+// ─────────────────────────────────────────
 //  Sync
 // ─────────────────────────────────────────
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SyncResult {
     pub synced: u32,
     pub failed: u32,
     pub message: String,
-}
-
-// ─────────────────────────────────────────
-//  License
-// ─────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LicenseStatus {
-    pub is_active: bool,
-    pub license_key: Option<String>,
-    pub expires_at: Option<String>,
-    pub plan: Option<String>,
-    pub installation_id: String,
+    pub server_reached: bool,
 }
 
 // ─────────────────────────────────────────
 //  Global Search
 // ─────────────────────────────────────────
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResults {
-    pub cards: Vec<Card>,
-    pub profiles: Vec<Profile>,
-    pub orders: Vec<Order>,
-    pub shops: Vec<Shop>,
+    pub cards: Vec<serde_json::Value>,
+    pub profiles: Vec<serde_json::Value>,
+    pub orders: Vec<serde_json::Value>,
+    pub shops: Vec<serde_json::Value>,
+    pub emails: Vec<serde_json::Value>,
+    pub proxies: Vec<serde_json::Value>,
 }
 
 // ─────────────────────────────────────────
-//  Card import input
-// ─────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct CardInput {
-    pub card_number: String,
-    pub expiry_date: Option<String>,
-    pub cvv: Option<String>,
-    pub holder_name: Option<String>,
-    pub billing_address: Option<String>,
-    pub city: Option<String>,
-    pub state: Option<String>,
-    pub zip: Option<String>,
-    pub country: Option<String>,
-    pub phone: Option<String>,
-    pub email: Option<String>,
-    pub ip_address: Option<String>,
-    pub source: String,
-}
-
-// ─────────────────────────────────────────
-//  Mapping preview
+//  Analytics / Dashboard (M09)
 // ─────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MappingPreview {
-    pub preview_rows: Vec<Vec<String>>,
-    pub detected_mapping: Vec<String>,
+pub struct Alert {
+    pub level: String,
+    pub message: String,
+    pub action: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DashboardStats {
+    pub total_cc: i64,
+    pub free_cc: i64,
+    pub in_use_cc: i64,
+    pub dead_cc: i64,
+    pub total_profiles: i64,
+    pub no_drop_profiles: i64,
+    pub total_orders: i64,
+    pub pending: i64,
+    pub shipped: i64,
+    pub delivered: i64,
+    pub declined: i64,
+    pub revenue: f64,
+    pub net_profit: f64,
+    pub orders_trend: Option<f64>,
+    pub revenue_trend: Option<f64>,
+    pub delivered_trend: Option<f64>,
+    pub alerts: Vec<Alert>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RevenuePoint {
+    pub date: String,
+    pub revenue: f64,
+    pub profit: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HeatmapCell {
+    pub bank: String,
+    pub shop: String,
+    pub total: i64,
+    pub shipped: i64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BankStats {
+    pub bank_name: String,
+    pub total_cards: i64,
+    pub free_cards: i64,
+    pub dead_cards: i64,
+    pub total_orders: i64,
+    pub shipped: i64,
+    pub declined: i64,
+    pub revenue: f64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CountryStats {
+    pub country: String,
+    pub total_cards: i64,
+    pub free_cards: i64,
+    pub total_orders: i64,
+    pub revenue: f64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SourceStats {
+    pub source: String,
+    pub total_cards: i64,
+    pub free_cards: i64,
+    pub dead_cards: i64,
+    pub total_orders: i64,
+    pub revenue: f64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ExpiringCard {
+    pub id: i64,
+    pub last4: Option<String>,
+    pub expiry_date: String,
+    pub holder_name: Option<String>,
+    pub days_left: i64,
+    pub has_profile: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SidebarBadges {
+    pub pending_orders: i64,
+    pub expiring_cards: i64,
+    pub no_drop_profiles: i64,
+    pub clean_emails: i64,
+    pub unread_imap: i64,
+    pub unsynced_footprints: i64,
 }
