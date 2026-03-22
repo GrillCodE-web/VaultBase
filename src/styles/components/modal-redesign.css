@@ -1,0 +1,438 @@
+/* ═══════════════════════════════════════════════════════════
+   MODAL — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Modal Overlay ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.90);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: overlay-fade 0.2s ease;
+}
+
+@supports not (backdrop-filter: blur(8px)) {
+  .modal-overlay {
+    background: rgba(0, 0, 0, 0.95);
+  }
+}
+
+/* ── Modal Container ────────────────────────────────────── */
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r-lg);
+  width: 600px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 28px;
+  animation: modal-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-lg), 0 0 40px rgba(0, 217, 255, 0.1);
+  position: relative;
+}
+
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-accent);
+  opacity: 0.4;
+}
+
+/* ── Modal Title ────────────────────────────────────────── */
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.02em;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--gradient-accent);
+  border-radius: 2px;
+  margin-right: 12px;
+}
+
+/* ── Modal Close Button ─────────────────────────────────── */
+.modal-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.modal-close:hover {
+  background: var(--hover);
+  border-color: var(--border-hi);
+  color: var(--text);
+  transform: rotate(90deg);
+}
+
+/* ── Modal Body ─────────────────────────────────────────── */
+.modal-body {
+  margin-bottom: 24px;
+}
+
+/* ── Modal Footer ───────────────────────────────────────── */
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Global Search Overlay ──────────────────────────────── */
+.search-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 100px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  animation: overlay-fade 0.2s ease;
+}
+
+/* ── Search Box ─────────────────────────────────────────── */
+.search-box-wrap {
+  width: 100%;
+  max-width: 640px;
+  background: var(--card);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg), 0 0 60px rgba(0, 217, 255, 0.15);
+  animation: modal-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.search-box-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-accent);
+  opacity: 0.5;
+}
+
+/* ── Search Input Row ───────────────────────────────────── */
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.search-input-row svg {
+  color: var(--accent-text);
+  flex-shrink: 0;
+}
+
+.search-main-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+  font-weight: 500;
+}
+
+.search-main-input::placeholder {
+  color: var(--muted);
+}
+
+/* ── Search Results ─────────────────────────────────────── */
+.search-results {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.search-section-label {
+  padding: 10px 20px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: 'JetBrains Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-section-label::before {
+  content: '';
+  width: 12px;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+.search-result-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+  transition: all var(--t-fast);
+  border-left: 2px solid transparent;
+}
+
+.search-result-row:hover {
+  background: rgba(0, 217, 255, 0.05);
+  border-left-color: var(--accent);
+}
+
+.search-result-type {
+  font-size: 10px;
+  color: var(--muted);
+  width: 50px;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.search-result-text {
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-weight: 500;
+}
+
+.search-result-status {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.search-empty {
+  padding: 48px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+  font-family: 'Manrope', sans-serif;
+}
+
+/* ── Search Footer ──────────────────────────────────────── */
+.search-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'Manrope', sans-serif;
+}
+
+.search-kbd {
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-2);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Confirmation Dialog ────────────────────────────────── */
+.confirm-dialog {
+  width: 440px;
+  max-width: 90vw;
+}
+
+.confirm-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
+}
+
+.confirm-icon.danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--red-t);
+}
+
+.confirm-text {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: 24px;
+  font-family: 'Manrope', sans-serif;
+}
+
+/* ── Toast Notifications ────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--card);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  min-width: 320px;
+  max-width: 420px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: all;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--accent);
+}
+
+.toast.success::before {
+  background: var(--green);
+}
+
+.toast.error::before {
+  background: var(--red);
+}
+
+.toast.warning::before {
+  background: var(--yellow);
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--accent-text);
+}
+
+.toast.success .toast-icon {
+  color: var(--green-t);
+}
+
+.toast.error .toast-icon {
+  color: var(--red-t);
+}
+
+.toast.warning .toast-icon {
+  color: var(--yellow-t);
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.toast-message {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.4;
+  font-family: 'Manrope', sans-serif;
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  animation: toast-progress 3s linear forwards;
+}
+
+.toast.success .toast-progress {
+  background: var(--green);
+}
+
+.toast.error .toast-progress {
+  background: var(--red);
+}
+
+.toast.warning .toast-progress {
+  background: var(--yellow);
+}

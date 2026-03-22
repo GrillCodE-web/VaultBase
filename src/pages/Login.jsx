@@ -41,17 +41,14 @@ function PasswordInput({ value, onChange, placeholder, onKeyDown, autoFocus, id 
         autoFocus={autoFocus}
         autoComplete="off"
         spellCheck={false}
-        className="w-full bg-[#0f1117] border border-[#2d3148] rounded-lg
-                   px-4 py-3 pr-11 text-sm text-[#e2e8f0] placeholder-[#4b5563]
-                   focus:outline-none focus:border-[#a855f7] focus:ring-1 focus:ring-[#a855f7]
-                   transition-colors"
+        className="auth-input"
+        style={{ paddingRight: 44 }}
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setShow(v => !v)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4b5563]
-                   hover:text-[#94a3b8] transition-colors"
+        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}
       >
         {show ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
@@ -63,11 +60,8 @@ function PasswordInput({ value, onChange, placeholder, onKeyDown, autoFocus, id 
 
 function Req({ met, label }) {
   return (
-    <div className={`flex items-center gap-2 text-xs transition-colors
-                     ${met ? "text-[#22c55e]" : "text-[#6b7280]"}`}>
-      {met
-        ? <Check size={12} className="shrink-0" />
-        : <X size={12} className="shrink-0" />}
+    <div className={met ? "auth-req-row auth-req-ok" : "auth-req-row auth-req-no"}>
+      {met ? <Check size={12} className="shrink-0" /> : <X size={12} className="shrink-0" />}
       <span>{label}</span>
     </div>
   );
@@ -86,17 +80,18 @@ export default function Login({ onUnlocked }) {
 
   // Check initial state
   useEffect(() => {
-    invoke("get_config", { key: "master_password_hash" })
+    invoke("is_password_set")
       .then(val => setMode(val ? "unlock" : "setup"))
       .catch(() => setMode("setup"));
   }, []);
 
   // Derived requirement states
   const reqs = {
-    length: password.length >= 12,
-    upper:  /[A-Z]/.test(password),
-    lower:  /[a-z]/.test(password),
-    digit:  /\d/.test(password),
+    length:  password.length >= 12,
+    upper:   /[A-Z]/.test(password),
+    lower:   /[a-z]/.test(password),
+    digit:   /\d/.test(password),
+    special: /[^a-zA-Z0-9]/.test(password),
   };
   const reqsMet = Object.values(reqs).every(Boolean);
   const strength = calcStrength(password);
@@ -138,42 +133,31 @@ export default function Login({ onUnlocked }) {
 
   if (mode === "loading") {
     return (
-      <div className="w-screen h-screen bg-[#0f1117] flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-[#a855f7] border-t-transparent rounded-full animate-spin" />
+      <div style={{ width: "100vw", height: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 24, height: 24, border: "2px solid #3b82f6", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
       </div>
     );
   }
 
   return (
-    <div className="w-screen h-screen bg-[#0f1117] flex items-center justify-center">
-      {/* Background subtle grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_#1a1d2740_0%,_transparent_70%)]" />
-
-      <div className="relative w-full max-w-md mx-4">
+    <div className="auth-screen">
+      <div className="auth-bg-glow" />
+      <div style={{ position: "relative", width: "100%", maxWidth: 400, margin: "0 16px" }}>
         {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#7c3aed]
-                          flex items-center justify-center mb-4 shadow-lg shadow-purple-900/30">
-            {mode === "unlock"
-              ? <Lock size={24} className="text-white" />
-              : <CreditCard size={24} className="text-white" />}
+        <div className="auth-logo-wrap">
+          <div className="auth-logo-icon">
+            {mode === "unlock" ? <Lock size={24} className="text-white" /> : <CreditCard size={24} className="text-white" />}
           </div>
-          <h1 className="text-2xl font-bold text-[#e2e8f0] tracking-tight">
-            {t(mode === "setup" ? "auth_setup_title" : "auth_unlock_title")}
-          </h1>
-          <p className="text-sm text-[#6b7280] mt-1 text-center">
-            {t(mode === "setup" ? "auth_setup_subtitle" : "auth_unlock_subtitle")}
-          </p>
+          <h1 className="auth-title">{t(mode === "setup" ? "auth_setup_title" : "auth_unlock_title")}</h1>
+          <p className="auth-sub">{t(mode === "setup" ? "auth_setup_subtitle" : "auth_unlock_subtitle")}</p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#1a1d27] border border-[#2d3148] rounded-2xl p-6 shadow-2xl">
+        <div className="auth-card">
 
           {/* Password field */}
-          <div className="mb-4">
-            <label className="block text-xs font-medium text-[#94a3b8] mb-1.5">
-              {t("auth_password_label")}
-            </label>
+          <div className="form-group">
+            <label className="auth-label">{t("auth_password_label")}</label>
             <PasswordInput
               id="password"
               value={password}
@@ -186,17 +170,20 @@ export default function Login({ onUnlocked }) {
 
           {/* Strength bar (setup only) */}
           {mode === "setup" && password.length > 0 && (
-            <div className="mb-4">
-              <div className="flex gap-1 mb-1">
-                {[0,1,2,3].map(i => (
-                  <div
-                    key={i}
-                    className={`h-1 flex-1 rounded-full transition-all duration-300
-                                ${i < strength ? sm.color : "bg-[#2d3148]"}`}
-                  />
-                ))}
+            <div className="form-group">
+              <div className="auth-strength-bar">
+                {[0,1,2,3].map(i => {
+                  const colors = ["#ef4444","#ef4444","#eab308","#4ade80","#22c55e"];
+                  return (
+                    <div
+                      key={i}
+                      className="auth-strength-seg"
+                      style={{ background: i < strength ? colors[strength] : "var(--border)" }}
+                    />
+                  );
+                })}
               </div>
-              <p className={`text-xs ${sm.color.replace("bg-", "text-")}`}>
+              <p style={{ fontSize: 11, color: ["#ef4444","#ef4444","#eab308","#4ade80","#22c55e"][strength] }}>
                 {t(sm.label)}
               </p>
             </div>
@@ -204,23 +191,22 @@ export default function Login({ onUnlocked }) {
 
           {/* Requirements (setup only) */}
           {mode === "setup" && (
-            <div className="mb-4 p-3 bg-[#0f1117] rounded-lg">
-              <p className="text-xs text-[#6b7280] mb-2">{t("auth_req_title")}</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                <Req met={reqs.length} label={t("auth_req_length")} />
-                <Req met={reqs.upper}  label={t("auth_req_upper")}  />
-                <Req met={reqs.lower}  label={t("auth_req_lower")}  />
-                <Req met={reqs.digit}  label={t("auth_req_digit")}  />
+            <div className="auth-reqs form-group">
+              <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{t("auth_req_title")}</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                <Req met={reqs.length}  label={t("auth_req_length")}  />
+                <Req met={reqs.upper}   label={t("auth_req_upper")}   />
+                <Req met={reqs.lower}   label={t("auth_req_lower")}   />
+                <Req met={reqs.digit}   label={t("auth_req_digit")}   />
+                <Req met={reqs.special} label={t("auth_req_special")} />
               </div>
             </div>
           )}
 
           {/* Confirm password (setup only) */}
           {mode === "setup" && (
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-[#94a3b8] mb-1.5">
-                {t("auth_confirm_label")}
-              </label>
+            <div className="form-group">
+              <label className="auth-label">{t("auth_confirm_label")}</label>
               <PasswordInput
                 id="confirm"
                 value={confirm}
@@ -232,26 +218,15 @@ export default function Login({ onUnlocked }) {
           )}
 
           {/* Error */}
-          {error && (
-            <div className="mb-4 px-3 py-2 bg-[#ef444420] border border-[#ef4444] rounded-lg
-                            text-sm text-[#ef4444]">
-              {error}
-            </div>
-          )}
+          {error && <div className="auth-error">{error}</div>}
 
           {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={loading || (mode === "setup" && (!reqsMet || password !== confirm))}
-            className="w-full py-3 rounded-lg text-sm font-semibold text-white
-                       bg-gradient-to-r from-[#a855f7] to-[#7c3aed]
-                       hover:from-[#b366f8] hover:to-[#8b45f0]
-                       disabled:opacity-40 disabled:cursor-not-allowed
-                       transition-all duration-200 flex items-center justify-center gap-2"
+            className="auth-btn"
           >
-            {loading && (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            )}
+            {loading && <div className="auth-spinner" style={{ display: "inline-block", marginRight: 8, verticalAlign: "middle" }} />}
             {loading
               ? t(mode === "setup" ? "auth_btn_creating" : "auth_btn_unlocking")
               : t(mode === "setup" ? "auth_btn_create"   : "auth_btn_unlock")}
@@ -259,10 +234,7 @@ export default function Login({ onUnlocked }) {
 
           {/* No-recovery warning (setup only) */}
           {mode === "setup" && (
-            <div className="mt-4 px-3 py-2.5 bg-[#eab30815] border border-[#eab30840]
-                            rounded-lg text-xs text-[#eab308] leading-relaxed">
-              {t("auth_warning_no_recovery")}
-            </div>
+            <div className="auth-warning">{t("auth_warning_no_recovery")}</div>
           )}
         </div>
       </div>
@@ -274,9 +246,10 @@ export default function Login({ onUnlocked }) {
 
 function parseError(err, t) {
   const msg = typeof err === "string" ? err : String(err);
-  if (msg.includes("wrong_password"))    return t("auth_err_wrong");
-  if (msg.includes("password_too_weak")) return t("auth_err_too_weak");
-  if (msg.includes("mismatch"))          return t("auth_err_mismatch");
-  if (msg.includes("database_locked"))   return t("auth_err_locked");
+  if (msg.includes("wrong_password"))      return t("auth_err_wrong");
+  if (msg.includes("password_too_weak"))   return t("auth_err_too_weak");
+  if (msg.includes("password_already_set")) return t("auth_err_already_set");
+  if (msg.includes("mismatch"))            return t("auth_err_mismatch");
+  if (msg.includes("database_locked"))     return t("auth_err_locked");
   return t("auth_err_generic");
 }

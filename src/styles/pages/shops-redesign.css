@@ -1,0 +1,300 @@
+/* ═══════════════════════════════════════════════════════════
+   SHOPS PAGE — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Shop Card ──────────────────────────────────────────── */
+.shop-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  margin-bottom: 12px;
+  transition: all var(--t-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.shop-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--gradient-accent);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.shop-card:hover {
+  border-color: var(--border-hi);
+  background: var(--card-hi);
+}
+
+.shop-card:hover::before {
+  opacity: 0.8;
+}
+
+/* ── Shop Header ────────────────────────────────────────── */
+.shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.shop-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shop-url {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 4px;
+}
+
+/* ── Shop Stats Grid ────────────────────────────────────── */
+.shop-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.shop-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  text-align: center;
+  transition: all var(--t-fast);
+}
+
+.shop-stat:hover {
+  background: var(--card-hi);
+  border-color: var(--border-hi);
+}
+
+.shop-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.shop-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* ── Flag Pills ─────────────────────────────────────────── */
+.flag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.flag-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+}
+
+/* ── Risk Badge ─────────────────────────────────────────── */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+}
+
+.risk-badge.high {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: var(--red-t);
+}
+
+.risk-badge.medium {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.25);
+  color: var(--yellow-t);
+}
+
+.risk-badge.low {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: var(--green-t);
+}
+
+/* ── Product List ───────────────────────────────────────── */
+.product-list {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.product-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+  transition: all var(--t-fast);
+}
+
+.product-item:hover {
+  background: var(--card-hi);
+  border-color: var(--border-hi);
+}
+
+.product-asin {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-text);
+  font-family: 'JetBrains Mono', monospace;
+  padding: 3px 8px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-sm);
+}
+
+.product-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-2);
+  font-family: 'Manrope', sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+}
+
+/* ── Suggestion Badge ───────────────────────────────────── */
+.suggestion-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  margin-bottom: 10px;
+  border: 1px solid;
+  font-family: 'Manrope', sans-serif;
+  line-height: 1.5;
+}
+
+.suggestion-badge.good {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: var(--green-t);
+}
+
+.suggestion-badge.warn {
+  background: rgba(234, 179, 8, 0.08);
+  border-color: rgba(234, 179, 8, 0.2);
+  color: var(--yellow-t);
+}
+
+.suggestion-badge.info {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: var(--blue-t);
+}
+
+.suggestion-icon {
+  font-weight: 700;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.suggestion-text {
+  color: var(--text-2);
+  flex: 1;
+}
+
+/* ── Shop Detail Panel ──────────────────────────────────── */
+.shop-detail-section {
+  margin-bottom: 24px;
+}
+
+.shop-detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.shop-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shop-section-title::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: var(--gradient-accent);
+  border-radius: 2px;
+}
+
+/* ── Responsive Design ──────────────────────────────────── */
+@media (max-width: 768px) {
+  .shop-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .shop-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .product-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
 import { Copy, Check, KeyRound, ShieldCheck } from "lucide-react";
 import { useLang } from "../hooks/useLang";
 
@@ -89,79 +88,44 @@ export default function Activate({ onActivated }) {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center"
-      style={{ backgroundColor: "#0b0d14" }}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl p-8 shadow-2xl"
-        style={{ backgroundColor: "#171b28", border: "1px solid #1e2338" }}
-      >
+    <div className="auth-screen">
+      <div className="auth-bg-glow" />
+      <div className="auth-card" style={{ maxWidth: 440 }}>
         {/* Header */}
-        <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
-            style={{ backgroundColor: "rgba(59,130,246,0.12)" }}
-          >
+        <div className="auth-logo-wrap">
+          <div className="auth-logo-icon" style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)" }}>
             <ShieldCheck size={28} style={{ color: "#3b82f6" }} />
           </div>
-          <h1 className="text-xl font-semibold text-white">
-            {t("activate_title") || "Activation Required"}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "#6b7280" }}>
-            {t("activate_subtitle") || "This copy of CC Manager must be activated."}
-          </p>
+          <h1 className="auth-title" style={{ fontSize: 18 }}>{t("activate_title") || "Activation Required"}</h1>
+          <p className="auth-sub">{t("activate_subtitle") || "This copy of CC Manager must be activated."}</p>
         </div>
 
         {/* Installation Code Block */}
-        <div
-          className="rounded-xl p-4 mb-6"
-          style={{ backgroundColor: "#111318", border: "1px solid #1e2338" }}
-        >
-          <p className="text-xs font-medium mb-3" style={{ color: "#6b7280" }}>
+        <div style={{ background: "var(--inset)", border: "1px solid var(--border)", borderRadius: 10, padding: 16, marginBottom: 20 }}>
+          <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 12 }}>
             {t("activate_your_code") || "Your installation code:"}
           </p>
-
-          {/* Challenge code */}
-          <div className="flex items-center gap-3 mb-3">
-            <span
-              className="flex-1 text-center text-lg font-mono font-bold tracking-widest select-all"
-              style={{ color: "#3b82f6", letterSpacing: "0.15em" }}
-            >
-              {challengeCode || "Loading..."}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <span style={{ flex: 1, textAlign: "center", fontSize: 18, fontFamily: "JetBrains Mono,monospace", fontWeight: 700, letterSpacing: "0.15em", color: "#3b82f6", userSelect: "all" }}>
+              {challengeCode || t("msg_loading")}
             </span>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              style={{
-                backgroundColor: copied ? "rgba(34,197,94,0.15)" : "rgba(59,130,246,0.12)",
-                color: copied ? "#22c55e" : "#3b82f6",
-                border: `1px solid ${copied ? "rgba(34,197,94,0.3)" : "rgba(59,130,246,0.3)"}`,
-              }}
-              title="Copy to clipboard"
+              className="btn btn-b btn-sm"
+              style={{ background: copied ? "rgba(34,197,94,0.15)" : undefined, color: copied ? "#22c55e" : undefined, borderColor: copied ? "rgba(34,197,94,0.3)" : undefined }}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? (t("copied") || "Copied") : (t("copy") || "Copy")}
             </button>
           </div>
-
-          {/* Installation ID (required by admin panel) */}
           {installationId && (
-            <div style={{ borderTop: "1px solid #1e2338", paddingTop: 10 }}>
-              <p className="text-xs mb-2" style={{ color: "#4b5563" }}>Installation ID:</p>
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+              <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>Installation ID:</p>
               <div className="flex items-center gap-2">
-                <span className="flex-1 text-xs font-mono select-all truncate" style={{ color: "#6b7280" }}>
+                <span className="mono" style={{ flex: 1, fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", userSelect: "all" }}>
                   {installationId}
                 </span>
-                <button
-                  onClick={handleCopyId}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-all flex-shrink-0"
-                  style={{
-                    backgroundColor: copiedId ? "rgba(34,197,94,0.1)" : "rgba(75,85,99,0.15)",
-                    color: copiedId ? "#22c55e" : "#6b7280",
-                    border: "1px solid transparent",
-                  }}
-                >
+                <button onClick={handleCopyId} className="btn btn-ghost btn-sm shrink-0">
                   {copiedId ? <Check size={11} /> : <Copy size={11} />}
                 </button>
               </div>
@@ -170,25 +134,15 @@ export default function Activate({ onActivated }) {
         </div>
 
         {/* Instruction */}
-        <p
-          className="text-sm text-center mb-6 leading-relaxed"
-          style={{ color: "#9ca3af" }}
-        >
-          {t("activate_instruction") ||
-            "Send this code to your administrator to receive an activation key."}
+        <p style={{ fontSize: 13, textAlign: "center", marginBottom: 20, lineHeight: 1.6, color: "var(--text-2)" }}>
+          {t("activate_instruction") || "Send this code to your administrator to receive an activation key."}
         </p>
 
         {/* Key Input */}
-        <div className="mb-4">
-          <label className="block text-xs font-medium mb-2" style={{ color: "#6b7280" }}>
-            {t("activate_key_label") || "Activation Key"}
-          </label>
+        <div className="form-group">
+          <label className="auth-label">{t("activate_key_label") || "Activation Key"}</label>
           <div className="relative">
-            <KeyRound
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: "#6b7280" }}
-            />
+            <KeyRound size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input
               type="text"
               value={activationKey}
@@ -198,57 +152,31 @@ export default function Activate({ onActivated }) {
               maxLength={19}
               spellCheck={false}
               autoComplete="off"
-              className="w-full pl-9 pr-4 py-3 rounded-xl text-sm font-mono text-center tracking-widest outline-none transition-all"
+              className="auth-input mono"
               style={{
-                backgroundColor: "#111318",
-                border: `1px solid ${error ? "#ef4444" : "#1e2338"}`,
-                color: "#ffffff",
+                paddingLeft: 36, textAlign: "center", letterSpacing: "0.15em",
+                border: `1px solid ${error ? "#ef4444" : "var(--border)"}`,
                 caretColor: "#3b82f6",
               }}
-              onFocus={(e) =>
-                (e.target.style.borderColor = error ? "#ef4444" : "#3b82f6")
-              }
-              onBlur={(e) =>
-                (e.target.style.borderColor = error ? "#ef4444" : "#1e2338")
-              }
+              onFocus={(e) => (e.target.style.borderColor = error ? "#ef4444" : "#3b82f6")}
+              onBlur={(e) => (e.target.style.borderColor = error ? "#ef4444" : "var(--border)")}
             />
           </div>
-
-          {/* Error / Success messages */}
-          {error && (
-            <p className="mt-2 text-xs" style={{ color: "#ef4444" }}>
-              {error}
-            </p>
-          )}
-          {success && (
-            <p className="mt-2 text-xs font-medium" style={{ color: "#22c55e" }}>
-              {t("activate_success") || "Activated! Loading..."}
-            </p>
-          )}
+          {error && <p style={{ marginTop: 6, fontSize: 11, color: "#ef4444" }}>{error}</p>}
+          {success && <p style={{ marginTop: 6, fontSize: 11, color: "#22c55e", fontWeight: 500 }}>{t("activate_success") || "Activated! Loading..."}</p>}
         </div>
 
         {/* Activate Button */}
         <button
           onClick={handleActivate}
           disabled={loading || success || activationKey.replace(/-/g, "").length !== 16}
-          className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
+          className="auth-btn"
           style={{
-            backgroundColor:
-              loading || success ? "rgba(59,130,246,0.4)" : "#3b82f6",
-            color: "#ffffff",
-            cursor:
-              loading || success || activationKey.replace(/-/g, "").length !== 16
-                ? "not-allowed"
-                : "pointer",
-            opacity:
-              activationKey.replace(/-/g, "").length !== 16 && !loading ? 0.5 : 1,
+            background: loading || success ? "rgba(59,130,246,0.4)" : "#3b82f6",
+            opacity: activationKey.replace(/-/g, "").length !== 16 && !loading ? 0.5 : 1,
           }}
         >
-          {loading
-            ? (t("activating") || "Activating…")
-            : success
-            ? (t("activate_success_btn") || "✓ Activated")
-            : (t("activate_btn") || "Activate")}
+          {loading ? (t("activating") || "Activating…") : success ? (t("activate_success_btn") || "✓ Activated") : (t("activate_btn") || "Activate")}
         </button>
       </div>
     </div>

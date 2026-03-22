@@ -1,0 +1,121 @@
+/* ═══════════════════════════════════════════════════════════
+   CC MANAGER — CYBER-FINANCIAL TERMINAL REDESIGN
+   Main stylesheet that imports all redesigned components
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Typography (Google Fonts) ──────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ── Design System ──────────────────────────────────────── */
+@import './tokens-redesign.css';
+@import './reset-redesign.css';
+@import './animations-redesign.css';
+@import './utilities-redesign.css';
+
+/* ── Layout (Redesigned) ────────────────────────────────── */
+@import './layout/sidebar-redesign.css';
+@import './layout/topbar-redesign.css';
+@import './layout/content-redesign.css';
+
+/* ── Components (Redesigned) ────────────────────────────── */
+@import './components/buttons-redesign.css';
+@import './components/forms-redesign.css';
+@import './components/modal-redesign.css';
+@import './components/table-redesign.css';
+@import './components/badges-redesign.css';
+@import './components/filters-redesign.css';
+@import './components/panel-redesign.css';
+
+/* ── Pages (Redesigned) ─────────────────────────────────── */
+@import './pages/dashboard-redesign.css';
+@import './pages/auth-redesign.css';
+@import './pages/cards-redesign.css';
+@import './pages/profiles-redesign.css';
+@import './pages/updates-redesign.css';
+@import './pages/orders-redesign.css';
+@import './pages/shops-redesign.css';
+@import './pages/proxies-redesign.css';
+@import './pages/emails-redesign.css';
+@import './pages/imap-redesign.css';
+@import './pages/settings-redesign.css';
+@import './pages/activity-log-redesign.css';
+@import './pages/catalog-redesign.css';
+@import './pages/onboarding-redesign.css';
+
+/* ── Tailwind (if used) ─────────────────────────────────── */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Global Overrides ───────────────────────────────────── */
+#root {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Noise & Scanline Effects (optional) ────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: var(--noise-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 217, 255, 0.1) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+  animation: scanline 8s linear infinite;
+  opacity: var(--scanline-opacity);
+}
+
+/* ── Smooth Transitions ─────────────────────────────────── */
+button,
+a,
+input,
+select,
+textarea,
+.btn,
+.panel,
+.card,
+.modal {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Focus Styles ───────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ── Print Styles ───────────────────────────────────────── */
+@media print {
+  body::before,
+  body::after,
+  .sidebar,
+  .topbar,
+  .modal-overlay,
+  .toast-container {
+    display: none !important;
+  }
+}

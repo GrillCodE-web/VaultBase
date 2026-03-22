@@ -1,4 +1,5 @@
 //! AES-256-GCM field encryption + password-derived key management.
+#![allow(dead_code)]
 
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
@@ -6,7 +7,7 @@ use aes_gcm::{
 };
 use aes_gcm::aead::rand_core::RngCore;
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha512};
 
 // ─────────────────────────────────────────
 //  FieldEncryption
@@ -18,15 +19,17 @@ pub struct FieldEncryption {
 }
 
 impl FieldEncryption {
-    /// Derive key: SHA-256(password || salt || "cc-manager-field-v2")
+    /// FIX B04: PBKDF2-SHA256 (100 000 итераций) вместо одного прохода SHA-256.
+    /// Делает brute-force атаку на дамп БД в ~100 000 раз дороже.
     pub fn new(password: &str, salt: &[u8]) -> Self {
-        let mut hasher = Sha256::new();
-        hasher.update(password.as_bytes());
-        hasher.update(salt);
-        hasher.update(b"cc-manager-field-v2");
-        let result = hasher.finalize();
         let mut key = [0u8; 32];
-        key.copy_from_slice(&result);
+        // PBKDF2 с HMAC-SHA256, 100_000 итераций
+        pbkdf2::pbkdf2_hmac::<sha2::Sha256>(
+            password.as_bytes(),
+            salt,
+            100_000,
+            &mut key,
+        );
         Self { key }
     }
 
@@ -81,10 +84,16 @@ impl FieldEncryption {
 //  One-way hash for footprints
 // ─────────────────────────────────────────
 
+/// FIX B36: используем HMAC-SHA256 с application secret вместо чистого SHA-256.
+/// Делает rainbow-table атаку на хранимые хеши нецелесообразной.
 pub fn hash_value(value: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
-    format!("{:x}", hasher.finalize())
+    use hmac::{Hmac, Mac};
+    type HmacSha256 = Hmac<Sha256>;
+    // Статический ключ приложения — защищает от generic rainbow tables
+    let mut mac = <HmacSha256 as Mac>::new_from_slice(b"cc-manager-footprint-v1-secret")
+        .expect("HMAC key init");
+    mac.update(value.as_bytes());
+    format!("{:x}", mac.finalize().into_bytes())
 }
 
 // ─────────────────────────────────────────
@@ -96,6 +105,10 @@ pub struct PasswordValidation {
     pub has_upper: bool,
     pub has_lower: bool,
     pub has_digit: bool,
+    // FIX B39: добавлена проверка спецсимволов
+    pub has_special: bool,
+    // FIX B38: предупреждение о bcrypt 72-байт лимите
+    pub exceeds_bcrypt_limit: bool,
 }
 
 impl PasswordValidation {
@@ -105,20 +118,27 @@ impl PasswordValidation {
             has_upper:  password.chars().any(|c| c.is_uppercase()),
             has_lower:  password.chars().any(|c| c.is_lowercase()),
             has_digit:  password.chars().any(|c| c.is_ascii_digit()),
+            // FIX B39: требуем хотя бы один спецсимвол
+            has_special: password.chars().any(|c| !c.is_alphanumeric()),
+            // FIX B38: bcrypt обрезает пароли > 72 байт
+            exceeds_bcrypt_limit: password.as_bytes().len() > 72,
         }
     }
 
     pub fn is_valid(&self) -> bool {
-        self.min_length && self.has_upper && self.has_lower && self.has_digit
+        self.min_length && self.has_upper && self.has_lower && self.has_digit && self.has_special
+            && !self.exceeds_bcrypt_limit
     }
 
     pub fn error_message(&self) -> Option<String> {
         if self.is_valid() { return None; }
         let mut msgs = Vec::new();
-        if !self.min_length { msgs.push("minimum 12 characters"); }
-        if !self.has_upper  { msgs.push("uppercase letter required"); }
-        if !self.has_lower  { msgs.push("lowercase letter required"); }
-        if !self.has_digit  { msgs.push("digit required"); }
+        if !self.min_length  { msgs.push("minimum 12 characters"); }
+        if !self.has_upper   { msgs.push("uppercase letter required"); }
+        if !self.has_lower   { msgs.push("lowercase letter required"); }
+        if !self.has_digit   { msgs.push("digit required"); }
+        if !self.has_special { msgs.push("special character required (!@#$%^&* etc.)"); }
+        if self.exceeds_bcrypt_limit { msgs.push("password too long (max 72 bytes for bcrypt)"); }
         Some(msgs.join(", "))
     }
 }

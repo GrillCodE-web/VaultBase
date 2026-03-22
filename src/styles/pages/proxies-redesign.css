@@ -1,0 +1,324 @@
+/* ═══════════════════════════════════════════════════════════
+   PROXIES PAGE — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Proxy Card ─────────────────────────────────────────── */
+.proxy-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  margin-bottom: 10px;
+  transition: all var(--t-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.proxy-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gradient-accent);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.proxy-card:hover {
+  border-color: var(--border-hi);
+  background: var(--card-hi);
+}
+
+.proxy-card:hover::before {
+  opacity: 0.6;
+}
+
+/* ── Proxy Type Badge ───────────────────────────────────── */
+.proxy-type-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--r-sm);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+}
+
+.proxy-type-http {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.25);
+  color: var(--blue-t);
+}
+
+.proxy-type-socks5 {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.25);
+  color: var(--purple-bright);
+}
+
+.proxy-type-socks4 {
+  background: rgba(129, 140, 248, 0.12);
+  border-color: rgba(129, 140, 248, 0.25);
+  color: #818cf8;
+}
+
+.proxy-type-pptp {
+  background: rgba(251, 146, 60, 0.12);
+  border-color: rgba(251, 146, 60, 0.25);
+  color: var(--orange-t);
+}
+
+/* ── Proxy Status ───────────────────────────────────────── */
+.proxy-status-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: var(--green-t);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.proxy-status-offline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--red-t);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.proxy-status-slow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  color: var(--yellow-t);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Proxy Info Grid ────────────────────────────────────── */
+.proxy-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.proxy-info-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+
+.proxy-info-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.proxy-info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+}
+
+/* ── Proxy Health Stats ─────────────────────────────────── */
+.proxy-health-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.proxy-health-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.proxy-health-progress {
+  flex: 1;
+  height: 6px;
+  background: var(--inset);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.proxy-health-fill {
+  height: 100%;
+  background: var(--gradient-accent);
+  border-radius: 3px;
+  transition: width var(--t-mid);
+}
+
+.proxy-health-fill.good {
+  background: linear-gradient(90deg, var(--green), var(--green-t));
+}
+
+.proxy-health-fill.medium {
+  background: linear-gradient(90deg, var(--yellow), var(--yellow-t));
+}
+
+.proxy-health-fill.poor {
+  background: linear-gradient(90deg, var(--red), var(--red-t));
+}
+
+.proxy-health-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ── Proxy Usage Stats Modal ────────────────────────────── */
+.proxy-usage-heatmap {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.proxy-usage-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.proxy-usage-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-family: 'Manrope', sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proxy-usage-bar {
+  height: 24px;
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  position: relative;
+}
+
+.proxy-usage-fill {
+  height: 100%;
+  background: var(--gradient-accent);
+  transition: width var(--t-mid);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.proxy-usage-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Batch Import Section ───────────────────────────────── */
+.batch-import-zone {
+  background: var(--surface);
+  border: 2px dashed var(--border);
+  border-radius: var(--r-lg);
+  padding: 32px 24px;
+  text-align: center;
+  transition: all var(--t-fast);
+  cursor: pointer;
+}
+
+.batch-import-zone:hover {
+  border-color: var(--accent-border);
+  background: var(--card);
+}
+
+.batch-import-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: var(--r-lg);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-text);
+}
+
+.batch-import-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.batch-import-text {
+  font-size: 13px;
+  color: var(--muted);
+  font-family: 'Manrope', sans-serif;
+  line-height: 1.5;
+}
+
+/* ── Responsive Design ──────────────────────────────────── */
+@media (max-width: 768px) {
+  .proxy-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .proxy-usage-row {
+    grid-template-columns: 1fr;
+  }
+
+  .proxy-usage-label {
+    margin-bottom: 4px;
+  }
+}

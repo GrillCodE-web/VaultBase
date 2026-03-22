@@ -1,8 +1,3 @@
-// ============================================================
-// PATCH — add this LicenseSection component to Settings.jsx
-// and render it as a section block inside the Settings page.
-// ============================================================
-
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ShieldCheck, ShieldAlert, WifiOff, RefreshCw, Copy, Check } from "lucide-react";
@@ -11,9 +6,9 @@ import { useToast } from "../hooks/useToast";
 
 export function LicenseSection() {
   const { t } = useLang();
-  const { showToast } = useToast();
+  const { success: toastOk } = useToast();
 
-  const [status, setStatus] = useState(null); // "active" | "revoked" | "offline" | "not_activated"
+  const [status, setStatus] = useState(null);
   const [installId, setInstallId] = useState("");
   const [showId, setShowId] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -36,9 +31,9 @@ export function LicenseSection() {
       const s = await invoke("retry_license_connection");
       setStatus(s);
       if (s === "active") {
-        showToast(t("license_verified") || "License verified.", "success");
+        toastOk(t("license_verified") || "License verified.");
       }
-    } catch (_) {
+    } catch {
       setStatus("offline");
     } finally {
       setRetrying(false);
@@ -53,10 +48,10 @@ export function LicenseSection() {
   };
 
   const statusMeta = {
-    active:        { label: t("license_active")  || "Active",       color: "#22c55e", Icon: ShieldCheck },
-    revoked:       { label: t("license_revoked") || "Revoked",      color: "#ef4444", Icon: ShieldAlert },
-    offline:       { label: t("license_offline") || "Offline",      color: "#eab308", Icon: WifiOff    },
-    not_activated: { label: t("license_none")    || "Not Activated", color: "#6b7280", Icon: ShieldAlert },
+    active:        { label: t("license_active")  || "Active",        color: "#22c55e", Icon: ShieldCheck },
+    revoked:       { label: t("license_revoked") || "Revoked",       color: "#ef4444", Icon: ShieldAlert },
+    offline:       { label: t("license_offline") || "Offline",       color: "#eab308", Icon: WifiOff    },
+    not_activated: { label: t("license_none")    || "Not Activated",  color: "var(--muted)", Icon: ShieldAlert },
   };
 
   const meta = statusMeta[status] || statusMeta["offline"];
@@ -65,7 +60,7 @@ export function LicenseSection() {
   return (
     <div
       className="rounded-xl p-5"
-      style={{ backgroundColor: "#111318", border: "1px solid #2a2d3a" }}
+      style={{ backgroundColor: "var(--inset)", border: "1px solid #1e2338" }}
     >
       <h3 className="text-sm font-semibold text-white mb-4">
         {t("settings_license") || "License"}
@@ -73,49 +68,43 @@ export function LicenseSection() {
 
       {/* Status row */}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm" style={{ color: "#9ca3af" }}>
+        <span className="text-sm text-text-2" >
           {t("settings_license_status") || "Status"}
         </span>
         <div className="flex items-center gap-2">
           <Icon size={14} style={{ color }} />
-          <span className="text-sm font-medium" style={{ color }}>
-            {label}
-          </span>
+          <span className="text-sm font-medium" style={{ color }}>{label}</span>
         </div>
       </div>
 
       {/* Installation ID row */}
       <div className="flex items-start justify-between gap-4 mb-4">
-        <span className="text-sm pt-0.5" style={{ color: "#9ca3af" }}>
+        <span className="text-sm pt-0.5 text-text-2" >
           {t("settings_installation_id") || "Installation ID"}
         </span>
-
         <div className="flex items-center gap-2">
           {showId ? (
             <span
               className="text-xs font-mono px-2 py-1 rounded-lg select-all"
-              style={{ backgroundColor: "#1a1d27", color: "#9ca3af", maxWidth: 200, wordBreak: "break-all" }}
+              style={{ backgroundColor: "var(--card)", color: "var(--text-2)", maxWidth: 200, wordBreak: "break-all" }}
             >
               {installId || "—"}
             </span>
           ) : (
-            <span className="text-sm" style={{ color: "#6b7280" }}>••••••••</span>
+            <span className="text-sm" style={{ color: "var(--muted)" }}>••••••••</span>
           )}
-
           <button
             onClick={() => setShowId((v) => !v)}
             className="text-xs px-2 py-1 rounded-lg transition-colors"
-            style={{ color: "#6b7280", backgroundColor: "#1a1d27" }}
+            style={{ color: "var(--muted)", backgroundColor: "var(--card)" }}
           >
-            {showId ? (t("hide") || "Hide") : (t("show") || "Show")}
+            {showId ? (t("cc_hide") || "Hide") : (t("cc_reveal") || "Show")}
           </button>
-
           {showId && installId && (
             <button
               onClick={handleCopyId}
               className="p-1 rounded-lg transition-colors"
-              style={{ color: copied ? "#22c55e" : "#6b7280", backgroundColor: "#1a1d27" }}
-              title={t("copy") || "Copy"}
+              style={{ color: copied ? "#22c55e" : "var(--muted)", backgroundColor: "var(--card)" }}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
             </button>
@@ -146,12 +135,3 @@ export function LicenseSection() {
     </div>
   );
 }
-
-// ── Usage inside Settings.jsx ────────────────────────────────
-// Import and drop this anywhere in your Settings page render:
-//
-//   import { LicenseSection } from "../components/LicenseSection";
-//   ...
-//   <LicenseSection />
-//
-// Or paste the component directly into Settings.jsx if preferred.

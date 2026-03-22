@@ -1,8 +1,656 @@
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
+import {
+  Database, RefreshCw, Download, FolderOpen,
+  Globe, Key, Zap, Shield, Monitor, Lock, Wifi, WifiOff,
+  Users, UserPlus, Copy, LogOut, CheckCircle, Bell, Upload,
+} from "lucide-react";
+import * as XLSX from "xlsx";
+import { useLang } from "../hooks/useLang";
+import { useToast } from "../hooks/useToast";
+import { useConfirm } from "../hooks/useConfirm";
+import { LicenseSection } from "../components/LicenseSection";
+import { STATUS_COLORS } from "../constants/colors";
+import { parseCSVRow } from "../utils/csv";
+
 export default function Settings() {
+  const { t, lang, setLang } = useLang();
+  const { success: toastOk, error: toastErr } = useToast();
+  const { confirm } = useConfirm();
+
+  const [syncGroup, setSyncGroup] = useState(null); // null = loading, false = no group, object = group info
+  const [syncGroupLoading, setSyncGroupLoading] = useState(false);
+  const [pairCode, setPairCode] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showJoinGroup, setShowJoinGroup] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState(null);
+
+  const [binApiKey, setBinApiKey] = useState("");
+  const [binApiSaved, setBinApiSaved] = useState(false);
+  const [exportingBackup, setExportingBackup] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [wsStatus, setWsStatus] = useState(null); // { connected, connecting, group_id? }
+  const [changingPw, setChangingPw] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+  const [autoLock, setAutoLock] = useState("300");
+  const [unsyncedCount, setUnsyncedCount] = useState(0);
+  const [serverOnline, setServerOnline] = useState(null);
+  const [lastBackup, setLastBackup] = useState(null);
+  const [restoring, setRestoring] = useState(false);
+  const [badgeNotifyImap, setBadgeNotifyImap] = useState(true);
+  const [badgeNotifyTracking, setBadgeNotifyTracking] = useState(true);
+  const [catalogStats, setCatalogStats] = useState(null);
+  const [catalogImporting, setCatalogImporting] = useState(false);
+  const [catalogProgress, setCatalogProgress] = useState(null);
+
+  useEffect(() => {
+    // All DB calls in parallel — fast
+    Promise.allSettled([
+      invoke("get_config", { key: "bin_api_key" }).then((v) => { if (v) setBinApiKey(v); }),
+      invoke("get_config", { key: "always_on_top" }).then((v) => { setAlwaysOnTop(v === "1"); }),
+      invoke("get_config", { key: "autolock_timeout" }).then((v) => { if (v) setAutoLock(v); }),
+      invoke("get_sidebar_badges").then((b) => { setUnsyncedCount(b.unsynced_footprints ?? 0); }),
+      invoke("get_config", { key: "last_backup_time" }).then((v) => { if (v) setLastBackup(v); }),
+      invoke("get_config", { key: "badge_notify_imap" }).then((v) => { setBadgeNotifyImap(v !== "0"); }),
+      invoke("get_config", { key: "badge_notify_tracking" }).then((v) => { setBadgeNotifyTracking(v !== "0"); }),
+      invoke("get_catalog_stats").then((s) => setCatalogStats(s)).catch(() => {}),
+    ]);
+    // Network call deferred — doesn't block initial render
+    invoke("sync_get_group_status")
+      .then((s) => { setSyncGroup(s.in_group ? s : false); })
+      .catch(() => setSyncGroup(false));
+
+    // Listen for catalog sync and WS connection status
+    const u1 = listen("catalog_synced", () => {
+      invoke("get_catalog_stats").then((s) => setCatalogStats(s)).catch(() => {});
+    });
+    const u2 = listen("ws_sync:status", (e) => {
+      setWsStatus(e.payload);
+    });
+    return () => {
+      u1.then((fn) => fn());
+      u2.then((fn) => fn());
+    };
+  }, []);
+
+  const handleBadgeNotifyImap = async (val) => {
+    setBadgeNotifyImap(val);
+    try { await invoke("set_config", { key: "badge_notify_imap", value: val ? "1" : "0" }); }
+    catch (e) { toastErr(String(e)); }
+  };
+
+  const handleBadgeNotifyTracking = async (val) => {
+    setBadgeNotifyTracking(val);
+    try { await invoke("set_config", { key: "badge_notify_tracking", value: val ? "1" : "0" }); }
+    catch (e) { toastErr(String(e)); }
+  };
+
+  const handleAlwaysOnTop = async (val) => {
+    setAlwaysOnTop(val);
+    try {
+      await getCurrentWindow().setAlwaysOnTop(val);
+      await invoke("set_config", { key: "always_on_top", value: val ? "1" : "0" });
+    } catch (e) { toastErr(String(e)); }
+  };
+
+  const handleAutoLock = async (val) => {
+    try {
+      await invoke("set_config", { key: "autolock_timeout", value: val });
+      setAutoLock(val);
+    } catch (e) { toastErr(String(e)); }
+  };
+
+  const handleLockNow = async () => {
+    try { await invoke("lock"); } catch (e) { toastErr(String(e)); }
+  };
+
+  const saveBinApiKey = async () => {
+    try {
+      await invoke("set_config", { key: "bin_api_key", value: binApiKey });
+      setBinApiSaved(true);
+      toastOk(t("settings_bin_api_saved"));
+      setTimeout(() => setBinApiSaved(false), 2000);
+    } catch (e) { toastErr(String(e)); }
+  };
+
+  const handleBackup = async () => {
+    setExportingBackup(true);
+    try {
+      const path = await invoke("export_backup");
+      const now = new Date().toLocaleString();
+      await invoke("set_config", { key: "last_backup_time", value: now });
+      setLastBackup(now);
+      toastOk(t("settings_backup_created") + ": " + path);
+    } catch (e) { toastErr(String(e)); }
+    finally { setExportingBackup(false); }
+  };
+
+  const handleRestore = async () => {
+    const ok = await confirm(t("settings_restore_confirm"), { title: t("settings_restore_backup") });
+    if (!ok) return;
+    setRestoring(true);
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const path = await open({ filters: [{ name: "CC Manager Backup", extensions: ["db", "ccbak"] }], multiple: false });
+      if (!path) { setRestoring(false); return; }
+      await invoke("import_backup", { path });
+      toastOk(t("settings_backup_restored"));
+    } catch (e) { toastErr(t("settings_restore_failed") + ": " + String(e)); }
+    finally { setRestoring(false); }
+  };
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await invoke("sync_now");
+      setSyncResult(res);
+      setServerOnline(res.server_reached ?? null);
+      setUnsyncedCount((prev) => Math.max(0, prev - (res.synced ?? 0)));
+      toastOk(t("settings_synced_count") || `Synced ${res.synced} records`);
+    } catch (e) { toastErr(String(e)); }
+    finally { setSyncing(false); }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
+    setSyncGroupLoading(true);
+    try {
+      const info = await invoke("sync_create_group", { name: newGroupName.trim() });
+      setSyncGroup({ in_group: true, group_id: info.group_id, group_name: info.name });
+      setShowCreateGroup(false);
+      setNewGroupName("");
+      toastOk("Sync group created!");
+    } catch (e) { toastErr(String(e)); }
+    finally { setSyncGroupLoading(false); }
+  };
+
+  const handleJoinGroup = async () => {
+    if (!joinCode.trim()) return;
+    setSyncGroupLoading(true);
+    try {
+      const info = await invoke("sync_join_group", { pairCode: joinCode.trim().toUpperCase() });
+      setSyncGroup({ in_group: true, group_id: info.group_id, group_name: info.name });
+      setShowJoinGroup(false);
+      setJoinCode("");
+      toastOk("Joined sync group!");
+    } catch (e) { toastErr(String(e)); }
+    finally { setSyncGroupLoading(false); }
+  };
+
+  const handleGeneratePairCode = async () => {
+    setGeneratingCode(true);
+    try {
+      const code = await invoke("sync_create_pair_code");
+      setGeneratedCode(code);
+    } catch (e) { toastErr(String(e)); }
+    finally { setGeneratingCode(false); }
+  };
+
+  const handleLeaveGroup = async () => {
+    const ok = await confirm("Leave sync group? You will lose access to shared cards.", "Leave Group");
+    if (!ok) return;
+    try {
+      await invoke("sync_disconnect");
+      setSyncGroup(false);
+      setGeneratedCode(null);
+      toastOk("Left sync group");
+    } catch (e) { toastErr(String(e)); }
+  };
+
+  const handleImportCatalogItems = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCatalogImporting(true);
+    setCatalogProgress("Reading file…");
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      // Header: ID, Предмет, ASIN, Цена, %, Комент, Комент (ENG), Дата, ..., Примечание, Примечание (ENG), ..., Стоп
+      const items = rows.slice(1)
+        .filter(r => r[0] && r[1])
+        .map(r => ({
+          id: typeof r[0] === "number" ? r[0] : null,
+          name: String(r[1] || ""),
+          asin: r[2] ? String(r[2]) : null,
+          price: r[3] ? Number(r[3]) : null,
+          pct: r[4] ? Number(r[4]) : 30,
+          category: r[5] ? String(r[5]) : null,
+          notes_en: r[6] ? String(r[6]) : null,
+          stop: r[13] === true || r[13] === 1,
+        }));
+      // Batch import (200 at a time)
+      const BATCH = 200;
+      let total = 0;
+      for (let i = 0; i < items.length; i += BATCH) {
+        const batch = items.slice(i, i + BATCH);
+        setCatalogProgress(`Importing… ${i + batch.length} / ${items.length}`);
+        const n = await invoke("import_catalog_items", { items: batch });
+        total += n;
+      }
+      const stats = await invoke("get_catalog_stats");
+      setCatalogStats(stats);
+      toastOk(`Imported ${total} catalog items`);
+    } catch (e) { toastErr(String(e)); }
+    finally { setCatalogImporting(false); setCatalogProgress(null); e.target.value = ""; }
+  };
+
+  const handleImportCatalogShops = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCatalogImporting(true);
+    setCatalogProgress("Reading CSV…");
+    try {
+      const text = await file.text();
+      const lines = text.split("\n");
+      const headers = lines[0].replace(/^\uFEFF/, "").split(",").map(h => h.replace(/"/g, "").trim());
+      const domainIdx = headers.indexOf("Domain");
+      const catIdx = headers.indexOf("Category");
+      const scoreIdx = headers.indexOf("Score");
+      const shipUsIdx = headers.indexOf("ShipUS");
+      const fraudIdx = headers.indexOf("FraudLevel");
+      const brandsIdx = headers.indexOf("TopBrands");
+      const prodsIdx = headers.indexOf("TopProducts");
+      const excludedIdx = headers.indexOf("Excluded");
+      const shops = lines.slice(1)
+        .filter(l => l.trim())
+        .map(l => {
+          const c = parseCSVRow(l);
+          return {
+            domain: c[domainIdx]?.trim() || "",
+            category: c[catIdx]?.trim() || null,
+            score: c[scoreIdx] ? parseInt(c[scoreIdx]) : null,
+            ship_us: c[shipUsIdx]?.toLowerCase() === "yes",
+            fraud_level: c[fraudIdx]?.trim() || null,
+            top_brands: c[brandsIdx]?.trim() || null,
+            top_products: c[prodsIdx]?.trim() || null,
+            excluded: c[excludedIdx]?.toLowerCase() === "true",
+          };
+        })
+        .filter(s => s.domain);
+      const BATCH = 300;
+      let total = 0;
+      for (let i = 0; i < shops.length; i += BATCH) {
+        const batch = shops.slice(i, i + BATCH);
+        setCatalogProgress(`Importing shops… ${i + batch.length} / ${shops.length}`);
+        const n = await invoke("import_catalog_shops", { shops: batch });
+        total += n;
+      }
+      const stats = await invoke("get_catalog_stats");
+      setCatalogStats(stats);
+      toastOk(`Imported ${total} shops`);
+    } catch (e) { toastErr(String(e)); }
+    finally { setCatalogImporting(false); setCatalogProgress(null); e.target.value = ""; }
+  };
+
+  const handleChangePassword = async () => {
+    if (pwForm.next !== pwForm.confirm) { toastErr(t("settings_pw_mismatch")); return; }
+    if (pwForm.next.length < 12) { toastErr(t("auth_req_length")); return; }
+    try {
+      await invoke("change_password", { old: pwForm.current, new: pwForm.next });
+      toastOk(t("settings_pw_changed"));
+      setPwForm({ current: "", next: "", confirm: "" });
+      setChangingPw(false);
+    } catch (e) { toastErr(String(e)); }
+  };
+
   return (
-    <div className="p-6">
-      <h1 className="text-xl font-semibold text-text-primary mb-4">Settings</h1>
-      <p className="text-text-secondary text-sm">— not implemented —</p>
+    <div className="content">
+      <div className="ph">
+        <div>
+          <div className="ph-title">{t("nav_settings")}</div>
+          <div className="ph-sub">App configuration</div>
+        </div>
+      </div>
+
+      {/* License */}
+      <div className="mb-4">
+        <LicenseSection />
+      </div>
+
+      <div className="grid2">
+
+        {/* Window */}
+        <div className="panel">
+          <div className="ptitle"><Monitor size={13} className="inline mr-1.5" />Window</div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Always on Top</div>
+              <div className="setting-desc">Keep window above all other apps</div>
+            </div>
+            <label className="toggle-wrap">
+              <input type="checkbox" checked={alwaysOnTop} onChange={(e) => handleAlwaysOnTop(e.target.checked)} />
+              <span className="track" />
+            </label>
+          </div>
+        </div>
+
+        {/* Dock Badge */}
+        <div className="panel">
+          <div className="ptitle"><Bell size={13} className="inline mr-1.5" />Dock Badge</div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">New IMAP Emails</div>
+              <div className="setting-desc">Show unread count on dock icon</div>
+            </div>
+            <label className="toggle-wrap">
+              <input type="checkbox" checked={badgeNotifyImap} onChange={(e) => handleBadgeNotifyImap(e.target.checked)} />
+              <span className="track" />
+            </label>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Tracking Updates</div>
+              <div className="setting-desc">Show tracking updates on dock icon</div>
+            </div>
+            <label className="toggle-wrap">
+              <input type="checkbox" checked={badgeNotifyTracking} onChange={(e) => handleBadgeNotifyTracking(e.target.checked)} />
+              <span className="track" />
+            </label>
+          </div>
+        </div>
+
+        {/* Security */}
+        <div className="panel">
+          <div className="ptitle"><Lock size={13} className="inline mr-1.5" />Security</div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Auto-lock timeout</div>
+            </div>
+            <div className="flex gap-1" style={{ flexWrap: "wrap" }}>
+              {[
+                { label: "1m", value: "60" },
+                { label: "5m", value: "300" },
+                { label: "15m", value: "900" },
+                { label: "30m", value: "1800" },
+                { label: t("settings_never"), value: "never" },
+              ].map(({ label, value }) => (
+                <button
+                  key={value}
+                  onClick={() => handleAutoLock(value)}
+                  className={`btn btn-sm ${autoLock === value ? "btn-b" : "btn-ghost"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Lock now</div>
+              <div className="setting-desc">Immediately lock the app</div>
+            </div>
+            <button onClick={handleLockNow} className="btn btn-r btn-sm">
+              <Lock size={13} /> Lock Now
+            </button>
+          </div>
+        </div>
+
+        {/* General */}
+        <div className="panel">
+          <div className="ptitle"><Globe size={13} className="inline mr-1.5" />General</div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Language</div>
+            </div>
+            <div className="flex gap-1">
+              <button onClick={() => setLang("en")} className={`btn btn-sm ${lang === "en" ? "btn-b" : "btn-ghost"}`}>EN</button>
+              <button onClick={() => setLang("ru")} className={`btn btn-sm ${lang === "ru" ? "btn-b" : "btn-ghost"}`}>RU</button>
+            </div>
+          </div>
+        </div>
+
+        {/* BIN API */}
+        <div className="panel">
+          <div className="ptitle"><Zap size={13} className="inline mr-1.5" />BIN Enrichment</div>
+          <div className="setting-desc mb-2">API key from iinapi.com for automatic card BIN enrichment.</div>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={binApiKey}
+              onChange={(e) => setBinApiKey(e.target.value)}
+              placeholder={t("settings_bin_api_placeholder")}
+              className="form-input flex-1"
+            />
+            <button onClick={saveBinApiKey} className={`btn btn-sm ${binApiSaved ? "btn-g" : "btn-b"}`}>
+              {binApiSaved ? t("msg_saved") : t("btn_save")}
+            </button>
+          </div>
+        </div>
+
+        {/* Database */}
+        <div className="panel">
+          <div className="ptitle"><Database size={13} className="inline mr-1.5" />Database</div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Backup database</div>
+              {lastBackup && <div className="setting-desc">Last: {lastBackup}</div>}
+            </div>
+            <button onClick={handleBackup} disabled={exportingBackup} className="btn btn-b btn-sm">
+              {exportingBackup ? <RefreshCw size={13} /> : <Download size={13} />}
+              {exportingBackup ? t("settings_creating") : t("settings_create_backup")}
+            </button>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Restore backup</div>
+              <div className="setting-desc">Replace all data from backup file</div>
+            </div>
+            <button onClick={handleRestore} disabled={restoring} className="btn btn-y btn-sm">
+              <FolderOpen size={13} />
+              {restoring ? t("settings_restoring") : t("settings_restore")}
+            </button>
+          </div>
+        </div>
+
+        {/* Sync & Connection */}
+        <div className="panel">
+          <div className="ptitle"><Wifi size={13} className="inline mr-1.5" />Sync & Connection</div>
+          {/* Real-time WS connection indicator */}
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Server connection</div>
+              {wsStatus?.group_id && (
+                <div className="setting-desc" style={{ fontFamily: "monospace", fontSize: 10 }}>
+                  {wsStatus.group_id.slice(0, 20)}…
+                </div>
+              )}
+            </div>
+            <div>
+              {wsStatus === null ? (
+                <span className="st st-pending">
+                  <RefreshCw size={10} style={{ animation: "spin 1s linear infinite" }} /> Connecting…
+                </span>
+              ) : wsStatus.connected ? (
+                <span className="st st-active"><Wifi size={11} /> Connected</span>
+              ) : wsStatus.connecting ? (
+                <span className="st st-pending">
+                  <RefreshCw size={10} style={{ animation: "spin 1s linear infinite" }} /> Connecting…
+                </span>
+              ) : (
+                <span className="st st-dead"><WifiOff size={11} /> Disconnected</span>
+              )}
+            </div>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Pending footprints</div>
+              <div className="setting-desc">Queued for sync when connected</div>
+            </div>
+            <span style={{ fontSize: 12, fontFamily: "monospace", color: unsyncedCount > 0 ? STATUS_COLORS.warning : "var(--muted)" }}>
+              {unsyncedCount}
+            </span>
+          </div>
+          {syncResult && (
+            <div style={{ fontSize: 11, color: "var(--muted)", padding: "4px 0" }}>
+              Last sync: {syncResult.synced} sent, {syncResult.failed} failed
+            </div>
+          )}
+        </div>
+
+        {/* Change Password — full width */}
+        <div className="panel" style={{ gridColumn: "1 / -1" }}>
+          <div className="ptitle"><Shield size={13} className="inline mr-1.5" />Change Password</div>
+          {!changingPw ? (
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-title">Master password</div>
+                <div className="setting-desc">Change your encryption password</div>
+              </div>
+              <button onClick={() => setChangingPw(true)} className="btn btn-r btn-sm">
+                Change Password
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {[
+                { key: "current", label: t("settings_current_pw"), placeholder: t("settings_current_pw") },
+                { key: "next", label: t("settings_new_pw"), placeholder: t("settings_new_pw") },
+                { key: "confirm", label: t("auth_confirm_label"), placeholder: t("auth_confirm_label") },
+              ].map(({ key, label, placeholder }) => (
+                <div className="form-group" key={key}>
+                  <label className="form-label">{label}</label>
+                  <input
+                    type="password"
+                    value={pwForm[key]}
+                    onChange={(e) => setPwForm((p) => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="form-input"
+                  />
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <button onClick={() => { setChangingPw(false); setPwForm({ current: "", next: "", confirm: "" }); }} className="btn btn-ghost btn-sm">{t("btn_cancel")}</button>
+                <button onClick={handleChangePassword} className="btn btn-r btn-sm">Change Password</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sync Groups */}
+        <div className="panel" style={{ gridColumn: "1 / -1" }}>
+          <div className="ptitle"><Users size={13} className="inline mr-1.5" />Sync Groups</div>
+          {syncGroup === null ? (
+            <div className="text-muted text-[12px]" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> Loading...
+            </div>
+          ) : syncGroup === false ? (
+            <div>
+              <div className="setting-desc mb-3">Share cards with other users. Create a group and share the pair code, or join with someone else&apos;s code.</div>
+              {!showCreateGroup && !showJoinGroup && (
+                <div className="flex gap-2">
+                  <button onClick={() => setShowCreateGroup(true)} className="btn btn-b btn-sm"><UserPlus size={13} />Create Group</button>
+                  <button onClick={() => setShowJoinGroup(true)} className="btn btn-ghost btn-sm">Join with code</button>
+                </div>
+              )}
+              {showCreateGroup && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="Group name"
+                    className="form-input"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowCreateGroup(false)} className="btn btn-ghost btn-sm">{t("btn_cancel")}</button>
+                    <button onClick={handleCreateGroup} disabled={syncGroupLoading || !newGroupName.trim()} className="btn btn-b btn-sm">
+                      {syncGroupLoading ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                      Create
+                    </button>
+                  </div>
+                </div>
+              )}
+              {showJoinGroup && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    placeholder="Enter 6-char pair code (e.g. AB3C7X)"
+                    className="form-input font-mono"
+                    maxLength={6}
+                    onKeyDown={(e) => e.key === "Enter" && handleJoinGroup()}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowJoinGroup(false)} className="btn btn-ghost btn-sm">{t("btn_cancel")}</button>
+                    <button onClick={handleJoinGroup} disabled={syncGroupLoading || joinCode.length < 6} className="btn btn-b btn-sm">
+                      {syncGroupLoading ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                      Join
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="font-semibold text-[13px]">{syncGroup.group_name || "Sync Group"}</div>
+                  <div className="text-muted text-[11px] font-mono">{syncGroup.group_id?.slice(0, 16)}...</div>
+                </div>
+                <button onClick={handleLeaveGroup} className="btn btn-r btn-sm"><LogOut size={12} />Leave</button>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <button onClick={handleGeneratePairCode} disabled={generatingCode} className="btn btn-ghost btn-sm">
+                  <Copy size={12} />
+                  {generatingCode ? "Generating..." : "Get Pair Code"}
+                </button>
+              </div>
+              {generatedCode && (
+                <div className="mt-2 p-2 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  <div className="text-[11px] text-muted mb-1">Share this code with your partner (valid 15 min):</div>
+                  <div className="font-mono text-[16px] font-bold tracking-widest text-center py-1" style={{ color: "var(--accent)" }}>
+                    {generatedCode.split(" ")[0]}
+                  </div>
+                  {generatedCode.includes("expires") && (
+                    <div className="text-[10px] text-muted text-center">{generatedCode.split("(")[1]?.replace(")", "")}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+        {/* Catalog */}
+        <div className="panel">
+          <div className="ptitle"><Database size={13} className="inline mr-1.5" />Catalog</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {catalogStats && (catalogStats.items > 0 || catalogStats.shops > 0) ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                <CheckCircle size={13} style={{ color: STATUS_COLORS.success, flexShrink: 0 }} />
+                <span style={{ color: "var(--text)" }}>
+                  Catalog: <strong>{catalogStats.items.toLocaleString()}</strong> items,{" "}
+                  <strong>{catalogStats.shops.toLocaleString()}</strong> shops — Auto-sync enabled
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                <RefreshCw size={13} style={{ animation: "spin 1s linear infinite", color: "var(--blue-t)", flexShrink: 0 }} />
+                <span style={{ color: "var(--muted)" }}>Syncing catalog from server…</span>
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: "var(--dim)" }}>
+              Catalog is downloaded automatically on first run and kept in sync in real-time.
+            </div>
+          </div>
+        </div>
+
+      <div style={{ textAlign: "center", padding: "12px 0 4px", color: "var(--muted)", fontSize: 11 }}>
+        CC Manager v0.1.0
+      </div>
     </div>
   );
 }

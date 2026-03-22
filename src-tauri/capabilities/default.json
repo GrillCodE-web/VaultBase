@@ -1,7 +1,7 @@
 {
   "identifier": "default",
-  "description": "Default capability",
-  "windows": ["main", "float"],
+  "description": "Default capability for main window",
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "dialog:allow-open",
@@ -10,6 +10,7 @@
     "dialog:allow-ask",
     "updater:allow-check",
     "updater:allow-download",
-    "updater:allow-install"
+    "updater:allow-install",
+    "process:allow-restart"
   ]
 }

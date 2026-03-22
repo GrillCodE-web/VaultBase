@@ -53,6 +53,8 @@ pub struct CardDecrypted {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CardFilter {
+    // FIX B01: добавлено поле id для get_card(id)
+    pub id: Option<i64>,
     pub status: Option<String>,
     pub source: Option<String>,
     pub bank_name: Option<String>,
@@ -89,6 +91,13 @@ pub struct PaginatedCards {
     pub free_total: u32,
     pub page: u32,
     pub per_page: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CardFilterMeta {
+    pub countries: Vec<String>,
+    pub banks:     Vec<String>,
+    pub sources:   Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -154,15 +163,16 @@ pub struct Drop {
     pub created_at: String,
 }
 
+// FIX B71: state и phone — Option<String> как в Drop (было String, несоответствие типов)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DropInput {
     pub recipient_name: String,
     pub address: String,
     pub city: String,
-    pub state: String,
+    pub state: Option<String>,
     pub zip: String,
     pub country: String,
-    pub phone: String,
+    pub phone: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -251,6 +261,7 @@ pub struct Proxy {
     pub shops_used: Vec<ShopRef>,
     pub created_at: String,
     pub updated_at: String,
+    pub last_checked: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -399,7 +410,7 @@ pub struct OrderItemInput {
 pub struct OrderInput {
     pub profile_id: String,
     pub shop_id: i64,
-    pub drop_id: i64,
+    pub drop_id: Option<i64>,
     pub email_pool_id: Option<i64>,
     pub proxy_id: Option<i64>,
     pub order_number: Option<String>,
@@ -504,6 +515,65 @@ pub struct SaveTemplateInput {
 // ─────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImapFolderInfo {
+    pub name: String,
+    pub unread: i64,
+    pub total: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImapAccountStats {
+    pub total: i64,
+    pub unread: i64,
+    pub folders: Vec<ImapFolderInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SmtpConfig {
+    pub id: i64,
+    pub label: String,
+    pub host: String,
+    pub port: i64,
+    pub login: String,
+    pub use_tls: bool,
+    pub use_starttls: bool,
+    pub is_active: bool,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct SmtpConfigInput {
+    pub label: String,
+    pub host: String,
+    pub port: i64,
+    pub login: String,
+    pub password: String,
+    pub use_tls: bool,
+    pub use_starttls: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SentEmail {
+    pub id: i64,
+    pub smtp_config_id: Option<i64>,
+    pub from_email: Option<String>,
+    pub to_email: String,
+    pub subject: Option<String>,
+    pub status: String,
+    pub error_message: Option<String>,
+    pub sent_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginatedSentEmails {
+    pub items: Vec<SentEmail>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub pages: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImapAccount {
     pub id: i64,
     pub label: String,
@@ -522,7 +592,11 @@ pub struct ImapMessage {
     pub message_uid: Option<String>,
     pub subject: Option<String>,
     pub from_email: Option<String>,
+    pub to_email: Option<String>,
     pub received_at: Option<String>,
+    pub body: Option<String>,
+    pub folder: Option<String>,
+    pub is_read: bool,
     pub extracted_order_number: Option<String>,
     pub extracted_tracking: Option<String>,
     pub action_taken: Option<String>,
@@ -613,6 +687,33 @@ pub struct PaginatedLog {
 }
 
 // ─────────────────────────────────────────
+//  Advanced Analytics (D2/D3)
+// ─────────────────────────────────────────
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct BinPerf {
+    pub bin: String,
+    pub bank_name: Option<String>,
+    pub total_orders: u32,
+    pub delivered: u32,
+    pub declined: u32,
+    pub total_revenue: f64,
+    pub delivery_rate: f64,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ShopWinLoss {
+    pub shop_id: i64,
+    pub shop_name: String,
+    pub total: u32,
+    pub delivered: u32,
+    pub declined: u32,
+    pub delivery_pct: f64,
+    pub net_revenue: f64,
+    pub expected_value: f64,
+}
+
+// ─────────────────────────────────────────
 //  BIN lookup
 // ─────────────────────────────────────────
 
@@ -648,6 +749,80 @@ pub struct SyncResult {
     pub failed: u32,
     pub message: String,
     pub server_reached: bool,
+}
+
+// ─────────────────────────────────────────
+//  Sync Groups
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SyncGroupMember {
+    pub installation_id: String,
+    pub joined_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SyncGroupInfo {
+    pub group_id: String,
+    pub name: String,
+    pub card_count: u32,
+    pub members: Vec<SyncGroupMember>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SyncGroupStatus {
+    pub in_group: bool,
+    pub group_id: Option<String>,
+    pub group_name: Option<String>,
+    pub connected: bool,
+    pub last_sync: Option<String>,
+}
+
+// ─────────────────────────────────────────
+//  Footprint — Card/Email/Shop analytics
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CardShopUsage {
+    pub shop_id: i64,
+    pub shop_name: String,
+    pub shop_domain: String,
+    pub order_count: i64,
+    pub last_order_date: Option<String>,
+    pub last_status: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ShopUsageBrief {
+    pub shop_id: i64,
+    pub shop_name: String,
+    pub order_count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EmailFootprintStats {
+    pub total_orders: i64,
+    pub unique_shops: i64,
+    pub shops: Vec<ShopUsageBrief>,
+    pub is_burned: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ShopRiskScore {
+    pub shop_id: i64,
+    pub decline_rate: f64,
+    pub unique_emails: i64,
+    pub unique_ips: i64,
+    pub risk_level: String,  // "low" | "medium" | "high"
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CardTimelineEvent {
+    pub event_type: String,   // "imported" | "status_changed" | "order_created" | "order_status_changed"
+    pub description: String,
+    pub entity_type: Option<String>,
+    pub entity_id: Option<String>,
+    pub created_at: String,
 }
 
 // ─────────────────────────────────────────
@@ -765,4 +940,112 @@ pub struct SidebarBadges {
     pub clean_emails: i64,
     pub unread_imap: i64,
     pub unsynced_footprints: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileTemplate {
+    pub id: i64,
+    pub name: String,
+    pub country: Option<String>,
+    pub state: Option<String>,
+    pub city: Option<String>,
+    pub phone_prefix: Option<String>,
+    pub source: Option<String>,
+    pub created_at: Option<String>,
+}
+
+// ─────────────────────────────────────────
+//  Proxy Intelligence (G1)
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProxyHealthResult {
+    pub checked: u32,
+    pub online: u32,
+    pub offline: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProxyUsageStat {
+    pub proxy_id: i64,
+    pub total_orders: u32,
+    pub success_count: u32,
+    pub decline_count: u32,
+}
+
+// ─────────────────────────────────────────
+//  Catalog (M11)
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CatalogItem {
+    pub id: i64,
+    pub name: String,
+    pub asin: Option<String>,
+    pub price: Option<f64>,
+    pub pct: Option<i64>,
+    pub category: Option<String>,
+    pub notes_en: Option<String>,
+    pub stop: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CatalogShop {
+    pub id: i64,
+    pub domain: String,
+    pub category: Option<String>,
+    pub score: Option<i64>,
+    pub ship_us: bool,
+    pub fraud_level: Option<String>,
+    pub top_brands: Option<String>,
+    pub top_products: Option<String>,
+    pub excluded: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CatalogStats {
+    pub items: i64,
+    pub shops: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CatalogItemInput {
+    pub id: Option<i64>,
+    pub name: String,
+    pub asin: Option<String>,
+    pub price: Option<f64>,
+    pub pct: Option<i64>,
+    pub category: Option<String>,
+    pub notes_en: Option<String>,
+    pub stop: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CatalogShopInput {
+    pub domain: String,
+    pub category: Option<String>,
+    pub score: Option<i64>,
+    pub ship_us: bool,
+    pub fraud_level: Option<String>,
+    pub top_brands: Option<String>,
+    pub top_products: Option<String>,
+    pub excluded: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PaginatedCatalogItems {
+    pub items: Vec<CatalogItem>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub pages: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PaginatedCatalogShops {
+    pub items: Vec<CatalogShop>,
+    pub total: u32,
+    pub page: u32,
+    pub per_page: u32,
+    pub pages: u32,
 }

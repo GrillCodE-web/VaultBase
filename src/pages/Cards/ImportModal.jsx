@@ -1,0 +1,234 @@
+import { useState, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { AlertTriangle } from "lucide-react";
+import { useLang } from "../../hooks/useLang.jsx";
+import { useToast } from "../../hooks/useToast.jsx";
+import { useFocusTrap } from "../../hooks/useFocusTrap.js";
+import { normalizeExpiry } from "../../utils/formatting.js";
+
+const FIELD_OPTIONS = [
+  "skip","card_number","expiry_date","cvv","holder_name",
+  "billing_address","city","state","zip","country","phone","email","ip_address",
+];
+
+function Spinner() {
+  return (
+    <span style={{
+      display: "inline-block", width: 12, height: 12, marginRight: 6,
+      border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "var(--text)",
+      borderRadius: "50%", animation: "spin 0.7s linear infinite", verticalAlign: "middle",
+    }} />
+  );
+}
+
+export function ImportModal({ onClose, onImported }) {
+  const { t } = useLang();
+  const { toast } = useToast();
+  const [step, setStep]       = useState(1);
+  const [raw, setRaw]         = useState("");
+  const [source, setSource]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [mapping, setMapping] = useState([]);
+  const [result, setResult]   = useState(null);
+
+  const handlePreview = async () => {
+    if (!raw.trim()) { toast(t("cc_import_paste_first"), "warn"); return; }
+    setLoading(true);
+    try {
+      const data = await invoke("detect_mapping_preview", { raw });
+      setPreview(data);
+      setMapping([...data.detected_mapping]);
+      setStep(2);
+    } catch (e) { toast(String(e), "error"); }
+    finally { setLoading(false); }
+  };
+
+  const handleToMapping = () => setStep(3);
+
+  const handleImport = async () => {
+    setLoading(true);
+    try {
+      const expiryIdx = mapping.findIndex(m => m === "expiry_date");
+      let processedRaw = raw;
+
+      if (expiryIdx >= 0) {
+        const sep = raw.includes("|") ? "|" : raw.includes(";") ? ";" : ",";
+        processedRaw = raw.split("\n").map(line => {
+          const cols = line.split(sep);
+          if (cols[expiryIdx] !== undefined) {
+            const norm = normalizeExpiry(cols[expiryIdx]);
+            if (norm) cols[expiryIdx] = norm;
+          }
+          return cols.join(sep);
+        }).join("\n");
+      }
+
+      const res = await invoke("import_cards", {
+        raw: processedRaw, mapping, source: source || "dump",
+      });
+      setResult(res);
+      onImported?.();
+    } catch (e) { toast(String(e), "error"); }
+    finally { setLoading(false); }
+  };
+
+  const colCount = preview?.preview_rows?.[0]?.length ?? 0;
+  const expiryColIdx = preview ? mapping.findIndex(m => m === "expiry_date") : -1;
+  const modalRef = useRef(null);
+  useFocusTrap(modalRef, true);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  return (
+    <div className="modal-overlay">
+      <div ref={modalRef} className="modal max-w-[680px] w-full max-h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="import-modal-title" >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            <span id="import-modal-title" className="modal-title m-0">{t("cc_import_title")}</span>
+            <div className="flex gap-1">
+              {[1,2,3].map(s => (
+                <div key={s} style={{
+                  width: 24, height: 4, borderRadius: 4,
+                  background: s <= step ? "var(--accent)" : "var(--border)",
+                  transition: "background 0.2s",
+                }} />
+              ))}
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5">
+          {/* Step 1 */}
+          {step === 1 && (
+            <div className="flex flex-col gap-3.5">
+              <p className="text-muted text-[12px] m-0">{t("cc_import_step1_hint")}</p>
+              <textarea
+                value={raw}
+                onChange={e => setRaw(e.target.value)}
+                placeholder="4111111111111111|12/26|123|JOHN SMITH|john@example.com..."
+                rows={10}
+                className="form-input font-mono resize-none text-[12px]"
+              />
+              <div className="form-group">
+                <label className="form-label">{t("cc_import_source_label")}</label>
+                <input value={source} onChange={e => setSource(e.target.value)} placeholder="nike-dump-jan" className="form-input" />
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 — preview with expiry validation highlight */}
+          {step === 2 && preview && (
+            <div className="flex flex-col gap-3.5">
+              <p className="text-muted text-[12px] m-0">{t("cc_import_step2_hint")}</p>
+              <div className="panel p-0 overflow-x-auto">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      {preview.detected_mapping.map((field, i) => (
+                        <th key={i}>
+                          <span style={{
+                            padding: "2px 6px", borderRadius: 4, fontSize: 10,
+                            background: field !== "skip" ? "rgba(34,197,94,0.12)" : "transparent",
+                            color: field !== "skip" ? "#4ade80" : "var(--muted)",
+                            border: field !== "skip" ? "1px solid rgba(34,197,94,0.25)" : "none",
+                          }}>
+                            {field !== "skip" ? `✓ ${field}` : `col ${i+1}`}
+                          </span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.preview_rows.map((row, ri) => (
+                      <tr key={ri}>
+                        {row.map((cell, ci) => {
+                          const isExp = ci === expiryColIdx;
+                          const norm  = isExp ? normalizeExpiry(cell) : null;
+                          const bad   = isExp && norm === null;
+                          return (
+                            <td key={ci}
+                              title={isExp && norm && norm !== cell ? `Normalised: ${norm}` : undefined}
+                              style={{
+                                fontFamily: "'JetBrains Mono',monospace", maxWidth: 160,
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                background: bad ? "rgba(239,68,68,0.12)" : undefined,
+                                color:      bad ? "#f87171" : undefined,
+                              }}>
+                              {isExp && norm ? norm : cell}
+                              {bad && <AlertTriangle size={11} title={t("cards_bad_expiry")} className="ml-1" />}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — mapping */}
+          {step === 3 && preview && (
+            <div className="flex flex-col gap-2.5">
+              <p className="text-muted text-[12px] m-0">{t("cc_import_step3_hint")}</p>
+              {Array.from({ length: colCount }).map((_, ci) => (
+                <div key={ci} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "10px 12px", background: "var(--surface)", borderRadius: 7,
+                  border: "1px solid var(--border)",
+                }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 5, background: "var(--border)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, color: "var(--muted)", flexShrink: 0,
+                  }}>
+                    {ci + 1}
+                  </div>
+                  <div className="flex-1 font-mono text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap">
+                    {preview.preview_rows[0]?.[ci] ?? "—"}
+                  </div>
+                  <select
+                    value={mapping[ci] ?? "skip"}
+                    onChange={e => { const m = [...mapping]; m[ci] = e.target.value; setMapping(m); }}
+                    className="inline-select"
+                  >
+                    {FIELD_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+              ))}
+
+              {result && (
+                <div className="mt-2 p-[14px] bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.25)] rounded-md">
+                  <p className="text-green-t font-semibold text-[13px] mb-[6px]">{t("cc_import_done")}</p>
+                  <div className="flex gap-5 text-[12px] text-muted">
+                    <span>✓ {t("imported")}: <strong className="text-green-t">{result.imported}</strong></span>
+                    <span>↷ {t("skipped")}: <strong className="text-yellow-t">{result.skipped}</strong></span>
+                    <span>✗ {t("errors")}: <strong className="text-red-t">{result.errors?.length ?? 0}</strong></span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-5 py-[14px] border-t border-border">
+          <button onClick={() => step > 1 && !result ? setStep(s => s - 1) : onClose()} className="btn btn-ghost btn-sm">
+            {result ? t("btn_close") : step > 1 ? "← " + t("btn_back") : t("btn_cancel")}
+          </button>
+          <div className="flex gap-2">
+            {step === 1 && <button onClick={handlePreview} disabled={loading || !raw.trim()} className="btn btn-b">{loading && <Spinner />}{t("cc_import_preview")} →</button>}
+            {step === 2 && <button onClick={handleToMapping} className="btn btn-b">{t("cc_import_mapping")} →</button>}
+            {step === 3 && !result && <button onClick={handleImport} disabled={loading} className="btn btn-b">{loading && <Spinner />}{t("cc_import_do")}</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

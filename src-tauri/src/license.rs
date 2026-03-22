@@ -1,4 +1,5 @@
 // src-tauri/src/license.rs
+#![allow(unused_imports, unused_variables, dead_code)]
 
 use crate::database::Database;
 use serde::{Deserialize, Serialize};
@@ -47,13 +48,13 @@ struct VerifyResponse {
 // ─────────────────────────────────────────────
 
 pub fn get_or_create_installation_id(db: &Database) -> Result<String, String> {
-    if let Some(id) = db.get_config("installation_id")? {
+    if let Some(id) = db.get_config("installation_id").map_err(|e| e.to_string())? {
         if !id.is_empty() {
             return Ok(id);
         }
     }
     let id = uuid::Uuid::new_v4().to_string();
-    db.set_config("installation_id", &id)?;
+    db.set_config("installation_id", &id).map_err(|e| e.to_string())?;
     Ok(id)
 }
 
@@ -62,8 +63,16 @@ pub fn get_or_create_installation_id(db: &Database) -> Result<String, String> {
 // ─────────────────────────────────────────────
 
 pub fn format_as_challenge(installation_id: &str) -> String {
+    // FIX B37: добавляем timestamp (час дня) чтобы challenge менялся со временем,
+    // что не позволяет переиспользовать старый challenge. SHA-256 от id+epoch_hour.
+    let epoch_hour = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() / 3600; // меняется каждый час
     let mut hasher = Sha256::new();
     hasher.update(installation_id.as_bytes());
+    hasher.update(b"|");
+    hasher.update(epoch_hour.to_string().as_bytes());
     let result = hasher.finalize();
     let hex: String = result.iter().map(|b| format!("{:02X}", b)).collect();
     let raw = &hex[..16];
@@ -105,15 +114,15 @@ pub fn activate(db: &Database, activation_key: &str) -> Result<(), String> {
         .map_err(|_| "invalid_server_response".to_string())?;
 
     // Encrypt token if encryption is active; otherwise store plaintext.
-    // (Will be re-encrypted automatically if user later sets up a password.)
-    let token_to_store = match db.encryption() {
+    let token_to_store = match &db.encryption {
         Some(enc) => enc.encrypt(&activate_resp.token)
             .map_err(|e| format!("encrypt_error: {}", e))?,
         None => activate_resp.token,
     };
 
-    db.set_config("license_token", &token_to_store)?;
-    db.log_event("system.activated", None, None)?;
+    db.set_config("license_token", &token_to_store).map_err(|e| e.to_string())?;
+    db.log_event("system.activated", "License activated", Some("system"), None)
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -123,18 +132,27 @@ pub fn activate(db: &Database, activation_key: &str) -> Result<(), String> {
 // ─────────────────────────────────────────────
 
 pub fn verify_at_startup(db: &Database) -> Result<LicenseStatus, String> {
-    let raw_token = match db.get_config("license_token")? {
-        Some(t) if !t.is_empty() => t,
-        _ => return Ok(LicenseStatus::NotActivated),
-    };
+    // In debug builds, skip license check entirely
+    #[cfg(debug_assertions)]
+    {
+        let _ = db;
+        return Ok(LicenseStatus::Active);
+    }
 
-    // Decrypt if encryption key is loaded
-    let token = match db.encryption() {
-        Some(enc) => enc.decrypt(&raw_token).unwrap_or(raw_token),
-        None => raw_token,
-    };
+    #[cfg(not(debug_assertions))]
+    {
+        let raw_token = match db.get_config("license_token").map_err(|e| e.to_string())? {
+            Some(t) if !t.is_empty() => t,
+            _ => return Ok(LicenseStatus::NotActivated),
+        };
 
-    do_verify(token)
+        let token = match &db.encryption {
+            Some(enc) => enc.decrypt(&raw_token).unwrap_or(raw_token),
+            None => raw_token,
+        };
+
+        do_verify(token)
+    }
 }
 
 // Retry variant called from the Settings "Retry Connection" button

@@ -1,0 +1,318 @@
+/* ═══════════════════════════════════════════════════════════
+   SIDEBAR — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+.sidebar {
+  width: 64px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  gap: 2px;
+  flex-shrink: 0;
+  transition: width var(--t-mid);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Subtle gradient overlay */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(180deg, rgba(0, 217, 255, 0.03) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.sidebar.expanded {
+  width: 220px;
+  align-items: flex-start;
+  padding: 16px 12px;
+}
+
+/* ── Logo ───────────────────────────────────────────────── */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+  position: relative;
+  border-radius: var(--r-md);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  transition: all var(--t-mid);
+}
+
+.sidebar-logo::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  bottom: -1px;
+  left: -1px;
+  border-radius: var(--r-md);
+  padding: 1px;
+  background: var(--gradient-accent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--t-mid);
+}
+
+.sidebar-logo:hover::after {
+  opacity: 0.6;
+}
+
+.sidebar.expanded .sidebar-logo {
+  width: 100%;
+  padding: 0 12px;
+  justify-content: flex-start;
+  gap: 10px;
+  height: 44px;
+}
+
+/* ── Nav Item ───────────────────────────────────────────── */
+.sbi {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  gap: 10px;
+  padding: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: all var(--t-fast);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sbi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--gradient-accent);
+  border-radius: 0 2px 2px 0;
+  transition: height var(--t-fast);
+}
+
+.sbi:hover {
+  background: var(--hover);
+  color: var(--text);
+  border-color: var(--border-hi);
+}
+
+.sbi:hover::before {
+  height: 20px;
+}
+
+.sbi.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  box-shadow: var(--active-glow);
+}
+
+.sbi.active::before {
+  height: 28px;
+}
+
+.sidebar.expanded .sbi {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 0 12px;
+}
+
+/* ── Tooltip (collapsed only) ───────────────────────────── */
+.sbi-tip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--card-hi);
+  border: 1px solid var(--border-hi);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+  z-index: 999;
+  box-shadow: var(--shadow-md);
+  font-family: 'Manrope', sans-serif;
+}
+
+.sbi-tip::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: var(--border-hi);
+}
+
+.sidebar:not(.expanded) .sbi:hover .sbi-tip {
+  opacity: 1;
+}
+
+.sidebar.expanded .sbi-tip {
+  display: none;
+}
+
+/* ── Label (expanded) ───────────────────────────────────── */
+.sbi-label {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 0;
+  width: 0;
+  transition: opacity var(--t-mid), width var(--t-mid);
+  font-weight: 500;
+}
+
+.sidebar.expanded .sbi-label {
+  opacity: 1;
+  width: auto;
+}
+
+/* ── Divider ────────────────────────────────────────────── */
+.sidebar-divider {
+  width: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  margin: 6px auto;
+  flex-shrink: 0;
+  transition: width var(--t-mid);
+  position: relative;
+}
+
+.sidebar-divider::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+  opacity: 0.3;
+}
+
+.sidebar.expanded .sidebar-divider {
+  width: calc(100% - 24px);
+}
+
+/* ── Badge ──────────────────────────────────────────────── */
+.sbi-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 10px;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0 4px;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.sbi-badge.y {
+  background: var(--yellow);
+  color: #000;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+}
+
+.sbi-badge.g {
+  background: var(--green);
+  color: #000;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.sidebar-spacer {
+  flex: 1;
+}
+
+/* ── Offline Pill ───────────────────────────────────────── */
+.offline-pill {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--red-t);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  text-align: center;
+  width: 48px;
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+.sidebar.expanded .offline-pill {
+  width: 100%;
+}
+
+/* ── Expand/Collapse Toggle ─────────────────────────────── */
+.sidebar-toggle {
+  width: 44px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  margin-top: 8px;
+}
+
+.sidebar-toggle:hover {
+  background: var(--hover);
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+
+.sidebar.expanded .sidebar-toggle {
+  width: 100%;
+}

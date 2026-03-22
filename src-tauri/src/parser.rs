@@ -48,9 +48,10 @@ const STREET_SUFFIXES: &[&str] = &[
 // ─────────────────────────────────────────
 
 fn strip_log_prefix(line: &str) -> &str {
-    // Look for "| Data: " (case-insensitive search using lowercase)
+    // FIX B58: используем find (первое вхождение) вместо rfind,
+    // чтобы вредоносный "| data: " в теле данных не подменял результат.
     let lower = line.to_lowercase();
-    if let Some(pos) = lower.rfind("| data: ") {
+    if let Some(pos) = lower.find("| data: ") {
         return &line[pos + 8..];
     }
     if let Some(pos) = lower.find("data: ") {
@@ -95,6 +96,17 @@ pub fn luhn_valid(number: &str) -> bool {
 
 fn parse_expiry(raw: &str) -> Option<String> {
     let s = raw.trim();
+
+    // Вспомогательная: проверяем что дата не истекла
+    let is_valid_future = |mm: u32, yy: u32| -> bool {
+        let now = chrono::Utc::now();
+        let cur_y = (now.format("%y").to_string().parse::<u32>().unwrap_or(0)) as u32;
+        let cur_m = now.month();
+        // FIX B60: отклоняем карты у которых срок уже истёк
+        yy > cur_y || (yy == cur_y && mm >= cur_m)
+    };
+    use chrono::Datelike;
+
     // MM/YYYY or MM/YY
     if let Some(pos) = s.find('/') {
         let mm = &s[..pos];
@@ -106,22 +118,48 @@ fn parse_expiry(raw: &str) -> Option<String> {
         } else {
             yy_part.parse().ok()?
         };
+        if !is_valid_future(mm, yy) { return None; }
         return Some(format!("{:02}/{:02}", mm, yy));
     }
-    // MMYYYY or MMYY
+
     let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
     match digits.len() {
         4 => {
+            // MMYY
             let mm: u32 = digits[..2].parse().ok()?;
             let yy: u32 = digits[2..].parse().ok()?;
             if mm < 1 || mm > 12 { return None; }
+            if !is_valid_future(mm, yy) { return None; }
             Some(format!("{:02}/{:02}", mm, yy))
         }
         6 => {
+            // FIX B73: формат MMYYYY (digits[2..6]) — берём последние 2 из 4-значного года
+            // Отличие от MMDDYY: день (позиция [2..4]) не может быть >31,
+            // а год (позиция [4..6] в MMDDYY) не может быть разумным YY если он < 01.
+            // Heuristic: если digits[2..4] <= 31 И digits[4..6] выглядит как год (>= current_yy) —
+            // это MMDDYY. Иначе — MMYYYY.
             let mm: u32 = digits[..2].parse().ok()?;
-            let yy: u32 = digits[4..].parse().ok()?;
             if mm < 1 || mm > 12 { return None; }
-            Some(format!("{:02}/{:02}", mm, yy))
+            let middle: u32 = digits[2..4].parse().ok()?;
+            let last2: u32 = digits[4..].parse().ok()?;
+            let now = chrono::Utc::now();
+            let cur_y = now.format("%y").to_string().parse::<u32>().unwrap_or(0);
+
+            // Если middle <= 31 и last2 >= cur_y — это MMDDYY (день + год)
+            // В этом случае используем last2 как YY
+            // Если middle выглядит как первые 2 цифры года (19xx/20xx) — MMYYYY
+            if middle >= 19 || middle == 20 {
+                // MMYYYY: digits[2..6] = полный год, берём last 2
+                let yy = last2;
+                if !is_valid_future(mm, yy) { return None; }
+                Some(format!("{:02}/{:02}", mm, yy))
+            } else if middle <= 31 && last2 >= cur_y {
+                // MMDDYY: используем last2 как YY
+                if !is_valid_future(mm, last2) { return None; }
+                Some(format!("{:02}/{:02}", mm, last2))
+            } else {
+                None
+            }
         }
         _ => None,
     }
@@ -221,12 +259,31 @@ fn classify_column(samples: &[&str]) -> String {
     let addr_hits = non_empty.iter().filter(|s| is_billing_address(s)).count();
     if addr_hits > n / 2 { return "billing_address".into(); }
 
-    // cvv: 3-4 digits only
+    // FIX B59: zip проверяем ДО cvv — иначе 4-значные европейские ZIP (NL, AT, IL)
+    // ошибочно классифицируются как CVV (оба 4 цифры)
+    // zip: 5 digits or short numeric (4-10 chars)
+    let zip_hits = non_empty.iter().filter(|s| {
+        let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+        d.len() == s.len() && s.len() >= 4 && s.len() <= 10
+    }).count();
+    // Для zip используем порог 5+ цифр (5-значные US ZIP), или 4-значные если все одинаковой длины
+    let all_same_len = non_empty.windows(2).all(|w| w[0].len() == w[1].len());
+    if zip_hits > n * 2 / 3 && (non_empty.iter().all(|s| s.len() == 5) || (all_same_len && non_empty.first().map(|s| s.len() == 4).unwrap_or(false))) {
+        return "zip".into();
+    }
+
+    // cvv: 3-4 digits only (проверяем ПОСЛЕ zip)
     let cvv_hits = non_empty.iter().filter(|s| {
         let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
-        (d.len() == 3 || d.len() == 4) && *s == &d
+        d.len() == 3 && *s == &d  // CVV строго 3 цифры; 4-значные — AmEx CVV редки
     }).count();
     if cvv_hits > n * 2 / 3 { return "cvv".into(); }
+    // AmEx 4-digit CVV — только если не похоже на zip
+    let cvv4_hits = non_empty.iter().filter(|s| {
+        let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+        d.len() == 4 && *s == &d
+    }).count();
+    if cvv4_hits > n * 2 / 3 && zip_hits < n / 4 { return "cvv".into(); }
 
     // phone: 10+ digit chars, total len ≤ 20
     let phone_hits = non_empty.iter().filter(|s| {
@@ -248,13 +305,6 @@ fn classify_column(samples: &[&str]) -> String {
         return "country".into();
     }
 
-    // zip: 5 digits or short numeric (4-10 chars)
-    let zip_hits = non_empty.iter().filter(|s| {
-        let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
-        d.len() == s.len() && s.len() >= 4 && s.len() <= 10
-    }).count();
-    if zip_hits > n * 2 / 3 { return "zip".into(); }
-
     // holder_name: 2+ words, alpha + spaces + hyphens
     let name_hits = non_empty.iter().filter(|s| {
         let words: Vec<&str> = s.split_whitespace().collect();
@@ -262,11 +312,15 @@ fn classify_column(samples: &[&str]) -> String {
     }).count();
     if name_hits > n / 2 { return "holder_name".into(); }
 
-    // city: 1+ words, all alpha (+ space/hyphen/period), length >= 3, not 2-letter
+    // FIX B62: city требует 2+ слова ИЛИ первую букву заглавную + только буквы+дефис
+    // Однословные значения типа "DE" или "free" не считаются city
     let city_hits = non_empty.iter().filter(|s| {
-        s.len() >= 3
-            && s.chars().all(|c| c.is_alphabetic() || c == ' ' || c == '-' || c == '.')
-            && !s.trim().is_empty()
+        let words: Vec<&str> = s.split_whitespace().collect();
+        let all_alpha = s.chars().all(|c| c.is_alphabetic() || c == ' ' || c == '-' || c == '.');
+        let looks_like_city = words.len() >= 2  // New York, Los Angeles, ...
+            || (words.len() == 1 && s.len() >= 4  // Rome, Paris, Oslo — не 2-буквенные state abbrev
+                && s.chars().next().map(|c| c.is_uppercase()).unwrap_or(false));
+        s.len() >= 3 && all_alpha && looks_like_city
     }).count();
     if city_hits > n / 2 { return "city".into(); }
 
@@ -278,7 +332,11 @@ fn classify_column(samples: &[&str]) -> String {
 // ─────────────────────────────────────────
 
 pub fn detect_mapping(raw: &str) -> Vec<String> {
-    let delim = detect_delimiter(raw);
+    // FIX B61: делегируем с предзаданным делиметром
+    detect_mapping_with_delim(raw, detect_delimiter(raw))
+}
+
+fn detect_mapping_with_delim(raw: &str, delim: char) -> Vec<String> {
     let lines: Vec<Vec<&str>> = raw.lines()
         .map(|l| strip_log_prefix(l.trim()))
         .filter(|l| !l.is_empty())
@@ -314,6 +372,7 @@ pub fn detect_mapping(raw: &str) -> Vec<String> {
 // ─────────────────────────────────────────
 
 pub fn mapping_preview(raw: &str) -> MappingPreview {
+    // FIX B61: детектируем делиметр один раз и переиспользуем
     let delim = detect_delimiter(raw);
     let rows: Vec<Vec<String>> = raw.lines()
         .map(|l| strip_log_prefix(l.trim()))
@@ -322,7 +381,7 @@ pub fn mapping_preview(raw: &str) -> MappingPreview {
         .map(|l| l.split(delim).map(|s| s.trim().to_string()).collect())
         .collect();
 
-    let detected = detect_mapping(raw);
+    let detected = detect_mapping_with_delim(raw, delim);
     MappingPreview {
         preview_rows: rows,
         detected_mapping: detected,
@@ -338,10 +397,15 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
     let mut parsed  = Vec::new();
     let mut skipped = 0usize;
     let mut errors  = Vec::new();
+    // FIX B69: data_line_no считает только непустые строки — номера в ошибках соответствуют
+    // тому что видит пользователь после удаления пустых строк
+    let mut data_line_no = 0usize;
 
-    for (line_no, line) in raw.lines().enumerate() {
+    for line in raw.lines() {
         let line = strip_log_prefix(line.trim());
         if line.is_empty() { continue; }
+        data_line_no += 1;
+        let line_no = data_line_no; // 1-based для сообщений об ошибках
 
         let parts: Vec<&str> = line.split(delim).map(|s| s.trim()).collect();
 
@@ -363,7 +427,7 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
                         input.card_number = clean;
                         has_card_number = true;
                     } else {
-                        errors.push(format!("Line {}: invalid card number \"{}\"", line_no+1, &val[..val.len().min(20)]));
+                        errors.push(format!("Line {}: invalid card number \"{}\"", line_no, &val[..val.len().min(20)]));
                         skipped += 1;
                         break;
                     }
@@ -384,8 +448,8 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
         }
 
         if !has_card_number {
-            if !errors.last().map(|e: &String| e.starts_with(&format!("Line {}:", line_no+1))).unwrap_or(false) {
-                errors.push(format!("Line {}: missing card_number", line_no+1));
+            if !errors.last().map(|e: &String| e.starts_with(&format!("Line {}:", line_no))).unwrap_or(false) {
+                errors.push(format!("Line {}: missing card_number", line_no));
                 skipped += 1;
             }
             continue;

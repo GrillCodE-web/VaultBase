@@ -1,26 +1,30 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  User, CreditCard, MapPin, Plus, Copy, Trash2, Star, StarOff,
-  ChevronDown, ChevronRight, Search, RefreshCw, AlertTriangle,
+  User, CreditCard, MapPin, Plus, Trash2, Star, StarOff,
+  Search, RefreshCw, AlertTriangle,
   Package, ExternalLink, Layers, Import, CheckCircle2, XCircle,
   Edit2, Check, X, Filter, MoreHorizontal, Maximize2, ClipboardCopy,
-  ShoppingCart, SearchCode
+  SearchCode, Download, ShoppingCart
 } from "lucide-react";
 import { useLang } from "../hooks/useLang";
 import { useToast } from "../hooks/useToast";
 import { useConfirm } from "../hooks/useConfirm";
+import { useDebounce } from "../hooks/useDebounce.js";
+import { EmptyState } from "../components/EmptyState.jsx";
 import { SkeletonRows } from "../components/SkeletonRow.jsx";
+import { ActionsMenu } from "../components/ActionsMenu.jsx";
+import { CARD_STATUS_COLORS } from "../constants/status.js";
+import { buildPipeString, shortId } from "../utils/formatting.js";
+import { buildPageNumbers } from "../utils/pagination.js";
+import { copyText } from "../utils/clipboard.js";
+import { ProfileModal } from "./Profiles/ProfileModal.jsx";
+import { ProfileFilters } from "./Profiles/ProfileFilters.jsx";
+import { ProfileRow } from "./Profiles/ProfileRow.jsx";
 
 // ─── helpers ─────────────────────────────────────────────────
-const STATUS_COLOR_MAP = {
-  active:  "#4ade80",
-  free:    "#4ade80",
-  in_use:  "#60a5fa",
-  dead:    "#f87171",
-  blocked: "#f87171",
-};
-
 const ORDER_STATUS_CSS = {
   pending:    "st-pending",
   processing: "st-inuse",
@@ -30,36 +34,24 @@ const ORDER_STATUS_CSS = {
   cancelled:  "st-archive",
 };
 
-function copyText(text) {
-  navigator.clipboard.writeText(text).catch(() => {});
-}
-
-function shortId(id) {
-  return id ? id.slice(-8).toUpperCase() : "—";
-}
-
-function maskedCard(last4, bin) {
-  if (!last4) return "—";
-  const b = bin ? bin.slice(0, 4) : "????";
-  return `${b}••••••••${last4}`;
-}
 
 // ─── DropForm ─────────────────────────────────────────────────
 function DropForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState(
     initial || { recipient_name: "", address: "", city: "", state: "", zip: "", country: "", phone: "" }
   );
+  const { t } = useLang();
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const valid = form.address.trim() && form.city.trim() && form.country.trim();
 
   const fields = [
-    ["recipient_name", "Recipient Name", 2],
-    ["address", "Address *", 2],
-    ["city", "City *", 1],
-    ["state", "State", 1],
-    ["zip", "ZIP *", 1],
-    ["country", "Country *", 1],
-    ["phone", "Phone", 2],
+    ["recipient_name", t("drop_field_recipient"), 2],
+    ["address", t("drop_field_address"), 2],
+    ["city", t("drop_field_city"), 1],
+    ["state", t("drop_field_state"), 1],
+    ["zip", t("drop_field_zip"), 1],
+    ["country", t("drop_field_country"), 1],
+    ["phone", t("drop_field_phone"), 2],
   ];
 
   return (
@@ -67,7 +59,7 @@ function DropForm({ initial, onSave, onCancel }) {
       background: "var(--surface)", borderRadius: 8, border: "1px solid var(--border)",
       padding: 16, marginTop: 8,
     }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid grid-cols-2 gap-3">
         {fields.map(([key, label, span]) => (
           <div key={key} style={span === 2 ? { gridColumn: "1 / -1" } : {}}>
             <label style={{
@@ -77,14 +69,13 @@ function DropForm({ initial, onSave, onCancel }) {
             <input
               value={form[key]}
               onChange={set(key)}
-              className="form-input"
-              style={{ width: "100%", boxSizing: "border-box" }}
+              className="form-input w-full box-border"
             />
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-        <button onClick={onCancel} className="btn btn-ghost btn-sm">Cancel</button>
+      <div className="flex justify-end gap-2 mt-3">
+        <button onClick={onCancel} className="btn btn-ghost btn-sm">{t("btn_cancel")}</button>
         <button
           onClick={() => valid && onSave(form)}
           disabled={!valid}
@@ -107,6 +98,7 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useLang();
 
   const DROP_COLUMNS = ["recipient_name", "address", "city", "state", "zip", "country", "phone", "skip"];
 
@@ -140,36 +132,44 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
     }
   };
 
+  const dropFormRef = useRef(null);
+  useFocusTrap(dropFormRef, true);
+  // Scroll lock
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   return (
     <div className="modal-overlay">
-      <div className="modal" style={{ width: 680, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+      <div ref={dropFormRef} className="modal w-[680px] max-h-[80vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="import-drops-title">
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "16px 24px", borderBottom: "1px solid var(--border)",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Import size={18} style={{ color: "#c084fc" }} />
-            <span className="modal-title" style={{ margin: 0 }}>Import Drops</span>
+          <div className="flex items-center gap-2">
+            <Import size={18} className="text-blue-t" />
+            <span id="import-drops-title" className="modal-title m-0">{t("import_drops_title")}</span>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="flex gap-1">
             {[1, 2, 3].map((s) => (
               <div key={s} style={{
                 width: 24, height: 6, borderRadius: 3,
-                background: step >= s ? "#c084fc" : "var(--border)",
+                background: step >= s ? "#60a5fa" : "var(--border)",
                 transition: "background 0.2s",
               }} />
             ))}
           </div>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+        <div className="flex-1 overflow-y-auto p-6">
           {step === 1 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>
+            <div className="flex flex-col gap-4">
+              <p className="text-[13px] text-muted m-0">
                 Paste raw drop data below. Supported delimiters:{" "}
-                <code style={{ color: "#60a5fa", fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>| , ; TAB</code>
+                <code className="text-blue-t text-[11px] font-mono">| , ; TAB</code>
               </p>
               <textarea
                 value={raw}
@@ -190,20 +190,20 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                 className="btn btn-b"
                 style={{ width: "100%", opacity: (!raw.trim() || loading) ? 0.4 : 1 }}
               >
-                {loading ? "Detecting…" : "Detect Columns →"}
+                {loading ? t("drops_detecting") : t("drops_detect_btn")}
               </button>
             </div>
           )}
 
           {step === 2 && preview && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>Map columns to drop fields. First row shown as example.</p>
-              <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div className="flex flex-col gap-4">
+              <p className="text-[13px] text-muted m-0">Map columns to drop fields. First row shown as example.</p>
+              <div className="overflow-x-auto rounded-md border border-border">
                 <table className="tbl">
                   <thead>
                     <tr>
                       {mapping.map((_, i) => (
-                        <th key={i} style={{ fontWeight: "normal" }}>
+                        <th key={i} className="font-normal">
                           <select
                             value={mapping[i]}
                             onChange={(e) => {
@@ -234,7 +234,7 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                             color: mapping[ci] === "skip" ? "var(--muted)" : "var(--text)",
                             opacity: mapping[ci] === "skip" ? 0.5 : 1,
                           }}>
-                            {cell || <span style={{ color: "var(--muted)" }}>—</span>}
+                            {cell || <span className="text-muted">—</span>}
                           </td>
                         ))}
                       </tr>
@@ -242,36 +242,36 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                   </tbody>
                 </table>
               </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <button onClick={() => setStep(1)} className="btn btn-ghost">← Back</button>
+              <div className="flex gap-3">
+                <button onClick={() => setStep(1)} className="btn btn-ghost">← {t("btn_cancel")}</button>
                 <button
                   onClick={handleImport}
                   disabled={loading}
                   className="btn btn-b"
                   style={{ flex: 1, opacity: loading ? 0.4 : 1 }}
                 >
-                  {loading ? "Importing…" : `Import ${preview.preview_rows.length} Rows →`}
+                  {loading ? t("drops_importing") : t("drops_import_rows").replace("{n}", preview.preview_rows.length)}
                 </button>
               </div>
             </div>
           )}
 
           {step === 3 && result && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div style={{
                   background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)",
                   borderRadius: 10, padding: 16, textAlign: "center",
                 }}>
-                  <div style={{ fontSize: 32, fontWeight: 700, color: "#4ade80" }}>{result.parsed}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Imported</div>
+                  <div className="text-[32px] font-bold text-green-t">{result.imported}</div>
+                  <div className="text-[12px] text-muted mt-1">{t("cc_import_done")}</div>
                 </div>
                 <div style={{
                   background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.2)",
                   borderRadius: 10, padding: 16, textAlign: "center",
                 }}>
-                  <div style={{ fontSize: 32, fontWeight: 700, color: "#facc15" }}>{result.skipped}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Skipped</div>
+                  <div className="text-[32px] font-bold text-yellow-t">{result.skipped}</div>
+                  <div className="text-[12px] text-muted mt-1">{t("profiles_skipped")}</div>
                 </div>
               </div>
               {result.errors?.length > 0 && (
@@ -280,16 +280,16 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                   padding: 12, maxHeight: 160, overflowY: "auto",
                 }}>
                   {result.errors.map((e, i) => (
-                    <div key={i} style={{ fontSize: 12, color: "#f87171", fontFamily: "'JetBrains Mono',monospace", padding: "2px 0" }}>{e}</div>
+                    <div key={i} className="text-[12px] text-red-t font-mono py-[2px]">{e}</div>
                   ))}
                 </div>
               )}
               <button
                 onClick={() => { onDone(); onClose(); }}
-                className="btn btn-g"
-                style={{ width: "100%" }}
+                className="btn btn-g w-full"
+                
               >
-                Done ✓
+                {t("proxy_import_done")}
               </button>
             </div>
           )}
@@ -301,29 +301,36 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
 
 // ─── DuplicateDropsModal ──────────────────────────────────────
 function DuplicateDropsModal({ groups, onClose }) {
+  const { t } = useLang();
+  // Scroll lock
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   return (
     <div className="modal-overlay">
-      <div className="modal" style={{ width: 620, maxHeight: "75vh", display: "flex", flexDirection: "column" }}>
+      <div className="modal w-[620px] max-h-[75vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="duplicate-drops-title">
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "16px 24px", borderBottom: "1px solid var(--border)",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <SearchCode size={18} style={{ color: "#facc15" }} />
-            <span className="modal-title" style={{ margin: 0 }}>Duplicate Drops</span>
+          <div className="flex items-center gap-2">
+            <SearchCode size={18} className="text-yellow-t" />
+            <span id="duplicate-drops-title" className="modal-title m-0">{t("duplicate_drops")}</span>
             <span style={{
               marginLeft: 8, fontSize: 11,
               background: "rgba(250,204,21,0.15)", color: "#facc15",
               padding: "2px 8px", borderRadius: 20,
             }}>{groups.length} groups</span>
           </div>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
-        <div style={{ overflowY: "auto", padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="overflow-y-auto p-6 flex flex-col gap-4">
           {groups.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 0", color: "var(--muted)" }}>
-              <CheckCircle2 size={40} style={{ margin: "0 auto 12px", color: "rgba(74,222,128,0.4)" }} />
-              <p style={{ margin: 0 }}>No duplicate addresses found</p>
+            <div className="text-center py-12 text-muted">
+              <CheckCircle2 size={40} className="mx-auto mb-3 text-[rgba(74,222,128,0.4)]" />
+              <p className="m-0">{t("no_dup_drops")}</p>
             </div>
           ) : groups.map((group, gi) => (
             <div key={gi} style={{
@@ -342,10 +349,10 @@ function DuplicateDropsModal({ groups, onClose }) {
                   borderTop: di === 0 ? "none" : "1px solid var(--border)",
                 }}>
                   <div>
-                    <span style={{ fontSize: 13, color: "var(--text)" }}>{d.recipient_name}</span>
-                    <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: 8 }}>profile: {shortId(d.profile_id)}</span>
+                    <span className="text-[13px] text-text">{d.recipient_name}</span>
+                    <span className="text-[11px] text-muted ml-2">profile: {shortId(d.profile_id)}</span>
                   </div>
-                  <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace", color: "var(--muted)" }}>{d.phone || "—"}</span>
+                  <span className="text-[11px] font-mono text-muted">{d.phone || "—"}</span>
                 </div>
               ))}
             </div>
@@ -358,29 +365,38 @@ function DuplicateDropsModal({ groups, onClose }) {
 
 // ─── DuplicateProfilesModal ───────────────────────────────────
 function DuplicateProfilesModal({ groups, onClose }) {
+  const { t } = useLang();
+  const dupProfRef = useRef(null);
+  useFocusTrap(dupProfRef, true);
+  // Scroll lock
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   return (
     <div className="modal-overlay">
-      <div className="modal" style={{ width: 620, maxHeight: "75vh", display: "flex", flexDirection: "column" }}>
+      <div ref={dupProfRef} className="modal w-[620px] max-h-[75vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="duplicate-profiles-title">
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "16px 24px", borderBottom: "1px solid var(--border)",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Layers size={18} style={{ color: "#fb923c" }} />
-            <span className="modal-title" style={{ margin: 0 }}>Duplicate Profiles</span>
+          <div className="flex items-center gap-2">
+            <Layers size={18} className="text-orange-t" />
+            <span id="duplicate-profiles-title" className="modal-title m-0">{t("duplicate_profiles")}</span>
             <span style={{
               marginLeft: 8, fontSize: 11,
               background: "rgba(251,146,60,0.15)", color: "#fb923c",
               padding: "2px 8px", borderRadius: 20,
             }}>{groups.length} groups</span>
           </div>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
-        <div style={{ overflowY: "auto", padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="overflow-y-auto p-6 flex flex-col gap-4">
           {groups.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 0", color: "var(--muted)" }}>
-              <CheckCircle2 size={40} style={{ margin: "0 auto 12px", color: "rgba(74,222,128,0.4)" }} />
-              <p style={{ margin: 0 }}>No duplicate profiles found</p>
+            <div className="text-center py-12 text-muted">
+              <CheckCircle2 size={40} className="mx-auto mb-3 text-[rgba(74,222,128,0.4)]" />
+              <p className="m-0">{t("no_dup_profiles")}</p>
             </div>
           ) : groups.map((group, gi) => (
             <div key={gi} style={{
@@ -398,8 +414,8 @@ function DuplicateProfilesModal({ groups, onClose }) {
                   padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
                   borderTop: pi === 0 ? "none" : "1px solid var(--border)",
                 }}>
-                  <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono',monospace", color: "var(--text)" }}>{shortId(p.id)}</span>
-                  <span style={{ fontSize: 11, color: "var(--muted)" }}>{p.drop_count} drops · {p.order_count} orders</span>
+                  <span className="text-[12px] font-mono text-text">{shortId(p.id)}</span>
+                  <span className="text-[11px] text-muted">{p.drop_count} drops · {p.order_count} orders</span>
                 </div>
               ))}
             </div>
@@ -411,7 +427,7 @@ function DuplicateProfilesModal({ groups, onClose }) {
 }
 
 // ─── ProfileDetail panel ──────────────────────────────────────
-function ProfileDetailPanel({ profileId, onRefresh }) {
+function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editNotes, setEditNotes] = useState(false);
@@ -421,8 +437,17 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
   const [showImport, setShowImport] = useState(false);
   const [showDupDrops, setShowDupDrops] = useState(false);
   const [dupDropGroups, setDupDropGroups] = useState([]);
+  const [ltvData, setLtvData] = useState(null);
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useLang();
+
+  useEffect(() => {
+    if (!profileId) return;
+    invoke("get_profile_ltv", { profileId: String(profileId) })
+      .then((data) => setLtvData(data))
+      .catch(() => setLtvData(null));
+  }, [profileId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -461,6 +486,30 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
     }
   };
 
+  const handleAutoDropFromBilling = async () => {
+    if (!detail?.card) return;
+    const c = detail.card;
+    if (!c.billing_address && !c.city) {
+      toast("No billing address on card", "warn"); return;
+    }
+    const form = {
+      recipient_name: c.holder_name || "",
+      address: c.billing_address || "",
+      city: c.city || "",
+      state: c.state || "",
+      zip: c.zip || "",
+      country: c.country || "",
+      phone: c.phone || "",
+    };
+    try {
+      await invoke("add_drop", { profileId, drop: form });
+      load(); onRefresh?.();
+      toast("Drop created from billing address", "success");
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  };
+
   const handleUpdateDrop = async (form) => {
     try {
       await invoke("update_drop", { id: editingDrop.id, drop: form });
@@ -482,10 +531,10 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
   };
 
   const handleDeleteDrop = async (drop) => {
-    const ok = await confirm(`Delete drop for ${drop.recipient_name}?`, { danger: true });
+    const ok = await confirm(t("confirm_delete_drop"), { danger: true });
     if (!ok) return;
     try {
-      await invoke("delete_drop", { id: drop.id, profileId });
+      await invoke("delete_drop", { id: drop.id });
       load();
       onRefresh?.();
       toast("Drop deleted", "success");
@@ -506,7 +555,7 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 0" }}>
+      <div className="flex items-center justify-center py-12">
         <div style={{
           width: 24, height: 24, borderRadius: "50%",
           border: "2px solid rgba(96,165,250,0.3)",
@@ -522,32 +571,32 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
   const primaryDrop = drops.find((d) => d.is_primary);
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", background: "rgba(11,13,20,0.6)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "none" }}>
+    <div className="border-t border-border bg-[rgba(11,13,20,0.6)]">
+      <div className="grid grid-cols-3 border-t-0">
 
         {/* ── Card info ── */}
-        <div style={{ padding: 20, borderRight: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-            <CreditCard size={14} style={{ color: "#60a5fa" }} />
-            <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted)" }}>Card</span>
+        <div className="p-5 border-r border-border">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard size={14} className="text-blue-t" />
+            <span className="text-[10px] uppercase tracking-[0.1em] text-muted">{t("section_card")}</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="flex flex-col gap-2">
             {[
-              ["Number", card.card_number ? `${card.bin || ""}••••••••${card.last4 || ""}` : "—"],
-              ["Expiry", card.expiry_date || "—"],
-              ["CVV", "•••"],
-              ["Holder", card.holder_name || "—"],
-              ["Bank", card.bank_name || "—"],
-              ["Type", card.card_type || "—"],
-              ["Level", card.card_level || "—"],
-              ["Country", card.country || "—"],
-              ["Status", card.status || "—"],
+              [t("card_label_number"), card.card_number ? `${card.bin || ""}••••••••${card.last4 || ""}` : "—"],
+              [t("card_label_expiry"), card.expiry_date || "—"],
+              [t("card_label_cvv"), "•••"],
+              [t("card_label_holder"), card.holder_name || "—"],
+              [t("card_label_bank"), card.bank_name || "—"],
+              [t("card_label_type"), card.card_type || "—"],
+              [t("card_label_level"), card.card_level || "—"],
+              [t("card_label_country"), card.country || "—"],
+              [t("cc_col_status"), card.status || "—"],
             ].map(([label, val]) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>{label}</span>
+              <div key={label} className="flex items-center justify-between">
+                <span className="text-[11px] text-muted">{label}</span>
                 <span style={{
                   fontSize: 12, fontFamily: "'JetBrains Mono',monospace",
-                  color: label === "Status" ? (STATUS_COLOR_MAP[card.status] || "var(--muted)") : "var(--text)",
+                  color: label === t("cc_col_status") ? (CARD_STATUS_COLORS[card.status]?.text || "var(--muted)") : "var(--text)",
                 }}>
                   {val}
                 </span>
@@ -555,20 +604,20 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
             ))}
           </div>
           {/* Notes */}
-          <div style={{ paddingTop: 16, marginTop: 16, borderTop: "1px solid var(--border)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: "var(--muted)" }}>Notes</span>
+          <div className="pt-4 mt-4 border-t border-border">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] text-muted">{t("cc_col_notes")}</span>
               {!editNotes && (
                 <button
                   onClick={() => setEditNotes(true)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2 }}
+                  className="bg-transparent border-none cursor-pointer text-muted p-0.5"
                 >
                   <Edit2 size={12} />
                 </button>
               )}
             </div>
             {editNotes ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="flex flex-col gap-2">
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -580,58 +629,50 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
                     color: "var(--text)", outline: "none", resize: "none",
                   }}
                 />
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button onClick={() => setEditNotes(false)} className="btn btn-ghost btn-sm">Cancel</button>
-                  <button onClick={saveNotes} className="btn btn-b btn-sm">Save</button>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditNotes(false)} className="btn btn-ghost btn-sm">{t("btn_cancel")}</button>
+                  <button onClick={saveNotes} className="btn btn-b btn-sm">{t("btn_save")}</button>
                 </div>
               </div>
             ) : (
-              <p style={{ fontSize: 12, color: "var(--muted)", fontStyle: "italic", margin: 0 }}>{notes || "No notes"}</p>
+              <p className="text-[12px] text-muted italic m-0">{notes || t("no_notes")}</p>
             )}
           </div>
         </div>
 
         {/* ── Drops ── */}
-        <div style={{ padding: 20, borderRight: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <MapPin size={14} style={{ color: "#4ade80" }} />
-              <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted)" }}>Shipping Addresses</span>
+        <div className="p-5 border-r border-border">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <MapPin size={14} className="text-green-t" />
+              <span className="text-[10px] uppercase tracking-[0.1em] text-muted">{t("section_shipping")}</span>
             </div>
-            <div style={{ display: "flex", gap: 4 }}>
+            <div className="flex gap-1">
               <button
                 onClick={handleFindDupDrops}
-                title="Find duplicate drops"
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  padding: 6, borderRadius: 6, color: "var(--muted)",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = "#facc15"; e.currentTarget.style.background = "rgba(250,204,21,0.1)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.background = "none"; }}
+                title={t("find_dup_drops")}
+                className="icon-btn icon-btn-yellow"
               >
                 <SearchCode size={13} />
               </button>
               <button
                 onClick={() => setShowImport(true)}
-                title="Import drops"
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  padding: 6, borderRadius: 6, color: "var(--muted)",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = "#c084fc"; e.currentTarget.style.background = "rgba(192,132,252,0.1)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.background = "none"; }}
+                title={t("import_drops")}
+                className="icon-btn icon-btn-blue"
               >
                 <Import size={13} />
               </button>
               <button
+                onClick={handleAutoDropFromBilling}
+                title="Auto-create drop from card billing address"
+                className="icon-btn icon-btn-purple"
+              >
+                <CreditCard size={13} />
+              </button>
+              <button
                 onClick={() => { setAddingDrop(true); setEditingDrop(null); }}
-                title="Add drop"
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  padding: 6, borderRadius: 6, color: "var(--muted)",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = "#4ade80"; e.currentTarget.style.background = "rgba(74,222,128,0.1)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.background = "none"; }}
+                title={t("add_drop")}
+                className="icon-btn icon-btn-green"
               >
                 <Plus size={13} />
               </button>
@@ -642,10 +683,10 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
             <DropForm onSave={handleAddDrop} onCancel={() => setAddingDrop(false)} />
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 288, overflowY: "auto", paddingRight: 4 }}>
+          <div className="flex flex-col gap-2 max-h-[288px] overflow-y-auto pr-1">
             {drops.length === 0 && !addingDrop && (
-              <div style={{ textAlign: "center", padding: "24px 0", color: "var(--muted)", fontSize: 12 }}>
-                <MapPin size={24} style={{ margin: "0 auto 8px", opacity: 0.3, display: "block" }} />
+              <div className="text-center py-6 text-muted text-[12px]">
+                <MapPin size={24} className="block opacity-30 mx-auto mb-2" />
                 No shipping addresses
               </div>
             )}
@@ -664,44 +705,38 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
                     background: drop.is_primary ? "rgba(74,222,128,0.05)" : "rgba(23,27,40,0.5)",
                     transition: "border-color 0.2s",
                   }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          {drop.is_primary && <Star size={11} style={{ color: "#4ade80", fill: "#4ade80", flexShrink: 0 }} />}
-                          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {drop.is_primary && <Star size={11} className="text-green-t fill-green-t shrink-0" />}
+                          <span className="text-[12px] font-medium text-text overflow-hidden text-ellipsis whitespace-nowrap">
                             {drop.recipient_name}
                           </span>
                         </div>
-                        <p style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
+                        <p className="text-[11px] text-muted leading-[1.5] m-0">
                           {drop.address}, {drop.city}{drop.state ? `, ${drop.state}` : ""} {drop.zip}, {drop.country}
                         </p>
-                        {drop.phone && <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, marginBottom: 0 }}>{drop.phone}</p>}
+                        {drop.phone && <p className="text-[11px] text-muted mt-0.5 mb-0">{drop.phone}</p>}
                       </div>
-                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      <div className="flex gap-1 shrink-0">
                         {!drop.is_primary && (
                           <button
                             onClick={() => handleSetPrimary(drop)}
-                            title="Set primary"
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--muted)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.color = "#4ade80"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; }}
+                            title={t("set_primary")}
+                            className="icon-btn icon-btn-green"
                           >
                             <StarOff size={12} />
                           </button>
                         )}
                         <button
                           onClick={() => setEditingDrop(drop)}
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--muted)" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = "#60a5fa"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; }}
+                          className="icon-btn icon-btn-blue"
                         >
                           <Edit2 size={12} />
                         </button>
                         <button
                           onClick={() => handleDeleteDrop(drop)}
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--muted)" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = "#f87171"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--muted)"; }}
+                          className="icon-btn icon-btn-red"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -715,20 +750,28 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
         </div>
 
         {/* ── Orders ── */}
-        <div style={{ padding: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Package size={14} style={{ color: "#c084fc" }} />
-              <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted)" }}>Recent Orders</span>
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Package size={14} className="text-blue-t" />
+              <span className="text-[10px] uppercase tracking-[0.1em] text-muted">{t("section_orders")}</span>
             </div>
-            <button className="btn btn-ghost btn-sm" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              className="btn btn-ghost btn-sm flex items-center gap-1"
+              onClick={() => onNavigate?.("orders", { profileId })}
+            >
               <ShoppingCart size={12} /> New Order
             </button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 288, overflowY: "auto", paddingRight: 4 }}>
+          {ltvData && (
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 10, fontFamily: "'JetBrains Mono',monospace" }}>
+              LTV: ${Number(ltvData.total).toFixed(2)} | {ltvData.orders} orders | Avg ${Number(ltvData.avg).toFixed(2)}
+            </div>
+          )}
+          <div className="flex flex-col max-h-[288px] overflow-y-auto pr-1">
             {orders.length === 0 && (
-              <div style={{ textAlign: "center", padding: "24px 0", color: "var(--muted)", fontSize: 12 }}>
-                <Package size={24} style={{ margin: "0 auto 8px", opacity: 0.3, display: "block" }} />
+              <div className="text-center py-6 text-muted text-[12px]">
+                <Package size={24} className="block opacity-30 mx-auto mb-2" />
                 No orders yet
               </div>
             )}
@@ -739,21 +782,21 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
                 borderBottom: oi < orders.length - 1 ? "1px solid var(--border)" : "none",
               }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                  <div className="flex items-center gap-2 mb-0.5">
                     <span className={`st ${ORDER_STATUS_CSS[o.status] ?? "st-archive"}`}>
                       {o.status}
                     </span>
-                    <span style={{ fontSize: 12, color: "var(--text)" }}>{o.shop_name || "—"}</span>
+                    <span className="text-[12px] text-text">{o.shop_name || "—"}</span>
                   </div>
                   {o.tracking_number && (
-                    <p style={{ fontSize: 10, fontFamily: "'JetBrains Mono',monospace", color: "var(--muted)", margin: 0 }}>{o.tracking_number}</p>
+                    <p className="text-[10px] font-mono text-muted m-0">{o.tracking_number}</p>
                   )}
                 </div>
-                <div style={{ textAlign: "right" }}>
+                <div className="text-right">
                   {o.total_amount != null && (
-                    <p style={{ fontSize: 12, color: "var(--text)", margin: 0 }}>${o.total_amount.toFixed(2)}</p>
+                    <p className="text-[12px] text-text m-0">${o.total_amount.toFixed(2)}</p>
                   )}
-                  <p style={{ fontSize: 10, color: "var(--muted)", margin: 0 }}>{o.created_at?.slice(0, 10)}</p>
+                  <p className="text-[10px] text-muted m-0">{o.created_at?.slice(0, 10)}</p>
                 </div>
               </div>
             ))}
@@ -776,86 +819,103 @@ function ProfileDetailPanel({ profileId, onRefresh }) {
 }
 
 // ─── CreateProfileModal ───────────────────────────────────────
-function CreateProfileModal({ onCreated, onClose }) {
-  const [cardId, setCardId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState(false);
+
+// ─── QuickOrderModal ──────────────────────────────────────────
+function QuickOrderModal({ profile, onClose, onCreated }) {
+  const [url, setUrl] = useState("");
+  const [shop, setShop] = useState(null); // { id, domain, is_new }
+  const [lookingUp, setLookingUp] = useState(false);
+  const [itemName, setItemName] = useState("");
+  const [itemSku, setItemSku] = useState("");
+  const [amount, setAmount] = useState("");
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const handleCreate = async () => {
-    const id = parseInt(cardId, 10);
-    if (!id) { toast("Enter a valid card ID", "warn"); return; }
-    setLoading(true);
+  const handleLookup = async () => {
+    if (!url.trim()) return;
+    setLookingUp(true);
     try {
-      const p = await invoke("create_profile", { cardId: id, notes });
-      toast("Profile created", "success");
-      onCreated(p);
+      const result = await invoke("find_or_create_shop", { url: url.trim() });
+      setShop(result);
+    } catch (e) { toast(String(e), "error"); }
+    finally { setLookingUp(false); }
+  };
+
+  const handleCreate = async () => {
+    if (!shop) return;
+    setSaving(true);
+    try {
+      const amountF = parseFloat(amount) || 0;
+      await invoke("create_order", {
+        input: {
+          profile_id: String(profile.id),
+          shop_id: shop.id,
+          drop_id: null,
+          email_pool_id: null,
+          proxy_id: null,
+          order_number: null,
+          notes: null,
+          items: [{ name: itemName || shop.domain, sku: itemSku || "", qty: 1, price: amountF }],
+        }
+      });
+      toast("Order created!", "success");
+      onCreated?.();
       onClose();
-    } catch (e) {
-      toast(String(e), "error");
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { toast(String(e), "error"); }
+    finally { setSaving(false); }
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal" style={{ width: 400 }}>
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "16px 24px", borderBottom: "1px solid var(--border)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <User size={16} style={{ color: "#60a5fa" }} />
-            <span className="modal-title" style={{ margin: 0 }}>New Profile</span>
-          </div>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span>New Order — {profile.holder_masked || `••••${profile.last4 || "?????"}`}</span>
+          <button className="icon-btn" onClick={onClose}>✕</button>
         </div>
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-          <div className="form-group">
-            <label className="form-label">Card ID *</label>
-            <input
-              type="number"
-              value={cardId}
-              onChange={(e) => setCardId(e.target.value)}
-              placeholder="Card database ID (must be 'free')"
-              className="form-input"
-            />
+        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 11, color: "var(--muted)" }}>Shop URL or Domain</label>
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+              <input
+                className="inp"
+                placeholder="nike.com or https://nike.com/checkout"
+                value={url}
+                onChange={e => { setUrl(e.target.value); setShop(null); }}
+                onKeyDown={e => e.key === "Enter" && handleLookup()}
+                style={{ flex: 1 }}
+                autoFocus
+              />
+              <button className="btn btn-b" onClick={handleLookup} disabled={lookingUp || !url.trim()}>
+                {lookingUp ? "..." : "Find"}
+              </button>
+            </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Optional notes…"
-              className="form-input"
-              style={{ resize: "none" }}
-            />
-          </div>
-          <button
-            onClick={handleCreate}
-            disabled={loading || !cardId}
-            className="btn btn-b"
-            style={{ width: "100%", opacity: (loading || !cardId) ? 0.4 : 1 }}
-          >
-            {loading ? "Creating…" : "Create Profile"}
+
+          {shop && (
+            <div style={{ padding: "8px 12px", background: "var(--surface2)", borderRadius: 6, fontSize: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: shop.is_new ? "var(--accent)" : "var(--text)" }}>
+                {shop.is_new ? "✦ New shop:" : "✓ Found:"} <strong>{shop.domain}</strong>
+              </span>
+            </div>
+          )}
+
+          {shop && (
+            <>
+              <input className="inp" placeholder="Item name (optional)" value={itemName} onChange={e => setItemName(e.target.value)} />
+              <input className="inp" placeholder="SKU (optional)" value={itemSku} onChange={e => setItemSku(e.target.value)} />
+              <input className="inp" placeholder="Amount, e.g. 89.99" value={amount} onChange={e => setAmount(e.target.value)} />
+            </>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn-g" onClick={handleCreate} disabled={!shop || saving}>
+            {saving ? "Creating..." : "Create Order"}
           </button>
         </div>
       </div>
     </div>
   );
-}
-
-// ─── Pagination helper ────────────────────────────────────────
-function buildPageNumbers(current, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = [1];
-  if (current > 3) pages.push("…");
-  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
-  if (current < total - 2) pages.push("…");
-  pages.push(total);
-  return pages;
 }
 
 // ─── Main ProfileList ─────────────────────────────────────────
@@ -865,15 +925,35 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState({ has_drop: null, search: "", card_status: null });
+  const [searchInput, setSearchInput] = useState("");
+  const [deletingIds, setDeletingIds] = useState(new Set());
+  const debouncedSearch = useDebounce(searchInput, 300);
   const [expanded, setExpanded] = useState(null);
   const [hoveredProfile, setHoveredProfile] = useState(null);
   const hoverTimer = useRef(null);
   const [showCreate, setShowCreate] = useState(initOpenCreate);
   const [showDupProfiles, setShowDupProfiles] = useState(false);
   const [dupProfileGroups, setDupProfileGroups] = useState([]);
+  const [quickOrderProfile, setQuickOrderProfile] = useState(null);
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  const tableBodyRef = useRef(null);
+  const tableContainerRef = useRef(null);
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useLang();
   const PER_PAGE = 50;
+
+  // Virtual scrolling setup
+  const rowVirtualizer = useVirtualizer({
+    count: profiles.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: useCallback((index) => {
+      // Base row height + expanded detail panel if open
+      const profile = profiles[index];
+      return expanded === profile?.id ? 450 : 50;
+    }, [profiles, expanded]),
+    overscan: 5,
+  });
 
   const load = useCallback(async (p = page, f = filter) => {
     setLoading(true);
@@ -895,7 +975,14 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
     }
   }, [page, filter]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
+
+  // #20 debounce search
+  useEffect(() => {
+    const f = { ...filter, search: debouncedSearch };
+    setFilter(f);
+    load(1, f);
+  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activeTab === "nodrop") {
@@ -911,12 +998,40 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
     }
   }, [activeTab]);
 
-  const handleFilterDrop = (v) => {
-    const f = { ...filter, has_drop: v };
-    setFilter(f);
-    setPage(1);
-    load(1, f);
-  };
+  // H4: Keyboard navigation with virtual scrolling
+  useEffect(() => {
+    const onKey = (e) => {
+      // Don't intercept when typing in an input/textarea
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+      if (profiles.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIdx((i) => {
+          const next = i === null ? 0 : Math.min(i + 1, profiles.length - 1);
+          // Scroll to row using virtualizer
+          rowVirtualizer.scrollToIndex(next, { align: "auto" });
+          return next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIdx((i) => {
+          const prev = i === null ? 0 : Math.max(i - 1, 0);
+          // Scroll to row using virtualizer
+          rowVirtualizer.scrollToIndex(prev, { align: "auto" });
+          return prev;
+        });
+      } else if (e.key === "Enter" && selectedIdx !== null) {
+        e.preventDefault();
+        const p = profiles[selectedIdx];
+        if (p) invoke("open_float_window", { profileId: p.id }).catch(() => {});
+      } else if (e.key === "Escape") {
+        setSelectedIdx(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [profiles, selectedIdx, rowVirtualizer]);
 
   const handleSearch = (e) => {
     if (e.key === "Enter") {
@@ -926,20 +1041,37 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
   };
 
   const handleDelete = async (profile) => {
-    const ok = await confirm(`Delete profile ${shortId(profile.id)}? This will free the card and delete all associated drops and orders.`, { danger: true });
-    if (!ok) return;
-    try {
-      await invoke("delete_profile", { id: profile.id });
-      toast("Profile deleted", "success");
-      load();
-    } catch (e) {
-      if (e.includes?.("active_orders")) {
-        const count = e.split(":")[1];
-        toast(`Cannot delete: ${count} active order(s)`, "error");
-      } else {
-        toast(String(e), "error");
+    // #15 — undo delete, no confirm dialog
+    setDeletingIds(prev => new Set([...prev, profile.id]));
+    let undone = false;
+    toast({
+      message: t("profile_deleted"),
+      type: "info",
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true;
+          setDeletingIds(prev => { const n = new Set(prev); n.delete(profile.id); return n; });
+        },
+      },
+    });
+    setTimeout(async () => {
+      if (undone) return;
+      try {
+        await invoke("delete_profile", { id: profile.id });
+        setDeletingIds(prev => { const n = new Set(prev); n.delete(profile.id); return n; });
+        load();
+      } catch (e) {
+        setDeletingIds(prev => { const n = new Set(prev); n.delete(profile.id); return n; });
+        if (e.includes?.("active_orders")) {
+          const count = e.split(":")[1];
+          toast(`Cannot delete: ${count} active order(s)`, "error");
+        } else {
+          toast(String(e), "error");
+        }
       }
-    }
+    }, 5000);
   };
 
   const handleDuplicate = async (profile) => {
@@ -966,19 +1098,54 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
     }
   };
 
-  // Copy helpers
-  const copyProfile = (p) => {
-    const lines = [
-      `Card: [${p.bin || "?"}••••••••${p.last4 || "?"}] | [exp] | [cvv] | ${p.holder_masked || "—"}`,
-      `Bank: ${p.bank_name || "—"} · ${p.country || "—"}`,
-    ];
-    copyText(lines.join("\n"));
-    toast("Profile copied", "success");
+  // Copy helpers — reveal encrypted card data first
+  const copyProfile = async (p) => {
+    try {
+      const card = await invoke("reveal_card", { id: p.card_id });
+      const lines = [
+        `Card: ${card.card_number} | ${card.expiry_date} | ${card.cvv} | ${card.holder_name || "—"}`,
+        `Bank: ${p.bank_name || "—"} · ${p.country || "—"}`,
+        `Billing: ${card.billing_address || "—"}, ${card.city || ""} ${card.state || ""} ${card.zip || ""}, ${card.country || ""}`,
+      ];
+      copyText(lines.join("\n"));
+      toast("Profile copied", "success");
+    } catch (e) {
+      toast(String(e), "error");
+    }
   };
 
-  const copyCard = (p) => {
-    copyText(`[card_num]|[exp]|[cvv]|${p.holder_masked || ""}|[email]|[phone]|[address]|[city]|[state]|${p.country || ""}|[zip]`);
-    toast("Card format copied", "success");
+  const copyCard = async (p) => {
+    try {
+      const card = await invoke("reveal_card", { id: p.card_id });
+      copyText(buildPipeString(p, card));
+      toast("Card format copied", "success");
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  };
+
+  const copyBilling = async (p) => {
+    try {
+      const card = await invoke("reveal_card", { id: p.card_id });
+      const addr = [card.billing_address, card.city, card.state, card.zip, card.country].filter(Boolean).join(", ");
+      copyText(addr);
+      toast("Billing address copied", "success");
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  };
+
+  const copyShipping = async (p) => {
+    try {
+      const detail = await invoke("get_profile", { id: String(p.id) });
+      const drop = detail.drops?.find(d => d.is_primary) ?? detail.drops?.[0];
+      if (!drop) { toast("No drop address", "warn"); return; }
+      const addr = [drop.recipient_name, drop.address, drop.city, drop.state, drop.zip, drop.country].filter(Boolean).join(", ");
+      copyText(addr);
+      toast("Shipping address copied", "success");
+    } catch (e) {
+      toast(String(e), "error");
+    }
   };
 
   const totalPages = Math.ceil(total / PER_PAGE);
@@ -987,145 +1154,162 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
     <div className="content">
       {/* Header */}
       <div className="ph">
-        <div><div className="ph-title">👤 Profiles</div></div>
+        <div><div className="ph-title">Profiles</div></div>
         <div className="ph-actions">
-          <button className="btn btn-g" onClick={() => setShowCreate(true)}>+ Create Profile</button>
-          <button className="btn btn-ghost btn-sm" onClick={handleFindDupProfiles}>Find Duplicates</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => {
+            const rows = profiles.map(p =>
+              [p.id, p.holder_masked ?? "", p.last4 ?? "", p.bank_name ?? "", p.country ?? "", p.order_count, p.drop_count, p.card_status ?? ""]
+                .map(v => `"${String(v).replace(/"/g, '""')}"`)
+                .join(",")
+            );
+            const csv = ["ID,Holder,Last4,Bank,Country,Orders,Drops,CardStatus", ...rows].join("\n");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+            a.download = "profiles_export.csv";
+            a.click();
+          }}><Download size={13} /> Export</button>
+          <button className="btn btn-g" onClick={() => setShowCreate(true)}>+ {t("new_profile")}</button>
+          <button className="btn btn-ghost btn-sm" onClick={handleFindDupProfiles}>{t("find_duplicates")}</button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="filters">
-        <button
-          className={`flt${filter.card_status === null && filter.has_drop === null ? " active" : ""}`}
-          onClick={() => { const f = { ...filter, card_status: null, has_drop: null }; setFilter(f); setPage(1); load(1, f); }}
-        >All</button>
-        <button
-          className={`flt${filter.card_status === "active" ? " active" : ""}`}
-          onClick={() => { const f = { ...filter, card_status: "active" }; setFilter(f); setPage(1); load(1, f); }}
-        >Active</button>
-        <button
-          className={`flt${filter.card_status === "dead" ? " active" : ""}`}
-          onClick={() => { const f = { ...filter, card_status: "dead" }; setFilter(f); setPage(1); load(1, f); }}
-        >Dead</button>
-        <button
-          className={`flt${filter.card_status === "archive" ? " active" : ""}`}
-          onClick={() => { const f = { ...filter, card_status: "archive" }; setFilter(f); setPage(1); load(1, f); }}
-        >Archive</button>
-        <button
-          className={`flt${filter.has_drop === false ? " active" : ""}`}
-          onClick={() => { const f = { ...filter, has_drop: false, card_status: null }; setFilter(f); setPage(1); load(1, f); }}
-        >⚠️ No Drop</button>
-        <input
-          className="search-box"
-          placeholder="🔍  last4, BIN, holder..."
-          value={filter.search}
-          onChange={(e) => setFilter((f) => ({ ...f, search: e.target.value }))}
-          onKeyDown={handleSearch}
-        />
-      </div>
+      <ProfileFilters
+        filter={filter}
+        searchInput={searchInput}
+        onFilterChange={(newFilter) => {
+          setFilter(newFilter);
+          setPage(1);
+          load(1, newFilter);
+        }}
+        onSearchChange={setSearchInput}
+        onSearch={() => load(1, { ...filter, search: searchInput })}
+      />
 
       {/* Table */}
-      <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="panel p-0 overflow-x-auto">
+        <div
+          ref={tableContainerRef}
+          style={{ flex: 1, minHeight: 0, overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}
+        >
         <table className="tbl">
-          <thead>
+          <thead className="sticky top-0 z-[3] bg-card">
             <tr>
-              <th></th>
-              <th>Профиль</th>
-              <th>Карта</th>
-              <th>Тип</th>
-              <th>Банк</th>
-              <th>Страна</th>
-              <th>Статус</th>
-              <th>Дропов</th>
-              <th>Заказов</th>
-              <th>Notes</th>
-              <th>Создан</th>
-              <th>Actions</th>
+              <th className="bg-card"></th>
+              <th className="bg-card">{t("prof_col_profile")}</th>
+              <th className="bg-card">{t("prof_col_card")}</th>
+              <th className="bg-card">{t("prof_col_type")}</th>
+              <th className="bg-card">{t("prof_col_bank")}</th>
+              <th className="bg-card">{t("prof_col_country")}</th>
+              <th className="bg-card">{t("prof_col_status")}</th>
+              <th className="bg-card">{t("prof_col_drops")}</th>
+              <th className="bg-card">{t("prof_col_orders")}</th>
+              <th className="bg-card">{t("cc_col_notes")}</th>
+              <th className="bg-card">{t("prof_col_created")}</th>
+              <th className="bg-card">{t("cc_col_actions")}</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={tableBodyRef}>
             {loading && profiles.length === 0 && (
               <SkeletonRows count={6} cols={12} />
             )}
             {profiles.length === 0 && !loading && (
-              <tr>
-                <td colSpan={12} style={{ textAlign: "center", padding: "48px 0", color: "var(--muted)" }}>
-                  No profiles found
-                </td>
-              </tr>
+              <EmptyState
+                colSpan={12}
+                icon={<User size={38} />}
+                title={t("no_profiles")}
+                subtitle={t("new_profile")}
+                action={<button className="btn btn-g btn-sm" onClick={() => setShowCreate(true)}>+ Create Profile</button>}
+              />
             )}
-            {!loading && profiles.map((p) => {
-              const hasDrops = p.drop_count > 0;
-              const isExpanded = expanded === p.id;
-              const cardStatus = p.card_status || (hasDrops ? "active" : "free");
-              return (
-                <>
-                  <tr
-                    key={p.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setExpanded(isExpanded ? null : p.id)}
-                    onMouseEnter={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      hoverTimer.current = setTimeout(() => setHoveredProfile({ p, rect }), 400);
-                    }}
-                    onMouseLeave={() => { clearTimeout(hoverTimer.current); setHoveredProfile(null); }}
-                  >
-                    <td style={{ color: "var(--muted)", fontSize: 12 }}>{isExpanded ? "▾" : "▸"}</td>
-                    <td>
-                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "var(--muted)" }}>{shortId(p.id)}</span>
-                      {p.holder_masked && <div style={{ fontSize: 12 }}>{p.holder_masked}</div>}
-                    </td>
-                    <td>
-                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>
-                        {p.bin ? p.bin.slice(0,4) : "••••"}••••{p.last4 || "????"}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 11, color: "var(--text-2)" }}>{p.card_type || "—"}</td>
-                    <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.bank_name || "—"}</td>
-                    <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.country || "—"}</td>
-                    <td><span className={`st st-${cardStatus}`}>{cardStatus}</span></td>
-                    <td style={{ fontSize: 12, color: hasDrops ? "#4ade80" : "#eab308", fontWeight: 500 }}>{p.drop_count}</td>
-                    <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.order_count}</td>
-                    <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={p.notes ?? ""}>{p.notes || "—"}</td>
-                    <td style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{p.created_at?.slice(0,10)}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div className="tbl-actions">
-                        <button className="btn btn-ghost btn-sm" title="Copy profile" onClick={() => copyProfile(p)}>Copy</button>
-                        <button className="btn btn-ghost btn-sm" title="Float window" onClick={() => invoke("open_float_window", { profileId: p.id }).catch(() => {})}>Float</button>
-                        <button className="btn btn-ghost btn-sm" title="Duplicate" onClick={() => handleDuplicate(p)}>Dup</button>
-                        <button className="btn btn-r btn-sm" title="Delete" onClick={() => handleDelete(p)}>Del</button>
-                      </div>
-                    </td>
+            {!loading && profiles.length > 0 && (
+              <>
+                {/* Spacer for virtual scroll offset */}
+                {rowVirtualizer.getVirtualItems().length > 0 && (
+                  <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
+                    <td colSpan={12} style={{ padding: 0, border: 0 }}></td>
                   </tr>
-                  {isExpanded && (
-                    <tr key={`${p.id}-detail`}>
-                      <td colSpan={12} style={{ padding: 0 }}>
-                        <ProfileDetailPanel profileId={p.id} onRefresh={load} />
-                      </td>
-                    </tr>
-                  )}
-                </>
-              );
-            })}
+                )}
+
+                {/* Render visible rows */}
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const idx = virtualRow.index;
+                  const p = profiles[idx];
+                  if (!p) return null;
+
+                  const isExpanded = expanded === p.id;
+                  const isDeleting = deletingIds.has(p.id);
+                  const isSelected = selectedIdx === idx;
+
+                  return (
+                    <React.Fragment key={p.id}>
+                      <ProfileRow
+                        profile={p}
+                        idx={idx}
+                        isExpanded={isExpanded}
+                        isDeleting={isDeleting}
+                        isSelected={isSelected}
+                        onRowClick={() => {
+                          setSelectedIdx(idx);
+                          setExpanded(isExpanded ? null : p.id);
+                          // Remeasure after state change
+                          setTimeout(() => rowVirtualizer.measure(), 0);
+                        }}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          hoverTimer.current = setTimeout(() => setHoveredProfile({ p, rect }), 400);
+                        }}
+                        onMouseLeave={() => { clearTimeout(hoverTimer.current); setHoveredProfile(null); }}
+                        onDelete={() => handleDelete(p)}
+                        onDuplicate={() => handleDuplicate(p)}
+                        onCopyProfile={() => copyProfile(p)}
+                        onCopyBilling={() => copyBilling(p)}
+                        onCopyShipping={() => copyShipping(p)}
+                        onQuickOrder={() => setQuickOrderProfile(p)}
+                      />
+                      {isExpanded && (
+                        <tr key={`${p.id}-detail`}>
+                          <td colSpan={12} className="p-0">
+                            <ProfileDetailPanel profileId={p.id} onRefresh={load} onNavigate={onNavigate} />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* Spacer for remaining virtual scroll space */}
+                {rowVirtualizer.getVirtualItems().length > 0 && (
+                  <tr style={{
+                    height: `${
+                      rowVirtualizer.getTotalSize() -
+                      (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end || 0)
+                    }px`
+                  }}>
+                    <td colSpan={12} style={{ padding: 0, border: 0 }}></td>
+                  </tr>
+                )}
+              </>
+            )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>{total} profiles</span>
-          <div style={{ display: "flex", gap: 4 }}>
+        <div className="flex items-center justify-between mt-3">
+          <span className="text-[12px] text-muted">{total} profiles</span>
+          <div className="flex gap-1">
             {buildPageNumbers(page, totalPages).map((p, idx) =>
               p === "…" ? (
-                <span key={`ellipsis-${idx}`} style={{ padding: "4px 8px", fontSize: 12, color: "var(--muted)" }}>…</span>
+                <span key={`ellipsis-${idx}`} className="px-2 py-1 text-[12px] text-muted">…</span>
               ) : (
                 <button
                   key={p}
                   onClick={() => { setPage(p); load(p, filter); }}
                   className={`btn btn-ghost btn-sm${page === p ? " active" : ""}`}
-                  style={page === p ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}}
+                  style={page === p ? { background: "var(--accent)", color: "var(--text)", borderColor: "var(--accent)" } : {}}
                 >
                   {p}
                 </button>
@@ -1137,13 +1321,20 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
 
       {/* Modals */}
       {showCreate && (
-        <CreateProfileModal
+        <ProfileModal
           onCreated={() => load()}
           onClose={() => setShowCreate(false)}
         />
       )}
       {showDupProfiles && (
         <DuplicateProfilesModal groups={dupProfileGroups} onClose={() => setShowDupProfiles(false)} />
+      )}
+      {quickOrderProfile && (
+        <QuickOrderModal
+          profile={quickOrderProfile}
+          onClose={() => setQuickOrderProfile(null)}
+          onCreated={() => load()}
+        />
       )}
       {hoveredProfile && (() => {
         const { p, rect } = hoveredProfile;
@@ -1156,8 +1347,8 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
             padding: "12px 14px", minWidth: 200, maxWidth: 240,
             boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", color: "var(--text)", fontSize: 13, fontWeight: 500 }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="font-mono text-text text-[13px] font-medium">
                 ••••-{p.last4 || "????"}
               </span>
               <span style={{
@@ -1166,16 +1357,16 @@ export default function ProfileList({ onNavigate, activeTab = "list", openCreate
                 border: `1px solid ${p.drop_count > 0 ? "rgba(34,197,94,0.25)" : "rgba(234,179,8,0.25)"}`,
                 color: p.drop_count > 0 ? "#22c55e" : "#eab308",
               }}>
-                {p.drop_count > 0 ? "Ready" : "No Drop"}
+                {p.drop_count > 0 ? t("profile_ready") : t("profile_no_drop")}
               </span>
             </div>
-            {p.holder_masked && <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 4 }}>{p.holder_masked}</div>}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {p.bin && <span style={{ color: "var(--muted)", fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>BIN {p.bin}</span>}
-              {p.bank_name && <span style={{ color: "var(--muted)", fontSize: 11 }}>· {p.bank_name}</span>}
+            {p.holder_masked && <div className="text-muted text-[12px] mb-1">{p.holder_masked}</div>}
+            <div className="flex flex-wrap gap-1.5">
+              {p.bin && <span className="text-muted text-[11px] font-mono">BIN {p.bin}</span>}
+              {p.bank_name && <span className="text-[11px] text-muted">· {p.bank_name}</span>}
             </div>
             {p.drop_count !== undefined && (
-              <div style={{ marginTop: 5, color: "var(--muted)", fontSize: 11 }}>
+              <div className="mt-[5px] text-muted text-[11px]">
                 {p.drop_count} drop{p.drop_count !== 1 ? "s" : ""}
               </div>
             )}

@@ -1,131 +1,363 @@
 # CC Manager
 
-A secure desktop application for managing payment cards, profiles, orders, and related data. Built with Tauri v2, React 18, and Rust.
+A secure desktop CRM application for managing credit card operations with advanced encryption, IMAP integration, and real-time synchronization capabilities.
+
+## Overview
+
+CC Manager is a cross-platform desktop application built with Tauri 2 that provides a comprehensive solution for credit card lifecycle management. It features end-to-end encryption, automated email parsing, risk assessment, and multi-device synchronization.
+
+**Key Capabilities:**
+- Secure card data management with AES-256-GCM encryption
+- Automated IMAP email monitoring and parsing
+- Real-time WebSocket synchronization across devices
+- Advanced risk scoring and health monitoring
+- Bulk operations and CSV import/export
+- Multi-language support (i18n ready)
+
+## Tech Stack
+
+### Frontend
+- **React 18** - UI framework
+- **Vite 7** - Build tool and dev server
+- **Tailwind CSS 3** - Utility-first styling
+- **Lucide React** - Icon library
+- **Recharts** - Data visualization
+
+### Backend
+- **Rust** - Core application logic
+- **Tauri 2** - Desktop framework (156 commands)
+- **SQLite** - Local database (15+ tables)
+- **rusqlite** - Database interface
+
+### Security & Encryption
+- **aes-gcm** - AES-256-GCM encryption
+- **bcrypt** - Password hashing
+- **pbkdf2** - Key derivation
+
+### Communication
+- **imap** - Email monitoring
+- **lettre** - SMTP client
+- **tungstenite** - WebSocket client
+- **ureq** - HTTP client
 
 ## Features
 
-- **Encrypted Storage** — All sensitive data (card numbers, CVVs) encrypted at rest with AES-256
-- **Card Management** — Import, organize, and manage payment cards with BIN enrichment
-- **Profile Management** — Link cards to delivery profiles and drops
-- **Order Tracking** — Full order lifecycle management with status tracking
-- **Dashboard** — Revenue analytics, heatmaps, and statistics
-- **Updates Feed** — Activity log for all data changes
-- **Multi-language** — English and Russian UI
-- **Auto-lock** — Configurable inactivity timeout
+### Card Management
+- Create, edit, and delete card records
+- Track card status lifecycle (active, blocked, expired, etc.)
+- Attach notes, tags, and custom metadata
+- Health scoring based on usage patterns
+- Bulk operations support
 
-## Requirements
+### Email Integration
+- IMAP connection to multiple providers (Gmail, Outlook, Yahoo, etc.)
+- Automatic email parsing for card notifications
+- Transaction detection and categorization
+- Email-to-card linking
 
-- **macOS** 12.0+ (Monterey or later)
-- **Node.js** 18+ and npm
-- **Rust** 1.75+  (`rustup install stable`)
-- **Xcode Command Line Tools** (`xcode-select --install`)
+### Security
+- Master password protection
+- AES-256-GCM encryption for sensitive data
+- Secure key derivation with PBKDF2
+- Encrypted database storage
+- License validation system
 
-## Development Setup
+### Synchronization
+- WebSocket-based real-time sync
+- Conflict resolution
+- Multi-device support
+- Offline-first architecture
 
-```bash
-# 1. Clone the repository
-git clone <repo-url>
-cd manager-work
-
-# 2. Install frontend dependencies
-npm install
-
-# 3. Run in development mode (hot reload)
-npm run tauri dev
-```
-
-## Building for Production
-
-```bash
-# Build the app bundle (.app + .dmg) — Intel
-npm run tauri build
-
-# Build for Apple Silicon (M1/M2/M3)
-npm run tauri build -- --target aarch64-apple-darwin
-
-# Build for Intel Mac explicitly
-npm run tauri build -- --target x86_64-apple-darwin
-```
-
-Output files will be in `src-tauri/target/release/bundle/`:
-- `macos/CC Manager.app` — Application bundle
-- `dmg/CC Manager_*.dmg` — Disk image installer
-
-## Generating Icons
-
-If you update `icon.svg`, regenerate all icon sizes:
-
-```bash
-# Requires: pip3 install Pillow
-cd src-tauri
-python3 generate_icons.py
-```
-
-This generates `src-tauri/icons/` with all required sizes including `.icns` and `.ico`.
+### Analytics & Reporting
+- Risk assessment dashboard
+- Card health monitoring
+- Transaction analytics
+- Export to CSV/Excel
 
 ## Project Structure
 
 ```
-manager-work/
-├── src/                    # React frontend
-│   ├── pages/              # Page components (Cards, Orders, Profiles, etc.)
-│   ├── hooks/              # Custom hooks (useToast, useConfirm, useLang)
-│   ├── components/         # Shared components
-│   ├── i18n/               # Translations (en.js, ru.js)
-│   └── App.jsx             # Root component + navigation
-├── src-tauri/              # Rust backend
+cc-manager/
+├── src/                      # Frontend source
+│   ├── components/          # React components (5 core components)
+│   ├── pages/               # Page-level components
+│   ├── hooks/               # Custom React hooks
+│   ├── utils/               # Utility functions
+│   │   ├── cardHealth.js    # Health scoring logic
+│   │   ├── clipboard.js     # Clipboard operations
+│   │   ├── csv.js           # CSV parsing/export
+│   │   ├── formatting.js    # Date, currency, text formatting
+│   │   ├── pagination.js    # Pagination helpers
+│   │   └── validation.js    # Input validation
+│   ├── constants/           # Application constants
+│   │   ├── cardTypes.js     # Card type definitions
+│   │   ├── colors.js        # Color palette & themes
+│   │   ├── emailProviders.js # IMAP provider configs
+│   │   └── status.js        # Status definitions
+│   ├── i18n/                # Internationalization
+│   └── styles/              # CSS modules
+│       ├── components/      # Component styles
+│       ├── layout/          # Layout styles
+│       └── pages/           # Page styles
+├── src-tauri/               # Rust backend
 │   ├── src/
-│   │   ├── main.rs         # Tauri commands entry point
-│   │   ├── database.rs     # SQLite database operations
-│   │   ├── models.rs       # Data models
-│   │   └── license.rs      # License validation
-│   ├── icons/              # App icons (generated)
-│   ├── generate_icons.py   # Icon generation script
-│   └── tauri.conf.json     # Tauri configuration
-└── package.json
+│   │   ├── main.rs          # Entry point (156 Tauri commands)
+│   │   ├── database.rs      # SQLite operations (15+ tables)
+│   │   ├── encryption.rs    # Crypto operations
+│   │   ├── imap.rs          # Email monitoring
+│   │   ├── smtp.rs          # Email sending
+│   │   ├── parser.rs        # Email parsing
+│   │   ├── sync.rs          # HTTP sync client
+│   │   ├── ws_sync.rs       # WebSocket sync
+│   │   ├── models.rs        # Data models
+│   │   └── license.rs       # License validation
+│   ├── Cargo.toml           # Rust dependencies
+│   └── tauri.conf.json      # Tauri configuration
+├── public/                  # Static assets
+├── dist/                    # Build output
+└── package.json             # Node dependencies
 ```
 
-## Database
+## Development Setup
 
-The SQLite database is stored at:
-- macOS: `~/Library/Application Support/com.ccmanager.app/cc_manager.db`
+### Prerequisites
+- **Node.js** 18+ and npm
+- **Rust** 1.70+ (install via [rustup](https://rustup.rs/))
+- **System dependencies** (varies by OS)
 
-The database is automatically created and migrated on first launch.
+### Installation
 
-## Security
+```bash
+# Clone the repository
+git clone <repository-url>
+cd cc-manager
 
-- Master password is required on launch
-- All card data encrypted with the derived key
-- Auto-lock after configurable timeout (1m, 5m, 15m, 30m, or never)
-- Card numbers only decrypted on explicit "Reveal" action
+# Install frontend dependencies
+npm install
 
-## Module Summary
+# Install Rust dependencies (automatic on first build)
+```
 
-| Module | Contents |
-|--------|----------|
-| M00 | Scaffolding — all stubs, Tauri config, migrations |
-| M01 | Auth — encryption, password setup/unlock/lock/change |
-| M02 | Cards — parser, import wizard, bulk ops, BIN enrichment |
-| M03 | Profiles + Drops — CRUD, duplicate detection, import |
-| M04 | Email Pool + Proxies — bulk import, shop tracking |
-| M05 | Shops — stats, smart suggestions, products |
-| M06 | Orders — 9-step create modal, risk check, footprints |
-| M07 | Sync server, admin panel, auto-updater |
-| M08 | License — challenge-response activation, startup check |
-| M09 | Dashboard — analytics, heatmap, charts, sidebar badges |
+### Running Development Server
 
-## Rust Dependencies
+```bash
+# Start Vite dev server + Tauri app
+npm run dev
 
-Key crates used in `src-tauri/Cargo.toml`:
+# Frontend only (for UI development)
+npm run dev -- --no-tauri
+```
 
-```toml
-ureq = { version = "2", features = ["json"] }
-serde_json = "1"
-sha2 = "0.10"
-uuid = { version = "1", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
+The app will open automatically. Hot reload is enabled for both frontend and backend changes.
+
+### Building for Production
+
+```bash
+# Build optimized bundle
+npm run build
+
+# Build Tauri app (creates installer)
+npm run tauri build
+```
+
+Installers will be in `src-tauri/target/release/bundle/`.
+
+## Code Quality Tools
+
+### ESLint
+Configured with React, Prettier, and accessibility rules.
+
+```bash
+# Lint all files
+npm run lint
+
+# Auto-fix issues
+npm run lint:fix
+```
+
+### Prettier
+Enforces consistent code formatting.
+
+```bash
+# Format all files
+npm run format
+
+# Check formatting
+npm run format:check
+```
+
+### Husky + lint-staged
+Pre-commit hooks automatically lint and format staged files.
+
+```bash
+# Manually run pre-commit checks
+npx lint-staged
+```
+
+Configuration in `package.json`:
+```json
+"lint-staged": {
+  "*.{js,jsx}": ["eslint --fix", "prettier --write"],
+  "*.{css,md,json}": ["prettier --write"]
+}
+```
+
+## Utility Functions
+
+### Formatting (`src/utils/formatting.js`)
+```javascript
+import { formatDate, formatCurrency, formatCardNumber } from './utils/formatting';
+
+formatDate('2024-03-22');           // "22.03.2024"
+formatCurrency(1234.56, 'USD');     // "$1,234.56"
+formatCardNumber('4111111111111111'); // "4111 1111 1111 1111"
+```
+
+### Validation (`src/utils/validation.js`)
+```javascript
+import { validateEmail, validateCardNumber, validateCVV } from './utils/validation';
+
+validateEmail('user@example.com');  // true
+validateCardNumber('4111111111111111'); // true (Luhn check)
+validateCVV('123');                 // true
+```
+
+### Card Health (`src/utils/cardHealth.js`)
+```javascript
+import { calculateCardHealth } from './utils/cardHealth';
+
+const health = calculateCardHealth(card);
+// Returns: { score: 85, status: 'good', factors: [...] }
+```
+
+### Pagination (`src/utils/pagination.js`)
+```javascript
+import { paginate, getPaginationInfo } from './utils/pagination';
+
+const page = paginate(items, 1, 20); // page 1, 20 items per page
+const info = getPaginationInfo(items.length, 1, 20);
+```
+
+### Clipboard (`src/utils/clipboard.js`)
+```javascript
+import { copyToClipboard } from './utils/clipboard';
+
+await copyToClipboard('text to copy');
+```
+
+### CSV (`src/utils/csv.js`)
+```javascript
+import { parseCSV, generateCSV } from './utils/csv';
+
+const data = parseCSV(csvString);
+const csv = generateCSV(data);
+```
+
+## Constants
+
+### Card Types (`src/constants/cardTypes.js`)
+Defines supported card types (Visa, Mastercard, Amex, etc.) with validation patterns.
+
+### Colors (`src/constants/colors.js`)
+Centralized color palette and theme definitions for consistent UI.
+
+### Email Providers (`src/constants/emailProviders.js`)
+Pre-configured IMAP settings for major email providers (Gmail, Outlook, Yahoo, etc.).
+
+### Status (`src/constants/status.js`)
+Card status definitions with colors and labels (active, blocked, expired, etc.).
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server with hot reload |
+| `npm run build` | Build optimized production bundle |
+| `npm run preview` | Preview production build locally |
+| `npm run tauri` | Run Tauri CLI commands |
+| `npm run lint` | Lint JavaScript/JSX files |
+| `npm run lint:fix` | Auto-fix linting issues |
+| `npm run format` | Format all source files |
+| `npm run format:check` | Check if files are formatted |
+
+## Architecture
+
+### Frontend/Backend Separation
+- **Frontend (React)**: UI rendering, user interactions, state management
+- **Backend (Rust)**: Business logic, database operations, encryption, network I/O
+- **Communication**: Tauri IPC bridge with 156 commands
+
+### Data Flow
+```
+User Action → React Component → Tauri Command → Rust Handler → SQLite
+                                      ↓
+                                 Encryption Layer
+                                      ↓
+                                 Network Sync (optional)
+```
+
+### Database Schema
+15+ tables including:
+- `cards` - Card records
+- `transactions` - Transaction history
+- `emails` - Parsed email data
+- `notes` - Card notes
+- `tags` - Tagging system
+- `sync_log` - Synchronization tracking
+- `settings` - Application settings
+- And more...
+
+### Security Model
+1. Master password unlocks the application
+2. Derived key encrypts sensitive data (AES-256-GCM)
+3. Database stores encrypted blobs
+4. Keys never leave memory unencrypted
+5. Automatic lock on inactivity
+
+## Contributing
+
+### Code Style
+- Follow ESLint and Prettier configurations
+- Use functional components with hooks
+- Keep components small and focused
+- Extract reusable logic to utils/
+- Define constants in constants/
+
+### Commit Conventions
+```
+feat: Add new feature
+fix: Bug fix
+refactor: Code refactoring
+style: Formatting changes
+docs: Documentation updates
+test: Add or update tests
+chore: Maintenance tasks
+```
+
+### Pull Request Process
+1. Create a feature branch from `main`
+2. Make your changes with clear commits
+3. Ensure all tests pass and code is formatted
+4. Submit PR with description of changes
+5. Address review feedback
+
+### Testing
+```bash
+# Run linters
+npm run lint
+
+# Check formatting
+npm run format:check
+
+# Build to verify no errors
+npm run build
 ```
 
 ## License
 
-Proprietary. License key required for activation.
+Proprietary - All rights reserved
+
+---
+
+**Version:** 1.9.0
+**Built with:** Tauri 2 + React 18 + Rust

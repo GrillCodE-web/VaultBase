@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════════
+   CC MANAGER — CYBER-FINANCIAL TERMINAL DESIGN SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Base Layers ────────────────────────────────────────── */
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --card:      #1c2128;
+  --card-hi:   #22272e;
+  --inset:     #0d1117;
+
+  /* ── Borders ────────────────────────────────────────────── */
+  --border:    #30363d;
+  --border-hi: #444c56;
+  --border-accent: rgba(0, 217, 255, 0.3);
+
+  /* ── Text Hierarchy ─────────────────────────────────────── */
+  --text:      #f0f6fc;
+  --text-2:    #c9d1d9;
+  --text-3:    #8b949e;
+  --muted:     #6e7681;
+  --dim:       #484f58;
+
+  /* ── Accent System (Cyan/Teal) ──────────────────────────── */
+  --accent:        #00d9ff;
+  --accent-bright: #14f195;
+  --accent-dim:    rgba(0, 217, 255, 0.08);
+  --accent-border: rgba(0, 217, 255, 0.25);
+  --accent-hover:  #00b8d9;
+  --accent-glow:   rgba(0, 217, 255, 0.25);
+  --accent-text:   #58e1ff;
+
+  /* ── Secondary Accent (Electric Purple) ─────────────────── */
+  --purple:        #a855f7;
+  --purple-bright: #c084fc;
+  --purple-dim:    rgba(168, 85, 247, 0.08);
+  --purple-border: rgba(168, 85, 247, 0.25);
+  --purple-glow:   rgba(168, 85, 247, 0.2);
+
+  /* ── Status Colors ──────────────────────────────────────── */
+  --green:   #10b981;
+  --green-t: #34d399;
+  --red:     #ef4444;
+  --red-t:   #f87171;
+  --yellow:  #f59e0b;
+  --yellow-t:#fbbf24;
+  --blue:    #3b82f6;
+  --blue-t:  #60a5fa;
+  --orange:  #f97316;
+  --orange-t:#fb923c;
+  --teal:    #14b8a6;
+  --teal-t:  #2dd4bf;
+
+  /* ── Hover & Interactive ────────────────────────────────── */
+  --hover:      rgba(255, 255, 255, 0.06);
+  --surface-hi: #1f2429;
+  --active-glow: 0 0 20px rgba(0, 217, 255, 0.15);
+
+  /* ── Spacing (4px grid) ─────────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ── Border Radius ──────────────────────────────────────── */
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  --radius-sm:  5px;
+  --radius-md:  9px;
+  --radius-lg: 13px;
+
+  /* ── Modal Widths ───────────────────────────────────────── */
+  --modal-sm:  420px;
+  --modal-md:  560px;
+  --modal-lg:  720px;
+
+  /* ── Transitions ────────────────────────────────────────── */
+  --t-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-mid:  220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Shadows ────────────────────────────────────────────── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 24px rgba(0, 217, 255, 0.2);
+
+  /* ── Gradients ──────────────────────────────────────────── */
+  --gradient-accent: linear-gradient(135deg, #00d9ff 0%, #14f195 100%);
+  --gradient-purple: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+  --gradient-card: linear-gradient(145deg, #1c2128 0%, #161b22 100%);
+  --gradient-overlay: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%);
+
+  /* ── Noise Texture ──────────────────────────────────────── */
+  --noise-opacity: 0.015;
+  --scanline-opacity: 0.02;
+}
+
+/* ── Light Theme (Optional) ─────────────────────────────── */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #f6f8fa;
+  --card: #ffffff;
+  --card-hi: #f6f8fa;
+  --inset: #eef1f5;
+  --border: #d0d7de;
+  --border-hi: #afb8c1;
+  --text: #1f2328;
+  --text-2: #57606a;
+  --text-3: #656d76;
+  --muted: #8c959f;
+  --dim: #afb8c1;
+  --hover: rgba(0, 0, 0, 0.04);
+  --surface-hi: #ffffff;
+}

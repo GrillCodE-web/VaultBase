@@ -1,0 +1,139 @@
+const { Server } = require('socket.io');
+const { getDb } = require('./database');
+
+const activeConnections = new Map();
+const eventLog = [];
+
+function logSocketEvent(type, data) {
+  eventLog.push({ type, data: typeof data === 'object' ? JSON.stringify(data).slice(0, 200) : String(data), ts: new Date().toISOString() });
+  if (eventLog.length > 100) eventLog.shift();
+}
+
+function initSocket(httpServer) {
+  const io = new Server(httpServer, {
+    cors: { origin: '*', methods: ['GET', 'POST'] },
+    transports: ['websocket', 'polling'],
+  });
+
+  // Map: token → { socket_id, group_id, installation_id }
+  const tokenMap = new Map();
+
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.['x-license-token'];
+    if (!token) return next(new Error('missing_token'));
+    const db = getDb();
+    const row = db.prepare('SELECT token, is_active, installation_id FROM licenses WHERE token = ?').get(token);
+    if (!row || !row.is_active) return next(new Error('invalid_token'));
+    socket.userToken = token;
+    socket.installationId = row.installation_id;
+    // Update last_seen
+    db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?').run(token);
+    next();
+  });
+
+  io.on('connection', (socket) => {
+    const db = getDb();
+    // Find group for this user
+    const member = db.prepare(`
+      SELECT sgm.group_id FROM sync_group_members sgm
+      JOIN licenses l ON l.installation_id = sgm.installation_id
+      WHERE l.token = ?
+    `).get(socket.userToken);
+
+    if (member) {
+      socket.groupId = member.group_id;
+      socket.join(`group:${member.group_id}`);
+      // Notify others
+      socket.to(`group:${member.group_id}`).emit('group:member_joined', {
+        installation_id: socket.installationId,
+      });
+    }
+
+    tokenMap.set(socket.userToken, {
+      socket_id: socket.id,
+      group_id: member?.group_id,
+      installation_id: socket.installationId,
+    });
+
+    // Track active connection
+    activeConnections.set(socket.id, {
+      installation_id: socket.installationId || null,
+      group_id: member?.group_id || null,
+      connected_at: new Date().toISOString(),
+      last_event: null,
+      ip: socket.handshake.address,
+    });
+    logSocketEvent('connect', { socketId: socket.id, installation_id: socket.installationId });
+
+    // Client requests full sync on connect
+    socket.on('sync:full_pull', () => {
+      const conn = activeConnections.get(socket.id);
+      if (conn) conn.last_event = 'sync:full_pull';
+      logSocketEvent('sync:full_pull', { socketId: socket.id });
+      if (!socket.groupId) return;
+      const cards = db.prepare(`
+        SELECT card_hash, encrypted_data, status, notes, updated_by, updated_at
+        FROM sync_cards WHERE group_id = ? ORDER BY updated_at DESC
+      `).all(socket.groupId);
+      socket.emit('sync:full_data', { cards });
+    });
+
+    // Client pushes card updates
+    socket.on('sync:push', (data) => {
+      const conn = activeConnections.get(socket.id);
+      if (conn) conn.last_event = 'sync:push';
+      logSocketEvent('sync:push', { socketId: socket.id, count: (data?.cards?.length) || 0 });
+      if (!socket.groupId) return;
+      const { cards } = data || {};
+      if (!Array.isArray(cards)) return;
+
+      const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
+      const stmt = db.prepare(`
+        INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(card_hash, group_id) DO UPDATE SET
+          encrypted_data = CASE WHEN (${STATUS_WEIGHT.dead} * (status='dead') + ${STATUS_WEIGHT.declined} * (status='declined') + ${STATUS_WEIGHT.archive} * (status='archive') + ${STATUS_WEIGHT.in_use} * (status='in_use') + ${STATUS_WEIGHT.free} * (status='free')) >= (${STATUS_WEIGHT.dead} * (excluded.status='dead') + ${STATUS_WEIGHT.declined} * (excluded.status='declined') + ${STATUS_WEIGHT.archive} * (excluded.status='archive') + ${STATUS_WEIGHT.in_use} * (excluded.status='in_use') + ${STATUS_WEIGHT.free} * (excluded.status='free')) THEN sync_cards.encrypted_data ELSE excluded.encrypted_data END,
+          status = CASE WHEN (${STATUS_WEIGHT.dead} * (status='dead') + ${STATUS_WEIGHT.declined} * (status='declined') + ${STATUS_WEIGHT.archive} * (status='archive') + ${STATUS_WEIGHT.in_use} * (status='in_use') + ${STATUS_WEIGHT.free} * (status='free')) >= (${STATUS_WEIGHT.dead} * (excluded.status='dead') + ${STATUS_WEIGHT.declined} * (excluded.status='declined') + ${STATUS_WEIGHT.archive} * (excluded.status='archive') + ${STATUS_WEIGHT.in_use} * (excluded.status='in_use') + ${STATUS_WEIGHT.free} * (excluded.status='free')) THEN sync_cards.status ELSE excluded.status END,
+          notes = CASE WHEN (${STATUS_WEIGHT.dead} * (status='dead') + ${STATUS_WEIGHT.declined} * (status='declined') + ${STATUS_WEIGHT.archive} * (status='archive') + ${STATUS_WEIGHT.in_use} * (status='in_use') + ${STATUS_WEIGHT.free} * (status='free')) >= (${STATUS_WEIGHT.dead} * (excluded.status='dead') + ${STATUS_WEIGHT.declined} * (excluded.status='declined') + ${STATUS_WEIGHT.archive} * (excluded.status='archive') + ${STATUS_WEIGHT.in_use} * (excluded.status='in_use') + ${STATUS_WEIGHT.free} * (excluded.status='free')) THEN sync_cards.notes ELSE excluded.notes END,
+          updated_by = excluded.updated_by,
+          updated_at = CURRENT_TIMESTAMP
+      `);
+
+      const results = [];
+      for (const card of cards) {
+        if (!card.card_hash || !card.status) continue;
+        stmt.run(card.card_hash, socket.groupId, card.encrypted_data || null, card.status, card.notes || null, socket.installationId);
+        results.push({ card_hash: card.card_hash, status: card.status });
+      }
+
+      // Broadcast to others in the group
+      if (results.length > 0) {
+        socket.to(`group:${socket.groupId}`).emit('card:update', {
+          cards: results,
+          updated_by: socket.installationId,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    socket.on('disconnect', () => {
+      activeConnections.delete(socket.id);
+      logSocketEvent('disconnect', { socketId: socket.id, installation_id: socket.installationId });
+      tokenMap.delete(socket.userToken);
+      if (socket.groupId) {
+        socket.to(`group:${socket.groupId}`).emit('group:member_left', {
+          installation_id: socket.installationId,
+        });
+      }
+    });
+  });
+
+  // Export emit helper for HTTP routes
+  io.emitToGroup = (group_id, event, data) => {
+    io.to(`group:${group_id}`).emit(event, data);
+  };
+
+  return io;
+}
+
+module.exports = { init: initSocket, activeConnections, eventLog };

@@ -1,0 +1,441 @@
+/* ═══════════════════════════════════════════════════════════
+   DASHBOARD — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Base Strip (Quick Stats Bar) ───────────────────────── */
+.base-strip {
+  display: flex;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+.base-strip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-accent);
+  opacity: 0.3;
+}
+
+.bsi {
+  flex: 1;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  padding: 0 16px;
+  position: relative;
+}
+
+.bsi:last-child {
+  border-right: none;
+}
+
+.bsi::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 40%;
+  background: linear-gradient(180deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.bsi:hover::after {
+  opacity: 0.4;
+}
+
+.bsi-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.bsi-val {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--accent-text);
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Stat Cards Grid ────────────────────────────────────── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 1280px) {
+  .cards-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── Stat Card ──────────────────────────────────────────── */
+.sc {
+  background: var(--gradient-card);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  cursor: pointer;
+  transition: all var(--t-mid);
+  border: 1px solid var(--border);
+  border-top: 3px solid;
+  overflow: hidden;
+  position: relative;
+}
+
+.sc::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at top right, rgba(0, 217, 255, 0.03), transparent 70%);
+  opacity: 0;
+  transition: opacity var(--t-mid);
+  pointer-events: none;
+}
+
+.sc:hover::before {
+  opacity: 1;
+}
+
+.sc:hover {
+  border-color: var(--border-hi);
+  transform: translateY(-2px);
+}
+
+.sc-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sc-val {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+
+.sc-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 4px;
+  font-family: 'Manrope', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Wide Cards (Revenue/Profit) ────────────────────────── */
+.sc.wide {
+  grid-column: span 2;
+}
+
+.up {
+  color: var(--green-t);
+}
+
+.dn {
+  color: var(--red-t);
+}
+
+/* ── Stat Card Color Variants ───────────────────────────── */
+.cg {
+  border-top-color: var(--green);
+}
+
+.cg .sc-val {
+  color: var(--green-t);
+}
+
+.cg:hover {
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.15);
+}
+
+.cr {
+  border-top-color: var(--red);
+}
+
+.cr .sc-val {
+  color: var(--red-t);
+}
+
+.cr:hover {
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
+}
+
+.cy {
+  border-top-color: var(--yellow);
+}
+
+.cy .sc-val {
+  color: var(--yellow-t);
+}
+
+.cy:hover {
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.15);
+}
+
+.cb2 {
+  border-top-color: var(--blue);
+}
+
+.cb2 .sc-val {
+  color: var(--blue-t);
+}
+
+.cb2:hover {
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+}
+
+.cgr {
+  border-top-color: var(--muted);
+}
+
+.cgr .sc-val {
+  color: var(--text-2);
+}
+
+.cgr:hover {
+  box-shadow: 0 8px 24px rgba(110, 118, 129, 0.15);
+}
+
+.cp {
+  border-top-color: var(--purple);
+}
+
+.cp .sc-val {
+  color: var(--purple-bright);
+}
+
+.cp:hover {
+  box-shadow: 0 8px 24px var(--purple-glow);
+}
+
+.cp2 {
+  border-top-color: var(--accent);
+}
+
+.cp2 .sc-val {
+  color: var(--accent-text);
+}
+
+.cp2:hover {
+  box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+/* ── Chart Container ────────────────────────────────────── */
+.chart-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--gradient-accent);
+  opacity: 0.2;
+}
+
+.chart-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-title::before {
+  content: '';
+  width: 3px;
+  height: 18px;
+  background: var(--gradient-accent);
+  border-radius: 2px;
+}
+
+/* ── Period Selector ────────────────────────────────────── */
+.period-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 6px;
+  background: var(--inset);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  width: 100%;
+}
+
+.period-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.period-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.period-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+/* ── Heatmap ────────────────────────────────────────────── */
+.heatmap-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  overflow-x: auto;
+}
+
+.heatmap-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.heatmap-legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: 'Manrope', sans-serif;
+}
+
+.heatmap-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.heatmap-legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+/* ── Activity Feed ──────────────────────────────────────── */
+.activity-feed {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.activity-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  transition: background var(--t-fast);
+  border-left: 2px solid transparent;
+}
+
+.activity-item:hover {
+  background: var(--hover);
+  border-left-color: var(--accent);
+}
+
+.activity-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-text {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 4px;
+  font-family: 'Manrope', sans-serif;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}

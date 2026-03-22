@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# ──────────────────────────────────────────────────────────
+#  CC Manager — Upload changed files via sshpass+scp
+#  macOS M1 compatible
+# ──────────────────────────────────────────────────────────
+
+VPS_IP="159.198.47.15"
+VPS_USER="root"
+VPS_PASS="sUI9qkKVq5O10tH1p8"
+REMOTE="$VPS_USER@$VPS_IP"
+REMOTE_DIR="/opt/cc-manager-server"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+G='\033[0;32m'; Y='\033[1;33m'; R='\033[0;31m'; C='\033[0;36m'; B='\033[1m'; NC='\033[0m'
+ok()   { echo -e "${G}  ✓${NC}  $1"; }
+info() { echo -e "${Y}  →${NC}  $1"; }
+err()  { echo -e "${R}  ✗${NC}  $1"; exit 1; }
+
+# ── check sshpass installed ──────────────────────────────
+if ! command -v sshpass >/dev/null 2>&1; then
+  err "sshpass not found. Install with: brew install hudochenkov/sshpass/sshpass"
+fi
+
+SCP="sshpass -p '$VPS_PASS' scp -o StrictHostKeyChecking=no"
+SSH="sshpass -p '$VPS_PASS' ssh -o StrictHostKeyChecking=no $REMOTE"
+
+echo ""
+echo -e "${B}${C}╔══════════════════════════════════════════════════╗${NC}"
+echo -e "${B}${C}║     CC Manager — Deploy  $(date '+%Y-%m-%d %H:%M')       ║${NC}"
+echo -e "${B}${C}╚══════════════════════════════════════════════════╝${NC}"
+
+# ── files to upload ─────────────────────────────────────
+FILES=(
+  "package.json"
+  "database.js"
+  "socket.js"
+  "index.js"
+  "cache.js"
+  "ws-tauri.js"
+  "routes/upload.js"
+  "routes/admin-api.js"
+  "routes/invite.js"
+  "routes/sync.js"
+  "routes/catalog.js"
+  "routes/bin.js"
+  "admin/index.html"
+  "public/landing.html"
+)
+
+echo ""
+echo -e "${B}${C}━━━  Uploading files  ━━━${NC}"
+
+for f in "${FILES[@]}"; do
+  LOCAL="$SCRIPT_DIR/$f"
+  REMOTE_PATH="$REMOTE_DIR/$f"
+
+  if [ ! -f "$LOCAL" ]; then
+    echo -e "${R}  ✗${NC}  $f — not found locally, skipping"
+    continue
+  fi
+
+  # ensure remote directory exists
+  REMOTE_SUBDIR="$(dirname "$REMOTE_PATH")"
+  eval "$SSH 'mkdir -p $REMOTE_SUBDIR'" 2>/dev/null
+
+  eval "$SCP '$LOCAL' '$REMOTE:$REMOTE_PATH'"
+  ok "$f"
+done
+
+# ── restart app ─────────────────────────────────────────
+echo ""
+echo -e "${B}${C}━━━  Restarting PM2  ━━━${NC}"
+eval "$SSH 'pm2 restart cc-manager-server 2>/dev/null || pm2 restart all'"
+ok "App restarted"
+
+echo ""
+ok "Done. https://api.eulivehub.com"
+echo ""

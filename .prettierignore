@@ -1,0 +1,12 @@
+node_modules
+dist
+build
+coverage
+*.min.js
+*.min.css
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+.git
+.tauri
+src-tauri/target

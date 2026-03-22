@@ -7,7 +7,9 @@ mod imap;
 mod license;
 mod models;
 mod parser;
+mod smtp;
 mod sync;
+mod ws_sync;
 
 use database::{Database, fetch_bin_info};
 use encryption::{FieldEncryption, PasswordValidation, generate_salt};
@@ -27,27 +29,82 @@ struct AppState { db: Mutex<Database> }
 static STATE: OnceCell<AppState> = OnceCell::new();
 fn state() -> &'static AppState { STATE.get().expect("AppState not initialized") }
 
+// ── WS Sync global handle ──────────────────────────────────────────────────
+static WS_HANDLE: OnceCell<std::sync::Arc<ws_sync::WsSyncHandle>> = OnceCell::new();
+fn ws_handle() -> &'static std::sync::Arc<ws_sync::WsSyncHandle> {
+    WS_HANDLE.get().expect("WsSyncHandle not initialized")
+}
+
 fn db_path() -> PathBuf {
-    // Place DB in project root (parent of src-tauri/) to avoid
-    // Tauri dev watcher triggering rebuilds on every DB write
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let mut p = if cwd.file_name().map(|n| n == "src-tauri").unwrap_or(false) {
-        let mut parent = cwd.clone();
-        parent.pop();
-        parent
-    } else {
-        cwd
-    };
-    p.push("cc_manager.db");
-    p
+    #[cfg(debug_assertions)]
+    {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let mut p = if cwd.file_name().map(|n| n == "src-tauri").unwrap_or(false) {
+            let mut parent = cwd.clone();
+            parent.pop();
+            parent
+        } else {
+            cwd
+        };
+        p.push("cc_manager.db");
+        p
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("cc-manager");
+        std::fs::create_dir_all(&dir).ok();
+        dir.join("cc_manager.db")
+    }
+}
+
+/// Единая директория для всех бэкапов (FIX B29)
+fn backup_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("cc-manager")
+        .join("backups")
 }
 
 macro_rules! with_db {
     ($db:ident, $body:block) => {{
         let mut guard = state().db.lock().map_err(|e| e.to_string())?;
         let $db = &mut *guard;
+        $db.touch_activity();
         $body
     }};
+}
+
+// ─────────────────────────────────────────
+//  Whitelist для get_config/set_config (FIX B49)
+// ─────────────────────────────────────────
+
+const CONFIG_READABLE: &[&str] = &[
+    "autolock_timeout", "bin_api_key", "tracking_api_key",
+    "sync_enabled", "theme", "language", "installation_id",
+    "license_status_cache",
+    "sync_group_id", "sync_group_name",
+    "always_on_top", "last_backup_time",
+    "dash_collapsed_banks", "dash_collapsed_countries",
+    "dash_collapsed_sources", "dash_collapsed_expiring",
+    "badge_notify_imap", "badge_notify_tracking",
+];
+
+const CONFIG_WRITABLE: &[&str] = &[
+    "autolock_timeout", "bin_api_key", "tracking_api_key",
+    "sync_enabled", "theme", "language",
+    "always_on_top", "last_backup_time",
+    "dash_collapsed_banks", "dash_collapsed_countries",
+    "dash_collapsed_sources", "dash_collapsed_expiring",
+    "badge_notify_imap", "badge_notify_tracking",
+];
+
+fn is_config_readable(key: &str) -> bool {
+    CONFIG_READABLE.contains(&key)
+}
+fn is_config_writable(key: &str) -> bool {
+    CONFIG_WRITABLE.contains(&key)
 }
 
 // ─────────────────────────────────────────
@@ -75,8 +132,18 @@ fn setup_password(password: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn unlock(password: String) -> Result<(), String> {
+fn is_password_set() -> Result<bool, String> {
     with_db!(db, {
+        Ok(db.get_config("master_password_hash")
+            .map_err(|e| e.to_string())?
+            .map(|v| !v.is_empty())
+            .unwrap_or(false))
+    })
+}
+
+#[tauri::command]
+fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
+    let (token, group_id) = with_db!(db, {
         let hash = db.get_config("master_password_hash").map_err(|e| e.to_string())?
             .ok_or("setup_required")?;
         if !bcrypt::verify(&password, &hash).map_err(|e| e.to_string())? {
@@ -88,10 +155,23 @@ fn unlock(password: String) -> Result<(), String> {
         db.set_encryption(FieldEncryption::new(&password, &salt));
         db.log_event("system.unlocked", "Database unlocked", Some("system"), None)
             .map_err(|e| e.to_string())?;
-        // Auto-backup on unlock
         let _ = auto_backup(db);
-        Ok(())
-    })
+        // Extract WS creds while lock is held
+        let token = db.get_config("license_token").ok().flatten()
+            .and_then(|t| if t.is_empty() { None } else {
+                db.encryption.as_ref().and_then(|enc| enc.decrypt(&t).ok())
+            });
+        let group_id = db.get_config("sync_group_id").ok().flatten()
+            .filter(|g| !g.is_empty());
+        Ok::<(Option<String>, Option<String>), String>((token, group_id))
+    })?;
+    // Start WS sync in background (non-blocking)
+    if let Some(h) = WS_HANDLE.get() {
+        h.set_creds(token, group_id);
+        let db_p = db_path().to_str().unwrap_or("cc_manager.db").to_string();
+        ws_sync::start(app, db_p, h.clone());
+    }
+    Ok(())
 }
 
 fn auto_backup(db: &Database) -> Result<(), String> {
@@ -99,17 +179,17 @@ fn auto_backup(db: &Database) -> Result<(), String> {
         Some(p) => p.to_string(),
         None => return Ok(()),
     };
-    let backup_dir = dirs::config_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("cc-manager")
-        .join("backups");
-    std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+    // FIX B29: единая директория через backup_dir()
+    let bdir = backup_dir();
+    std::fs::create_dir_all(&bdir).map_err(|e| e.to_string())?;
     let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-    let dest = backup_dir.join(format!("backup_{ts}.db"));
+    let dest = bdir.join(format!("backup_{ts}.db"));
     std::fs::copy(&src, &dest).map_err(|e| e.to_string())?;
-    // Keep only last 30 backups
-    let mut entries: Vec<_> = std::fs::read_dir(&backup_dir)
-        .map(|rd| rd.filter_map(|e| e.ok()).collect())
+    // FIX B09: фильтруем только файлы backup_*.db
+    let mut entries: Vec<_> = std::fs::read_dir(&bdir)
+        .map(|rd| rd.filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().starts_with("backup_"))
+            .collect())
         .unwrap_or_default();
     entries.sort_by_key(|e| e.file_name());
     if entries.len() > 30 {
@@ -126,8 +206,14 @@ fn lock() -> Result<(), String> {
     with_db!(db, {
         db.clear_encryption();
         let _ = db.log_event("system.locked", "Database locked", Some("system"), None);
-        Ok(())
-    })
+        Ok::<(), String>(())
+    })?;
+    // Stop WS sync
+    if let Some(h) = WS_HANDLE.get() {
+        h.stop();
+        h.set_creds(None, None);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -135,6 +221,8 @@ fn is_locked() -> Result<bool, String> {
     Ok(state().db.lock().map_err(|e| e.to_string())?.is_locked())
 }
 
+// FIX B23: change_password теперь атомарен — бэкап перед операцией,
+// set_config до reencrypt_all, всё обёрнуто в единую логику.
 #[tauri::command]
 fn change_password(old: String, new: String) -> Result<(), String> {
     let v = PasswordValidation::check(&new);
@@ -151,11 +239,25 @@ fn change_password(old: String, new: String) -> Result<(), String> {
         let old_enc  = FieldEncryption::new(&old, &old_salt);
         let new_salt = generate_salt();
         let new_enc  = FieldEncryption::new(&new, &new_salt);
-        db.reencrypt_all(&old_enc, &new_enc)?;
         let new_hash     = bcrypt::hash(&new, 12).map_err(|e| e.to_string())?;
         let new_salt_b64 = B64.encode(&new_salt);
+        // Сначала обновляем метаданные, потом шифруем данные.
+        // При crash после set_config но до reencrypt_all — данные всё ещё
+        // читаются старым ключом, пользователь может залогиниться старым паролем.
+        // Это лучше чем обратный порядок где crash оставляет БД нечитаемой.
+        // FIX B24: перешифровываем license_token тоже (через reencrypt_all)
         db.set_config("master_password_hash", &new_hash).map_err(|e| e.to_string())?;
         db.set_config("encryption_salt", &new_salt_b64).map_err(|e| e.to_string())?;
+        db.reencrypt_all(&old_enc, &new_enc)?;
+        // FIX B24: перешифровать license_token
+        if let Ok(Some(raw_token)) = db.get_config("license_token") {
+            if !raw_token.is_empty() {
+                let plain = old_enc.decrypt(&raw_token).unwrap_or(raw_token);
+                if let Ok(new_enc_token) = new_enc.encrypt(&plain) {
+                    let _ = db.set_config("license_token", &new_enc_token);
+                }
+            }
+        }
         db.set_encryption(new_enc);
         db.log_event("system.password_changed", "Password changed", Some("system"), None)
             .map_err(|e| e.to_string())?;
@@ -164,7 +266,7 @@ fn change_password(old: String, new: String) -> Result<(), String> {
 }
 
 // ─────────────────────────────────────────
-//  Card commands — IMPLEMENTED
+//  Card commands
 // ─────────────────────────────────────────
 
 #[tauri::command]
@@ -206,23 +308,33 @@ fn get_cards(filter: CardFilter, page: u32, per_page: u32) -> Result<PaginatedCa
     guard.get_cards(&filter, page, per_page.max(1))
 }
 
+// FIX B01: get_card теперь реально фильтрует по id
 #[tauri::command]
-fn get_card(_id: i64) -> Result<Card, String> {
-    // Returns masked card (same as list but single item)
+fn get_card_filter_meta() -> Result<CardFilterMeta, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
-    let result = guard.get_cards(
-        &CardFilter { ..Default::default() },
-        1, 1,
-    )?;
-    result.items.into_iter().next().ok_or("card_not_found".into())
+    guard.get_card_filter_meta()
 }
 
 #[tauri::command]
-fn reveal_card(id: i64) -> Result<CardDecrypted, String> {
+fn get_card(id: i64) -> Result<Card, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
-    guard.get_card_decrypted(id)
+    let filter = CardFilter { id: Some(id), ..Default::default() };
+    let result = guard.get_cards(&filter, 1, 1)?;
+    result.items.into_iter().next().ok_or_else(|| "card_not_found".into())
+}
+
+// FIX B67: reveal_card теперь логирует доступ к данным карты
+#[tauri::command]
+fn reveal_card(id: i64) -> Result<CardDecrypted, String> {
+    with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        let card = db.get_card_decrypted(id)?;
+        let _ = db.log_event("card.revealed",
+            &format!("Card {} full data accessed", id), Some("card"), Some(&id.to_string()));
+        Ok(card)
+    })
 }
 
 #[tauri::command]
@@ -277,11 +389,17 @@ fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
     })
 }
 
+// FIX B50: export_cards теперь логирует количество и список id
 #[tauri::command]
 fn export_cards(ids: Vec<i64>, format: String) -> Result<String, String> {
-    let guard = state().db.lock().map_err(|e| e.to_string())?;
-    if guard.is_locked() { return Err("database_locked".into()); }
-    guard.export_cards(&ids, &format)
+    with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        let result = db.export_cards(&ids, &format)?;
+        let _ = db.log_event("card.exported",
+            &format!("{} cards exported (format: {})", ids.len(), format),
+            Some("card"), None);
+        Ok(result)
+    })
 }
 
 #[tauri::command]
@@ -336,6 +454,21 @@ fn find_duplicate_profiles() -> Result<Vec<Vec<Profile>>, String> {
 }
 
 #[tauri::command]
+fn save_profile_template(name: String, country: Option<String>, state: Option<String>, city: Option<String>, phone_prefix: Option<String>, source: Option<String>) -> Result<i64, String> {
+    with_db!(db, { db.save_profile_template(&name, country.as_deref(), state.as_deref(), city.as_deref(), phone_prefix.as_deref(), source.as_deref()) })
+}
+
+#[tauri::command]
+fn get_profile_templates() -> Result<Vec<ProfileTemplate>, String> {
+    with_db!(db, { db.get_profile_templates() })
+}
+
+#[tauri::command]
+fn delete_profile_template(id: i64) -> Result<(), String> {
+    with_db!(db, { db.delete_profile_template(id) })
+}
+
+#[tauri::command]
 fn add_drop(profile_id: String, drop: DropInput) -> Result<Drop, String> {
     with_db!(db, { db.add_drop(&profile_id, &drop) })
 }
@@ -353,7 +486,6 @@ fn set_primary_drop(id: i64, profile_id: String) -> Result<(), String> {
 }
 #[tauri::command]
 fn import_drops(profile_id: String, raw: String, mapping: Vec<String>) -> Result<ImportResult, String> {
-    // Parse raw lines using column mapping
     let cols = mapping.clone();
     let rows: Vec<DropInput> = raw.lines().filter(|l| !l.trim().is_empty())
         .filter_map(|line| {
@@ -368,10 +500,10 @@ fn import_drops(profile_id: String, raw: String, mapping: Vec<String>) -> Result
                 recipient_name: get("recipient_name"),
                 address: get("address"),
                 city: get("city"),
-                state: get("state"),
+                state: Some(get("state")),
                 zip: get("zip"),
                 country: get("country"),
-                phone: get("phone"),
+                phone: Some(get("phone")),
             })
         }).collect();
     with_db!(db, { db.import_drops(&profile_id, rows) })
@@ -518,6 +650,10 @@ fn get_latest_order_by_profile(profile_id: String) -> Result<Option<Order>, Stri
     with_db!(db, { db.get_latest_order_by_profile(&profile_id) })
 }
 #[tauri::command]
+fn get_recent_orders_by_profile(profile_id: String, limit: u32) -> Result<Vec<Order>, String> {
+    with_db!(db, { db.get_recent_orders_by_profile(&profile_id, limit) })
+}
+#[tauri::command]
 fn update_order_status(id: i64, status: String, meta: Option<StatusMeta>) -> Result<(), String> {
     with_db!(db, { db.update_order_status(id, &status, meta.as_ref()) })
 }
@@ -525,23 +661,32 @@ fn update_order_status(id: i64, status: String, meta: Option<StatusMeta>) -> Res
 fn delete_order(id: i64) -> Result<(), String> {
     with_db!(db, { db.delete_order(id) })
 }
+
+// FIX B02: различаем offline (нет токена/сети) и "сервер ответил — нет риска"
 #[tauri::command]
 fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i64>, email_pool_id: Option<i64>, proxy_id: Option<i64>) -> Result<RiskCheckResult, String> {
     with_db!(db, {
-        let mut result = db.run_risk_check(&profile_id, shop_id)?;
-        // Merge global footprint check from server (gracefully skipped if offline/no token)
-        let server_warnings = sync::SyncClient::check_risk(&db, &profile_id, shop_id);
-        if server_warnings.is_empty() {
-            result.offline = true;
-        } else {
-            result.offline = false;
-            result.score = result.score.saturating_add(30);
-            result.warnings.extend(server_warnings);
-            result.level = if result.score >= 40 { "high" } else if result.score >= 20 { "warning" } else { "safe" }.into();
+        // FIX B31: передаём все факторы риска в БД-функцию
+        let mut result = db.run_risk_check(&profile_id, shop_id, drop_id, email_pool_id, proxy_id)?;
+        let server_result = sync::SyncClient::check_risk_detailed(&db, &profile_id, shop_id);
+        match server_result {
+            sync::RiskCheckOutcome::Offline => {
+                result.offline = true;
+            }
+            sync::RiskCheckOutcome::Clean => {
+                result.offline = false;
+            }
+            sync::RiskCheckOutcome::Warnings(server_warnings) => {
+                result.offline = false;
+                result.score = result.score.saturating_add(30);
+                result.warnings.extend(server_warnings);
+                result.level = if result.score >= 40 { "high" } else if result.score >= 20 { "warning" } else { "safe" }.into();
+            }
         }
         Ok(result)
     })
 }
+
 #[tauri::command]
 fn save_order_template(input: SaveTemplateInput) -> Result<(), String> {
     with_db!(db, { db.save_order_template(&input) })
@@ -551,62 +696,62 @@ fn get_order_templates(shop_tag: Option<String>) -> Result<Vec<OrderTemplate>, S
     with_db!(db, { db.get_order_templates(shop_tag.as_deref()) })
 }
 
-// Dashboard — implemented
+// Dashboard
 #[tauri::command]
 fn get_dashboard_stats(period: String, from: Option<String>, to: Option<String>) -> Result<DashboardStats, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_dashboard_stats(&period, from.as_deref(), to.as_deref())
 }
-
 #[tauri::command]
 fn get_revenue_chart(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<RevenuePoint>, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_revenue_chart(&period, from.as_deref(), to.as_deref())
 }
-
 #[tauri::command]
 fn get_heatmap_data(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<HeatmapCell>, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_heatmap_data(&period, from.as_deref(), to.as_deref())
 }
-
 #[tauri::command]
 fn get_top_banks(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<BankStats>, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_top_banks(&period, from.as_deref(), to.as_deref())
 }
-
 #[tauri::command]
 fn get_by_country(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<CountryStats>, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_country(&period, from.as_deref(), to.as_deref())
 }
-
 #[tauri::command]
 fn get_by_source(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<SourceStats>, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_source(&period, from.as_deref(), to.as_deref())
 }
-
 #[tauri::command]
 fn get_expiring_cards_dashboard(days: u32) -> Result<Vec<ExpiringCard>, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_expiring_cards_dashboard(days)
 }
-
 #[tauri::command]
 fn export_dashboard_csv(period: String, from: Option<String>, to: Option<String>) -> Result<String, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.export_dashboard_csv(&period, from.as_deref(), to.as_deref())
 }
-
 #[tauri::command]
 fn get_sidebar_badges() -> Result<SidebarBadges, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_sidebar_badges()
 }
+#[tauri::command]
+fn get_bin_performance() -> Result<Vec<models::BinPerf>, String> {
+    with_db!(db, { db.get_bin_performance() })
+}
+#[tauri::command]
+fn get_shop_win_loss() -> Result<Vec<models::ShopWinLoss>, String> {
+    with_db!(db, { db.get_shop_win_loss() })
+}
 
-// IMAP — implemented
+// IMAP
 #[tauri::command]
 fn add_imap_account(input: ImapInput) -> Result<ImapAccount, String> {
     with_db!(db, { db.add_imap_account(&input) })
@@ -632,9 +777,77 @@ fn get_imap_messages(filter: ImapMsgFilter, page: u32) -> Result<PaginatedMessag
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_imap_messages(&filter, page, 50)
 }
+/// Non-blocking: spawns per-account threads, returns account count immediately.
+/// Progress events: imap_check_progress { account_id, account_label, messages, orders, error? }
 #[tauri::command]
-fn imap_check_all() -> Result<ImapCheckResult, String> {
-    with_db!(db, { imap::ImapPoller::check_all(db) })
+fn imap_check_all(app_handle: tauri::AppHandle) -> Result<ImapCheckResult, String> {
+    let accounts: Vec<_> = {
+        let guard = state().db.lock().map_err(|e| e.to_string())?;
+        guard.get_imap_accounts()?.into_iter().filter(|a| a.is_active).collect()
+    };
+    let count = accounts.len() as u32;
+    for acc in accounts {
+        let app = app_handle.clone();
+        std::thread::spawn(move || {
+            // 1. Get credentials (brief lock)
+            let creds = {
+                let Ok(g) = state().db.lock() else { return };
+                g.get_imap_account_with_password(acc.id)
+            };
+            let (_, pw) = match creds {
+                Ok((a, p)) if !p.is_empty() => (a, p),
+                _ => return,
+            };
+            // 2. Get known UIDs (brief lock)
+            let known_uids: std::collections::HashSet<String> = {
+                let Ok(g) = state().db.lock() else { return };
+                g.get_known_imap_uids(acc.id).unwrap_or_default().into_iter().collect()
+            };
+            // 3. IMAP fetch (no lock!)
+            match imap::fetch_account_messages(&acc, &pw, &known_uids) {
+                Ok(result) => {
+                    let msgs = result.messages.len();
+                    let mut orders = 0usize;
+                    if msgs > 0 {
+                        if let Ok(g) = state().db.lock() {
+                            for msg in &result.messages {
+                                if let (Some(onum), Some(act)) = (msg.order_number.as_deref(), msg.action.as_deref()) {
+                                    if let Ok(Some(oid)) = g.find_order_by_number(onum) {
+                                        let _ = g.update_order_status_simple(oid, act, msg.tracking.as_deref());
+                                    }
+                                }
+                                let _ = g.save_imap_message(
+                                    acc.id, msg.uid.as_deref(), &msg.subject,
+                                    &msg.from_email, &msg.received_at,
+                                    msg.order_number.as_deref(), msg.tracking.as_deref(),
+                                    msg.action.as_deref(),
+                                );
+                                if msg.action.as_deref() == Some("delivered") {
+                                    let _ = g.auto_mark_delivered_by_account(acc.id);
+                                }
+                                let _ = app.emit("new_imap_message", serde_json::json!({
+                                    "account_id": acc.id, "subject": &msg.subject, "from": &msg.from_email,
+                                }));
+                            }
+                            let _ = g.update_imap_last_checked(acc.id);
+                            orders = g.auto_mark_delivered_by_account(acc.id).unwrap_or_default().len();
+                        }
+                    }
+                    let _ = app.emit("imap_check_progress", serde_json::json!({
+                        "account_id": acc.id, "account_label": acc.label,
+                        "messages": msgs, "orders": orders,
+                    }));
+                }
+                Err(e) => {
+                    let _ = app.emit("imap_check_progress", serde_json::json!({
+                        "account_id": acc.id, "account_label": acc.label,
+                        "messages": 0, "orders": 0, "error": e,
+                    }));
+                }
+            }
+        });
+    }
+    Ok(ImapCheckResult { accounts_checked: count, messages_found: 0, orders_updated: 0 })
 }
 #[tauri::command]
 fn test_imap_connection(id: i64) -> Result<String, String> {
@@ -652,6 +865,153 @@ fn link_email_to_imap(email_id: i64, imap_account_id: Option<i64>) -> Result<(),
             rusqlite::params![imap_account_id, email_id]).map_err(|e| e.to_string())?;
         Ok(())
     })
+}
+
+// IMAP — new email client commands
+
+/// Returns cached folder list immediately; spawns background thread to refresh from server.
+/// Emits imap_folders_refreshed { account_id, folders } when background fetch completes.
+#[tauri::command]
+fn list_imap_folders(account_id: i64, app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let cached = {
+        let guard = state().db.lock().map_err(|e| e.to_string())?;
+        guard.get_cached_imap_folders(account_id)
+    };
+    // Spawn background refresh
+    std::thread::spawn(move || {
+        let creds = {
+            let Ok(g) = state().db.lock() else { return };
+            g.get_imap_account_with_password(account_id)
+        };
+        let (acc, pw) = match creds {
+            Ok((a, p)) if !p.is_empty() => (a, p),
+            _ => return,
+        };
+        let folders = imap::list_imap_folders(&acc, &pw).unwrap_or_else(|_| vec!["INBOX".into()]);
+        if let Ok(g) = state().db.lock() {
+            let _ = g.save_cached_imap_folders(account_id, &folders);
+        }
+        let _ = app_handle.emit("imap_folders_refreshed", serde_json::json!({
+            "account_id": account_id, "folders": folders,
+        }));
+    });
+    Ok(if cached.is_empty() { vec!["INBOX".into()] } else { cached })
+}
+#[tauri::command]
+fn get_imap_account_stats(account_id: i64) -> Result<ImapAccountStats, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_imap_account_stats(account_id)
+}
+/// Returns cached messages from DB immediately (no IMAP connection).
+/// Call refresh_folder_from_imap() separately to trigger background server fetch.
+#[tauri::command]
+fn get_folder_messages(account_id: i64, folder: String, page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_imap_folder_messages(account_id, &folder, page, 30, search.as_deref())
+}
+
+/// Background IMAP refresh: fetches new messages from server, saves to DB,
+/// then emits imap_messages_refreshed { account_id, folder, new_count }.
+/// Returns immediately — never blocks the UI.
+#[tauri::command]
+fn refresh_folder_from_imap(account_id: i64, folder: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+    let (acc, pw) = {
+        let g = state().db.lock().map_err(|e| e.to_string())?;
+        match g.get_imap_account_with_password(account_id) {
+            Ok((a, p)) if !p.is_empty() => (a, p),
+            _ => return Ok(()),
+        }
+    };
+    std::thread::spawn(move || {
+        let known_uids: std::collections::HashSet<String> = {
+            let Ok(g) = state().db.lock() else { return };
+            g.get_known_imap_uids(account_id).unwrap_or_default().into_iter().collect()
+        };
+        match imap::fetch_account_messages(&acc, &pw, &known_uids) {
+            Ok(result) => {
+                let count = result.messages.len();
+                if count > 0 {
+                    if let Ok(g) = state().db.lock() {
+                        for msg in &result.messages {
+                            let _ = g.save_imap_message_with_body(
+                                account_id, msg.uid.as_deref(), &msg.subject, &msg.from_email,
+                                None, &msg.received_at, None, &folder,
+                                msg.order_number.as_deref(), msg.tracking.as_deref(),
+                                msg.action.as_deref(), false,
+                            );
+                        }
+                    }
+                }
+                let _ = app_handle.emit("imap_messages_refreshed", serde_json::json!({
+                    "account_id": account_id, "folder": folder, "new_count": count,
+                }));
+            }
+            Err(e) => {
+                eprintln!("[imap] refresh_folder error account {}: {}", account_id, e);
+                let _ = app_handle.emit("imap_messages_refreshed", serde_json::json!({
+                    "account_id": account_id, "folder": folder, "new_count": 0,
+                }));
+            }
+        }
+    });
+    Ok(())
+}
+
+/// Unified inbox: all accounts' INBOX messages sorted newest first.
+#[tauri::command]
+fn get_unified_inbox(page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_all_inbox_messages(page, 30, search.as_deref())
+}
+#[tauri::command]
+fn archive_imap_message(account_id: i64, message_id: i64) -> Result<(), String> {
+    with_db!(db, { db.archive_imap_message(message_id) })
+}
+#[tauri::command]
+fn get_imap_message_body(account_id: i64, message_id: i64) -> Result<String, String> {
+    with_db!(db, { imap::get_message_body_from_server(db, account_id, message_id) })
+}
+#[tauri::command]
+fn mark_imap_message_read(account_id: i64, message_id: i64) -> Result<(), String> {
+    with_db!(db, { imap::mark_message_read_on_server(db, account_id, message_id) })
+}
+#[tauri::command]
+fn delete_imap_message(account_id: i64, message_id: i64) -> Result<(), String> {
+    with_db!(db, { db.delete_imap_message(message_id) })
+}
+
+// SMTP
+#[tauri::command]
+fn add_smtp_config(input: SmtpConfigInput) -> Result<SmtpConfig, String> {
+    with_db!(db, { db.add_smtp_config(&input) })
+}
+#[tauri::command]
+fn get_smtp_configs() -> Result<Vec<SmtpConfig>, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_smtp_configs()
+}
+#[tauri::command]
+fn delete_smtp_config(id: i64) -> Result<(), String> {
+    with_db!(db, { db.delete_smtp_config(id) })
+}
+#[tauri::command]
+fn test_smtp_connection(id: i64) -> Result<String, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    let cfg = guard.get_smtp_configs()?.into_iter().find(|c| c.id == id)
+        .ok_or_else(|| "smtp_config_not_found".to_string())?;
+    let pw = guard.get_smtp_config_password(id)?;
+    drop(guard);
+    smtp::EmailSender::test(&cfg.host, cfg.port as u16, &cfg.login, &pw, cfg.use_tls)
+}
+#[tauri::command]
+fn send_email(smtp_config_id: i64, to: String, subject: String, body: String) -> Result<(), String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    smtp::EmailSender::send(&*guard, smtp_config_id, &to, &subject, &body)
+}
+#[tauri::command]
+fn get_sent_emails(page: u32) -> Result<PaginatedSentEmails, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_sent_emails(page, 50)
 }
 
 // Activity Log
@@ -679,7 +1039,7 @@ fn sync_now() -> Result<SyncResult, String> {
     with_db!(db, { sync::SyncClient::sync_footprints(db) })
 }
 
-// Version check
+// Version
 #[tauri::command]
 fn get_app_version(app: tauri::AppHandle) -> String {
     app.package_info().version.to_string()
@@ -691,30 +1051,37 @@ fn get_server_version() -> Result<Option<serde_json::Value>, String> {
     }))
 }
 
-// Config
+// FIX B49: get_config/set_config с whitelist
 #[tauri::command]
 fn get_config(key: String) -> Result<Option<String>, String> {
+    if !is_config_readable(&key) {
+        return Err(format!("config_key_not_allowed: {}", key));
+    }
     with_db!(db, { db.get_config(&key).map_err(|e| e.to_string()) })
 }
 #[tauri::command]
 fn set_config(key: String, value: String) -> Result<(), String> {
+    if !is_config_writable(&key) {
+        return Err(format!("config_key_not_allowed: {}", key));
+    }
     with_db!(db, { db.set_config(&key, &value).map_err(|e| e.to_string()) })
 }
+
+// FIX B29: export_backup использует единую backup_dir()
 #[tauri::command]
 fn export_backup() -> Result<String, String> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let backup_dir = format!("{}/.config/cc-manager/backups", home);
-    std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+    let bdir = backup_dir();
+    std::fs::create_dir_all(&bdir).map_err(|e| e.to_string())?;
     let now = chrono::Local::now().format("%Y%m%d_%H%M%S");
-    let dest = format!("{}/backup_{}.db", backup_dir, now);
+    let dest = bdir.join(format!("backup_{}.db", now));
+    let dest_str = dest.to_string_lossy().to_string();
     let guard = state().db.lock().map_err(|e| e.to_string())?;
-    guard.export_backup_to(&dest)
+    guard.export_backup_to(&dest_str)
 }
+
 #[tauri::command]
 fn import_backup(path: String) -> Result<(), String> {
-    // Validate file exists
     if !std::path::Path::new(&path).exists() { return Err("file_not_found".into()); }
-    // Just confirm — actual restore requires app restart
     Err("restart_required: Copy the backup file manually and restart".into())
 }
 
@@ -748,21 +1115,43 @@ fn global_search(query: String) -> Result<SearchResults, String> {
     guard.global_search(&query)
 }
 
-// Float Window
 #[tauri::command]
 fn open_float_window(profile_id: String, app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("float") {
-        let url = format!("float.html?id={}", profile_id);
-        let _ = win.eval(&format!("window.location.href='/{}'", url));
+    // Validate: profile_id must be UUID-like (hex + dashes only)
+    let safe_id: String = profile_id.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect();
+    if safe_id != profile_id {
+        return Err("invalid_profile_id".into());
+    }
+    let win = app.get_webview_window("float")
+        .ok_or_else(|| "float_window_not_found".to_string())?;
+
+    // Emit event — float.jsx listens and reloads data without page navigation.
+    // Reliable even when window is hidden (no race with window.location.href).
+    win.emit("float:load", &safe_id).map_err(|e| e.to_string())?;
+    let _ = win.show();
+    let _ = win.set_focus();
+    let _ = win.unminimize();
+
+    // Log without blocking — ignore DB errors so window always opens
+    let _: Result<(), String> = with_db!(db, {
+        let _ = db.log_event("profile.float_opened",
+            &format!("Profile {} float opened", safe_id), Some("profile"), None);
+        Ok(())
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn open_main_window_page(page: String, app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
         let _ = win.set_focus();
-        with_db!(db, {
-            let _ = db.log_event("profile.float_opened", &format!("Profile {} float opened", profile_id), Some("profile"), None);
-            Ok(())
-        })
-    } else {
-        Err("float_window_not_found".into())
+        let _ = win.unminimize();
+        let _ = app.emit("navigate:page", &page);
     }
+    Ok(())
 }
 
 // ─────────────────────────────────────────
@@ -770,7 +1159,7 @@ fn open_float_window(profile_id: String, app: tauri::AppHandle) -> Result<(), St
 // ─────────────────────────────────────────
 
 fn start_background_threads(handle: tauri::AppHandle) {
-    // ── Autolock thread (every 30s) ──────────────────────────
+    // ── Autolock thread (every 30s) ──
     let h = handle.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(30));
@@ -791,7 +1180,7 @@ fn start_background_threads(handle: tauri::AppHandle) {
         }
     });
 
-    // ── Sync thread (every 2 min) ────────────────────────────
+    // ── Sync thread (every 2 min) ──
     let h = handle.clone();
     std::thread::spawn(move || {
         let mut last_online: Option<bool> = None;
@@ -800,17 +1189,12 @@ fn start_background_threads(handle: tauri::AppHandle) {
             if let Some(st) = STATE.get() {
                 let db_locked = st.db.lock().map(|d| d.is_locked()).unwrap_or(true);
                 if !db_locked {
-                    // Check server reachability
                     let online = sync::SyncClient::check_server_online();
                     if last_online != Some(online) {
                         last_online = Some(online);
-                        if online {
-                            let _ = h.emit("server_online", ());
-                        } else {
-                            let _ = h.emit("server_offline", ());
-                        }
+                        if online { let _ = h.emit("server_online", ()); }
+                        else      { let _ = h.emit("server_offline", ()); }
                     }
-
                     if online {
                         if let Ok(mut db) = st.db.lock() {
                             if let Ok(res) = sync::SyncClient::sync_footprints(&mut db) {
@@ -825,38 +1209,99 @@ fn start_background_threads(handle: tauri::AppHandle) {
         }
     });
 
-    // ── IMAP thread (checks every 60s, polls per account interval) ──
+    // FIX B22: IMAP тред — lock держим минимально, не во время сетевых операций
     let h = handle.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(60));
         if let Some(st) = STATE.get() {
             let db_locked = st.db.lock().map(|d| d.is_locked()).unwrap_or(true);
-            if !db_locked {
-                let accounts = st.db.lock().ok().and_then(|d| d.get_imap_accounts().ok()).unwrap_or_default();
-                for acc in accounts.into_iter().filter(|a| a.is_active) {
-                    let should_poll = acc.last_checked.as_ref().map(|lc| {
-                        chrono::DateTime::parse_from_rfc3339(lc)
-                            .map(|t| chrono::Utc::now().signed_duration_since(t).num_minutes() >= acc.poll_interval)
-                            .unwrap_or(true)
-                    }).unwrap_or(true);
+            if db_locked { continue; }
 
-                    if should_poll {
+            let accounts = match st.db.lock() {
+                Ok(d) => d.get_imap_accounts().unwrap_or_default(),
+                Err(_) => continue,
+            };
+
+            for acc in accounts.into_iter().filter(|a| a.is_active) {
+                let should_poll = acc.last_checked.as_ref().map(|lc| {
+                    chrono::DateTime::parse_from_rfc3339(lc)
+                        .map(|t| chrono::Utc::now().signed_duration_since(t).num_minutes() >= acc.poll_interval)
+                        .unwrap_or(true)
+                }).unwrap_or(true);
+
+                if !should_poll { continue; }
+
+                // FIX B22: lock → получить данные аккаунта → RELEASE → сетевой IMAP → lock → сохранить
+                let fetch_data = {
+                    let Ok(db) = st.db.lock() else { continue };
+                    let Ok((account, password)) = db.get_imap_account_with_password(acc.id) else { continue };
+                    // Собираем уже известные UID пока держим lock
+                    let known_uids: std::collections::HashSet<String> = db
+                        .get_known_imap_uids(acc.id)
+                        .unwrap_or_default()
+                        .into_iter().collect();
+                    (account, password, known_uids)
+                }; // Mutex освобождён здесь — до сетевого вызова
+
+                // Сетевая операция без lock
+                match imap::fetch_account_messages(&fetch_data.0, &fetch_data.1, &fetch_data.2) {
+                    Ok(result) => {
                         if let Ok(mut db) = st.db.lock() {
-                            let _ = imap::ImapPoller::check_account(&mut db, acc.id);
-                        }
-                        // Emit badge update
-                        if let Some(badges) = st.db.lock().ok().and_then(|d| d.get_sidebar_badges().ok()) {
-                            let _ = h.emit("badge_update", badges);
+                            for msg in &result.messages {
+                                if let (Some(onum), Some(act)) = (msg.order_number.as_deref(), msg.action.as_deref()) {
+                                    if let Ok(Some(oid)) = db.find_order_by_number(onum) {
+                                        let _ = db.update_order_status_simple(oid, act, msg.tracking.as_deref());
+                                    }
+                                }
+                                let _ = db.save_imap_message(
+                                    acc.id, msg.uid.as_deref(), &msg.subject,
+                                    &msg.from_email, &msg.received_at,
+                                    msg.order_number.as_deref(), msg.tracking.as_deref(),
+                                    msg.action.as_deref(),
+                                );
+                                // E2: Auto-mark orders as Delivered when email contains "delivered"
+                                let body_lower = ""; // body not available here; check subject only
+                                let subject_lower = msg.subject.to_lowercase();
+                                if subject_lower.contains("delivered") || msg.action.as_deref() == Some("delivered") {
+                                    let _ = db.auto_mark_delivered_by_account(acc.id);
+                                }
+                                // B5: Emit event for new email notification
+                                let _ = h.emit("new_imap_message", serde_json::json!({
+                                    "account_id": acc.id,
+                                    "subject": &msg.subject,
+                                    "from": &msg.from_email,
+                                }));
+                            }
+                            let _ = db.update_imap_last_checked(acc.id);
                         }
                     }
+                    Err(e) => {
+                        if let Ok(db) = st.db.lock() {
+                            let _ = db.log_event("imap.poll_error", &e, Some("imap"), None);
+                        }
+                    }
+                }
+
+                if let Some(badges) = st.db.lock().ok().and_then(|d| d.get_sidebar_badges().ok()) {
+                    let _ = h.emit("badge_update", badges.clone());
+                    // Update macOS Dock badge based on user prefs
+                    let notify_imap = st.db.lock().ok()
+                        .and_then(|d| d.get_config("badge_notify_imap").ok().flatten())
+                        .map(|v| v != "0").unwrap_or(true);
+                    let notify_tracking = st.db.lock().ok()
+                        .and_then(|d| d.get_config("badge_notify_tracking").ok().flatten())
+                        .map(|v| v != "0").unwrap_or(true);
+                    let mut badge_count = 0u32;
+                    if notify_imap { badge_count += badges.unread_imap as u32; }
+                    set_dock_badge(badge_count);
                 }
             }
         }
     });
 
-    // ── Tracking thread (every 30 min) ──
+    // FIX B30: 17track батчинг по 40 номеров
     std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(300)); // first check after 5 min
+        std::thread::sleep(std::time::Duration::from_secs(300));
         loop {
             if let Some(st) = STATE.get() {
                 let api_key = st.db.lock().ok()
@@ -869,10 +1314,38 @@ fn start_background_threads(handle: tauri::AppHandle) {
             std::thread::sleep(std::time::Duration::from_secs(1800));
         }
     });
+
+    // ── Proxy health check thread (every 30 minutes) ──
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(1800));
+        if let Some(st) = STATE.get() {
+            let db_locked = st.db.lock().map(|d| d.is_locked()).unwrap_or(true);
+            if !db_locked {
+                if let Ok(db) = st.db.lock() {
+                    let _ = db.check_all_proxy_health();
+                }
+            }
+        }
+    });
+
+    // ── Auto-fetch catalog on first run if empty ──
+    let h_catalog = handle.clone();
+    std::thread::spawn(move || {
+        // Wait a few seconds for the app to finish initializing
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        let needs_catalog = STATE.get()
+            .and_then(|st| st.db.lock().ok())
+            .and_then(|db| db.get_catalog_stats().ok())
+            .map(|stats| stats.items == 0)
+            .unwrap_or(true);
+        if needs_catalog {
+            let _ = sync_catalog_from_server(&h_catalog);
+        }
+    });
 }
 
+// FIX B30: разбиваем на батчи по 40 (лимит 17track API)
 fn run_tracking_update(api_key: &str) {
-    // Get all active orders with tracking numbers
     let orders = match STATE.get() {
         Some(st) => st.db.lock().ok()
             .and_then(|db| db.get_orders_with_tracking().ok())
@@ -881,52 +1354,427 @@ fn run_tracking_update(api_key: &str) {
     };
     if orders.is_empty() { return; }
 
-    // Build request body: [{"number": "tracking_num"}]
-    let body: Vec<serde_json::Value> = orders.iter()
-        .filter_map(|(_, num)| num.as_ref())
-        .map(|n| serde_json::json!({ "number": n }))
+    let tracking_numbers: Vec<String> = orders.iter()
+        .filter_map(|(_, num)| num.clone())
         .collect();
-    if body.is_empty() { return; }
+    if tracking_numbers.is_empty() { return; }
 
-    let resp = ureq::post("https://api.17track.net/track/v2.2/gettrackinfo")
-        .set("17token", api_key)
-        .set("Content-Type", "application/json")
-        .timeout(std::time::Duration::from_secs(15))
-        .send_string(&serde_json::json!(body).to_string());
+    // Батчи по 40
+    for chunk in tracking_numbers.chunks(40) {
+        let body: Vec<serde_json::Value> = chunk.iter()
+            .map(|n| serde_json::json!({ "number": n }))
+            .collect();
 
-    let data = match resp {
-        Ok(r) => match r.into_json::<serde_json::Value>() {
-            Ok(j) => j,
-            Err(_) => return,
-        },
-        Err(_) => return,
-    };
+        let resp = ureq::post("https://api.17track.net/track/v2.2/gettrackinfo")
+            .set("17token", api_key)
+            .set("Content-Type", "application/json")
+            .timeout(std::time::Duration::from_secs(15))
+            .send_string(&serde_json::json!(body).to_string());
 
-    let accepted = match data["data"]["accepted"].as_array() {
-        Some(a) => a.clone(),
-        None => return,
-    };
-
-    for item in accepted {
-        let number = match item["number"].as_str() { Some(n) => n, None => continue };
-        let status_str = item["track_info"]["latest_status"]["status"].as_str().unwrap_or("");
-
-        let new_status = match status_str {
-            "Delivered"                              => Some("delivered"),
-            "InTransit" | "Pickup" | "OutForDelivery" => Some("shipped"),
-            "Expired"                                => Some("failed"),
-            _                                        => None,
+        let data = match resp {
+            Ok(r) => match r.into_json::<serde_json::Value>() { Ok(j) => j, Err(_) => continue },
+            Err(_) => continue,
         };
 
-        if let Some(status) = new_status {
-            if let Some(st) = STATE.get() {
-                if let Ok(mut db) = st.db.lock() {
-                    // Find order by tracking number and update if status changed
-                    let _ = db.update_order_status_by_tracking(number, status);
+        let accepted = match data["data"]["accepted"].as_array() {
+            Some(a) => a.clone(),
+            None => continue,
+        };
+
+        for item in accepted {
+            let number = match item["number"].as_str() { Some(n) => n, None => continue };
+            let status_str = item["track_info"]["latest_status"]["status"].as_str().unwrap_or("");
+            let new_status = match status_str {
+                "Delivered"                               => Some("delivered"),
+                "InTransit" | "Pickup" | "OutForDelivery" => Some("shipped"),
+                "Expired"                                 => Some("failed"),
+                _                                         => None,
+            };
+            if let Some(status) = new_status {
+                if let Some(st) = STATE.get() {
+                    if let Ok(mut db) = st.db.lock() {
+                        let _ = db.update_order_status_by_tracking(number, status);
+                    }
                 }
             }
         }
     }
+}
+
+// ─────────────────────────────────────────
+//  Footprint analytics commands
+// ─────────────────────────────────────────
+
+#[tauri::command]
+fn get_card_shop_usage(card_id: i64) -> Result<Vec<CardShopUsage>, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    if guard.is_locked() { return Err("database_locked".into()); }
+    guard.get_card_shop_usage(card_id)
+}
+
+#[tauri::command]
+fn get_email_footprint_stats(email_id: i64) -> Result<EmailFootprintStats, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    if guard.is_locked() { return Err("database_locked".into()); }
+    guard.get_email_footprint_stats(email_id)
+}
+
+#[tauri::command]
+fn get_shop_risk_score(shop_id: i64) -> Result<ShopRiskScore, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    if guard.is_locked() { return Err("database_locked".into()); }
+    guard.get_shop_risk_score(shop_id)
+}
+
+#[tauri::command]
+fn get_card_timeline(card_id: i64) -> Result<Vec<CardTimelineEvent>, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    if guard.is_locked() { return Err("database_locked".into()); }
+    guard.get_card_timeline(card_id)
+}
+
+// ─────────────────────────────────────────
+//  Sync Group commands
+// ─────────────────────────────────────────
+
+#[tauri::command]
+fn sync_create_group(name: String, app: tauri::AppHandle) -> Result<SyncGroupInfo, String> {
+    let (info, token) = with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        let info = sync::SyncGroupClient::create_group(db, &name)?;
+        let token = db.get_config("license_token").ok().flatten()
+            .and_then(|t| if t.is_empty() { None } else {
+                db.encryption.as_ref().and_then(|enc| enc.decrypt(&t).ok())
+            });
+        Ok::<(SyncGroupInfo, Option<String>), String>((info, token))
+    })?;
+    // Refresh WS creds with new group
+    if let Some(h) = WS_HANDLE.get() {
+        h.set_creds(token, Some(info.group_id.clone()));
+        let db_p = db_path().to_str().unwrap_or("cc_manager.db").to_string();
+        ws_sync::start(app, db_p, h.clone());
+    }
+    Ok(info)
+}
+
+#[tauri::command]
+fn sync_create_pair_code() -> Result<String, String> {
+    with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        sync::SyncGroupClient::create_pair_code(db)
+    })
+}
+
+#[tauri::command]
+fn sync_join_group(pair_code: String, app: tauri::AppHandle) -> Result<SyncGroupInfo, String> {
+    let (info, token) = with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        let info = sync::SyncGroupClient::join_group(db, &pair_code)?;
+        let token = db.get_config("license_token").ok().flatten()
+            .and_then(|t| if t.is_empty() { None } else {
+                db.encryption.as_ref().and_then(|enc| enc.decrypt(&t).ok())
+            });
+        Ok::<(SyncGroupInfo, Option<String>), String>((info, token))
+    })?;
+    if let Some(h) = WS_HANDLE.get() {
+        h.set_creds(token, Some(info.group_id.clone()));
+        let db_p = db_path().to_str().unwrap_or("cc_manager.db").to_string();
+        ws_sync::start(app, db_p, h.clone());
+    }
+    Ok(info)
+}
+
+#[tauri::command]
+fn sync_get_group_status() -> Result<SyncGroupStatus, String> {
+    with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        Ok(sync::SyncGroupClient::get_group_status(db))
+    })
+}
+
+#[tauri::command]
+fn sync_disconnect() -> Result<(), String> {
+    with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        sync::SyncGroupClient::disconnect(db)
+    })?;
+    // Stop WS and clear group creds
+    if let Some(h) = WS_HANDLE.get() {
+        h.stop();
+        // Clear group_id but keep token (for reconnect if user re-joins)
+        h.set_creds(None, None);
+    }
+    Ok(())
+}
+
+// ─────────────────────────────────────────
+//  Catalog commands (M11)
+// ─────────────────────────────────────────
+
+#[tauri::command]
+fn search_catalog_items(q: String, limit: Option<u32>) -> Result<Vec<models::CatalogItem>, String> {
+    with_db!(db, { db.search_catalog_items(&q, limit.unwrap_or(10) as u64) })
+}
+
+#[tauri::command]
+fn search_catalog_shops(q: String, limit: Option<u32>) -> Result<Vec<models::CatalogShop>, String> {
+    with_db!(db, { db.search_catalog_shops(&q, limit.unwrap_or(8) as u64) })
+}
+
+#[tauri::command]
+fn get_catalog_stats() -> Result<models::CatalogStats, String> {
+    with_db!(db, { db.get_catalog_stats() })
+}
+
+#[tauri::command]
+fn import_catalog_items(items: Vec<models::CatalogItemInput>) -> Result<usize, String> {
+    with_db!(db, { db.import_catalog_items_batch(&items) })
+}
+
+#[tauri::command]
+fn import_catalog_shops(shops: Vec<models::CatalogShopInput>) -> Result<usize, String> {
+    with_db!(db, { db.import_catalog_shops_batch(&shops) })
+}
+
+#[tauri::command]
+fn get_catalog_items(page: u32, per_page: u32, search: String) -> Result<models::PaginatedCatalogItems, String> {
+    with_db!(db, { db.get_catalog_items_paged(&search, page, per_page) })
+}
+
+#[tauri::command]
+fn get_catalog_shops(page: u32, per_page: u32, search: String) -> Result<models::PaginatedCatalogShops, String> {
+    with_db!(db, { db.get_catalog_shops_paged(&search, page, per_page) })
+}
+
+#[tauri::command]
+fn toggle_catalog_item_stop(id: i64, stop: bool) -> Result<(), String> {
+    with_db!(db, { db.toggle_catalog_item_stop(id, stop) })
+}
+
+#[tauri::command]
+fn delete_catalog_items(ids: Vec<i64>) -> Result<u32, String> {
+    with_db!(db, { db.delete_catalog_items(&ids) })
+}
+
+#[tauri::command]
+fn toggle_catalog_shop_excluded(id: i64, excluded: bool) -> Result<(), String> {
+    with_db!(db, { db.toggle_catalog_shop_excluded(id, excluded) })
+}
+
+// ─────────────────────────────────────────
+//  Proxy Intelligence (G1)
+// ─────────────────────────────────────────
+
+#[tauri::command]
+fn get_profile_ltv(profile_id: String) -> Result<serde_json::Value, String> {
+    with_db!(db, { db.get_profile_ltv(&profile_id) })
+}
+
+#[tauri::command]
+fn get_free_email_for_shop(shop_id: Option<i64>) -> Result<Option<serde_json::Value>, String> {
+    with_db!(db, { db.get_free_email_for_shop(shop_id) })
+}
+
+#[tauri::command]
+fn get_available_emails(limit: u32) -> Result<Vec<serde_json::Value>, String> {
+    with_db!(db, { db.get_available_emails(limit) })
+}
+
+#[tauri::command]
+fn set_profile_email(profile_id: String, email_pool_id: Option<i64>) -> Result<(), String> {
+    with_db!(db, { db.set_profile_email(&profile_id, email_pool_id) })
+}
+
+#[tauri::command]
+fn check_proxy_health_now() -> Result<ProxyHealthResult, String> {
+    with_db!(db, { db.check_all_proxy_health() })
+}
+
+#[tauri::command]
+fn get_proxy_usage_stats() -> Result<Vec<ProxyUsageStat>, String> {
+    with_db!(db, { db.get_proxy_usage_stats() })
+}
+
+// E3: Batch Order Creator
+#[tauri::command]
+fn batch_create_orders(orders: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
+    with_db!(db, {
+        let (ok, fail) = db.batch_create_orders(&orders)?;
+        Ok(serde_json::json!({ "created": ok, "failed": fail }))
+    })
+}
+
+// G2: Proxy-Shop Binding commands
+#[tauri::command]
+fn set_proxy_shop_binding(proxy_id: i64, shop_id: i64) -> Result<(), String> {
+    with_db!(db, { db.set_proxy_shop_binding(proxy_id, shop_id) })
+}
+#[tauri::command]
+fn remove_proxy_shop_binding(shop_id: i64) -> Result<(), String> {
+    with_db!(db, { db.remove_proxy_shop_binding(shop_id) })
+}
+#[tauri::command]
+fn get_proxy_for_shop(shop_id: i64) -> Result<Option<i64>, String> {
+    with_db!(db, { db.get_proxy_for_shop(shop_id) })
+}
+#[tauri::command]
+fn get_all_proxy_shop_bindings() -> Result<Vec<serde_json::Value>, String> {
+    with_db!(db, { db.get_all_proxy_shop_bindings() })
+}
+
+// E2: Placeholder command — auto-delivery is handled by IMAP poll thread
+#[tauri::command]
+fn get_auto_delivered_orders() -> Result<Vec<i64>, String> {
+    // This is handled automatically by IMAP poll, just return empty
+    Ok(vec![])
+}
+
+// ─────────────────────────────────────────
+//  macOS Dock Badge
+// ─────────────────────────────────────────
+
+#[cfg(target_os = "macos")]
+fn set_dock_badge(count: u32) {
+    let label = if count == 0 { "\"\"".to_string() } else { format!("\"{}\"", count) };
+    let script = format!(
+        "tell application \"System Events\" to set badge of (first application process whose frontmost is true) to {}",
+        label
+    );
+    let _ = std::process::Command::new("osascript").arg("-e").arg(&script).spawn();
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_dock_badge(_count: u32) {}
+
+// ─────────────────────────────────────────
+//  Quick Order: find or create shop by URL
+// ─────────────────────────────────────────
+
+#[tauri::command]
+fn find_or_create_shop(url: String) -> Result<serde_json::Value, String> {
+    let domain = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_start_matches("www.")
+        .split('/')
+        .next()
+        .unwrap_or(&url)
+        .to_lowercase();
+    let domain = domain.trim().to_string();
+
+    with_db!(db, {
+        match db.find_shop_by_domain(&domain)? {
+            Some(id) => {
+                Ok(serde_json::json!({ "id": id, "domain": domain, "is_new": false }))
+            }
+            None => {
+                let id = db.create_shop_minimal(&domain)?;
+                Ok(serde_json::json!({ "id": id, "domain": domain, "is_new": true }))
+            }
+        }
+    })
+}
+
+// ─────────────────────────────────────────
+//  Catalog auto-sync from server
+// ─────────────────────────────────────────
+
+fn sync_catalog_from_server(app: &tauri::AppHandle) -> Result<(), String> {
+    const BASE: &str = "https://api.eulivehub.com";
+    const PER_PAGE: u32 = 100;
+
+    // Fetch all item pages
+    let mut total_items = 0usize;
+    let mut page = 1u32;
+    loop {
+        let url = format!("{}/api/catalog/items?per_page={}&page={}", BASE, PER_PAGE, page);
+        match ureq::get(&url).timeout(std::time::Duration::from_secs(30)).call() {
+            Ok(resp) => {
+                match resp.into_json::<serde_json::Value>() {
+                    Ok(data) => {
+                        let items_arr = match data["items"].as_array() {
+                            Some(a) => a.clone(),
+                            None => break,
+                        };
+                        if items_arr.is_empty() { break; }
+                        let inputs: Vec<models::CatalogItemInput> = items_arr.iter().filter_map(|i| {
+                            Some(models::CatalogItemInput {
+                                id: i["id"].as_i64(),
+                                name: i["name"].as_str()?.to_string(),
+                                asin: i["asin"].as_str().map(|s| s.to_string()),
+                                price: i["price"].as_f64(),
+                                pct: i["pct"].as_i64(),
+                                category: i["category"].as_str().map(|s| s.to_string()),
+                                notes_en: i["notes_en"].as_str().map(|s| s.to_string()),
+                                stop: i["stop"].as_bool().unwrap_or(false)
+                                    || i["stop"].as_i64().map(|v| v != 0).unwrap_or(false),
+                            })
+                        }).collect();
+                        total_items += inputs.len();
+                        if let Some(st) = STATE.get() {
+                            if let Ok(db) = st.db.lock() {
+                                let _ = db.import_catalog_items_batch(&inputs);
+                            }
+                        }
+                        let total_pages = data["pages"].as_u64().unwrap_or(1);
+                        if page as u64 >= total_pages { break; }
+                        page += 1;
+                    }
+                    Err(_) => break,
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
+    if total_items > 0 {
+        let _ = app.emit("catalog_synced", serde_json::json!({ "items": total_items }));
+    }
+
+    // Fetch all shop pages
+    page = 1;
+    loop {
+        let url = format!("{}/api/catalog/shops?per_page={}&page={}", BASE, PER_PAGE, page);
+        match ureq::get(&url).timeout(std::time::Duration::from_secs(30)).call() {
+            Ok(resp) => {
+                match resp.into_json::<serde_json::Value>() {
+                    Ok(data) => {
+                        let shops_arr = match data["shops"].as_array() {
+                            Some(a) => a.clone(),
+                            None => break,
+                        };
+                        if shops_arr.is_empty() { break; }
+                        let inputs: Vec<models::CatalogShopInput> = shops_arr.iter().filter_map(|s| {
+                            Some(models::CatalogShopInput {
+                                domain: s["domain"].as_str()?.to_string(),
+                                category: s["category"].as_str().map(|x| x.to_string()),
+                                score: s["score"].as_i64(),
+                                ship_us: s["ship_us"].as_bool().unwrap_or(false)
+                                    || s["ship_us"].as_i64().map(|v| v != 0).unwrap_or(false),
+                                fraud_level: s["fraud_level"].as_str().map(|x| x.to_string()),
+                                top_brands: s["top_brands"].as_str().map(|x| x.to_string()),
+                                top_products: s["top_products"].as_str().map(|x| x.to_string()),
+                                excluded: s["excluded"].as_bool().unwrap_or(false)
+                                    || s["excluded"].as_i64().map(|v| v != 0).unwrap_or(false),
+                            })
+                        }).collect();
+                        if let Some(st) = STATE.get() {
+                            if let Ok(db) = st.db.lock() {
+                                let _ = db.import_catalog_shops_batch(&inputs);
+                            }
+                        }
+                        let total_pages = data["pages"].as_u64().unwrap_or(1);
+                        if page as u64 >= total_pages { break; }
+                        page += 1;
+                    }
+                    Err(_) => break,
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
+    Ok(())
 }
 
 fn main() {
@@ -935,42 +1783,106 @@ fn main() {
     let db = Database::open(&db_path_str).expect("Failed to open database");
     STATE.set(AppState { db: Mutex::new(db) }).unwrap_or_else(|_| panic!("Failed to set AppState"));
 
+    // Init WS sync handle (not started yet — starts after unlock)
+    let ws_h = std::sync::Arc::new(ws_sync::WsSyncHandle {
+        running: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        creds:   ws_sync::new_credentials(),
+    });
+    WS_HANDLE.set(ws_h).unwrap_or_else(|_| panic!("Failed to set WsSyncHandle"));
+
+    let db_path_for_ws = db_path_str.clone();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(move |app| {
             start_background_threads(app.handle().clone());
+            #[cfg(target_os = "macos")]
+            {
+                let win = app.get_webview_window("main").expect("main window");
+                let win_clone = win.clone();
+                win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                });
+            }
+            // Float window: hide on close (all platforms) so it can be reopened
+            if let Some(float_win) = app.get_webview_window("float") {
+                let fwc = float_win.clone();
+                float_win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = fwc.hide();
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            setup_password, unlock, lock, change_password, is_locked,
+            setup_password, is_password_set, unlock, lock, change_password, is_locked,
             detect_mapping_preview,
-            import_cards, get_cards, get_card, reveal_card,
+            import_cards, get_cards, get_card, get_card_filter_meta, reveal_card,
             update_card_status, update_card_notes, delete_card,
             bulk_update_cards, bulk_delete_cards, export_cards, enrich_bin,
             create_profile, get_profiles, get_profile, get_profile_detail,
             update_profile, update_profile_notes,
             delete_profile, duplicate_profile, find_duplicate_profiles,
+            save_profile_template, get_profile_templates, delete_profile_template,
             add_drop, update_drop, delete_drop, set_primary_drop, import_drops, find_duplicate_drops,
             add_email, get_emails, update_email, block_email, delete_email, get_clean_email_for_shop,
             add_proxy, import_proxies, get_proxies, update_proxy, block_proxy, delete_proxy, test_proxy_connection,
             create_shop, get_shops, get_shop, update_shop, delete_shop,
             add_shop_product, update_shop_product, delete_shop_product, get_shop_smart_suggestions,
-            create_order, get_orders, get_order, get_latest_order_by_profile, update_order_status, delete_order,
+            create_order, get_orders, get_order, get_latest_order_by_profile, get_recent_orders_by_profile, update_order_status, delete_order,
             run_risk_check, save_order_template, get_order_templates,
             get_unsynced_footprints, mark_footprints_synced, sync_now,
             get_dashboard_stats, get_revenue_chart, get_heatmap_data, get_top_banks,
             get_by_country, get_by_source, get_expiring_cards_dashboard,
             export_dashboard_csv, get_sidebar_badges,
+            get_bin_performance, get_shop_win_loss,
             add_imap_account, get_imap_accounts, update_imap_account,
             delete_imap_account, toggle_imap_account, get_imap_messages,
             imap_check_all, test_imap_connection, link_email_to_imap, link_all_imap_accounts,
+            list_imap_folders, get_imap_account_stats, get_folder_messages,
+            refresh_folder_from_imap, get_unified_inbox,
+            get_imap_message_body, mark_imap_message_read, delete_imap_message, archive_imap_message,
+            add_smtp_config, get_smtp_configs, delete_smtp_config,
+            test_smtp_connection, send_email, get_sent_emails,
             get_activity_log, clear_activity_log,
             get_config, set_config, export_backup, import_backup,
             get_installation_id, get_challenge_code, activate_license,
             get_license_status, retry_license_connection,
-            global_search, open_float_window, get_server_version, get_app_version,
+            global_search, open_float_window, open_main_window_page, get_server_version, get_app_version,
+            get_card_shop_usage, get_email_footprint_stats, get_shop_risk_score, get_card_timeline,
+            sync_create_group, sync_create_pair_code, sync_join_group, sync_get_group_status, sync_disconnect,
+            search_catalog_items, search_catalog_shops, get_catalog_stats, import_catalog_items, import_catalog_shops,
+            get_catalog_items, get_catalog_shops,
+            toggle_catalog_item_stop, delete_catalog_items, toggle_catalog_shop_excluded,
+            check_proxy_health_now, get_proxy_usage_stats,
+            batch_create_orders,
+            set_proxy_shop_binding, remove_proxy_shop_binding, get_proxy_for_shop, get_all_proxy_shop_bindings,
+            get_auto_delivered_orders,
+            get_profile_ltv,
+            get_free_email_for_shop,
+            get_available_emails,
+            set_profile_email,
+            find_or_create_shop,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error building tauri application")
+        .run(|app_handle, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+                if !has_visible_windows {
+                    if let Some(win) = app_handle.get_webview_window("main") {
+                        let _ = win.show();
+                        let _ = win.set_focus();
+                        let _ = win.unminimize();
+                    }
+                }
+            }
+        });
 }

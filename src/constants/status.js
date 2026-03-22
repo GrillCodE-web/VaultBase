@@ -1,0 +1,92 @@
+/**
+ * Card and order status definitions with colors
+ */
+
+export const CARD_STATUS = {
+  FREE: 'free',
+  IN_USE: 'in_use',
+  DEAD: 'dead',
+  ARCHIVE: 'archive',
+}
+
+export const CARD_STATUS_COLORS = {
+  [CARD_STATUS.FREE]: {
+    bg: 'rgba(34, 197, 94, 0.1)',
+    text: '#4ade80',
+    label: 'Free',
+  },
+  [CARD_STATUS.IN_USE]: {
+    bg: 'rgba(59, 130, 246, 0.1)',
+    text: '#60a5fa',
+    label: 'In Use',
+  },
+  [CARD_STATUS.DEAD]: {
+    bg: 'rgba(239, 68, 68, 0.1)',
+    text: '#f87171',
+    label: 'Dead',
+  },
+  [CARD_STATUS.ARCHIVE]: {
+    bg: 'rgba(156, 163, 175, 0.1)',
+    text: '#999',
+    label: 'Archive',
+  },
+}
+
+export const ORDER_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  SHIPPED: 'shipped',
+  DELIVERED: 'delivered',
+  CANCELLED: 'cancelled',
+  REFUNDED: 'refunded',
+  FAILED: 'failed',
+}
+
+export const ORDER_STATUS_COLORS = {
+  [ORDER_STATUS.PENDING]: {
+    bg: 'rgba(234, 179, 8, 0.1)',
+    text: '#facc15',
+    label: 'Pending',
+  },
+  [ORDER_STATUS.PROCESSING]: {
+    bg: 'rgba(59, 130, 246, 0.1)',
+    text: '#60a5fa',
+    label: 'Processing',
+  },
+  [ORDER_STATUS.SHIPPED]: {
+    bg: 'rgba(168, 85, 247, 0.1)',
+    text: '#a855f7',
+    label: 'Shipped',
+  },
+  [ORDER_STATUS.DELIVERED]: {
+    bg: 'rgba(34, 197, 94, 0.1)',
+    text: '#4ade80',
+    label: 'Delivered',
+  },
+  [ORDER_STATUS.CANCELLED]: {
+    bg: 'rgba(156, 163, 175, 0.1)',
+    text: '#999',
+    label: 'Cancelled',
+  },
+  [ORDER_STATUS.REFUNDED]: {
+    bg: 'rgba(251, 146, 60, 0.1)',
+    text: '#fb923c',
+    label: 'Refunded',
+  },
+  [ORDER_STATUS.FAILED]: {
+    bg: 'rgba(239, 68, 68, 0.1)',
+    text: '#f87171',
+    label: 'Failed',
+  },
+}
+
+/**
+ * Get status color configuration
+ * @param {string} status - Status value
+ * @param {string} type - 'card' or 'order'
+ * @returns {object} Color configuration with bg, text, label
+ */
+export function getStatusColor(status, type = 'card') {
+  const colors = type === 'card' ? CARD_STATUS_COLORS : ORDER_STATUS_COLORS
+  return colors[status] || { bg: 'rgba(156, 163, 175, 0.1)', text: '#999', label: status }
+}

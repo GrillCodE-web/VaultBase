@@ -1,0 +1,303 @@
+/* ═══════════════════════════════════════════════════════════
+   TOPBAR & TABS — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Topbar Container ───────────────────────────────────── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  height: 52px;
+  position: relative;
+}
+
+.topbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.15;
+}
+
+/* ── Tab Navigation ─────────────────────────────────────── */
+.tab {
+  padding: 0 20px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--text-3);
+  transition: all var(--t-fast);
+  white-space: nowrap;
+  gap: 8px;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  position: relative;
+}
+
+.tab::before {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-accent);
+  transform: scaleX(0);
+  transition: transform var(--t-mid);
+}
+
+.tab:hover {
+  color: var(--text);
+  background: rgba(0, 217, 255, 0.03);
+}
+
+.tab.active {
+  color: var(--accent-text);
+}
+
+.tab.active::before {
+  transform: scaleX(1);
+}
+
+/* ── Tab Badge ──────────────────────────────────────────── */
+.tab-badge {
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  min-width: 20px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.tab-badge.y {
+  background: var(--yellow);
+  color: #000;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+}
+
+.tab-badge.g {
+  background: var(--green);
+  color: #000;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+/* ── Topbar Actions (right side) ────────────────────────── */
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  position: relative;
+}
+
+.topbar-btn:hover {
+  background: var(--hover);
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+
+.topbar-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  box-shadow: var(--active-glow);
+}
+
+/* ── Topbar Search ──────────────────────────────────────── */
+.topbar-search {
+  position: relative;
+  width: 280px;
+  margin-left: 16px;
+}
+
+.topbar-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'Manrope', sans-serif;
+  transition: all var(--t-fast);
+  outline: none;
+}
+
+.topbar-search-input::placeholder {
+  color: var(--muted);
+}
+
+.topbar-search-input:focus {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.topbar-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.topbar-search-input:focus ~ .topbar-search-icon {
+  color: var(--accent-text);
+}
+
+/* ── Topbar Divider ─────────────────────────────────────── */
+.topbar-divider {
+  width: 1px;
+  height: 24px;
+  background: linear-gradient(180deg, transparent, var(--border), transparent);
+  margin: 0 8px;
+}
+
+/* ── Topbar User Menu ───────────────────────────────────── */
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.topbar-user:hover {
+  background: var(--hover);
+  border-color: var(--border-hi);
+}
+
+.topbar-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gradient-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.topbar-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-family: 'Manrope', sans-serif;
+}
+
+/* ── Breadcrumbs ────────────────────────────────────────── */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-family: 'Manrope', sans-serif;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  transition: color var(--t-fast);
+}
+
+.breadcrumb-item:hover {
+  color: var(--text);
+}
+
+.breadcrumb-item.active {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.breadcrumb-separator {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* ── Page Header ────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-title::before {
+  content: '';
+  width: 4px;
+  height: 28px;
+  background: var(--gradient-accent);
+  border-radius: 2px;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 6px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 400;
+}
+
+.page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}

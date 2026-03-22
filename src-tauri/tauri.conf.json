@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CC Manager",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "identifier": "com.ccmanager.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -30,24 +30,29 @@
         "resizable": false,
         "decorations": true,
         "alwaysOnTop": true,
-        "visible": false
+        "visible": false,
+        "transparent": true,
+        "shadow": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' https://api.eulivehub.com https://api.iinapi.com https://api.17track.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["dmg", "app"],
+    "createUpdaterArtifacts": true,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "macOS": {
-      "minimumSystemVersion": "12.0"
-    },
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-"
+    }
+  },
+  "plugins": {
     "updater": {
-      "active": true,
       "endpoints": ["https://api.eulivehub.com/update"],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMwQkE3QjI4MUU4MEVBMUMKUldRYzZvQWVLSHU2TUtZSHM1L0pEN2hkb0l2TU8reHdGUlJxZis4djRteVU0ZC9KaURjVzFFL2EK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIwMjc2NTkyOERCM0JERTYKUldUbXZiT05rbVVuc05MbnBYMHhhZit3aUFXR3d6RU9OL0h1WUlubjhDbllmbk5uenNpbk1leHUK"
     }
   }
 }

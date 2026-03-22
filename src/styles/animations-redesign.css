@@ -1,0 +1,284 @@
+/* ═══════════════════════════════════════════════════════════
+   ANIMATIONS — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Core Animations ────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 12px rgba(0, 217, 255, 0.3); }
+  50% { opacity: 0.7; box-shadow: 0 0 24px rgba(0, 217, 255, 0.5); }
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Page Transitions ───────────────────────────────────── */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ── Staggered Reveal (for cards/items) ─────────────────── */
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Apply with animation-delay for stagger effect */
+.stagger-item {
+  animation: stagger-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 50ms; }
+.stagger-item:nth-child(3) { animation-delay: 100ms; }
+.stagger-item:nth-child(4) { animation-delay: 150ms; }
+.stagger-item:nth-child(5) { animation-delay: 200ms; }
+.stagger-item:nth-child(6) { animation-delay: 250ms; }
+.stagger-item:nth-child(7) { animation-delay: 300ms; }
+.stagger-item:nth-child(8) { animation-delay: 350ms; }
+
+/* ── Modal & Overlay ────────────────────────────────────── */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Glitch Effect (for critical actions) ───────────────── */
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+    filter: hue-rotate(5deg);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+    filter: hue-rotate(-5deg);
+  }
+  60% {
+    transform: translate(2px, 2px);
+    filter: hue-rotate(5deg);
+  }
+  80% {
+    transform: translate(2px, -2px);
+    filter: hue-rotate(-5deg);
+  }
+  100% {
+    transform: translate(0);
+    filter: hue-rotate(0deg);
+  }
+}
+
+.glitch-effect {
+  animation: glitch 0.3s ease;
+}
+
+/* ── Skeleton Loading ───────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Toast Progress ─────────────────────────────────────── */
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* ── Button Interactions ────────────────────────────────── */
+@keyframes btn-warn-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes btn-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 217, 255, 0);
+  }
+}
+
+/* ── Copy Feedback ──────────────────────────────────────── */
+@keyframes copy-blink {
+  0% {
+    background: rgba(0, 217, 255, 0.15);
+    box-shadow: 0 0 12px rgba(0, 217, 255, 0.3);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/* ── Side Panel ─────────────────────────────────────────── */
+@keyframes side-panel-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ── Sync Flash (WebSocket update) ──────────────────────── */
+@keyframes row-flash {
+  0% {
+    background: rgba(20, 241, 149, 0.12);
+    border-left-color: #14f195;
+    box-shadow: 0 0 16px rgba(20, 241, 149, 0.2);
+  }
+  70% {
+    background: rgba(20, 241, 149, 0.05);
+    border-left-color: rgba(20, 241, 149, 0.4);
+    box-shadow: 0 0 8px rgba(20, 241, 149, 0.1);
+  }
+  100% {
+    background: transparent;
+    border-left-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.row-flash {
+  animation: row-flash 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: none !important;
+}
+
+/* ── Scan Line Effect (subtle) ──────────────────────────── */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.scanline-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 217, 255, 0.1) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 9999;
+  animation: scanline 8s linear infinite;
+  opacity: var(--scanline-opacity);
+}
+
+/* ── Noise Texture Overlay ──────────────────────────────── */
+.noise-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: var(--noise-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* ── Magnetic Hover (for interactive elements) ──────────── */
+@keyframes magnetic-hover {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.magnetic-hover:hover {
+  animation: magnetic-hover 0.3s ease;
+}
+
+/* ── Glow Pulse (for active/live indicators) ────────────── */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 217, 255, 0.3),
+                0 0 16px rgba(0, 217, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(0, 217, 255, 0.5),
+                0 0 32px rgba(0, 217, 255, 0.3);
+  }
+}
+
+.glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* ── Diagonal Wipe (for loading states) ─────────────────── */
+@keyframes diagonal-wipe {
+  from {
+    transform: translateX(-100%) translateY(-100%);
+  }
+  to {
+    transform: translateX(100%) translateY(100%);
+  }
+}

@@ -1,26 +1,45 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { Download, ExternalLink, Store } from "lucide-react";
 import { useLang } from "../hooks/useLang";
 import { useToast } from "../hooks/useToast";
 import { useConfirm } from "../hooks/useConfirm";
 import { SkeletonRows } from "../components/SkeletonRow.jsx";
+import { HEALTH_COLORS, RISK_COLORS, DELIVERY_RATE_COLORS, getDeliveryRateColor, getRiskColor, STATUS_COLORS } from "../constants/colors.js";
+import { ORDER_STATUS_COLORS } from "../constants/status.js";
+
+// ─── ShopRiskBadge ────────────────────────────────────────────────────────
+
+function ShopRiskBadge({ shopId }) {
+  const [risk, setRisk] = useState(null);
+  useEffect(() => {
+    invoke("get_shop_risk_score", { shopId }).then(setRisk).catch(() => {});
+  }, [shopId]);
+  if (!risk) return <span className="text-muted">—</span>;
+  const riskConfig = getRiskColor(risk.risk_level);
+  return (
+    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4, background: riskConfig.bg, color: riskConfig.color, display: "inline-flex", alignItems: "center", gap: 3 }}>
+      <span className={`status-dot ${riskConfig.dot}`} /> {risk.risk_level}
+    </span>
+  );
+}
 
 // ─── Flag definitions ─────────────────────────────────────────────────────
 
 const FLAGS = [
-  { key: "requires_cvv_match",  label: "CVV Match",   bg: "rgba(59,130,246,0.12)",  color: "#60a5fa" },
-  { key: "blocks_vpn",          label: "Blocks VPN",  bg: "rgba(239,68,68,0.12)",   color: "#f87171" },
-  { key: "phone_must_match",    label: "Phone Match", bg: "rgba(234,179,8,0.12)",   color: "#facc15" },
-  { key: "accepts_amex",        label: "Amex OK",     bg: "rgba(34,197,94,0.12)",   color: "#4ade80" },
-  { key: "requires_avs",        label: "AVS",         bg: "rgba(234,179,8,0.12)",   color: "#facc15" },
-  { key: "high_cancel_risk",    label: "Cancel Risk", bg: "rgba(239,68,68,0.12)",   color: "#f87171" },
+  { key: "requires_cvv_match",  label: "CVV Match",   bg: STATUS_COLORS.infoBg,    color: STATUS_COLORS.info },
+  { key: "blocks_vpn",          label: "Blocks VPN",  bg: STATUS_COLORS.errorBg,   color: STATUS_COLORS.error },
+  { key: "phone_must_match",    label: "Phone Match", bg: STATUS_COLORS.warningBg, color: STATUS_COLORS.warning },
+  { key: "accepts_amex",        label: "Amex OK",     bg: STATUS_COLORS.successBg, color: STATUS_COLORS.success },
+  { key: "requires_avs",        label: "AVS",         bg: STATUS_COLORS.warningBg, color: STATUS_COLORS.warning },
+  { key: "high_cancel_risk",    label: "Cancel Risk", bg: STATUS_COLORS.errorBg,   color: STATUS_COLORS.error },
 ];
 
 function FlagPills({ shop }) {
   const active = FLAGS.filter((f) => shop[f.key]);
-  if (!active.length) return <span style={{ color: "var(--muted)", fontSize: 12 }}>—</span>;
+  if (!active.length) return <span className="text-[12px] text-muted">—</span>;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+    <div className="flex flex-wrap gap-1">
       {active.map((f) => (
         <span key={f.key} style={{
           fontSize: 10, fontWeight: 600, padding: "2px 7px",
@@ -41,9 +60,9 @@ function StatCard({ label, value, sub, accent }) {
       background: "var(--surface)", borderRadius: 10,
       border: "1px solid var(--border)", padding: "10px 14px",
     }}>
-      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 4 }}>{label}</div>
+      <div className="text-[10px] uppercase tracking-[0.08em] text-muted mb-1">{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: accent || "var(--text)" }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{sub}</div>}
+      {sub && <div className="text-[11px] text-muted mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -51,8 +70,8 @@ function StatCard({ label, value, sub, accent }) {
 // ─── Suggestion badge (re-exported) ──────────────────────────────────────
 
 function SuggestionBadge({ s }) {
-  const bgMap = { good: "rgba(34,197,94,0.1)", warn: "rgba(234,179,8,0.1)", info: "rgba(59,130,246,0.1)" };
-  const colorMap = { good: "#4ade80", warn: "#facc15", info: "#60a5fa" };
+  const bgMap = { good: STATUS_COLORS.successBg, warn: STATUS_COLORS.warningBg, info: STATUS_COLORS.infoBg };
+  const colorMap = { good: STATUS_COLORS.success, warn: STATUS_COLORS.warning, info: STATUS_COLORS.info };
   const iconMap = { good: "✓", warn: "⚠", info: "i" };
   const lvl = s.level || "info";
   return (
@@ -63,8 +82,8 @@ function SuggestionBadge({ s }) {
       color: colorMap[lvl] || colorMap.info,
       border: `1px solid ${colorMap[lvl] || colorMap.info}30`,
     }}>
-      <span style={{ fontWeight: 700, flexShrink: 0 }}>{iconMap[lvl] || iconMap.info}</span>
-      <span style={{ color: "var(--dim)" }}>{s.message}</span>
+      <span className="font-bold shrink-0">{iconMap[lvl] || iconMap.info}</span>
+      <span className="text-muted">{s.message}</span>
     </div>
   );
 }
@@ -80,6 +99,7 @@ function ProductModal({ initial, shopId, onSave, onClose }) {
   );
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useLang();
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const margin = (() => {
@@ -110,19 +130,24 @@ function ProductModal({ initial, shopId, onSave, onClose }) {
     }
   };
 
+  // Scroll lock
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   return (
     <div className="modal-overlay">
-      <div className="modal" style={{ maxWidth: 480, width: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <span className="modal-title">{initial ? "Edit Product" : "Add Product"}</span>
-          <button className="modal-close" onClick={onClose}>✕</button>
+      <div className="modal max-w-[480px] w-full" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+        <div className="flex items-center justify-between mb-4">
+          <span id="product-modal-title" className="modal-title">{initial ? t("btn_edit") : t("product_save_btn")}</span>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div className="grid grid-cols-2 gap-2.5 mb-2.5">
           <div className="form-group">
             <label className="form-label">ASIN</label>
-            <input value={form.asin} onChange={set("asin")} placeholder="B08N5WRWNW"
-              className="form-input" style={{ fontFamily: "'JetBrains Mono',monospace" }} />
+            <input value={form.asin} onChange={set("asin")} placeholder="B08N5WRWNW" className="form-input font-mono" />
           </div>
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -130,42 +155,40 @@ function ProductModal({ initial, shopId, onSave, onClose }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div className="grid grid-cols-3 gap-2.5 mb-2.5">
           <div className="form-group">
             <label className="form-label">Amazon $</label>
             <input type="number" step="0.01" value={form.amazon_price} onChange={set("amazon_price")}
-              placeholder="0.00" className="form-input" style={{ fontFamily: "'JetBrains Mono',monospace" }} />
+              placeholder="0.00" className="form-input font-mono" />
           </div>
           <div className="form-group">
             <label className="form-label">Shop $</label>
             <input type="number" step="0.01" value={form.shop_price} onChange={set("shop_price")}
-              placeholder="0.00" className="form-input" style={{ fontFamily: "'JetBrains Mono',monospace" }} />
+              placeholder="0.00" className="form-input font-mono" />
           </div>
           <div className="form-group">
             <label className="form-label">Margin</label>
             <div className="form-input" style={{
               display: "flex", alignItems: "center", fontFamily: "'JetBrains Mono',monospace",
-              color: margin === null ? "var(--muted)" : parseFloat(margin) >= 0 ? "#4ade80" : "#f87171",
+              color: margin === null ? "var(--muted)" : parseFloat(margin) >= 0 ? STATUS_COLORS.success : STATUS_COLORS.error,
             }}>
               {margin !== null ? `$${margin}` : "—"}
             </div>
           </div>
         </div>
 
-        <div className="form-group" style={{ marginBottom: 10 }}>
+        <div className="form-group mb-2">
           <label className="form-label">URL</label>
           <input value={form.url} onChange={set("url")} placeholder="https://shop.com/product" className="form-input" />
         </div>
 
-        <div className="form-group" style={{ marginBottom: 16 }}>
+        <div className="form-group mb-4">
           <label className="form-label">Notes</label>
-          <textarea value={form.notes} onChange={set("notes")} rows={2}
-            className="form-input" style={{ resize: "none" }} />
+          <textarea value={form.notes} onChange={set("notes")} rows={2} className="form-input resize-none" />
         </div>
 
-        <button onClick={handleSave} disabled={!form.name.trim() || loading}
-          className="btn btn-p" style={{ width: "100%" }}>
-          {loading ? "Saving…" : initial ? "Save Changes" : "Add Product"}
+        <button onClick={handleSave} disabled={!form.name.trim() || loading} className="btn btn-b w-full">
+          {loading ? t("email_saving") : initial ? t("email_save_changes") : t("product_save_btn")}
         </button>
       </div>
     </div>
@@ -191,6 +214,7 @@ function ShopModal({ initial, onSave, onClose }) {
   );
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useLang();
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const toggle = (k) => () => setForm((f) => ({ ...f, [k]: !f[k] }));
@@ -203,19 +227,25 @@ function ShopModal({ initial, onSave, onClose }) {
       await onSave(form);
       onClose();
     } catch (e) {
-      if (e.toString().includes("duplicate")) toast("Domain already exists", "error");
+      if (e.toString().includes("duplicate")) toast(t("shop_domain_exists"), "error");
       else toast(String(e), "error");
     } finally {
       setLoading(false);
     }
   };
 
+  // Scroll lock
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   return (
     <div className="modal-overlay">
-      <div className="modal" style={{ maxWidth: 500, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <span className="modal-title">{initial ? "Edit Shop" : "New Shop"}</span>
-          <button className="modal-close" onClick={onClose}>✕</button>
+      <div className="modal max-w-[500px] w-full max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="shop-modal-title">
+        <div className="flex items-center justify-between mb-[18px]">
+          <span id="shop-modal-title" className="modal-title">{initial ? "Edit Shop" : "New Shop"}</span>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         <div className="form-group">
@@ -225,8 +255,7 @@ function ShopModal({ initial, onSave, onClose }) {
 
         <div className="form-group">
           <label className="form-label">URL *</label>
-          <input value={form.url} onChange={set("url")} placeholder="https://nike.com"
-            className="form-input" style={{ fontFamily: "'JetBrains Mono',monospace" }} />
+          <input value={form.url} onChange={set("url")} placeholder="https://nike.com" className="form-input font-mono" />
         </div>
 
         <div className="form-group">
@@ -236,14 +265,13 @@ function ShopModal({ initial, onSave, onClose }) {
 
         <div className="form-group">
           <label className="form-label">Notes</label>
-          <textarea value={form.notes} onChange={set("notes")} rows={2}
-            className="form-input" style={{ resize: "none" }} />
+          <textarea value={form.notes} onChange={set("notes")} rows={2} className="form-input resize-none" />
         </div>
 
         {/* Flags */}
         <div className="form-group">
-          <label className="form-label" style={{ marginBottom: 10 }}>Risk Flags</label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <label className="form-label mb-2">Risk Flags</label>
+          <div className="grid grid-cols-2 gap-2">
             {FLAGS.map((f) => (
               <label
                 key={f.key}
@@ -259,20 +287,19 @@ function ShopModal({ initial, onSave, onClose }) {
                 <div style={{
                   width: 16, height: 16, borderRadius: 4, flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: form[f.key] ? "#2563eb" : "transparent",
-                  border: form[f.key] ? "1px solid #2563eb" : "1px solid var(--border)",
+                  background: form[f.key] ? "var(--accent-hover)" : "transparent",
+                  border: form[f.key] ? "1px solid var(--accent-hover)" : "1px solid var(--border)",
                 }}>
-                  {form[f.key] && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+                  {form[f.key] && <span className="text-white text-[10px] font-bold">✓</span>}
                 </div>
-                <span style={{ fontSize: 12, color: "var(--dim)" }}>{f.label}</span>
+                <span className="text-[12px] text-muted">{f.label}</span>
               </label>
             ))}
           </div>
         </div>
 
-        <button onClick={handleSave} disabled={!valid || loading}
-          className="btn btn-b" style={{ width: "100%", marginTop: 6 }}>
-          {loading ? "Saving…" : initial ? "Save Changes" : "Create Shop"}
+        <button onClick={handleSave} disabled={!valid || loading} className="btn btn-b w-full mt-1.5">
+          {loading ? t("email_saving") : initial ? t("email_save_changes") : t("shop_save_btn")}
         </button>
       </div>
     </div>
@@ -281,21 +308,13 @@ function ShopModal({ initial, onSave, onClose }) {
 
 // ─── Shop detail panel ────────────────────────────────────────────────────
 
-const ORDER_STATUS_COLOR = {
-  pending:    { bg: "rgba(234,179,8,0.15)",  color: "#facc15" },
-  processing: { bg: "rgba(59,130,246,0.15)", color: "#60a5fa" },
-  shipped:    { bg: "rgba(168,85,247,0.15)", color: "#c084fc" },
-  delivered:  { bg: "rgba(34,197,94,0.15)",  color: "#4ade80" },
-  declined:   { bg: "rgba(239,68,68,0.15)",  color: "#f87171" },
-  cancelled:  { bg: "rgba(107,114,128,0.15)",color: "#9ca3af" },
-};
-
-function ShopDetailPanel({ shopId, onRefresh }) {
+function ShopDetailPanel({ shopId, onRefresh, onNavigate }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [productModal, setProductModal] = useState(null);
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const { t } = useLang();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -313,22 +332,22 @@ function ShopDetailPanel({ shopId, onRefresh }) {
 
   const handleAddProduct = async (payload) => {
     await invoke("add_shop_product", { shopId, product: payload });
-    toast("Product added", "success");
+    toast(t("product_added"), "success");
     load();
   };
 
   const handleEditProduct = async (payload) => {
     await invoke("update_shop_product", { id: productModal.id, product: payload });
-    toast("Product updated", "success");
+    toast(t("product_updated"), "success");
     load();
   };
 
   const handleDeleteProduct = async (p) => {
-    const ok = await confirm(`Delete product "${p.name}"?`, { danger: true });
+    const ok = await confirm(t("shop_confirm_delete_product") + ` "${p.name}"?`, { danger: true });
     if (!ok) return;
     try {
       await invoke("delete_shop_product", { id: p.id });
-      toast("Product deleted", "success");
+      toast(t("product_deleted"), "success");
       load();
     } catch (e) {
       toast(String(e), "error");
@@ -337,7 +356,7 @@ function ShopDetailPanel({ shopId, onRefresh }) {
 
   if (loading) {
     return (
-      <div style={{ padding: "20px", textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
+      <div className="p-5 text-center text-muted text-[12px]">
         Loading…
       </div>
     );
@@ -347,61 +366,90 @@ function ShopDetailPanel({ shopId, onRefresh }) {
   const { stats, recent_orders, products } = detail;
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", background: "var(--surface)", padding: "16px 18px" }}>
-      {/* Stats */}
-      <p className="ptitle" style={{ marginBottom: 10 }}>Statistics</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 10 }}>
-        <StatCard label="Total Orders" value={stats.total} />
-        <StatCard label="Delivered" value={stats.delivered} accent="#4ade80" />
-        <StatCard label="Declined" value={stats.declined} accent="#f87171" />
-        <StatCard label="Avg Order" value={stats.avg_order_value > 0 ? `$${stats.avg_order_value.toFixed(2)}` : "—"} accent="#60a5fa" />
+    <div className="border-t border-border bg-surface px-[18px] py-4">
+      {/* Header with New Order button */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="ptitle m-0">{t("section_statistics")}</p>
+        {onNavigate && (
+          <button
+            className="btn btn-g btn-sm"
+            onClick={() => onNavigate("orders", { openCreate: true })}
+          >+ New Order</button>
+        )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
-        <StatCard label="Pending" value={stats.pending} accent="#facc15" />
-        <StatCard label="Processing" value={stats.processing} accent="#93c5fd" />
-        <StatCard label="Shipped" value={stats.shipped} accent="#c084fc" />
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 mb-2.5">
+        <StatCard label={t("stat_total")} value={stats.total} />
+        <StatCard label={t("stat_delivered")} value={stats.delivered} accent={STATUS_COLORS.success} />
+        <StatCard label={t("stat_declined")} value={stats.declined} accent={STATUS_COLORS.error} />
+        <StatCard label={t("stat_avg_order")} value={stats.avg_order_value > 0 ? `$${stats.avg_order_value.toFixed(2)}` : "—"} accent={STATUS_COLORS.info} />
+      </div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 mb-[18px]">
+        <StatCard label={t("stat_pending")} value={stats.pending} accent={STATUS_COLORS.warning} />
+        <StatCard label={t("stat_processing")} value={stats.processing} accent="var(--blue-t)" />
+        <StatCard label={t("stat_shipped")} value={stats.shipped} accent={STATUS_COLORS.info} />
         <StatCard
-          label="Success Rate"
+          label={t("stat_success_rate")}
           value={`${stats.success_rate.toFixed(1)}%`}
-          accent={stats.success_rate >= 70 ? "#4ade80" : stats.success_rate >= 40 ? "#facc15" : "#f87171"}
-          sub={`Decline: ${stats.decline_rate.toFixed(1)}%`}
+          accent={getDeliveryRateColor(stats.success_rate)}
+          sub={`${t("stat_decline_rate")}: ${stats.decline_rate.toFixed(1)}%`}
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid grid-cols-2 gap-4">
         {/* Products */}
         <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <p className="ptitle" style={{ margin: 0 }}>Products ({products.length})</p>
-            <button onClick={() => setProductModal("add")} className="btn btn-p btn-sm">+ Add</button>
+          <div className="flex items-center justify-between mb-2.5">
+            <p className="ptitle m-0">Products ({products.length})</p>
+            <div style={{ display: "flex", gap: 4 }}>
+              {products.length > 0 && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  title="Export products as CSV"
+                  onClick={() => {
+                    const header = "Name,ASIN,Amazon Price,Shop Price,Margin,URL";
+                    const rows = products.map(p =>
+                      [p.name, p.asin ?? "", p.amazon_price ?? "", p.shop_price ?? "", p.margin ?? "", p.url ?? ""]
+                        .map(v => `"${String(v).replace(/"/g, '""')}"`)
+                        .join(",")
+                    );
+                    const csv = [header, ...rows].join("\n");
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+                    a.download = `${detail.shop.name}_products.csv`;
+                    a.click();
+                  }}
+                ><Download size={13} /> CSV</button>
+              )}
+              <button onClick={() => setProductModal("add")} className="btn btn-b btn-sm">+ Add</button>
+            </div>
           </div>
           {products.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "24px 0", color: "var(--muted)", fontSize: 12 }}>
+            <div className="text-center py-6 text-muted text-[12px]">
               No products catalogued
             </div>
           ) : (
-            <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
+            <div className="panel p-0 overflow-x-auto">
               <table className="tbl">
                 <thead>
                   <tr>
-                    <th>ASIN</th>
-                    <th>Name</th>
-                    <th>Amazon</th>
-                    <th>Shop</th>
-                    <th>Margin</th>
+                    <th>{t("col_asin")}</th>
+                    <th>{t("col_product_name")}</th>
+                    <th>{t("col_amazon_price")}</th>
+                    <th>{t("col_shop_price")}</th>
+                    <th>{t("col_margin")}</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {products.map((p) => (
                     <tr key={p.id}>
-                      <td style={{ fontFamily: "'JetBrains Mono',monospace", color: "var(--muted)" }}>{p.asin || "—"}</td>
-                      <td style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</td>
-                      <td style={{ fontFamily: "'JetBrains Mono',monospace" }}>{p.amazon_price != null ? `$${p.amazon_price.toFixed(2)}` : "—"}</td>
-                      <td style={{ fontFamily: "'JetBrains Mono',monospace" }}>{p.shop_price != null ? `$${p.shop_price.toFixed(2)}` : "—"}</td>
-                      <td style={{ fontFamily: "'JetBrains Mono',monospace" }}>
+                      <td className="font-mono text-muted">{p.asin || "—"}</td>
+                      <td className="max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">{p.name}</td>
+                      <td className="font-mono">{p.amazon_price != null ? `$${p.amazon_price.toFixed(2)}` : "—"}</td>
+                      <td className="font-mono">{p.shop_price != null ? `$${p.shop_price.toFixed(2)}` : "—"}</td>
+                      <td className="font-mono">
                         {p.margin != null ? (
-                          <span style={{ color: p.margin >= 0 ? "#4ade80" : "#f87171" }}>
+                          <span style={{ color: p.margin >= 0 ? STATUS_COLORS.success : STATUS_COLORS.error }}>
                             {p.margin >= 0 ? "+" : ""}{p.margin.toFixed(2)}
                           </span>
                         ) : "—"}
@@ -409,7 +457,7 @@ function ShopDetailPanel({ shopId, onRefresh }) {
                       <td>
                         <div className="tbl-actions">
                           {p.url && (
-                            <a href={p.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">↗</a>
+                            <a href={p.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm btn-icon"><ExternalLink size={12} /></a>
                           )}
                           <button onClick={() => setProductModal(p)} className="btn btn-ghost btn-sm">Edit</button>
                           <button onClick={() => handleDeleteProduct(p)} className="btn btn-r btn-sm">Del</button>
@@ -425,36 +473,36 @@ function ShopDetailPanel({ shopId, onRefresh }) {
 
         {/* Recent Orders */}
         <div>
-          <p className="ptitle" style={{ marginBottom: 10 }}>Recent Orders</p>
+          <p className="ptitle mb-2">Recent Orders</p>
           {recent_orders.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "24px 0", color: "var(--muted)", fontSize: 12 }}>
+            <div className="text-center py-6 text-muted text-[12px]">
               No orders yet
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <div className="flex flex-col">
               {recent_orders.map((o) => {
-                const sc = ORDER_STATUS_COLOR[o.status] || { bg: "rgba(107,114,128,0.15)", color: "#9ca3af" };
+                const sc = ORDER_STATUS_COLORS[o.status] || { bg: STATUS_COLORS.neutralBg, text: STATUS_COLORS.neutral };
                 return (
                   <div key={o.id} style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "8px 0", borderBottom: "1px solid var(--border)",
                   }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="flex items-center gap-2">
                       <span style={{
                         fontSize: 10, padding: "2px 7px", borderRadius: 20,
-                        background: sc.bg, color: sc.color,
+                        background: sc.bg, color: sc.text,
                       }}>
                         {o.status}
                       </span>
                       {o.tracking_number && (
-                        <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono',monospace", color: "var(--muted)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <span className="text-[10px] font-mono text-muted max-w-[100px] overflow-hidden text-ellipsis">
                           {o.tracking_number}
                         </span>
                       )}
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      {o.total_amount != null && <p style={{ fontSize: 12, color: "var(--dim)", margin: 0 }}>${o.total_amount.toFixed(2)}</p>}
-                      <p style={{ fontSize: 10, color: "var(--muted)", margin: 0 }}>{o.created_at?.slice(0, 10)}</p>
+                    <div className="text-right">
+                      {o.total_amount != null && <p className="text-[12px] text-muted m-0">${o.total_amount.toFixed(2)}</p>}
+                      <p className="text-[10px] text-muted m-0">{o.created_at?.slice(0, 10)}</p>
                     </div>
                   </div>
                 );
@@ -476,7 +524,7 @@ function ShopDetailPanel({ shopId, onRefresh }) {
 
 // ─── Main ShopList ────────────────────────────────────────────────────────
 
-export default function ShopList() {
+export default function ShopList({ onNavigate }) {
   const [shops, setShops]   = useState([]);
   const [total, setTotal]   = useState(0);
   const [page, setPage]     = useState(1);
@@ -484,8 +532,11 @@ export default function ShopList() {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [modal, setModal]   = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [winLossMap, setWinLossMap] = useState({});
   const { toast }   = useToast();
   const { confirm } = useConfirm();
+  const { t } = useLang();
   const PER_PAGE = 50;
 
   const load = useCallback(async (p = page, s = search) => {
@@ -501,26 +552,33 @@ export default function ShopList() {
     }
   }, [page, search]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    invoke("get_shop_win_loss").then((rows) => {
+      const m = {};
+      rows.forEach((r) => { m[r.shop_id] = r; });
+      setWinLossMap(m);
+    }).catch(() => {});
+  }, []);
 
   const handleCreate = async (form) => {
     await invoke("create_shop", { input: form });
-    toast("Shop created", "success");
+    toast(t("shop_created"), "success");
     load();
   };
 
   const handleEdit = async (form) => {
     await invoke("update_shop", { id: modal.id, input: form });
-    toast("Shop updated", "success");
+    toast(t("shop_updated"), "success");
     load();
   };
 
   const handleDelete = async (shop) => {
-    const ok = await confirm(`Delete shop "${shop.name}"?`, { danger: true });
+    const ok = await confirm(t("shop_confirm_delete") + ` "${shop.name}"?`, { danger: true });
     if (!ok) return;
     try {
       await invoke("delete_shop", { id: shop.id });
-      toast("Shop deleted", "success");
+      toast(t("shop_deleted"), "success");
       if (expanded === shop.id) setExpanded(null);
       load();
     } catch (e) {
@@ -547,16 +605,16 @@ export default function ShopList() {
       <div className="ph">
         <div>
           <div className="ph-title">
-            🏪 Shops{" "}
-            <span style={{ color: "var(--dim)", fontSize: 14, fontWeight: 400 }}>{total} магазинов</span>
+            <Store size={14} /> {t("shops")}{" "}
+            <span className="text-muted text-[14px] font-normal">{total} {t("shops_count")}</span>
           </div>
         </div>
         <div className="ph-actions">
-          <button onClick={() => load()} className="btn btn-ghost btn-sm" title="Refresh">
-            {loading ? "⟳" : "↺"} Refresh
+          <button onClick={() => load()} className="btn btn-ghost btn-sm" title={t("btn_refresh")}>
+            {loading ? "⟳" : "↺"} {t("btn_refresh")}
           </button>
           <button onClick={() => setModal("new")} className="btn btn-b">
-            + New Shop
+            + {t("new_shop")}
           </button>
         </div>
       </div>
@@ -564,21 +622,20 @@ export default function ShopList() {
       {/* Search + stat bar */}
       <div className="filters">
         <input
-          className="search-box"
+          className="search-box w-[260px]"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && load(1, search)}
-          placeholder="🔍  Search name or domain… (Enter)"
-          style={{ width: 260 }}
+          placeholder={t("shops_search_placeholder")}
         />
 
         {shops.length > 0 && (
           <>
             {[
-              { label: "shops",     val: shops.length, color: "#60a5fa" },
-              { label: "orders",    val: totOrders,     color: "#a78bfa" },
-              { label: "delivered", val: totDelivered,  color: "#4ade80" },
-              { label: "declined",  val: totDeclined,   color: "#f87171" },
+              { label: "shops",     val: shops.length, color: STATUS_COLORS.info },
+              { label: "orders",    val: totOrders,     color: "var(--blue-t)" },
+              { label: "delivered", val: totDelivered,  color: STATUS_COLORS.success },
+              { label: "declined",  val: totDeclined,   color: STATUS_COLORS.error },
             ].map(({ label, val, color }) => (
               <div key={label} style={{
                 background: `${color}12`, border: `1px solid ${color}25`,
@@ -587,16 +644,41 @@ export default function ShopList() {
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
                 <span style={{ color, fontSize: 12, fontWeight: 500 }}>{val}</span>
-                <span style={{ color: "var(--muted)", fontSize: 11 }}>{label}</span>
+                <span className="text-[11px] text-muted">{label}</span>
               </div>
             ))}
           </>
         )}
       </div>
 
+      {/* Bulk actions toolbar */}
+      {selected.size > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "var(--card-hi)", border: "1px solid var(--border-hi)", borderRadius: "var(--r-md)", marginBottom: 8 }}>
+          <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>{selected.size} selected</span>
+          <button
+            className="btn btn-r btn-sm"
+            onClick={async () => {
+              const ok = await confirm(`Delete ${selected.size} shops?`, { title: "Delete Shops" });
+              if (!ok) return;
+              try {
+                for (const id of selected) {
+                  await invoke("delete_shop", { id });
+                }
+                toast(`Deleted ${selected.size} shops`, "success");
+                setSelected(new Set());
+                await load();
+              } catch (e) { toast(String(e), "error"); }
+            }}
+          >
+            Delete Selected
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
+        </div>
+      )}
+
       {/* Table */}
       {loading && shops.length === 0 ? (
-        <div className="panel" style={{ padding: 0 }}>
+        <div className="panel p-0">
           <table className="tbl">
             <tbody>
               <SkeletonRows count={5} cols={9} />
@@ -604,28 +686,38 @@ export default function ShopList() {
           </table>
         </div>
       ) : shops.length === 0 ? (
-        <div className="panel" style={{ textAlign: "center", padding: 48 }}>
-          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.2 }}>🏪</div>
-          <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 14px" }}>No shops yet</p>
+        <div className="panel text-center p-12">
+          <Store size={36} style={{opacity: 0.2}} className="mb-3 mx-auto" />
+          <p className="text-muted text-[13px] mb-[14px]">{t("no_shops")}</p>
           <button onClick={() => setModal("new")} className="btn btn-b">
             + Add your first shop
           </button>
         </div>
       ) : (
-        <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
+        <div className="panel p-0 overflow-x-auto">
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{ width: 32 }}></th>
-                <th>Магазин</th>
-                <th>Domain</th>
-                <th>Категория</th>
-                <th>Флаги</th>
-                <th>Заказов</th>
-                <th>Success%</th>
-                <th>Decline%</th>
-                <th>Revenue</th>
-                <th>Actions</th>
+                <th style={{ width: 32 }}>
+                  <input type="checkbox"
+                    checked={shops.length > 0 && selected.size === shops.length}
+                    onChange={(e) => setSelected(e.target.checked ? new Set(shops.map(s => s.id)) : new Set())}
+                    className="cb"
+                  />
+                </th>
+                <th className="w-8"></th>
+                <th>{t("col_shop_name")}</th>
+                <th>{t("col_name_domain").split(" / ")[1] || "Domain"}</th>
+                <th>{t("col_category")}</th>
+                <th>{t("col_flags")}</th>
+                <th>{t("col_orders_count")}</th>
+                <th>{t("col_success_rate")}</th>
+                <th>{t("col_declined")}</th>
+                <th>{t("revenue")}</th>
+                <th>Risk</th>
+                <th>Delivery %</th>
+                <th>Exp. Value</th>
+                <th>{t("cc_col_actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -634,26 +726,36 @@ export default function ShopList() {
                 const successPct = shop.total_orders > 0 ? shop.success_rate : null;
                 const declinePct = shop.total_orders > 0 ? shop.decline_rate : null;
                 const successColor = successPct === null ? "var(--muted)"
-                  : successPct >= 60 ? "#4ade80"
-                  : successPct < 30  ? "#f87171"
-                  : "#facc15";
-                const declineColor = declinePct !== null && declinePct > 50 ? "#f87171" : "var(--dim)";
+                  : successPct >= 60 ? STATUS_COLORS.success
+                  : successPct < 30  ? STATUS_COLORS.error
+                  : STATUS_COLORS.warning;
+                const declineColor = declinePct !== null && declinePct > 50 ? STATUS_COLORS.error : "var(--dim)";
 
                 return (
-                  <>
+                  <React.Fragment key={shop.id}>
                     <tr
-                      key={shop.id}
                       style={{ cursor: "pointer", background: isExpanded ? "var(--card)" : undefined }}
                       onClick={() => setExpanded(isExpanded ? null : shop.id)}
                     >
-                      <td style={{ textAlign: "center", color: "var(--muted)", fontSize: 12 }}>
+                      <td onClick={e => e.stopPropagation()}>
+                        <input type="checkbox"
+                          checked={selected.has(shop.id)}
+                          onChange={(e) => setSelected(prev => {
+                            const next = new Set(prev);
+                            e.target.checked ? next.add(shop.id) : next.delete(shop.id);
+                            return next;
+                          })}
+                          className="cb"
+                        />
+                      </td>
+                      <td className="text-center text-muted text-[12px]">
                         <span style={{ display: "inline-block", transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}>›</span>
                       </td>
                       <td>
-                        <b style={{ fontSize: 13 }}>{shop.name}</b>
+                        <b className="text-[13px]">{shop.name}</b>
                       </td>
                       <td>
-                        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "var(--muted)" }}>
+                        <span className="font-mono text-[11px] text-muted">
                           {shop.domain}
                         </span>
                       </td>
@@ -663,7 +765,7 @@ export default function ShopList() {
                       <td>
                         <FlagPills shop={shop} />
                       </td>
-                      <td style={{ fontFamily: "'JetBrains Mono',monospace" }}>
+                      <td className="font-mono">
                         {shop.total_orders}
                       </td>
                       <td>
@@ -676,12 +778,33 @@ export default function ShopList() {
                           {declinePct !== null ? `${declinePct.toFixed(1)}%` : "—"}
                         </span>
                       </td>
-                      <td style={{ fontFamily: "'JetBrains Mono',monospace" }}>
+                      <td className="font-mono">
                         {shop.avg_order_value > 0 ? `$${shop.avg_order_value.toFixed(2)}` : "—"}
+                      </td>
+                      <td><ShopRiskBadge shopId={shop.id} /></td>
+                      <td>
+                        {(() => {
+                          const wl = winLossMap[shop.id];
+                          if (!wl) return <span className="text-muted">—</span>;
+                          const pct = wl.delivery_pct;
+                          const color = getDeliveryRateColor(pct);
+                          return (
+                            <span style={{ color, fontWeight: 600, fontSize: 12 }} title={pct < 30 ? "Low delivery rate" : undefined}>
+                              {pct.toFixed(1)}%{pct < 30 ? " ⚠" : ""}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td style={{ fontFamily: "JetBrains Mono,monospace", fontSize: 11 }}>
+                        {(() => {
+                          const wl = winLossMap[shop.id];
+                          if (!wl) return <span className="text-muted">—</span>;
+                          return <span style={{ color: "var(--text-2)" }}>${wl.expected_value.toFixed(2)}</span>;
+                        })()}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="tbl-actions">
-                          <button onClick={() => openSite(shop)} className="btn btn-ghost btn-sm" title="Visit site">↗</button>
+                          <button onClick={() => openSite(shop)} className="btn btn-ghost btn-sm btn-icon" title="Visit site"><ExternalLink size={12} /></button>
                           <button onClick={() => setModal(shop)} className="btn btn-ghost btn-sm">Edit</button>
                           <button onClick={() => handleDelete(shop)} className="btn btn-r btn-sm">Del</button>
                         </div>
@@ -690,12 +813,12 @@ export default function ShopList() {
 
                     {isExpanded && (
                       <tr key={`${shop.id}-detail`}>
-                        <td colSpan={10} style={{ padding: 0 }}>
-                          <ShopDetailPanel shopId={shop.id} onRefresh={load} />
+                        <td colSpan={14} className="p-0">
+                          <ShopDetailPanel shopId={shop.id} onRefresh={load} onNavigate={onNavigate} />
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -705,21 +828,21 @@ export default function ShopList() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, fontSize: 11, color: "var(--muted)" }}>
-          <span>Показано {total} shops</span>
-          <div style={{ display: "flex", gap: 5 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => { const np = Math.max(1, page - 1); setPage(np); load(np, search); }} disabled={page === 1}>← Пред</button>
+        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted">
+          <span>{t("pag_showing")} {total}</span>
+          <div className="flex gap-1">
+            <button className="btn btn-ghost btn-sm" onClick={() => { const np = Math.max(1, page - 1); setPage(np); load(np, search); }} disabled={page === 1}>{t("pag_prev")}</button>
             {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
               <button
                 key={p}
                 onClick={() => { setPage(p); load(p, search); }}
                 className="btn btn-ghost btn-sm"
-                style={p === page ? { background: "var(--accent)", color: "#fff", border: "none" } : undefined}
+                style={p === page ? { background: "var(--accent)", color: "var(--text)", border: "none" } : undefined}
               >
                 {p}
               </button>
             ))}
-            <button className="btn btn-ghost btn-sm" onClick={() => { const np = Math.min(totalPages, page + 1); setPage(np); load(np, search); }} disabled={page >= totalPages}>След →</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => { const np = Math.min(totalPages, page + 1); setPage(np); load(np, search); }} disabled={page >= totalPages}>{t("pag_next")}</button>
           </div>
         </div>
       )}
@@ -742,12 +865,31 @@ export function useSmartSuggestions(shopId, cardId) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!shopId || !cardId) { setSuggestions([]); return; }
-    setLoading(true);
+    if (!shopId || !cardId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    // Set loading state asynchronously to avoid cascading renders warning
+    Promise.resolve().then(() => {
+      if (!cancelled) setLoading(true);
+    });
+
     invoke("get_shop_smart_suggestions", { shopId, cardId })
-      .then(setSuggestions)
-      .catch(() => setSuggestions([]))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!cancelled) setSuggestions(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [shopId, cardId]);
 
   return { suggestions, loading };
