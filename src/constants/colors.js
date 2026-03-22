@@ -1,74 +1,75 @@
 /**
  * Centralized color constants
- * Extracted from 268+ hardcoded color instances across the codebase
+ * Now using CSS variables for theme support
+ * All colors reference CSS custom properties from tokens-redesign.css
  */
 
 // Status colors
 export const STATUS_COLORS = {
-  success: '#4ade80',
-  successBg: 'rgba(34, 197, 94, 0.1)',
-  warning: '#facc15',
-  warningBg: 'rgba(234, 179, 8, 0.1)',
-  error: '#f87171',
-  errorBg: 'rgba(239, 68, 68, 0.1)',
-  info: '#60a5fa',
-  infoBg: 'rgba(59, 130, 246, 0.1)',
-  neutral: '#999',
-  neutralBg: 'rgba(156, 163, 175, 0.1)',
+  success: 'var(--color-success)',
+  successBg: 'var(--color-success-bg)',
+  warning: 'var(--color-warning)',
+  warningBg: 'var(--color-warning-bg)',
+  error: 'var(--color-error)',
+  errorBg: 'var(--color-error-bg)',
+  info: 'var(--color-info)',
+  infoBg: 'var(--color-info-bg)',
+  neutral: 'var(--color-neutral)',
+  neutralBg: 'var(--color-neutral-bg)',
 }
 
 // Card network colors
 export const CARD_NETWORK_COLORS = {
   visa: {
-    color: '#60a5fa',
-    bg: 'rgba(59, 130, 246, 0.15)',
+    color: 'var(--color-visa)',
+    bg: 'var(--color-visa-bg)',
   },
   mastercard: {
-    color: '#f87171',
-    bg: 'rgba(239, 68, 68, 0.15)',
+    color: 'var(--color-mastercard)',
+    bg: 'var(--color-mastercard-bg)',
   },
   amex: {
-    color: '#4ade80',
-    bg: 'rgba(34, 197, 94, 0.15)',
+    color: 'var(--color-amex)',
+    bg: 'var(--color-amex-bg)',
   },
   discover: {
-    color: '#fb923c',
-    bg: 'rgba(249, 115, 22, 0.15)',
+    color: 'var(--color-discover)',
+    bg: 'var(--color-discover-bg)',
   },
 }
 
 // Risk level colors
 export const RISK_COLORS = {
   high: {
-    color: '#f87171',
-    bg: 'rgba(239, 68, 68, 0.12)',
+    color: 'var(--color-risk-high)',
+    bg: 'var(--color-risk-high-bg)',
     dot: 'dot-red',
   },
   medium: {
-    color: '#facc15',
-    bg: 'rgba(234, 179, 8, 0.12)',
+    color: 'var(--color-risk-medium)',
+    bg: 'var(--color-risk-medium-bg)',
     dot: 'dot-yellow',
   },
   low: {
-    color: '#4ade80',
-    bg: 'rgba(34, 197, 94, 0.12)',
+    color: 'var(--color-risk-low)',
+    bg: 'var(--color-risk-low-bg)',
     dot: 'dot-green',
   },
 }
 
 // Health indicator colors
 export const HEALTH_COLORS = {
-  good: '#4ade80',
-  warn: '#facc15',
-  info: '#60a5fa',
-  bad: '#f87171',
+  good: 'var(--color-success)',
+  warn: 'var(--color-warning)',
+  info: 'var(--color-info)',
+  bad: 'var(--color-error)',
 }
 
 // Delivery rate colors (percentage-based)
 export const DELIVERY_RATE_COLORS = {
-  high: '#22c55e', // >= 70%
-  medium: '#eab308', // >= 40%
-  low: '#ef4444', // < 40%
+  high: 'var(--color-delivery-high)', // >= 70%
+  medium: 'var(--color-delivery-medium)', // >= 40%
+  low: 'var(--color-delivery-low)', // < 40%
 }
 
 /**
@@ -93,16 +94,16 @@ export function getRiskColor(level) {
 
 // Chart colors (for revenue/profit charts)
 export const CHART_COLORS = {
-  revenue: '#3b82f6',
-  profit: '#22c55e',
+  revenue: 'var(--color-chart-revenue)',
+  profit: 'var(--color-chart-profit)',
 }
 
 // Heatmap colors (bank × shop success rate)
 export const HEATMAP_COLORS = {
-  high: 'rgba(34,197,94,0.65)', // ≥50%
-  medium: 'rgba(234,179,8,0.55)', // 20-50%
-  low: 'rgba(239,68,68,0.65)', // <20%
-  noData: 'var(--border)', // <3 orders
+  high: 'var(--color-heatmap-high)', // ≥50%
+  medium: 'var(--color-heatmap-medium)', // 20-50%
+  low: 'var(--color-heatmap-low)', // <20%
+  noData: 'var(--color-heatmap-no-data)', // <3 orders
 }
 
 /**
@@ -119,9 +120,9 @@ export function getHeatmapColor(rate) {
 
 // Expiring card warning colors
 export const EXPIRY_COLORS = {
-  urgent: '#f87171', // ≤14 days
-  warning: '#facc15', // ≤30 days
-  normal: '#4ade80', // >30 days
+  urgent: 'var(--color-expiry-urgent)', // ≤14 days
+  warning: 'var(--color-expiry-warning)', // ≤30 days
+  normal: 'var(--color-expiry-normal)', // >30 days
 }
 
 /**

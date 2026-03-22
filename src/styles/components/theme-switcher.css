@@ -1,0 +1,48 @@
+/* ═══════════════════════════════════════════════════════════
+   THEME SWITCHER COMPONENT
+   ═══════════════════════════════════════════════════════════ */
+
+.theme-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: all var(--t-fast);
+}
+
+.theme-switcher:hover {
+  border-color: var(--border-hi);
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.theme-option:hover {
+  background: var(--hover);
+  color: var(--text-2);
+}
+
+.theme-option.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+
+.theme-option svg {
+  width: 16px;
+  height: 16px;
+}

@@ -64,7 +64,7 @@
 .proxy-type-socks4 {
   background: rgba(129, 140, 248, 0.12);
   border-color: rgba(129, 140, 248, 0.25);
-  color: #818cf8;
+  color: var(--purple-bright);
 }
 
 .proxy-type-pptp {

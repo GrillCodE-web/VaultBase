@@ -25,6 +25,7 @@
 @import './components/badges-redesign.css';
 @import './components/filters-redesign.css';
 @import './components/panel-redesign.css';
+@import './components/theme-switcher.css';
 
 /* ── Pages (Redesigned) ─────────────────────────────────── */
 @import './pages/dashboard-redesign.css';

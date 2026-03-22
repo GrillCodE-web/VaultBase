@@ -225,7 +225,7 @@
   padding: 0 6px;
   border-radius: 10px;
   background: var(--red);
-  color: #fff;
+  color: var(--bg);
   font-size: 11px;
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
@@ -234,13 +234,13 @@
 
 .count-badge.accent {
   background: var(--accent);
-  color: #000;
+  color: var(--bg);
   box-shadow: 0 2px 8px var(--accent-glow);
 }
 
 .count-badge.success {
   background: var(--green);
-  color: #000;
+  color: var(--bg);
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
 }
 

@@ -4,62 +4,122 @@
 
 :root {
   /* ── Base Layers ────────────────────────────────────────── */
-  --bg:        #0d1117;
-  --surface:   #161b22;
-  --card:      #1c2128;
-  --card-hi:   #22272e;
-  --inset:     #0d1117;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --card: #1c2128;
+  --card-hi: #22272e;
+  --inset: #0d1117;
 
   /* ── Borders ────────────────────────────────────────────── */
-  --border:    #30363d;
+  --border: #30363d;
   --border-hi: #444c56;
   --border-accent: rgba(0, 217, 255, 0.3);
 
   /* ── Text Hierarchy ─────────────────────────────────────── */
-  --text:      #f0f6fc;
-  --text-2:    #c9d1d9;
-  --text-3:    #8b949e;
-  --muted:     #6e7681;
-  --dim:       #484f58;
+  --text: #f0f6fc;
+  --text-2: #c9d1d9;
+  --text-3: #8b949e;
+  --muted: #6e7681;
+  --dim: #484f58;
 
   /* ── Accent System (Cyan/Teal) ──────────────────────────── */
-  --accent:        #00d9ff;
+  --accent: #00d9ff;
   --accent-bright: #14f195;
-  --accent-dim:    rgba(0, 217, 255, 0.08);
+  --accent-dim: rgba(0, 217, 255, 0.08);
   --accent-border: rgba(0, 217, 255, 0.25);
-  --accent-hover:  #00b8d9;
-  --accent-glow:   rgba(0, 217, 255, 0.25);
-  --accent-text:   #58e1ff;
+  --accent-hover: #00b8d9;
+  --accent-glow: rgba(0, 217, 255, 0.25);
+  --accent-text: #58e1ff;
 
   /* ── Secondary Accent (Electric Purple) ─────────────────── */
-  --purple:        #a855f7;
+  --purple: #a855f7;
   --purple-bright: #c084fc;
-  --purple-dim:    rgba(168, 85, 247, 0.08);
+  --purple-dim: rgba(168, 85, 247, 0.08);
   --purple-border: rgba(168, 85, 247, 0.25);
-  --purple-glow:   rgba(168, 85, 247, 0.2);
+  --purple-glow: rgba(168, 85, 247, 0.2);
 
   /* ── Status Colors ──────────────────────────────────────── */
-  --green:   #10b981;
+  --green: #10b981;
   --green-t: #34d399;
-  --red:     #ef4444;
-  --red-t:   #f87171;
-  --yellow:  #f59e0b;
-  --yellow-t:#fbbf24;
-  --blue:    #3b82f6;
-  --blue-t:  #60a5fa;
-  --orange:  #f97316;
-  --orange-t:#fb923c;
-  --teal:    #14b8a6;
-  --teal-t:  #2dd4bf;
+  --red: #ef4444;
+  --red-t: #f87171;
+  --yellow: #f59e0b;
+  --yellow-t: #fbbf24;
+  --blue: #3b82f6;
+  --blue-t: #60a5fa;
+  --orange: #f97316;
+  --orange-t: #fb923c;
+  --teal: #14b8a6;
+  --teal-t: #2dd4bf;
+
+  /* ── Semantic Status Colors ─────────────────────────────── */
+  --color-success: #4ade80;
+  --color-success-bg: rgba(34, 197, 94, 0.1);
+  --color-warning: #facc15;
+  --color-warning-bg: rgba(234, 179, 8, 0.1);
+  --color-error: #f87171;
+  --color-error-bg: rgba(239, 68, 68, 0.1);
+  --color-info: #60a5fa;
+  --color-info-bg: rgba(59, 130, 246, 0.1);
+  --color-neutral: #999;
+  --color-neutral-bg: rgba(156, 163, 175, 0.1);
+
+  /* ── Card Status Colors ─────────────────────────────────── */
+  --color-card-free: #4ade80;
+  --color-card-free-bg: rgba(34, 197, 94, 0.1);
+  --color-card-in-use: #60a5fa;
+  --color-card-in-use-bg: rgba(59, 130, 246, 0.1);
+  --color-card-dead: #f87171;
+  --color-card-dead-bg: rgba(239, 68, 68, 0.1);
+  --color-card-archive: #999;
+  --color-card-archive-bg: rgba(156, 163, 175, 0.1);
+
+  /* ── Card Network Colors ────────────────────────────────── */
+  --color-visa: #60a5fa;
+  --color-visa-bg: rgba(59, 130, 246, 0.15);
+  --color-mastercard: #f87171;
+  --color-mastercard-bg: rgba(239, 68, 68, 0.15);
+  --color-amex: #4ade80;
+  --color-amex-bg: rgba(34, 197, 94, 0.15);
+  --color-discover: #fb923c;
+  --color-discover-bg: rgba(249, 115, 22, 0.15);
+
+  /* ── Risk Level Colors ──────────────────────────────────── */
+  --color-risk-high: #f87171;
+  --color-risk-high-bg: rgba(239, 68, 68, 0.12);
+  --color-risk-medium: #facc15;
+  --color-risk-medium-bg: rgba(234, 179, 8, 0.12);
+  --color-risk-low: #4ade80;
+  --color-risk-low-bg: rgba(34, 197, 94, 0.12);
+
+  /* ── Chart Colors ───────────────────────────────────────── */
+  --color-chart-revenue: #3b82f6;
+  --color-chart-profit: #22c55e;
+
+  /* ── Heatmap Colors ─────────────────────────────────────── */
+  --color-heatmap-high: rgba(34, 197, 94, 0.65);
+  --color-heatmap-medium: rgba(234, 179, 8, 0.55);
+  --color-heatmap-low: rgba(239, 68, 68, 0.65);
+  --color-heatmap-no-data: var(--border);
+
+  /* ── Delivery Rate Colors ───────────────────────────────── */
+  --color-delivery-high: #22c55e;
+  --color-delivery-medium: #eab308;
+  --color-delivery-low: #ef4444;
+
+  /* ── Expiry Warning Colors ──────────────────────────────── */
+  --color-expiry-urgent: #f87171;
+  --color-expiry-warning: #facc15;
+  --color-expiry-normal: #4ade80;
 
   /* ── Hover & Interactive ────────────────────────────────── */
-  --hover:      rgba(255, 255, 255, 0.06);
+  --hover: rgba(255, 255, 255, 0.06);
   --surface-hi: #1f2429;
   --active-glow: 0 0 20px rgba(0, 217, 255, 0.15);
 
   /* ── Spacing (4px grid) ─────────────────────────────────── */
-  --sp-1:  4px;
-  --sp-2:  8px;
+  --sp-1: 4px;
+  --sp-2: 8px;
   --sp-3: 12px;
   --sp-4: 16px;
   --sp-5: 20px;
@@ -67,23 +127,23 @@
   --sp-8: 32px;
 
   /* ── Border Radius ──────────────────────────────────────── */
-  --r-sm:  4px;
-  --r-md:  8px;
+  --r-sm: 4px;
+  --r-md: 8px;
   --r-lg: 12px;
   --r-xl: 16px;
 
-  --radius-sm:  5px;
-  --radius-md:  9px;
+  --radius-sm: 5px;
+  --radius-md: 9px;
   --radius-lg: 13px;
 
   /* ── Modal Widths ───────────────────────────────────────── */
-  --modal-sm:  420px;
-  --modal-md:  560px;
-  --modal-lg:  720px;
+  --modal-sm: 420px;
+  --modal-md: 560px;
+  --modal-lg: 720px;
 
   /* ── Transitions ────────────────────────────────────────── */
   --t-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
-  --t-mid:  220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-mid: 220ms cubic-bezier(0.4, 0, 0.2, 1);
   --t-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ── Shadows ────────────────────────────────────────────── */
@@ -96,27 +156,61 @@
   --gradient-accent: linear-gradient(135deg, #00d9ff 0%, #14f195 100%);
   --gradient-purple: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
   --gradient-card: linear-gradient(145deg, #1c2128 0%, #161b22 100%);
-  --gradient-overlay: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%);
+  --gradient-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 100%);
 
   /* ── Noise Texture ──────────────────────────────────────── */
   --noise-opacity: 0.015;
   --scanline-opacity: 0.02;
 }
 
-/* ── Light Theme (Optional) ─────────────────────────────── */
-[data-theme="light"] {
+/* ── Light Theme ────────────────────────────────────────── */
+[data-theme='light'] {
+  /* Base Layers */
   --bg: #ffffff;
   --surface: #f6f8fa;
   --card: #ffffff;
   --card-hi: #f6f8fa;
   --inset: #eef1f5;
+
+  /* Borders */
   --border: #d0d7de;
   --border-hi: #afb8c1;
+  --border-accent: rgba(0, 150, 200, 0.4);
+
+  /* Text */
   --text: #1f2328;
   --text-2: #57606a;
   --text-3: #656d76;
   --muted: #8c959f;
   --dim: #afb8c1;
+
+  /* Interactive */
   --hover: rgba(0, 0, 0, 0.04);
   --surface-hi: #ffffff;
+
+  /* Accent (adjusted for light theme) */
+  --accent: #0969da;
+  --accent-bright: #0550ae;
+  --accent-dim: rgba(9, 105, 218, 0.1);
+  --accent-border: rgba(9, 105, 218, 0.3);
+  --accent-hover: #0860ca;
+  --accent-glow: rgba(9, 105, 218, 0.2);
+  --accent-text: #0969da;
+
+  /* Purple */
+  --purple: #8250df;
+  --purple-bright: #6639ba;
+  --purple-dim: rgba(130, 80, 223, 0.1);
+  --purple-border: rgba(130, 80, 223, 0.3);
+  --purple-glow: rgba(130, 80, 223, 0.15);
+
+  /* Shadows (lighter for light theme) */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.18);
+  --shadow-glow: 0 0 16px rgba(9, 105, 218, 0.15);
+
+  /* Noise (reduced for light theme) */
+  --noise-opacity: 0.008;
+  --scanline-opacity: 0.01;
 }

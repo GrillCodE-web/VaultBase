@@ -1,302 +1,482 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useFocusTrap } from "../hooks/useFocusTrap.js";
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { useFocusTrap } from '../hooks/useFocusTrap.js'
+import { invoke } from '@tauri-apps/api/core'
 import {
-  ShoppingCart, Plus, Search, RefreshCw, X, ChevronDown, ChevronRight,
-  Trash2, AlertTriangle, CheckCircle2, ShieldAlert, Clock, CreditCard,
-  Truck, Package, Sparkles, Save, FolderOpen, Info, ArrowRight,
-  Edit2, ExternalLink, AlertCircle, Wifi, RotateCcw, Upload
-} from "lucide-react";
-import { useLang } from "../hooks/useLang";
-import { useToast } from "../hooks/useToast";
-import { useConfirm } from "../hooks/useConfirm";
-import { useDebounce } from "../hooks/useDebounce.js";
-import { EmptyState } from "../components/EmptyState.jsx";
-import { useSmartSuggestions, SuggestionBadge } from "./Shops";
-import { SkeletonRows } from "../components/SkeletonRow.jsx";
-import { buildPageNumbers } from "../utils/pagination.js";
-import { STATUS_COLORS } from "../constants/colors.js";
-import { BatchImportModal } from "./Orders/BatchImportModal.jsx";
-import { OrderFilters } from "./Orders/OrderFilters.jsx";
-import { OrderRow } from "./Orders/OrderRow.jsx";
+  ShoppingCart,
+  Plus,
+  X,
+  ChevronDown,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  ShieldAlert,
+  Truck,
+  Package,
+  Sparkles,
+  Save,
+  FolderOpen,
+  AlertCircle,
+  Wifi,
+  RotateCcw,
+  Upload,
+} from 'lucide-react'
+import { useLang } from '../hooks/useLang'
+import { useToast } from '../hooks/useToast'
+import { useConfirm } from '../hooks/useConfirm'
+import { useDebounce } from '../hooks/useDebounce.js'
+import { EmptyState } from '../components/EmptyState.jsx'
+import { useSmartSuggestions, SuggestionBadge } from './Shops'
+import { SkeletonRows } from '../components/SkeletonRow.jsx'
+import { buildPageNumbers } from '../utils/pagination.js'
+import { STATUS_COLORS } from '../constants/colors.js'
+import { BatchImportModal } from './Orders/BatchImportModal.jsx'
+import { OrderFilters } from './Orders/OrderFilters.jsx'
+import { OrderRow } from './Orders/OrderRow.jsx'
 
 // ─── OrderTimeline ────────────────────────────────────────────
-const STATUS_STEPS = ["pending", "processing", "shipped", "delivered"];
+const STATUS_STEPS = ['pending', 'processing', 'shipped', 'delivered']
 
 function OrderTimeline({ status, updatedAt }) {
-  const isTerminal = status === "cancelled" || status === "declined";
-  const steps = isTerminal ? [...STATUS_STEPS.slice(0, 2), status] : STATUS_STEPS;
-  const currentIdx = steps.indexOf(status);
+  const isTerminal = status === 'cancelled' || status === 'declined'
+  const steps = isTerminal ? [...STATUS_STEPS.slice(0, 2), status] : STATUS_STEPS
+  const currentIdx = steps.indexOf(status)
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="flex items-center gap-0">
         {steps.map((step, i) => {
-          const isPast = i < currentIdx;
-          const isCurrent = i === currentIdx;
-          const isFuture = i > currentIdx;
+          const isPast = i < currentIdx
+          const isCurrent = i === currentIdx
+          const isFuture = i > currentIdx
           const color = isCurrent
-            ? (status === "delivered" ? "var(--green)" : status === "declined" || status === "cancelled" ? "var(--red)" : "var(--blue)")
-            : isPast ? "var(--green)" : "var(--border)";
+            ? status === 'delivered'
+              ? 'var(--green)'
+              : status === 'declined' || status === 'cancelled'
+                ? 'var(--red)'
+                : 'var(--blue)'
+            : isPast
+              ? 'var(--green)'
+              : 'var(--border)'
           const glowColor = isCurrent
-            ? (status === "delivered" ? `${STATUS_COLORS.success}80` : status === "declined" || status === "cancelled" ? `${STATUS_COLORS.error}80` : `${STATUS_COLORS.info}80`)
-            : "none";
+            ? status === 'delivered'
+              ? `${STATUS_COLORS.success}80`
+              : status === 'declined' || status === 'cancelled'
+                ? `${STATUS_COLORS.error}80`
+                : `${STATUS_COLORS.info}80`
+            : 'none'
           return (
-            <div key={step} style={{ display: "flex", alignItems: "center", flex: i < steps.length - 1 ? 1 : 0 }}>
+            <div
+              key={step}
+              style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 0 }}
+            >
               <div className="flex flex-col items-center gap-1">
-                <div style={{
-                  width: isCurrent ? 12 : 10,
-                  height: isCurrent ? 12 : 10,
-                  borderRadius: "50%",
-                  background: color,
-                  boxShadow: isCurrent
-                    ? `0 0 0 3px ${glowColor}, 0 0 12px ${glowColor}`
-                    : "none",
-                  flexShrink: 0,
-                  transition: "all 0.2s ease",
-                }} />
-                <span style={{ fontSize: 10, color: isFuture ? "var(--muted)" : "var(--text-2)", whiteSpace: "nowrap", fontWeight: isCurrent ? 600 : 400 }}>
+                <div
+                  style={{
+                    width: isCurrent ? 12 : 10,
+                    height: isCurrent ? 12 : 10,
+                    borderRadius: '50%',
+                    background: color,
+                    boxShadow: isCurrent ? `0 0 0 3px ${glowColor}, 0 0 12px ${glowColor}` : 'none',
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease',
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: isFuture ? 'var(--muted)' : 'var(--text-2)',
+                    whiteSpace: 'nowrap',
+                    fontWeight: isCurrent ? 600 : 400,
+                  }}
+                >
                   {step}
                 </span>
                 {isCurrent && updatedAt && (
-                  <span style={{ fontSize: 9, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {updatedAt.slice(0, 10)}
                   </span>
                 )}
               </div>
               {i < steps.length - 1 && (
-                <div style={{
-                  flex: 1, height: 1.5,
-                  background: isPast
-                    ? "linear-gradient(90deg, var(--green), var(--green))"
-                    : "var(--border)",
-                  margin: "0 6px", marginBottom: 16, minWidth: 40,
-                  borderRadius: 1,
-                }} />
+                <div
+                  style={{
+                    flex: 1,
+                    height: 1.5,
+                    background: isPast
+                      ? 'linear-gradient(90deg, var(--green), var(--green))'
+                      : 'var(--border)',
+                    margin: '0 6px',
+                    marginBottom: 16,
+                    minWidth: 40,
+                    borderRadius: 1,
+                  }}
+                />
               )}
             </div>
-          );
+          )
         })}
       </div>
     </div>
-  );
+  )
 }
 
 // ─── Constants ───────────────────────────────────────────────
-const STATUSES = ["pending", "processing", "shipped", "in_transit", "delivered", "declined", "cancelled"];
+const STATUSES = [
+  'pending',
+  'processing',
+  'shipped',
+  'in_transit',
+  'delivered',
+  'declined',
+  'cancelled',
+]
 const STATUS_CSS = {
-  pending:    "st-pending",
-  processing: "st-processing",
-  shipped:    "st-shipped",
-  in_transit: "st-transit",
-  delivered:  "st-delivered",
-  declined:   "st-decline",
-  cancelled:  "st-cancelled",
-};
+  pending: 'st-pending',
+  processing: 'st-processing',
+  shipped: 'st-shipped',
+  in_transit: 'st-transit',
+  delivered: 'st-delivered',
+  declined: 'st-decline',
+  cancelled: 'st-cancelled',
+}
 
 const STATUS_DOT_COLOR = {
-  pending:    "var(--yellow-t)",
-  processing: "var(--blue-t)",
-  shipped:    "var(--blue-t)",
-  in_transit: "var(--cyan-t)",
-  delivered:  "var(--green-t)",
-  declined:   "var(--red-t)",
-  cancelled:  "var(--text-2)",
-};
+  pending: 'var(--yellow-t)',
+  processing: 'var(--blue-t)',
+  shipped: 'var(--blue-t)',
+  in_transit: 'var(--cyan-t)',
+  delivered: 'var(--green-t)',
+  declined: 'var(--red-t)',
+  cancelled: 'var(--text-2)',
+}
 
 // ─── Risk Check display ───────────────────────────────────────
 function RiskBlock({ result, loading }) {
-  const { t } = useLang();
-  const [open, setOpen] = useState(false);
+  const { t } = useLang()
+  const [open, setOpen] = useState(false)
 
   if (loading) {
     return (
-      <div style={{
-        display: "flex", alignItems: "center", gap: 8,
-        padding: "8px 12px", borderRadius: 12,
-        background: "var(--bg)", border: "1px solid var(--border)",
-        fontSize: 12, color: "var(--muted)",
-      }}>
-        <div style={{
-          width: 12, height: 12, borderRadius: "50%",
-          border: "1.5px solid var(--border-hi)", borderTopColor: "var(--text-2)",
-          animation: "spin 0.7s linear infinite",
-          flexShrink: 0,
-        }} />
-        {t("risk_checking")}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 12px',
+          borderRadius: 12,
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          fontSize: 12,
+          color: 'var(--muted)',
+        }}
+      >
+        <div
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: '50%',
+            border: '1.5px solid var(--border-hi)',
+            borderTopColor: 'var(--text-2)',
+            animation: 'spin 0.7s linear infinite',
+            flexShrink: 0,
+          }}
+        />
+        {t('risk_checking')}
       </div>
-    );
+    )
   }
-  if (!result) return null;
+  if (!result) return null
 
   const config = {
-    safe:      { borderColor: `${STATUS_COLORS.success}33`, bg: `${STATUS_COLORS.success}0D`, iconColor: STATUS_COLORS.success, label: t("risk_safe"), textColor: STATUS_COLORS.success },
-    warning:   { borderColor: `${STATUS_COLORS.warning}33`, bg: `${STATUS_COLORS.warning}0D`, iconColor: STATUS_COLORS.warning, label: t("risk_warning") + ": " + result.score + " " + (result.score !== 1 ? t("risk_issues") : t("risk_issue")), textColor: STATUS_COLORS.warning },
-    high_risk: { borderColor: `${STATUS_COLORS.error}33`,   bg: `${STATUS_COLORS.error}0D`,   iconColor: STATUS_COLORS.error,   label: t("risk_high") + ": " + result.score + " " + (result.score !== 1 ? t("risk_issues") : t("risk_issue")),     textColor: STATUS_COLORS.error },
-  };
-  const c = config[result.level] || config.safe;
+    safe: {
+      borderColor: `${STATUS_COLORS.success}33`,
+      bg: `${STATUS_COLORS.success}0D`,
+      iconColor: STATUS_COLORS.success,
+      label: t('risk_safe'),
+      textColor: STATUS_COLORS.success,
+    },
+    warning: {
+      borderColor: `${STATUS_COLORS.warning}33`,
+      bg: `${STATUS_COLORS.warning}0D`,
+      iconColor: STATUS_COLORS.warning,
+      label:
+        t('risk_warning') +
+        ': ' +
+        result.score +
+        ' ' +
+        (result.score !== 1 ? t('risk_issues') : t('risk_issue')),
+      textColor: STATUS_COLORS.warning,
+    },
+    high_risk: {
+      borderColor: `${STATUS_COLORS.error}33`,
+      bg: `${STATUS_COLORS.error}0D`,
+      iconColor: STATUS_COLORS.error,
+      label:
+        t('risk_high') +
+        ': ' +
+        result.score +
+        ' ' +
+        (result.score !== 1 ? t('risk_issues') : t('risk_issue')),
+      textColor: STATUS_COLORS.error,
+    },
+  }
+  const c = config[result.level] || config.safe
 
-  const IconComponent = result.level === "safe" ? CheckCircle2 : result.level === "high_risk" ? ShieldAlert : AlertTriangle;
+  const IconComponent =
+    result.level === 'safe'
+      ? CheckCircle2
+      : result.level === 'high_risk'
+        ? ShieldAlert
+        : AlertTriangle
 
   return (
-    <div style={{ borderRadius: 12, border: `1px solid ${c.borderColor}`, background: c.bg, overflow: "hidden" }}>
+    <div
+      style={{
+        borderRadius: 12,
+        border: `1px solid ${c.borderColor}`,
+        background: c.bg,
+        overflow: 'hidden',
+      }}
+    >
       <button
-        onClick={() => result.warnings?.length && setOpen((o) => !o)}
+        onClick={() => result.warnings?.length && setOpen(o => !o)}
         style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          width: "100%", padding: "8px 12px", fontSize: 12,
-          background: "transparent", border: "none", cursor: result.warnings?.length ? "pointer" : "default",
-          color: "var(--text)",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          padding: '8px 12px',
+          fontSize: 12,
+          background: 'transparent',
+          border: 'none',
+          cursor: result.warnings?.length ? 'pointer' : 'default',
+          color: 'var(--text)',
         }}
       >
         <div className="flex items-center gap-2">
           <IconComponent size={14} style={{ color: c.iconColor }} />
           <span style={{ fontWeight: 500, color: c.textColor }}>{c.label}</span>
           {result.offline && (
-            <span style={{ display: "flex", alignItems: "center", gap: 4, color: `${STATUS_COLORS.warning}B3`, fontSize: 11 }}>
-              <Wifi size={11} /> {t("license_offline")}
+            <span
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                color: `${STATUS_COLORS.warning}B3`,
+                fontSize: 11,
+              }}
+            >
+              <Wifi size={11} /> {t('license_offline')}
             </span>
           )}
         </div>
         {result.warnings?.length > 0 && (
-          <ChevronDown size={13} style={{ color: "var(--muted)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+          <ChevronDown
+            size={13}
+            style={{
+              color: 'var(--muted)',
+              transform: open ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.2s',
+            }}
+          />
         )}
       </button>
       {open && result.warnings?.length > 0 && (
         <div className="border-t border-border">
           {result.warnings.map((w, i) => (
-            <div key={i} style={{
-              padding: "8px 12px", display: "flex", alignItems: "flex-start", gap: 8,
-              fontSize: 12, borderBottom: i < result.warnings.length - 1 ? "1px solid var(--border)" : "none",
-            }}>
-              {w.severity === "high"
-                ? <AlertTriangle size={11} style={{ color: STATUS_COLORS.error, marginTop: 2, flexShrink: 0 }} />
-                : <AlertCircle size={11} style={{ color: STATUS_COLORS.warning, marginTop: 2, flexShrink: 0 }} />
-              }
+            <div
+              key={i}
+              style={{
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                fontSize: 12,
+                borderBottom: i < result.warnings.length - 1 ? '1px solid var(--border)' : 'none',
+              }}
+            >
+              {w.severity === 'high' ? (
+                <AlertTriangle
+                  size={11}
+                  style={{ color: STATUS_COLORS.error, marginTop: 2, flexShrink: 0 }}
+                />
+              ) : (
+                <AlertCircle
+                  size={11}
+                  style={{ color: STATUS_COLORS.warning, marginTop: 2, flexShrink: 0 }}
+                />
+              )}
               <span className="text-text-2">{w.message}</span>
             </div>
           ))}
         </div>
       )}
     </div>
-  );
+  )
 }
 
 // ─── ShippedModal ─────────────────────────────────────────────
 function ShippedModal({ onConfirm, onClose }) {
-  const { t } = useLang();
-  const [track, setTrack] = useState("");
-  const [carrier, setCarrier] = useState("");
-  const modalRef = useRef(null);
-  useFocusTrap(modalRef, true);
+  const { t } = useLang()
+  const [track, setTrack] = useState('')
+  const [carrier, setCarrier] = useState('')
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, true)
   return (
     <div className="modal-overlay">
-      <div ref={modalRef} className="modal" style={{ width: "var(--modal-sm)" }} role="dialog" aria-modal="true" aria-labelledby="shipped-modal-title">
+      <div
+        ref={modalRef}
+        className="modal"
+        style={{ width: 'var(--modal-sm)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shipped-modal-title"
+      >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Truck size={16} className="text-blue-t" />
-            <span id="shipped-modal-title" className="modal-title m-0">{t("order_mark_shipped")}</span>
+            <span id="shipped-modal-title" className="modal-title m-0">
+              {t('order_mark_shipped')}
+            </span>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
         </div>
         <div className="form-group">
-          <label className="form-label">{t("tracking_number")}</label>
+          <label className="form-label">{t('tracking_number')}</label>
           <input
             value={track}
-            onChange={(e) => setTrack(e.target.value)}
+            onChange={e => setTrack(e.target.value)}
             placeholder="1Z999AA10123456784"
             className="form-input font-mono"
-
           />
         </div>
         <div className="form-group">
-          <label className="form-label">{t("carrier")}</label>
+          <label className="form-label">{t('carrier')}</label>
           <input
             value={carrier}
-            onChange={(e) => setCarrier(e.target.value)}
+            onChange={e => setCarrier(e.target.value)}
             placeholder="UPS, FedEx, USPS…"
             className="form-input"
           />
         </div>
         <div className="flex gap-2 mt-2">
-          <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">{t("btn_cancel")}</button>
+          <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">
+            {t('btn_cancel')}
+          </button>
           <button
             onClick={() => onConfirm({ tracking_number: track || null, carrier: carrier || null })}
             className="btn btn-b btn-sm flex-1"
-
           >
             Confirm
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ─── StatusMenu ───────────────────────────────────────────────
 function StatusMenu({ order, onUpdate, onClose }) {
-  const { t } = useLang();
-  const [showShippedModal, setShowShippedModal] = useState(false);
-  const { toast } = useToast();
-  const { confirm } = useConfirm();
+  const { t } = useLang()
+  const [showShippedModal, setShowShippedModal] = useState(false)
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
 
-  const handleStatus = async (status) => {
-    if (status === "shipped") { setShowShippedModal(true); return; }
-    if (status === "declined" || status === "cancelled") {
+  const handleStatus = async status => {
+    if (status === 'shipped') {
+      setShowShippedModal(true)
+      return
+    }
+    if (status === 'declined' || status === 'cancelled') {
       const markDead = await confirm(
-        status === "declined" ? t("confirm_mark_card_dead") : "Order cancelled. Mark the card as dead?",
-        { confirmLabel: t("confirm_mark_dead_confirm") || "Mark as Dead", cancelLabel: t("confirm_mark_dead_cancel") || "Keep" }
-      );
+        status === 'declined'
+          ? t('confirm_mark_card_dead')
+          : 'Order cancelled. Mark the card as dead?',
+        {
+          confirmLabel: t('confirm_mark_dead_confirm') || 'Mark as Dead',
+          cancelLabel: t('confirm_mark_dead_cancel') || 'Keep',
+        }
+      )
       try {
-        await invoke("update_order_status", { id: order.id, status, meta: null });
-        if (markDead && order.card_id != null) await invoke("update_card_status", { id: order.card_id, status: "dead" });
-        toast(t("status_updated"), "success");
-        onUpdate();
-        onClose();
-      } catch (e) { toast(String(e), "error"); }
-      return;
+        await invoke('update_order_status', { id: order.id, status, meta: null })
+        if (markDead && order.card_id != null)
+          await invoke('update_card_status', { id: order.card_id, status: 'dead' })
+        toast(t('status_updated'), 'success')
+        onUpdate()
+        onClose()
+      } catch (e) {
+        toast(String(e), 'error')
+      }
+      return
     }
     try {
-      await invoke("update_order_status", { id: order.id, status, meta: null });
-      toast(t("status_updated"), "success");
-      onUpdate();
-      onClose();
-    } catch (e) { toast(String(e), "error"); }
-  };
+      await invoke('update_order_status', { id: order.id, status, meta: null })
+      toast(t('status_updated'), 'success')
+      onUpdate()
+      onClose()
+    } catch (e) {
+      toast(String(e), 'error')
+    }
+  }
 
-  const handleShipped = async (meta) => {
+  const handleShipped = async meta => {
     try {
-      await invoke("update_order_status", { id: order.id, status: "shipped", meta });
-      toast(t("order_marked_shipped"), "success");
-      onUpdate();
-      onClose();
-    } catch (e) { toast(String(e), "error"); }
-  };
+      await invoke('update_order_status', { id: order.id, status: 'shipped', meta })
+      toast(t('order_marked_shipped'), 'success')
+      onUpdate()
+      onClose()
+    } catch (e) {
+      toast(String(e), 'error')
+    }
+  }
 
   return (
     <>
-      <div style={{
-        position: "absolute", right: 0, top: 32, zIndex: 30,
-        background: "var(--card)", border: "1px solid var(--border)",
-        borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-        overflow: "hidden", width: 160,
-      }}>
-        {STATUSES.filter((s) => s !== order.status).map((s) => (
+      <div
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 32,
+          zIndex: 30,
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          overflow: 'hidden',
+          width: 160,
+        }}
+      >
+        {STATUSES.filter(s => s !== order.status).map(s => (
           <button
             key={s}
             onClick={() => handleStatus(s)}
             style={{
-              width: "100%", textAlign: "left", padding: "8px 12px",
-              fontSize: 12, color: "var(--text-2)", background: "transparent",
-              border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+              width: '100%',
+              textAlign: 'left',
+              padding: '8px 12px',
+              fontSize: 12,
+              color: 'var(--text-2)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
           >
-            <span style={{
-              width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-              backgroundColor: STATUS_DOT_COLOR[s] ?? "var(--text-2)",
-            }} />
-            {s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                flexShrink: 0,
+                backgroundColor: STATUS_DOT_COLOR[s] ?? 'var(--text-2)',
+              }}
+            />
+            {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
           </button>
         ))}
       </div>
@@ -304,32 +484,37 @@ function StatusMenu({ order, onUpdate, onClose }) {
         <ShippedModal onConfirm={handleShipped} onClose={() => setShowShippedModal(false)} />
       )}
     </>
-  );
+  )
 }
 
 // ─── E1: RepeatOrderModal ─────────────────────────────────────
 function RepeatOrderModal({ order, onCreated, onClose }) {
-  const { t } = useLang();
-  const { toast } = useToast();
-  const [profiles, setProfiles] = useState([]);
-  const [selectedProfileId, setSelectedProfileId] = useState(order.profile_id ? String(order.profile_id) : "");
-  const [loading, setLoading] = useState(false);
-  const [loadingProfiles, setLoadingProfiles] = useState(true);
-  const modalRef = useRef(null);
-  useFocusTrap(modalRef, true);
+  const { t } = useLang()
+  const { toast } = useToast()
+  const [profiles, setProfiles] = useState([])
+  const [selectedProfileId, setSelectedProfileId] = useState(
+    order.profile_id ? String(order.profile_id) : ''
+  )
+  const [loading, setLoading] = useState(false)
+  const [loadingProfiles, setLoadingProfiles] = useState(true)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, true)
 
   useEffect(() => {
-    invoke("get_profiles", { filter: {}, page: 1, perPage: 200 })
-      .then((r) => setProfiles(r.items || []))
+    invoke('get_profiles', { filter: {}, page: 1, perPage: 200 })
+      .then(r => setProfiles(r.items || []))
       .catch(() => setProfiles([]))
-      .finally(() => setLoadingProfiles(false));
-  }, []);
+      .finally(() => setLoadingProfiles(false))
+  }, [])
 
   const handleRepeat = async () => {
-    if (!selectedProfileId) { toast("Select a profile", "warn"); return; }
-    setLoading(true);
+    if (!selectedProfileId) {
+      toast('Select a profile', 'warn')
+      return
+    }
+    setLoading(true)
     try {
-      await invoke("create_order", {
+      await invoke('create_order', {
         input: {
           profile_id: parseInt(selectedProfileId),
           shop_id: order.shop_id,
@@ -340,55 +525,77 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
           notes: order.notes ?? null,
           items: order.items ?? [],
         },
-      });
-      toast("Order repeated successfully", "success");
-      onCreated();
-      onClose();
+      })
+      toast('Order repeated successfully', 'success')
+      onCreated()
+      onClose()
     } catch (e) {
-      toast(String(e), "error");
+      toast(String(e), 'error')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const shopLabel = order.shop_name || `Shop #${order.shop_id}`;
-  const itemLabel = order.items?.length > 0
-    ? order.items.map((i) => i.name).filter(Boolean).join(", ")
-    : (order.item_name ?? "—");
+  const shopLabel = order.shop_name || `Shop #${order.shop_id}`
+  const itemLabel =
+    order.items?.length > 0
+      ? order.items
+          .map(i => i.name)
+          .filter(Boolean)
+          .join(', ')
+      : (order.item_name ?? '—')
 
   return (
     <div className="modal-overlay">
-      <div ref={modalRef} className="modal" style={{ width: "var(--modal-sm)" }} role="dialog" aria-modal="true" aria-labelledby="repeat-order-title">
+      <div
+        ref={modalRef}
+        className="modal"
+        style={{ width: 'var(--modal-sm)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="repeat-order-title"
+      >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <RotateCcw size={15} className="text-blue-t" />
-            <span id="repeat-order-title" className="modal-title m-0">Repeat Order</span>
+            <span id="repeat-order-title" className="modal-title m-0">
+              Repeat Order
+            </span>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
         </div>
 
-        <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 16, lineHeight: 1.5 }}>
-          Repeat order for <strong style={{ color: "var(--text)" }}>{shopLabel}</strong>
-          {itemLabel !== "—" && (
-            <> — <span style={{ color: "var(--muted)" }}>{itemLabel}</span></>
-          )}?
+        <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16, lineHeight: 1.5 }}>
+          Repeat order for <strong style={{ color: 'var(--text)' }}>{shopLabel}</strong>
+          {itemLabel !== '—' && (
+            <>
+              {' '}
+              — <span style={{ color: 'var(--muted)' }}>{itemLabel}</span>
+            </>
+          )}
+          ?
         </div>
 
         <div className="form-group">
           <label className="form-label">Select Profile</label>
           {loadingProfiles ? (
-            <div style={{ fontSize: 12, color: "var(--muted)", padding: "8px 0" }}>Loading profiles…</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>
+              Loading profiles…
+            </div>
           ) : (
             <select
               value={selectedProfileId}
-              onChange={(e) => setSelectedProfileId(e.target.value)}
+              onChange={e => setSelectedProfileId(e.target.value)}
               className="inline-select w-full"
-              style={{ width: "100%" }}
+              style={{ width: '100%' }}
             >
               <option value="">— Select profile —</option>
-              {profiles.map((p) => (
+              {profiles.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.holder_masked || "—"} ···{p.last4 || "????"}{p.bank_name ? ` (${p.bank_name})` : ""}
+                  {p.holder_masked || '—'} ···{p.last4 || '????'}
+                  {p.bank_name ? ` (${p.bank_name})` : ''}
                 </option>
               ))}
             </select>
@@ -396,307 +603,421 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
         </div>
 
         <div className="flex gap-2 mt-4">
-          <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">{t("btn_cancel")}</button>
+          <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">
+            {t('btn_cancel')}
+          </button>
           <button
             onClick={handleRepeat}
             disabled={loading || !selectedProfileId}
             className="btn btn-b btn-sm flex-1"
-            style={{ opacity: (loading || !selectedProfileId) ? 0.4 : 1 }}
+            style={{ opacity: loading || !selectedProfileId ? 0.4 : 1 }}
           >
-            {loading ? "Creating…" : "Repeat Order"}
+            {loading ? 'Creating…' : 'Repeat Order'}
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ─── CreateOrder modal ────────────────────────────────────────
-const EMPTY_ITEM = { name: "", sku: "", qty: 1, price: "" };
+const EMPTY_ITEM = { name: '', sku: '', qty: 1, price: '' }
 
 function CreateOrderModal({ onCreated, onClose }) {
-  const { t } = useLang();
+  const { t } = useLang()
   // Step state
-  const [profileId, setProfileId] = useState("");
-  const [profileDetail, setProfileDetail] = useState(null);
-  const [shopId, setShopId] = useState(null);
-  const [shopObj, setShopObj] = useState(null);
-  const [shopSearch, setShopSearch] = useState("");
-  const [shopResults, setShopResults] = useState([]);
-  const [dropId, setDropId] = useState(null);
-  const [emailId, setEmailId] = useState(null);
-  const [emails, setEmails] = useState([]);
-  const [proxyId, setProxyId] = useState(null);
-  const [proxies, setProxies] = useState([]);
-  const [orderNumber, setOrderNumber] = useState("");
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
-  const [riskResult, setRiskResult] = useState(null);
-  const [riskLoading, setRiskLoading] = useState(false);
-  const [templates, setTemplates] = useState([]);
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-  const [templateName, setTemplateName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [itemSuggestions, setItemSuggestions] = useState({}); // {idx: [{id,name,asin,price}]}
-  const [activeItemIdx, setActiveItemIdx] = useState(null);
-  const [customEmail, setCustomEmail] = useState("");
-  const [emailMode, setEmailMode] = useState("pool"); // "pool" | "custom"
-  const [profileSearch, setProfileSearch] = useState("");
-  const [profileResults, setProfileResults] = useState([]);
+  const [profileId, setProfileId] = useState('')
+  const [profileDetail, setProfileDetail] = useState(null)
+  const [shopId, setShopId] = useState(null)
+  const [shopObj, setShopObj] = useState(null)
+  const [shopSearch, setShopSearch] = useState('')
+  const [shopResults, setShopResults] = useState([])
+  const [dropId, setDropId] = useState(null)
+  const [emailId, setEmailId] = useState(null)
+  const [emails, setEmails] = useState([])
+  const [proxyId, setProxyId] = useState(null)
+  const [proxies, setProxies] = useState([])
+  const [orderNumber, setOrderNumber] = useState('')
+  const [notes, setNotes] = useState('')
+  const [items, setItems] = useState([{ ...EMPTY_ITEM }])
+  const [riskResult, setRiskResult] = useState(null)
+  const [riskLoading, setRiskLoading] = useState(false)
+  const [templates, setTemplates] = useState([])
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [itemSuggestions, setItemSuggestions] = useState({}) // {idx: [{id,name,asin,price}]}
+  const [activeItemIdx, setActiveItemIdx] = useState(null)
+  const [customEmail, setCustomEmail] = useState('')
+  const [emailMode, setEmailMode] = useState('pool') // "pool" | "custom"
+  const [profileSearch, setProfileSearch] = useState('')
+  const [profileResults, setProfileResults] = useState([])
 
-  const { toast } = useToast();
-  const { suggestions: smartSuggs } = useSmartSuggestions(shopId, profileDetail?.card?.id);
+  const { toast } = useToast()
+  const { suggestions: smartSuggs } = useSmartSuggestions(shopId, profileDetail?.card?.id)
 
   // ── Profile search ──
-  const searchProfiles = useCallback(async (q) => {
+  const searchProfiles = useCallback(async q => {
     try {
-      const r = await invoke("get_profiles", { filter: { search: q || null, has_drop: true }, page: 1, perPage: 20 });
-      setProfileResults(r.items || []);
-    } catch { setProfileResults([]); }
-  }, []);
+      const r = await invoke('get_profiles', {
+        filter: { search: q || null, has_drop: true },
+        page: 1,
+        perPage: 20,
+      })
+      setProfileResults(r.items || [])
+    } catch {
+      setProfileResults([])
+    }
+  }, [])
 
-  useEffect(() => { searchProfiles(profileSearch); }, [profileSearch, searchProfiles]);
+  useEffect(() => {
+    searchProfiles(profileSearch)
+  }, [profileSearch, searchProfiles])
 
-  const selectProfile = async (p) => {
-    setProfileId(p.id);
-    setProfileSearch(`${p.holder_masked || "—"} ···${p.last4 || "????"}`);
-    setProfileResults([]);
+  const selectProfile = async p => {
+    setProfileId(p.id)
+    setProfileSearch(`${p.holder_masked || '—'} ···${p.last4 || '????'}`)
+    setProfileResults([])
     try {
-      const d = await invoke("get_profile_detail", { id: p.id });
-      setProfileDetail(d);
+      const d = await invoke('get_profile_detail', { id: p.id })
+      setProfileDetail(d)
       // Default to primary drop
-      const primary = d.drops?.find((dd) => dd.is_primary) || d.drops?.[0];
-      if (primary) setDropId(primary.id);
-    } catch { setProfileDetail(null); }
-  };
+      const primary = d.drops?.find(dd => dd.is_primary) || d.drops?.[0]
+      if (primary) setDropId(primary.id)
+    } catch {
+      setProfileDetail(null)
+    }
+  }
 
   // ── Shop search ──
-  const searchShops = useCallback(async (q) => {
-    if (!q.trim()) { setShopResults([]); return; }
+  const searchShops = useCallback(async q => {
+    if (!q.trim()) {
+      setShopResults([])
+      return
+    }
     try {
       const [local, catalog] = await Promise.all([
-        invoke("get_shops", { page: 1, perPage: 8, search: q }).then(r => r.items || []).catch(() => []),
-        invoke("search_catalog_shops", { q, limit: 6 }).then(r => r.map(s => ({ ...s, _fromCatalog: true }))).catch(() => []),
-      ]);
+        invoke('get_shops', { page: 1, perPage: 8, search: q })
+          .then(r => r.items || [])
+          .catch(() => []),
+        invoke('search_catalog_shops', { q, limit: 6 })
+          .then(r => r.map(s => ({ ...s, _fromCatalog: true })))
+          .catch(() => []),
+      ])
       // Merge: local first, then catalog items not already in local
-      const localDomains = new Set(local.map(s => s.domain));
-      const merged = [...local, ...catalog.filter(s => !localDomains.has(s.domain))];
-      setShopResults(merged);
-    } catch { setShopResults([]); }
-  }, []);
+      const localDomains = new Set(local.map(s => s.domain))
+      const merged = [...local, ...catalog.filter(s => !localDomains.has(s.domain))]
+      setShopResults(merged)
+    } catch {
+      setShopResults([])
+    }
+  }, [])
 
   const searchCatalogItems = useCallback(async (q, idx) => {
-    if (!q || q.length < 2) { setItemSuggestions(p => ({ ...p, [idx]: [] })); return; }
+    if (!q || q.length < 2) {
+      setItemSuggestions(p => ({ ...p, [idx]: [] }))
+      return
+    }
     try {
-      const results = await invoke("search_catalog_items", { q, limit: 8 });
-      setItemSuggestions(p => ({ ...p, [idx]: results }));
-    } catch { setItemSuggestions(p => ({ ...p, [idx]: [] })); }
-  }, []);
+      const results = await invoke('search_catalog_items', { q, limit: 8 })
+      setItemSuggestions(p => ({ ...p, [idx]: results }))
+    } catch {
+      setItemSuggestions(p => ({ ...p, [idx]: [] }))
+    }
+  }, [])
 
-  useEffect(() => { searchShops(shopSearch); }, [shopSearch, searchShops]);
+  useEffect(() => {
+    searchShops(shopSearch)
+  }, [shopSearch, searchShops])
 
-  const selectShop = async (s) => {
+  const selectShop = async s => {
     if (s._fromCatalog) {
       // Quick-create local shop from catalog data
       try {
-        const created = await invoke("create_shop", {
+        const created = await invoke('create_shop', {
           input: {
             name: s.domain,
             url: `https://${s.domain}`,
-            category: s.category || "",
-            notes: s.top_products ? `Top products: ${s.top_products}` : "",
+            category: s.category || '',
+            notes: s.top_products ? `Top products: ${s.top_products}` : '',
             requires_cvv_match: false,
             blocks_vpn: false,
             phone_must_match: false,
             accepts_amex: false,
             requires_avs: false,
             high_cancel_risk: false,
-          }
-        });
-        setShopId(created.id);
-        setShopObj(created);
-        setShopSearch(created.domain);
+          },
+        })
+        setShopId(created.id)
+        setShopObj(created)
+        setShopSearch(created.domain)
       } catch (e) {
         // Fallback: create shop with minimal info
         try {
-          const created = await invoke("create_shop", {
+          const created = await invoke('create_shop', {
             input: {
               name: s.domain,
               url: `https://${s.domain}`,
-              category: "",
-              notes: "",
+              category: '',
+              notes: '',
               requires_cvv_match: false,
               blocks_vpn: false,
               phone_must_match: false,
               accepts_amex: false,
               requires_avs: false,
               high_cancel_risk: false,
-            }
-          });
-          setShopId(created.id);
-          setShopObj(created);
-          setShopSearch(created.domain);
-        } catch { /* ignore */ }
+            },
+          })
+          setShopId(created.id)
+          setShopObj(created)
+          setShopSearch(created.domain)
+        } catch {
+          /* ignore */
+        }
       }
-      setShopResults([]);
-      return;
+      setShopResults([])
+      return
     }
-    setShopId(s.id);
-    setShopObj(s);
-    setShopSearch(s.name || s.domain);
-    setShopResults([]);
+    setShopId(s.id)
+    setShopObj(s)
+    setShopSearch(s.name || s.domain)
+    setShopResults([])
     try {
       const [em, px, tmpl] = await Promise.all([
-        invoke("get_emails", { filter: {}, page: 1, perPage: 100 }),
-        invoke("get_proxies", { filter: {}, page: 1, perPage: 100 }),
-        invoke("get_order_templates", { shopTag: s.domain }),
-      ]);
-      setEmails(em.items || []);
-      setProxies(px.items || []);
-      setTemplates(tmpl || []);
-    } catch { /* non-fatal */ }
-  };
+        invoke('get_emails', { filter: {}, page: 1, perPage: 100 }),
+        invoke('get_proxies', { filter: {}, page: 1, perPage: 100 }),
+        invoke('get_order_templates', { shopTag: s.domain }),
+      ])
+      setEmails(em.items || [])
+      setProxies(px.items || [])
+      setTemplates(tmpl || [])
+    } catch {
+      /* non-fatal */
+    }
+  }
 
   // ── Risk check ──
   useEffect(() => {
-    if (!profileId || !shopId || !dropId) { setRiskResult(null); return; }
+    if (!profileId || !shopId || !dropId) {
+      setRiskResult(null)
+      return
+    }
     const timer = setTimeout(async () => {
-      setRiskLoading(true);
+      setRiskLoading(true)
       try {
-        const r = await invoke("run_risk_check", {
-          profileId, shopId, dropId,
+        const r = await invoke('run_risk_check', {
+          profileId,
+          shopId,
+          dropId,
           emailPoolId: emailId || null,
           proxyId: proxyId || null,
-        });
-        setRiskResult(r);
+        })
+        setRiskResult(r)
       } catch {
-        setRiskResult({ level: "safe", score: 0, warnings: [], offline: true });
+        setRiskResult({ level: 'safe', score: 0, warnings: [], offline: true })
       } finally {
-        setRiskLoading(false);
+        setRiskLoading(false)
       }
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [profileId, shopId, dropId, emailId, proxyId]);
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [profileId, shopId, dropId, emailId, proxyId])
 
   // ── Items ──
-  const total = items.reduce((s, i) => s + (parseInt(i.qty) || 0) * (parseFloat(i.price) || 0), 0);
-  const setItem = (idx, key, val) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, [key]: val } : it));
-  const addItem = () => setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
-  const removeItem = (idx) => setItems((prev) => prev.filter((_, i) => i !== idx));
+  const total = items.reduce((s, i) => s + (parseInt(i.qty) || 0) * (parseFloat(i.price) || 0), 0)
+  const setItem = (idx, key, val) =>
+    setItems(prev => prev.map((it, i) => (i === idx ? { ...it, [key]: val } : it)))
+  const addItem = () => setItems(prev => [...prev, { ...EMPTY_ITEM }])
+  const removeItem = idx => setItems(prev => prev.filter((_, i) => i !== idx))
 
   // ── Template ──
-  const loadTemplate = (tmpl) => {
+  const loadTemplate = tmpl => {
     try {
-      const parsed = JSON.parse(tmpl.items_json);
-      setItems(parsed.map((it) => ({ ...it, price: String(it.price) })));
-    } catch { toast(t("template_invalid"), "error"); }
-  };
+      const parsed = JSON.parse(tmpl.items_json)
+      setItems(parsed.map(it => ({ ...it, price: String(it.price) })))
+    } catch {
+      toast(t('template_invalid'), 'error')
+    }
+  }
 
   const handleSaveTemplate = async () => {
-    if (!templateName.trim()) return;
+    if (!templateName.trim()) return
     try {
-      await invoke("save_order_template", {
-        input: { name: templateName, shop_tag: shopObj?.domain || null, items_json: JSON.stringify(items) }
-      });
-      toast("Template saved", "success");
-      setShowSaveTemplate(false);
-      setTemplateName("");
-    } catch (e) { toast(String(e), "error"); }
-  };
+      await invoke('save_order_template', {
+        input: {
+          name: templateName,
+          shop_tag: shopObj?.domain || null,
+          items_json: JSON.stringify(items),
+        },
+      })
+      toast('Template saved', 'success')
+      setShowSaveTemplate(false)
+      setTemplateName('')
+    } catch (e) {
+      toast(String(e), 'error')
+    }
+  }
 
   // ── Submit ──
   const handleCreate = async () => {
     if (!profileId || !shopId || !dropId) {
-      toast("Profile, shop and drop are required", "warn");
-      return;
+      toast('Profile, shop and drop are required', 'warn')
+      return
     }
-    setLoading(true);
+    setLoading(true)
     try {
       const itemsPayload = items
-        .filter((i) => i.name.trim())
-        .map((i) => ({ name: i.name, sku: i.sku, qty: parseInt(i.qty) || 1, price: parseFloat(i.price) || 0 }));
+        .filter(i => i.name.trim())
+        .map(i => ({
+          name: i.name,
+          sku: i.sku,
+          qty: parseInt(i.qty) || 1,
+          price: parseFloat(i.price) || 0,
+        }))
 
-      const notesWithEmail = emailMode === "custom" && customEmail
-        ? `Email: ${customEmail}${notes ? `\n${notes}` : ""}`
-        : notes;
-      await invoke("create_order", {
+      const notesWithEmail =
+        emailMode === 'custom' && customEmail
+          ? `Email: ${customEmail}${notes ? `\n${notes}` : ''}`
+          : notes
+      await invoke('create_order', {
         input: {
           profile_id: profileId,
           shop_id: shopId,
           drop_id: dropId,
-          email_pool_id: emailMode === "pool" ? (emailId || null) : null,
+          email_pool_id: emailMode === 'pool' ? emailId || null : null,
           proxy_id: proxyId || null,
           order_number: orderNumber || null,
           notes: notesWithEmail || null,
           items: itemsPayload,
-        }
-      });
-      toast("Order created", "success");
-      onCreated();
-      onClose();
+        },
+      })
+      toast('Order created', 'success')
+      onCreated()
+      onClose()
     } catch (e) {
-      toast(String(e), "error");
+      toast(String(e), 'error')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const FLAGS = [
-    { key: "requires_cvv_match", label: t("flag_cvv_match"),    color: { color: STATUS_COLORS.info, background: STATUS_COLORS.infoBg } },
-    { key: "blocks_vpn",         label: t("flag_blocks_vpn"),   color: { color: STATUS_COLORS.error, background: STATUS_COLORS.errorBg } },
-    { key: "phone_must_match",   label: t("flag_phone_match"),  color: { color: "var(--yellow-t)", background: "rgba(251,191,36,0.1)" } },
-    { key: "requires_avs",       label: "AVS",                  color: { color: STATUS_COLORS.info, background: "rgba(192,132,252,0.1)" } },
-    { key: "high_cancel_risk",   label: t("flag_cancel_risk"),  color: { color: "#fb923c", background: "rgba(251,146,60,0.1)" } },
-  ];
+    {
+      key: 'requires_cvv_match',
+      label: t('flag_cvv_match'),
+      color: { color: STATUS_COLORS.info, background: STATUS_COLORS.infoBg },
+    },
+    {
+      key: 'blocks_vpn',
+      label: t('flag_blocks_vpn'),
+      color: { color: STATUS_COLORS.error, background: STATUS_COLORS.errorBg },
+    },
+    {
+      key: 'phone_must_match',
+      label: t('flag_phone_match'),
+      color: { color: 'var(--yellow-t)', background: 'var(--color-warning-bg)' },
+    },
+    {
+      key: 'requires_avs',
+      label: 'AVS',
+      color: { color: STATUS_COLORS.info, background: 'var(--color-info-bg)' },
+    },
+    {
+      key: 'high_cancel_risk',
+      label: t('flag_cancel_risk'),
+      color: { color: 'var(--orange)', background: 'var(--color-warning-bg)' },
+    },
+  ]
 
-  const drops = profileDetail?.drops || [];
-  const primaryDrop = drops.find((d) => d.is_primary) || drops[0];
+  const drops = profileDetail?.drops || []
+  const primaryDrop = drops.find(d => d.is_primary) || drops[0]
 
   const inputStyle = {
-    width: "100%", boxSizing: "border-box",
-    background: "var(--bg)", border: "1px solid var(--border)",
-    borderRadius: 12, padding: "10px 16px",
-    fontSize: 13, color: "var(--text)",
-    outline: "none", transition: "border-color 0.15s",
-  };
+    width: '100%',
+    boxSizing: 'border-box',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
+    borderRadius: 12,
+    padding: '10px 16px',
+    fontSize: 13,
+    color: 'var(--text)',
+    outline: 'none',
+    transition: 'border-color 0.15s',
+  }
   const smallInputStyle = {
-    ...inputStyle, borderRadius: 8, padding: "7px 12px", fontSize: 12,
-  };
+    ...inputStyle,
+    borderRadius: 8,
+    padding: '7px 12px',
+    fontSize: 12,
+  }
   const dropdownStyle = {
-    position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)",
-    zIndex: 20, background: "var(--card)", border: "1px solid var(--border)",
-    borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-    overflow: "hidden", maxHeight: 208, overflowY: "auto",
-  };
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 'calc(100% + 4px)',
+    zIndex: 20,
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRadius: 12,
+    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    overflow: 'hidden',
+    maxHeight: 208,
+    overflowY: 'auto',
+  }
   const dropdownBtnStyle = {
-    width: "100%", textAlign: "left", padding: "10px 16px",
-    background: "transparent", border: "none", borderBottom: "1px solid var(--border)",
-    cursor: "pointer", color: "var(--text)",
-  };
-  const createModalRef = useRef(null);
-  useFocusTrap(createModalRef, true);
+    width: '100%',
+    textAlign: 'left',
+    padding: '10px 16px',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '1px solid var(--border)',
+    cursor: 'pointer',
+    color: 'var(--text)',
+  }
+  const createModalRef = useRef(null)
+  useFocusTrap(createModalRef, true)
 
   // Scroll lock
   useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
 
   return (
-    <div className="modal-overlay items-start overflow-y-auto py-6" >
-      <div ref={createModalRef} className="modal" style={{ width: "var(--modal-lg)", margin: "auto" }} role="dialog" aria-modal="true" aria-labelledby="create-order-title">
+    <div className="modal-overlay items-start overflow-y-auto py-6">
+      <div
+        ref={createModalRef}
+        className="modal"
+        style={{ width: 'var(--modal-lg)', margin: 'auto' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-order-title"
+      >
         {/* Header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "16px 24px", borderBottom: "1px solid var(--border)",
-          position: "sticky", top: 0, background: "var(--card)", zIndex: 10,
-          borderRadius: "12px 12px 0 0",
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 24px',
+            borderBottom: '1px solid var(--border)',
+            position: 'sticky',
+            top: 0,
+            background: 'var(--card)',
+            zIndex: 10,
+            borderRadius: '12px 12px 0 0',
+          }}
+        >
           <div className="flex items-center gap-2">
             <ShoppingCart size={16} className="text-blue-t" />
-            <span id="create-order-title" style={{ fontWeight: 600, color: "var(--text)" }}>{t("create_order")}</span>
+            <span id="create-order-title" style={{ fontWeight: 600, color: 'var(--text)' }}>
+              {t('create_order')}
+            </span>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
         </div>
 
         <div className="p-6 flex flex-col gap-5">
@@ -706,22 +1027,38 @@ function CreateOrderModal({ onCreated, onClose }) {
             <div className="relative">
               <input
                 value={profileSearch}
-                onChange={(e) => { setProfileSearch(e.target.value); setProfileId(""); setProfileDetail(null); }}
-                placeholder={t("orders_holder_search_placeholder")}
+                onChange={e => {
+                  setProfileSearch(e.target.value)
+                  setProfileId('')
+                  setProfileDetail(null)
+                }}
+                placeholder={t('orders_holder_search_placeholder')}
                 style={inputStyle}
               />
               {profileResults.length > 0 && (
                 <div style={dropdownStyle}>
-                  {profileResults.map((p) => (
-                    <button key={p.id} onClick={() => selectProfile(p)} style={dropdownBtnStyle}
-                    >
+                  {profileResults.map(p => (
+                    <button key={p.id} onClick={() => selectProfile(p)} style={dropdownBtnStyle}>
                       <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-text">{p.holder_masked || "—"}</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--muted)" }}>
+                        <span className="text-[13px] text-text">{p.holder_masked || '—'}</span>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            fontSize: 12,
+                            color: 'var(--muted)',
+                          }}
+                        >
                           <span className="font-mono">···{p.last4}</span>
-                          <span>{p.bank_name || ""}</span>
-                          <span style={{ color: p.drop_count > 0 ? STATUS_COLORS.success : STATUS_COLORS.warning }}>
-                            {p.drop_count} drop{p.drop_count !== 1 ? "s" : ""}
+                          <span>{p.bank_name || ''}</span>
+                          <span
+                            style={{
+                              color:
+                                p.drop_count > 0 ? STATUS_COLORS.success : STATUS_COLORS.warning,
+                            }}
+                          >
+                            {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
                           </span>
                         </div>
                       </div>
@@ -732,23 +1069,42 @@ function CreateOrderModal({ onCreated, onClose }) {
             </div>
             {/* Profile card */}
             {profileDetail && (
-              <div style={{
-                marginTop: 8, background: "var(--bg)", borderRadius: 12,
-                border: "1px solid var(--border)", padding: "12px 16px",
-                display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, fontSize: 12,
-              }}>
+              <div
+                style={{
+                  marginTop: 8,
+                  background: 'var(--bg)',
+                  borderRadius: 12,
+                  border: '1px solid var(--border)',
+                  padding: '12px 16px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 1fr',
+                  gap: 12,
+                  fontSize: 12,
+                }}
+              >
                 <div>
                   <div className="text-muted mb-0.5">Card</div>
-                  <div style={{ color: "var(--text)", fontFamily: "'JetBrains Mono',monospace" }}>···{profileDetail.profile.last4 || profileDetail.card?.last4}</div>
+                  <div style={{ color: 'var(--text)', fontFamily: "'JetBrains Mono',monospace" }}>
+                    ···{profileDetail.profile.last4 || profileDetail.card?.last4}
+                  </div>
                 </div>
                 <div>
                   <div className="text-muted mb-0.5">Bank</div>
-                  <div className="text-text">{profileDetail.card?.bank_name || "—"}</div>
+                  <div className="text-text">{profileDetail.card?.bank_name || '—'}</div>
                 </div>
                 <div>
-                  <div className="text-muted mb-0.5">{t("primary_drop")}</div>
-                  <div style={{ color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {primaryDrop ? `${primaryDrop.city}, ${primaryDrop.country}` : t("profile_no_drop")}
+                  <div className="text-muted mb-0.5">{t('primary_drop')}</div>
+                  <div
+                    style={{
+                      color: 'var(--text)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {primaryDrop
+                      ? `${primaryDrop.city}, ${primaryDrop.country}`
+                      : t('profile_no_drop')}
                   </div>
                 </div>
               </div>
@@ -761,22 +1117,61 @@ function CreateOrderModal({ onCreated, onClose }) {
             <div className="relative">
               <input
                 value={shopSearch}
-                onChange={(e) => { setShopSearch(e.target.value); setShopId(null); setShopObj(null); }}
-                placeholder={t("orders_shop_search_placeholder")}
+                onChange={e => {
+                  setShopSearch(e.target.value)
+                  setShopId(null)
+                  setShopObj(null)
+                }}
+                placeholder={t('orders_shop_search_placeholder')}
                 style={inputStyle}
               />
               {shopResults.length > 0 && (
                 <div style={dropdownStyle}>
-                  {shopResults.map((s) => (
-                    <button key={s._fromCatalog ? `cat-${s.id}` : s.id} onClick={() => selectShop(s)} style={dropdownBtnStyle}>
+                  {shopResults.map(s => (
+                    <button
+                      key={s._fromCatalog ? `cat-${s.id}` : s.id}
+                      onClick={() => selectShop(s)}
+                      style={dropdownBtnStyle}
+                    >
                       <div className="flex items-center justify-between">
-                        <span style={{ fontSize: 13, color: "var(--text)" }}>{s.name || s.domain}</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)" }}>
+                        <span style={{ fontSize: 13, color: 'var(--text)' }}>
+                          {s.name || s.domain}
+                        </span>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            fontSize: 11,
+                            color: 'var(--muted)',
+                          }}
+                        >
                           {s._fromCatalog && (
-                            <span style={{ fontSize: 9, color: STATUS_COLORS.info, background: STATUS_COLORS.infoBg, padding: "1px 5px", borderRadius: 999 }}>catalog</span>
+                            <span
+                              style={{
+                                fontSize: 9,
+                                color: STATUS_COLORS.info,
+                                background: STATUS_COLORS.infoBg,
+                                padding: '1px 5px',
+                                borderRadius: 999,
+                              }}
+                            >
+                              catalog
+                            </span>
                           )}
-                          {s.domain && !s._fromCatalog && <span style={{ fontFamily: "monospace" }}>{s.domain}</span>}
-                          {s.score > 0 && <span style={{ color: s.score >= 60 ? STATUS_COLORS.success : STATUS_COLORS.warning }}>★{s.score}</span>}
+                          {s.domain && !s._fromCatalog && (
+                            <span style={{ fontFamily: 'monospace' }}>{s.domain}</span>
+                          )}
+                          {s.score > 0 && (
+                            <span
+                              style={{
+                                color:
+                                  s.score >= 60 ? STATUS_COLORS.success : STATUS_COLORS.warning,
+                              }}
+                            >
+                              ★{s.score}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -788,19 +1183,38 @@ function CreateOrderModal({ onCreated, onClose }) {
             {shopObj && (
               <div className="mt-2 flex flex-col gap-2">
                 <div className="flex flex-wrap gap-1.5">
-                  {FLAGS.filter((f) => shopObj[f.key]).map((f) => (
-                    <span key={f.key} style={{
-                      fontSize: 10, padding: "2px 8px", borderRadius: 999,
-                      ...f.color,
-                    }}>{f.label}</span>
+                  {FLAGS.filter(f => shopObj[f.key]).map(f => (
+                    <span
+                      key={f.key}
+                      style={{
+                        fontSize: 10,
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        ...f.color,
+                      }}
+                    >
+                      {f.label}
+                    </span>
                   ))}
                 </div>
                 {smartSuggs?.length > 0 && (
                   <div className="flex flex-col gap-1">
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted)" }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: 10,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        color: 'var(--muted)',
+                      }}
+                    >
                       <Sparkles size={11} /> Smart Suggestions
                     </div>
-                    {smartSuggs.map((s, i) => <SuggestionBadge key={i} s={s} />)}
+                    {smartSuggs.map((s, i) => (
+                      <SuggestionBadge key={i} s={s} />
+                    ))}
                   </div>
                 )}
               </div>
@@ -812,36 +1226,72 @@ function CreateOrderModal({ onCreated, onClose }) {
             <div>
               <label className="form-label">3. Shipping Address</label>
               <div className="flex flex-col gap-1.5">
-                {drops.map((d) => (
+                {drops.map(d => (
                   <label
                     key={d.id}
                     onClick={() => setDropId(d.id)}
                     style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      padding: "10px 12px", borderRadius: 12, cursor: "pointer",
-                      border: dropId === d.id ? "1px solid var(--accent-border)" : "1px solid var(--border)",
-                      background: dropId === d.id ? STATUS_COLORS.infoBg : "transparent",
-                      transition: "border-color 0.15s, background 0.15s",
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      cursor: 'pointer',
+                      border:
+                        dropId === d.id
+                          ? '1px solid var(--accent-border)'
+                          : '1px solid var(--border)',
+                      background: dropId === d.id ? STATUS_COLORS.infoBg : 'transparent',
+                      transition: 'border-color 0.15s, background 0.15s',
                     }}
                   >
-                    <div style={{
-                      width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
-                      border: dropId === d.id ? "none" : "1px solid var(--border-hi)",
-                      background: dropId === d.id ? "var(--accent)" : "transparent",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      transition: "background 0.15s",
-                    }}>
-                      {dropId === d.id && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--text)" }} />}
+                    <div
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        border: dropId === d.id ? 'none' : '1px solid var(--border-hi)',
+                        background: dropId === d.id ? 'var(--accent)' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'background 0.15s',
+                      }}
+                    >
+                      {dropId === d.id && (
+                        <div
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: 'var(--text)',
+                          }}
+                        />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 text-[12px]">
-                        <span style={{ color: "var(--text)", fontWeight: 500 }}>{d.recipient_name}</span>
+                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>
+                          {d.recipient_name}
+                        </span>
                         {d.is_primary && (
-                          <span style={{ fontSize: 9, color: STATUS_COLORS.success, background: `${STATUS_COLORS.success}1A`, padding: "1px 6px", borderRadius: 999 }}>primary</span>
+                          <span
+                            style={{
+                              fontSize: 9,
+                              color: STATUS_COLORS.success,
+                              background: `${STATUS_COLORS.success}1A`,
+                              padding: '1px 6px',
+                              borderRadius: 999,
+                            }}
+                          >
+                            primary
+                          </span>
                         )}
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                        {d.address}, {d.city}{d.state ? `, ${d.state}` : ""} {d.zip}, {d.country}
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {d.address}, {d.city}
+                        {d.state ? `, ${d.state}` : ''} {d.zip}, {d.country}
                       </div>
                     </div>
                   </label>
@@ -854,44 +1304,62 @@ function CreateOrderModal({ onCreated, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="form-label">4. Email (optional)</label>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', gap: 4 }}>
                   <button
-                    onClick={() => setEmailMode("pool")}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)", cursor: "pointer",
-                      background: emailMode === "pool" ? `${STATUS_COLORS.info}26` : "transparent",
-                      color: emailMode === "pool" ? "var(--blue-t)" : "var(--muted)" }}
-                  >Pool</button>
+                    onClick={() => setEmailMode('pool')}
+                    style={{
+                      fontSize: 11,
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      background: emailMode === 'pool' ? `${STATUS_COLORS.info}26` : 'transparent',
+                      color: emailMode === 'pool' ? 'var(--blue-t)' : 'var(--muted)',
+                    }}
+                  >
+                    Pool
+                  </button>
                   <button
-                    onClick={() => setEmailMode("custom")}
-                    style={{ fontSize: 11, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)", cursor: "pointer",
-                      background: emailMode === "custom" ? `${STATUS_COLORS.info}26` : "transparent",
-                      color: emailMode === "custom" ? "var(--blue-t)" : "var(--muted)" }}
-                  >Custom</button>
+                    onClick={() => setEmailMode('custom')}
+                    style={{
+                      fontSize: 11,
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      border: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      background:
+                        emailMode === 'custom' ? `${STATUS_COLORS.info}26` : 'transparent',
+                      color: emailMode === 'custom' ? 'var(--blue-t)' : 'var(--muted)',
+                    }}
+                  >
+                    Custom
+                  </button>
                 </div>
-                {emailMode === "pool" ? (
+                {emailMode === 'pool' ? (
                   <select
-                    value={emailId || ""}
-                    onChange={(e) => setEmailId(e.target.value ? parseInt(e.target.value) : null)}
+                    value={emailId || ''}
+                    onChange={e => setEmailId(e.target.value ? parseInt(e.target.value) : null)}
                     className="inline-select w-full"
                   >
                     <option value="">— None —</option>
-                    {emails.map((em) => {
-                      const usedHere = em.shops_used?.some((s) => s.id === shopId);
+                    {emails.map(em => {
+                      const usedHere = em.shops_used?.some(s => s.id === shopId)
                       return (
                         <option key={em.id} value={em.id} disabled={em.is_blocked}>
-                          {em.is_blocked ? "⛔" : usedHere ? "⚠" : "✓"} {em.email} {em.label ? `(${em.label})` : ""}
+                          {em.is_blocked ? '⛔' : usedHere ? '⚠' : '✓'} {em.email}{' '}
+                          {em.label ? `(${em.label})` : ''}
                         </option>
-                      );
+                      )
                     })}
                   </select>
                 ) : (
                   <input
                     type="email"
                     value={customEmail}
-                    onChange={(e) => setCustomEmail(e.target.value)}
+                    onChange={e => setCustomEmail(e.target.value)}
                     placeholder="user@example.com"
-                    style={{ ...inputStyle, padding: "8px 12px", fontSize: 13 }}
+                    style={{ ...inputStyle, padding: '8px 12px', fontSize: 13 }}
                   />
                 )}
               </div>
@@ -899,44 +1367,61 @@ function CreateOrderModal({ onCreated, onClose }) {
             <div>
               <label className="form-label">5. Proxy (optional)</label>
               <select
-                value={proxyId || ""}
-                onChange={(e) => setProxyId(e.target.value ? parseInt(e.target.value) : null)}
+                value={proxyId || ''}
+                onChange={e => setProxyId(e.target.value ? parseInt(e.target.value) : null)}
                 className="inline-select w-full"
               >
                 <option value="">— None —</option>
-                {proxies.map((px) => {
-                  const usedHere = px.shops_used?.some((s) => s.id === shopId);
+                {proxies.map(px => {
+                  const usedHere = px.shops_used?.some(s => s.id === shopId)
                   return (
                     <option key={px.id} value={px.id} disabled={px.is_blocked}>
-                      {px.is_blocked ? "🔴" : usedHere ? "⚠️" : "✓"} {px.label || `${px.host}:${px.port}`} ({px.proxy_type.toUpperCase()})
+                      {px.is_blocked ? '🔴' : usedHere ? '⚠️' : '✓'}{' '}
+                      {px.label || `${px.host}:${px.port}`} ({px.proxy_type.toUpperCase()})
                     </option>
-                  );
+                  )
                 })}
               </select>
               {/* G3: Geo-match hint — show recommended proxies matching profile billing country */}
               {(() => {
-                const billingCountry = profileDetail?.profile?.country || profileDetail?.card?.country;
-                if (!billingCountry || proxies.length === 0) return null;
+                const billingCountry =
+                  profileDetail?.profile?.country || profileDetail?.card?.country
+                if (!billingCountry || proxies.length === 0) return null
                 const geoMatches = proxies.filter(
-                  px => !px.is_blocked && px.country && px.country.toUpperCase() === billingCountry.toUpperCase()
-                );
-                if (geoMatches.length === 0) return null;
+                  px =>
+                    !px.is_blocked &&
+                    px.country &&
+                    px.country.toUpperCase() === billingCountry.toUpperCase()
+                )
+                if (geoMatches.length === 0) return null
                 return (
-                  <div style={{
-                    marginTop: 6, padding: "6px 10px", borderRadius: 8,
-                    background: STATUS_COLORS.infoBg, border: `1px solid ${STATUS_COLORS.info}33`,
-                    fontSize: 11, color: "var(--text-2)", display: "flex", flexDirection: "column", gap: 3,
-                  }}>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      background: STATUS_COLORS.infoBg,
+                      border: `1px solid ${STATUS_COLORS.info}33`,
+                      fontSize: 11,
+                      color: 'var(--text-2)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 3,
+                    }}
+                  >
                     <div style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
                       🎯 {billingCountry.toUpperCase()} proxy recommended for this profile
                     </div>
                     {geoMatches.slice(0, 3).map(px => (
-                      <div key={px.id} style={{ color: "var(--muted)", fontFamily: "JetBrains Mono, monospace" }}>
+                      <div
+                        key={px.id}
+                        style={{ color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace' }}
+                      >
                         {px.label || `${px.host}:${px.port}`}
                       </div>
                     ))}
                   </div>
-                );
+                )
               })()}
             </div>
           </div>
@@ -952,7 +1437,7 @@ function CreateOrderModal({ onCreated, onClose }) {
             <label className="form-label">7. Order Number (optional)</label>
             <input
               value={orderNumber}
-              onChange={(e) => setOrderNumber(e.target.value)}
+              onChange={e => setOrderNumber(e.target.value)}
               placeholder="ORD-12345"
               style={{ ...inputStyle, fontFamily: "'JetBrains Mono',monospace" }}
             />
@@ -966,24 +1451,47 @@ function CreateOrderModal({ onCreated, onClose }) {
                 {/* Load template */}
                 {templates.length > 0 && (
                   <div className="relative template-group">
-                    <button
-                      className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer"
-                    >
+                    <button className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer">
                       <FolderOpen size={12} /> Templates
                     </button>
-                    <div style={{
-                      position: "absolute", right: 0, top: "100%", marginTop: 4,
-                      display: "none", zIndex: 20,
-                      background: "var(--card)", border: "1px solid var(--border)",
-                      borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-                      minWidth: 180, overflow: "hidden",
-                    }}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: '100%',
+                        marginTop: 4,
+                        display: 'none',
+                        zIndex: 20,
+                        background: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 12,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                        minWidth: 180,
+                        overflow: 'hidden',
+                      }}
                     >
-                      {templates.map((t) => (
-                        <button key={t.id} onClick={() => loadTemplate(t)}
-                          style={{ width: "100%", textAlign: "left", padding: "8px 12px", fontSize: 12, color: "var(--text-2)", background: "transparent", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                      {templates.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => loadTemplate(t)}
+                          style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            color: 'var(--text-2)',
+                            background: 'transparent',
+                            border: 'none',
+                            borderBottom: '1px solid var(--border)',
+                            cursor: 'pointer',
+                          }}
                         >
-                          {t.name}{t.shop_tag && <span style={{ color: "var(--muted)", marginLeft: 4 }}>({t.shop_tag})</span>}
+                          {t.name}
+                          {t.shop_tag && (
+                            <span style={{ color: 'var(--muted)', marginLeft: 4 }}>
+                              ({t.shop_tag})
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -1000,63 +1508,142 @@ function CreateOrderModal({ onCreated, onClose }) {
 
             <div className="flex flex-col gap-2">
               {items.map((item, idx) => (
-                <div key={idx} className="grid gap-2 items-center" style={{ gridTemplateColumns: "4fr 3fr 2fr 2fr 1fr" }}>
-                  <div style={{ position: "relative" }}>
+                <div
+                  key={idx}
+                  className="grid gap-2 items-center"
+                  style={{ gridTemplateColumns: '4fr 3fr 2fr 2fr 1fr' }}
+                >
+                  <div style={{ position: 'relative' }}>
                     <input
                       value={item.name}
-                      onChange={(e) => {
-                        setItem(idx, "name", e.target.value);
-                        setActiveItemIdx(idx);
-                        searchCatalogItems(e.target.value, idx);
+                      onChange={e => {
+                        setItem(idx, 'name', e.target.value)
+                        setActiveItemIdx(idx)
+                        searchCatalogItems(e.target.value, idx)
                       }}
-                      onBlur={() => setTimeout(() => {
-                        setItemSuggestions(p => ({ ...p, [idx]: [] }));
-                        setActiveItemIdx(null);
-                      }, 200)}
-                      placeholder={t("item_name")}
+                      onBlur={() =>
+                        setTimeout(() => {
+                          setItemSuggestions(p => ({ ...p, [idx]: [] }))
+                          setActiveItemIdx(null)
+                        }, 200)
+                      }
+                      placeholder={t('item_name')}
                       style={smallInputStyle}
                     />
                     {activeItemIdx === idx && (itemSuggestions[idx] || []).length > 0 && (
-                      <div style={{
-                        position: "absolute", left: 0, right: 0, top: "100%", zIndex: 30,
-                        background: "var(--card)", border: "1px solid var(--border)",
-                        borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-                        maxHeight: 200, overflowY: "auto",
-                      }}>
-                        {(itemSuggestions[idx] || []).map((ci) => (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          top: '100%',
+                          zIndex: 30,
+                          background: 'var(--card)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                          maxHeight: 200,
+                          overflowY: 'auto',
+                        }}
+                      >
+                        {(itemSuggestions[idx] || []).map(ci => (
                           <button
                             key={ci.id}
                             onMouseDown={() => {
-                              setItem(idx, "name", ci.name);
-                              if (ci.asin) setItem(idx, "sku", ci.asin);
-                              if (ci.price) setItem(idx, "price", String(ci.price));
-                              setItemSuggestions(p => ({ ...p, [idx]: [] }));
+                              setItem(idx, 'name', ci.name)
+                              if (ci.asin) setItem(idx, 'sku', ci.asin)
+                              if (ci.price) setItem(idx, 'price', String(ci.price))
+                              setItemSuggestions(p => ({ ...p, [idx]: [] }))
                             }}
                             style={{
-                              width: "100%", textAlign: "left", padding: "8px 10px",
-                              background: "transparent", border: "none", borderBottom: "1px solid var(--border)",
-                              cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center",
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 10px',
+                              background: 'transparent',
+                              border: 'none',
+                              borderBottom: '1px solid var(--border)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
                             }}
                           >
-                            <span style={{ fontSize: 12, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 8 }}>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: 'var(--text)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1,
+                                marginRight: 8,
+                              }}
+                            >
                               {ci.name}
                             </span>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-                              {ci.asin && <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--muted)" }}>{ci.asin}</span>}
-                              {ci.price && <span style={{ fontSize: 11, color: STATUS_COLORS.success }}>${ci.price}</span>}
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: 6,
+                                alignItems: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {ci.asin && (
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    fontFamily: 'monospace',
+                                    color: 'var(--muted)',
+                                  }}
+                                >
+                                  {ci.asin}
+                                </span>
+                              )}
+                              {ci.price && (
+                                <span style={{ fontSize: 11, color: STATUS_COLORS.success }}>
+                                  ${ci.price}
+                                </span>
+                              )}
                             </div>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
-                  <input value={item.sku} onChange={(e) => setItem(idx, "sku", e.target.value)} placeholder="SKU" style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }} />
-                  <input type="number" min="1" value={item.qty} onChange={(e) => setItem(idx, "qty", e.target.value)} placeholder="Qty" style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }} />
-                  <input type="number" step="0.01" value={item.price} onChange={(e) => setItem(idx, "price", e.target.value)} placeholder="$0.00" style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }} />
+                  <input
+                    value={item.sku}
+                    onChange={e => setItem(idx, 'sku', e.target.value)}
+                    placeholder="SKU"
+                    style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }}
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    value={item.qty}
+                    onChange={e => setItem(idx, 'qty', e.target.value)}
+                    placeholder="Qty"
+                    style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }}
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={item.price}
+                    onChange={e => setItem(idx, 'price', e.target.value)}
+                    placeholder="$0.00"
+                    style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }}
+                  />
                   <button
                     onClick={() => removeItem(idx)}
                     disabled={items.length === 1}
-                    style={{ padding: 8, color: "var(--muted)", background: "none", border: "none", cursor: items.length === 1 ? "not-allowed" : "pointer", opacity: items.length === 1 ? 0.3 : 1 }}
+                    style={{
+                      padding: 8,
+                      color: 'var(--muted)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: items.length === 1 ? 'not-allowed' : 'pointer',
+                      opacity: items.length === 1 ? 0.3 : 1,
+                    }}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -1066,29 +1653,54 @@ function CreateOrderModal({ onCreated, onClose }) {
             <div className="flex items-center justify-between mt-2">
               <button
                 onClick={addItem}
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: STATUS_COLORS.info, background: "none", border: "none", cursor: "pointer" }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 12,
+                  color: STATUS_COLORS.info,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
                 <Plus size={12} /> Add Item
               </button>
               {total > 0 && (
                 <div className="text-[12px] text-gray-t">
-                  Total: <span style={{ color: "var(--text)", fontWeight: 500, fontFamily: "'JetBrains Mono',monospace" }}>${total.toFixed(2)}</span>
+                  Total:{' '}
+                  <span
+                    style={{
+                      color: 'var(--text)',
+                      fontWeight: 500,
+                      fontFamily: "'JetBrains Mono',monospace",
+                    }}
+                  >
+                    ${total.toFixed(2)}
+                  </span>
                 </div>
               )}
             </div>
 
             {/* Save template inline dialog */}
             {showSaveTemplate && (
-              <div style={{
-                marginTop: 12, background: "var(--bg)", borderRadius: 12,
-                border: "1px solid var(--border)", padding: 12,
-                display: "flex", alignItems: "center", gap: 8,
-              }}>
+              <div
+                style={{
+                  marginTop: 12,
+                  background: 'var(--bg)',
+                  borderRadius: 12,
+                  border: '1px solid var(--border)',
+                  padding: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
                 <input
                   value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder={t("template_name")}
-                  style={{ ...smallInputStyle, flex: 1, width: "auto", background: "transparent" }}
+                  onChange={e => setTemplateName(e.target.value)}
+                  placeholder={t('template_name')}
+                  style={{ ...smallInputStyle, flex: 1, width: 'auto', background: 'transparent' }}
                 />
                 <button
                   onClick={handleSaveTemplate}
@@ -1100,7 +1712,12 @@ function CreateOrderModal({ onCreated, onClose }) {
                 </button>
                 <button
                   onClick={() => setShowSaveTemplate(false)}
-                  style={{ color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}
+                  style={{
+                    color: 'var(--muted)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
                 >
                   <X size={14} />
                 </button>
@@ -1113,9 +1730,9 @@ function CreateOrderModal({ onCreated, onClose }) {
             <label className="form-label">9. Notes</label>
             <textarea
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={e => setNotes(e.target.value)}
               rows={2}
-              style={{ ...inputStyle, resize: "none" }}
+              style={{ ...inputStyle, resize: 'none' }}
             />
           </div>
 
@@ -1125,169 +1742,205 @@ function CreateOrderModal({ onCreated, onClose }) {
             disabled={loading || !profileId || !shopId || !dropId}
             className="btn btn-b"
             style={{
-              width: "100%", padding: "12px 0", fontSize: 14,
-              opacity: (loading || !profileId || !shopId || !dropId) ? 0.4 : 1,
-              cursor: (loading || !profileId || !shopId || !dropId) ? "not-allowed" : "pointer",
+              width: '100%',
+              padding: '12px 0',
+              fontSize: 14,
+              opacity: loading || !profileId || !shopId || !dropId ? 0.4 : 1,
+              cursor: loading || !profileId || !shopId || !dropId ? 'not-allowed' : 'pointer',
             }}
           >
-            {loading ? t("msg_loading") : t("create_order") + " →"}
+            {loading ? t('msg_loading') : t('create_order') + ' →'}
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ─── Main OrderList ───────────────────────────────────────────
-export default function OrderList({ onNavigate: _onNavigate, activeTab = "list", openCreate = false }) {
-  const { t } = useLang();
-  const [orders, setOrders] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState({ status: "", shop_id: null, date_from: "", date_to: "", search: "" });
-  const [searchInput, setSearchInput] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [statusMenuId, setStatusMenuId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [shopOptions, setShopOptions] = useState([]);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [deletingIds, setDeletingIds] = useState(new Set());
+export default function OrderList({
+  onNavigate: _onNavigate,
+  activeTab = 'list',
+  openCreate = false,
+}) {
+  const { t } = useLang()
+  const [orders, setOrders] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [filter, setFilter] = useState({
+    status: '',
+    shop_id: null,
+    date_from: '',
+    date_to: '',
+    search: '',
+  })
+  const [searchInput, setSearchInput] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [statusMenuId, setStatusMenuId] = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
+  const [shopOptions, setShopOptions] = useState([])
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [deletingIds, setDeletingIds] = useState(new Set())
   // E1: repeat order state
-  const [repeatOrder, setRepeatOrder] = useState(null);
+  const [repeatOrder, setRepeatOrder] = useState(null)
   // E3: batch import state
-  const [showBatchImport, setShowBatchImport] = useState(false);
-  const debouncedSearch = useDebounce(searchInput, 300);
-  const { toast } = useToast();
-  const { confirm } = useConfirm();
-  const PER_PAGE = 50;
+  const [showBatchImport, setShowBatchImport] = useState(false)
+  const debouncedSearch = useDebounce(searchInput, 300)
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
+  const PER_PAGE = 50
 
   // Virtual scrolling setup
-  const parentRef = useRef(null);
+  const parentRef = useRef(null)
   const rowVirtualizer = useVirtualizer({
     count: orders.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: useCallback((index) => {
-      // Estimate size based on whether row is expanded
-      // Base row: ~60px, Expanded timeline adds ~120px
-      return expandedId === orders[index]?.id ? 180 : 60;
-    }, [orders, expandedId]),
+    estimateSize: useCallback(
+      index => {
+        // Estimate size based on whether row is expanded
+        // Base row: ~60px, Expanded timeline adds ~120px
+        return expandedId === orders[index]?.id ? 180 : 60
+      },
+      [orders, expandedId]
+    ),
     overscan: 10,
-  });
+  })
 
   // Recalculate sizes when expandedId changes
   useEffect(() => {
     if (orders.length > 0) {
-      rowVirtualizer.measure();
+      rowVirtualizer.measure()
     }
-  }, [expandedId, rowVirtualizer, orders.length]);
+  }, [expandedId, rowVirtualizer, orders.length])
 
-  const load = useCallback(async (p = page, f = filter) => {
-    setLoading(true);
-    try {
-      const r = await invoke("get_orders", {
-        filter: {
-          status: f.status || null,
-          shop_id: f.shop_id || null,
-          date_from: f.date_from || null,
-          date_to: f.date_to || null,
-          search: f.search || null,
-        },
-        page: p,
-        perPage: PER_PAGE,
-      });
-      setOrders(r.items);
-      setTotal(r.total);
-      if (r.items.length === 0 && r.total > 0 && p > 1) {
-        setPage((prev) => Math.max(1, prev - 1));
+  const load = useCallback(
+    async (p = page, f = filter) => {
+      setLoading(true)
+      try {
+        const r = await invoke('get_orders', {
+          filter: {
+            status: f.status || null,
+            shop_id: f.shop_id || null,
+            date_from: f.date_from || null,
+            date_to: f.date_to || null,
+            search: f.search || null,
+          },
+          page: p,
+          perPage: PER_PAGE,
+        })
+        setOrders(r.items)
+        setTotal(r.total)
+        if (r.items.length === 0 && r.total > 0 && p > 1) {
+          setPage(prev => Math.max(1, prev - 1))
+        }
+      } catch (e) {
+        toast(String(e), 'error')
+      } finally {
+        setLoading(false)
       }
-    } catch (e) {
-      toast(String(e), "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, filter]);
+    },
+    [page, filter]
+  )
 
   useEffect(() => {
-    load();
-    invoke("get_shops", { page: 1, perPage: 200, search: "" })
-      .then((r) => setShopOptions(r.items ?? []))
-      .catch(() => {});
-  }, []);
+    load()
+    invoke('get_shops', { page: 1, perPage: 200, search: '' })
+      .then(r => setShopOptions(r.items ?? []))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
-    let newStatus = "";
-    if (activeTab === "pending") newStatus = "pending";
-    else if (activeTab === "delivered") newStatus = "delivered";
-    const f = { ...filter, status: newStatus };
-    setFilter(f);
-    setPage(1);
-    load(1, f);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+    let newStatus = ''
+    if (activeTab === 'pending') newStatus = 'pending'
+    else if (activeTab === 'delivered') newStatus = 'delivered'
+    const f = { ...filter, status: newStatus }
+    setFilter(f)
+    setPage(1)
+    load(1, f)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
 
   useEffect(() => {
-    if (openCreate) setShowCreate(true);
-  }, [openCreate]);
+    if (openCreate) setShowCreate(true)
+  }, [openCreate])
 
   // #20 debounce search
   useEffect(() => {
-    const f = { ...filter, search: debouncedSearch };
-    setFilter(f);
-    load(1, f);
-  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+    const f = { ...filter, search: debouncedSearch }
+    setFilter(f)
+    load(1, f)
+  }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDelete = async (o) => {
+  const handleDelete = async o => {
     // #15 — undo delete, no confirm dialog
-    setDeletingIds(prev => new Set([...prev, o.id]));
-    let undone = false;
+    setDeletingIds(prev => new Set([...prev, o.id]))
+    let undone = false
     toast({
-      message: t("order_deleted"),
-      type: "info",
+      message: t('order_deleted'),
+      type: 'info',
       duration: 5000,
       action: {
-        label: "Undo",
+        label: 'Undo',
         onClick: () => {
-          undone = true;
-          setDeletingIds(prev => { const n = new Set(prev); n.delete(o.id); return n; });
+          undone = true
+          setDeletingIds(prev => {
+            const n = new Set(prev)
+            n.delete(o.id)
+            return n
+          })
         },
       },
-    });
+    })
     setTimeout(async () => {
-      if (undone) return;
+      if (undone) return
       try {
-        await invoke("delete_order", { id: o.id });
-        setDeletingIds(prev => { const n = new Set(prev); n.delete(o.id); return n; });
-        load();
+        await invoke('delete_order', { id: o.id })
+        setDeletingIds(prev => {
+          const n = new Set(prev)
+          n.delete(o.id)
+          return n
+        })
+        load()
       } catch (e) {
-        setDeletingIds(prev => { const n = new Set(prev); n.delete(o.id); return n; });
-        toast(String(e), "error");
+        setDeletingIds(prev => {
+          const n = new Set(prev)
+          n.delete(o.id)
+          return n
+        })
+        toast(String(e), 'error')
       }
-    }, 5000);
-  };
+    }, 5000)
+  }
 
-  const setFilterVal = (key, val) => setFilter((f) => ({ ...f, [key]: val }));
-  const totalPages = Math.ceil(total / PER_PAGE);
+  const setFilterVal = (key, val) => setFilter(f => ({ ...f, [key]: val }))
+  const totalPages = Math.ceil(total / PER_PAGE)
 
   // Close status menu on outside click
   useEffect(() => {
-    if (!statusMenuId) return;
-    const handler = () => setStatusMenuId(null);
-    document.addEventListener("click", handler, true);
-    return () => document.removeEventListener("click", handler, true);
-  }, [statusMenuId]);
+    if (!statusMenuId) return
+    const handler = () => setStatusMenuId(null)
+    document.addEventListener('click', handler, true)
+    return () => document.removeEventListener('click', handler, true)
+  }, [statusMenuId])
 
   return (
     <div className="content">
       {/* Header */}
       <div className="ph">
-        <div><div className="ph-title">Orders</div></div>
+        <div>
+          <div className="ph-title">Orders</div>
+        </div>
         <div className="ph-actions">
-          <button className="btn btn-g" onClick={() => setShowCreate(true)} data-shortcut="new">+ {t("create_order")}</button>
+          <button className="btn btn-g" onClick={() => setShowCreate(true)} data-shortcut="new">
+            + {t('create_order')}
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={() => setShowBatchImport(true)}>
             <Upload size={13} /> Batch Import
           </button>
-          <button className="btn btn-ghost btn-sm" disabled title={t("export_coming_soon")}>{t("btn_export")}</button>
+          <button className="btn btn-ghost btn-sm" disabled title={t('export_coming_soon')}>
+            {t('btn_export')}
+          </button>
         </div>
       </div>
 
@@ -1303,40 +1956,75 @@ export default function OrderList({ onNavigate: _onNavigate, activeTab = "list",
 
       {/* Bulk Action Panel */}
       {selectedIds.size > 0 && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          background: STATUS_COLORS.infoBg, border: `1px solid ${STATUS_COLORS.info}33`,
-          borderRadius: 8, padding: "8px 14px", marginBottom: 10, fontSize: 12,
-        }}>
-          <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>{selectedIds.size} selected</span>
-          <span style={{ color: "var(--border)", margin: "0 4px" }}>|</span>
-          <button className="btn btn-b btn-sm" onClick={async () => {
-            try {
-              for (const id of selectedIds) await invoke("update_order_status", { id, status: "processing", meta: null });
-              toast(`${selectedIds.size} orders → processing`, "success");
-              setSelectedIds(new Set());
-              load();
-            } catch (e) { toast(String(e), "error"); }
-          }}>→ Processing</button>
-          <button className="btn btn-ghost btn-sm" onClick={async () => {
-            try {
-              for (const id of selectedIds) await invoke("update_order_status", { id, status: "shipped", meta: null });
-              toast(`${selectedIds.size} orders → shipped`, "success");
-              setSelectedIds(new Set());
-              load();
-            } catch (e) { toast(String(e), "error"); }
-          }}>→ Shipped</button>
-          <button className="btn btn-r btn-sm" onClick={async () => {
-            const ok = await confirm(t("orders_confirm_delete_many"), { danger: true });
-            if (!ok) return;
-            try {
-              for (const id of selectedIds) await invoke("delete_order", { id });
-              toast(`Deleted ${selectedIds.size} orders`, "success");
-              setSelectedIds(new Set());
-              load();
-            } catch (e) { toast(String(e), "error"); }
-          }}>{t("btn_delete")}</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>{t("orders_deselect_all")}</button>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: STATUS_COLORS.infoBg,
+            border: `1px solid ${STATUS_COLORS.info}33`,
+            borderRadius: 8,
+            padding: '8px 14px',
+            marginBottom: 10,
+            fontSize: 12,
+          }}
+        >
+          <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
+            {selectedIds.size} selected
+          </span>
+          <span style={{ color: 'var(--border)', margin: '0 4px' }}>|</span>
+          <button
+            className="btn btn-b btn-sm"
+            onClick={async () => {
+              try {
+                for (const id of selectedIds)
+                  await invoke('update_order_status', { id, status: 'processing', meta: null })
+                toast(`${selectedIds.size} orders → processing`, 'success')
+                setSelectedIds(new Set())
+                load()
+              } catch (e) {
+                toast(String(e), 'error')
+              }
+            }}
+          >
+            → Processing
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={async () => {
+              try {
+                for (const id of selectedIds)
+                  await invoke('update_order_status', { id, status: 'shipped', meta: null })
+                toast(`${selectedIds.size} orders → shipped`, 'success')
+                setSelectedIds(new Set())
+                load()
+              } catch (e) {
+                toast(String(e), 'error')
+              }
+            }}
+          >
+            → Shipped
+          </button>
+          <button
+            className="btn btn-r btn-sm"
+            onClick={async () => {
+              const ok = await confirm(t('orders_confirm_delete_many'), { danger: true })
+              if (!ok) return
+              try {
+                for (const id of selectedIds) await invoke('delete_order', { id })
+                toast(`Deleted ${selectedIds.size} orders`, 'success')
+                setSelectedIds(new Set())
+                load()
+              } catch (e) {
+                toast(String(e), 'error')
+              }
+            }}
+          >
+            {t('btn_delete')}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
+            {t('orders_deselect_all')}
+          </button>
         </div>
       )}
 
@@ -1344,7 +2032,7 @@ export default function OrderList({ onNavigate: _onNavigate, activeTab = "list",
       <div
         ref={parentRef}
         className="panel p-0 overflow-x-auto"
-        style={{ height: 760, overflowY: "auto" }}
+        style={{ height: 760, overflowY: 'auto' }}
       >
         <table className="tbl">
           <thead>
@@ -1353,49 +2041,54 @@ export default function OrderList({ onNavigate: _onNavigate, activeTab = "list",
                 <input
                   type="checkbox"
                   checked={orders.length > 0 && selectedIds.size === orders.length}
-                  onChange={(e) => {
-                    if (e.target.checked) setSelectedIds(new Set(orders.map(o => o.id)));
-                    else setSelectedIds(new Set());
+                  onChange={e => {
+                    if (e.target.checked) setSelectedIds(new Set(orders.map(o => o.id)))
+                    else setSelectedIds(new Set())
                   }}
                 />
               </th>
-              <th>{t("col_order_num")}</th>
-              <th>{t("cc_col_holder")} / {t("section_card")}</th>
-              <th>{t("col_shop")}</th>
-              <th>{t("cc_col_status")}</th>
-              <th>{t("col_amount")}</th>
-              <th>{t("col_tracking")}</th>
-              <th>{t("carrier")}</th>
-              <th>{t("nav_proxies")}</th>
-              <th>{t("col_email")}</th>
-              <th>{t("cc_col_notes")}</th>
-              <th>{t("col_date")}</th>
+              <th>{t('col_order_num')}</th>
+              <th>
+                {t('cc_col_holder')} / {t('section_card')}
+              </th>
+              <th>{t('col_shop')}</th>
+              <th>{t('cc_col_status')}</th>
+              <th>{t('col_amount')}</th>
+              <th>{t('col_tracking')}</th>
+              <th>{t('carrier')}</th>
+              <th>{t('nav_proxies')}</th>
+              <th>{t('col_email')}</th>
+              <th>{t('cc_col_notes')}</th>
+              <th>{t('col_date')}</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {loading && orders.length === 0 && (
-              <SkeletonRows count={6} cols={13} />
-            )}
+            {loading && orders.length === 0 && <SkeletonRows count={6} cols={13} />}
             {orders.length === 0 && !loading && (
               <EmptyState
                 colSpan={13}
                 icon={<Package size={38} />}
-                {...{title: t("orders"), subtitle: t("new_order")}}
-                action={<button className="btn btn-g btn-sm" onClick={() => setShowCreate(true)}>+ New Order</button>}
+                {...{ title: t('orders'), subtitle: t('new_order') }}
+                action={
+                  <button className="btn btn-g btn-sm" onClick={() => setShowCreate(true)}>
+                    + New Order
+                  </button>
+                }
               />
             )}
             {orders.length > 0 && (
               <>
                 {/* Top padding spacer */}
-                {rowVirtualizer.getVirtualItems().length > 0 && rowVirtualizer.getVirtualItems()[0].start > 0 && (
-                  <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                    <td colSpan={13} style={{ padding: 0, border: 0 }} />
-                  </tr>
-                )}
+                {rowVirtualizer.getVirtualItems().length > 0 &&
+                  rowVirtualizer.getVirtualItems()[0].start > 0 && (
+                    <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
+                      <td colSpan={13} style={{ padding: 0, border: 0 }} />
+                    </tr>
+                  )}
                 {/* Render visible rows */}
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const o = orders[virtualRow.index];
+                {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                  const o = orders[virtualRow.index]
                   return (
                     <OrderRow
                       key={o.id}
@@ -1404,29 +2097,40 @@ export default function OrderList({ onNavigate: _onNavigate, activeTab = "list",
                       isDeleting={deletingIds.has(o.id)}
                       isExpanded={expandedId === o.id}
                       onToggleExpand={() => {
-                        setExpandedId(expandedId === o.id ? null : o.id);
+                        setExpandedId(expandedId === o.id ? null : o.id)
                       }}
-                      onToggleSelect={(e) => {
-                        const next = new Set(selectedIds);
-                        if (e.target.checked) next.add(o.id); else next.delete(o.id);
-                        setSelectedIds(next);
+                      onToggleSelect={e => {
+                        const next = new Set(selectedIds)
+                        if (e.target.checked) next.add(o.id)
+                        else next.delete(o.id)
+                        setSelectedIds(next)
                       }}
-                      onStatusMenuToggle={() => setStatusMenuId(statusMenuId === o.id ? null : o.id)}
+                      onStatusMenuToggle={() =>
+                        setStatusMenuId(statusMenuId === o.id ? null : o.id)
+                      }
                       showStatusMenu={statusMenuId === o.id}
                       onRepeat={() => setRepeatOrder(o)}
                       onDelete={() => handleDelete(o)}
                       StatusMenuComponent={
-                        <StatusMenu order={o} onUpdate={() => load()} onClose={() => setStatusMenuId(null)} />
+                        <StatusMenu
+                          order={o}
+                          onUpdate={() => load()}
+                          onClose={() => setStatusMenuId(null)}
+                        />
                       }
                       TimelineComponent={
                         <OrderTimeline status={o.status} updatedAt={o.updated_at} />
                       }
                     />
-                  );
+                  )
                 })}
                 {/* Bottom padding spacer */}
                 {rowVirtualizer.getVirtualItems().length > 0 && (
-                  <tr style={{ height: `${rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end || 0)}px` }}>
+                  <tr
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end || 0)}px`,
+                    }}
+                  >
                     <td colSpan={13} style={{ padding: 0, border: 0 }} />
                   </tr>
                 )}
@@ -1442,12 +2146,28 @@ export default function OrderList({ onNavigate: _onNavigate, activeTab = "list",
           <span className="text-[12px] text-muted">{total} orders</span>
           <div className="flex gap-1">
             {buildPageNumbers(page, totalPages).map((p, i) =>
-              p === "…" ? (
-                <span key={`ellipsis-${i}`} className="px-2 py-1 text-[12px] text-muted">…</span>
+              p === '…' ? (
+                <span key={`ellipsis-${i}`} className="px-2 py-1 text-[12px] text-muted">
+                  …
+                </span>
               ) : (
-                <button key={p} onClick={() => { setPage(p); load(p, filter); }}
-                  className={`btn btn-ghost btn-sm${page === p ? " active" : ""}`}
-                  style={page === p ? { background: "var(--accent)", color: "var(--text)", borderColor: "var(--accent)" } : {}}>
+                <button
+                  key={p}
+                  onClick={() => {
+                    setPage(p)
+                    load(p, filter)
+                  }}
+                  className={`btn btn-ghost btn-sm${page === p ? ' active' : ''}`}
+                  style={
+                    page === p
+                      ? {
+                          background: 'var(--accent)',
+                          color: 'var(--text)',
+                          borderColor: 'var(--accent)',
+                        }
+                      : {}
+                  }
+                >
                   {p}
                 </button>
               )
@@ -1474,5 +2194,5 @@ export default function OrderList({ onNavigate: _onNavigate, activeTab = "list",
         <BatchImportModal onCreated={() => load()} onClose={() => setShowBatchImport(false)} />
       )}
     </div>
-  );
+  )
 }

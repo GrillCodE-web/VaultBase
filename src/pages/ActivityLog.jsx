@@ -1,157 +1,251 @@
-import { useState, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { CreditCard, User, ShoppingBag, Mail, Settings, RefreshCcw, RefreshCw, KeyRound } from "lucide-react";
-import { useToast } from "../hooks/useToast";
-import { useConfirm } from "../hooks/useConfirm";
-import { useLang } from "../hooks/useLang.jsx";
-import { useDebounce } from "../hooks/useDebounce.js";
-import { SkeletonRows } from "../components/SkeletonRow.jsx";
-import { STATUS_COLORS } from "../constants/colors.js";
+import { useState, useEffect, useCallback } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import {
+  CreditCard,
+  User,
+  ShoppingBag,
+  Mail,
+  Settings,
+  RefreshCcw,
+  RefreshCw,
+  KeyRound,
+} from 'lucide-react'
+import { useToast } from '../hooks/useToast'
+import { useConfirm } from '../hooks/useConfirm'
+import { useLang } from '../hooks/useLang.jsx'
+import { useDebounce } from '../hooks/useDebounce.js'
+import { SkeletonRows } from '../components/SkeletonRow.jsx'
+import { STATUS_COLORS } from '../constants/colors.js'
 
 const ENTITY_COLORS = {
-  card:    { bg: STATUS_COLORS.infoBg,    text: STATUS_COLORS.info,    border: "rgba(59,130,246,0.2)"  },
-  order:   { bg: STATUS_COLORS.successBg, text: STATUS_COLORS.success, border: "rgba(34,197,94,0.2)"   },
-  profile: { bg: "rgba(249,115,22,0.1)",  text: "#fb923c",             border: "rgba(249,115,22,0.2)"  },
-  imap:    { bg: STATUS_COLORS.warningBg, text: STATUS_COLORS.warning, border: "rgba(234,179,8,0.2)"   },
-  sync:    { bg: "rgba(20,184,166,0.1)",  text: "var(--teal-t)",       border: "rgba(20,184,166,0.2)"  },
-  license: { bg: STATUS_COLORS.infoBg,    text: STATUS_COLORS.info,    border: "rgba(59,130,246,0.2)"  },
-  system:  { bg: STATUS_COLORS.neutralBg, text: STATUS_COLORS.neutral, border: "rgba(107,114,128,0.2)" },
-};
+  card: { bg: STATUS_COLORS.infoBg, text: STATUS_COLORS.info, border: 'var(--color-info-bg)' },
+  order: {
+    bg: STATUS_COLORS.successBg,
+    text: STATUS_COLORS.success,
+    border: 'var(--color-success-bg)',
+  },
+  profile: {
+    bg: 'var(--color-warning-bg)',
+    text: 'var(--orange)',
+    border: 'var(--color-warning-bg)',
+  },
+  imap: {
+    bg: STATUS_COLORS.warningBg,
+    text: STATUS_COLORS.warning,
+    border: 'var(--color-warning-bg)',
+  },
+  sync: { bg: 'rgba(20,184,166,0.1)', text: 'var(--teal-t)', border: 'rgba(20,184,166,0.2)' },
+  license: { bg: STATUS_COLORS.infoBg, text: STATUS_COLORS.info, border: 'var(--color-info-bg)' },
+  system: {
+    bg: STATUS_COLORS.neutralBg,
+    text: STATUS_COLORS.neutral,
+    border: 'rgba(107,114,128,0.2)',
+  },
+}
 
 const ENTITY_ICONS = {
-  card: CreditCard, order: ShoppingBag, profile: User,
-  imap: Mail, sync: RefreshCcw, license: KeyRound, system: Settings,
-};
+  card: CreditCard,
+  order: ShoppingBag,
+  profile: User,
+  imap: Mail,
+  sync: RefreshCcw,
+  license: KeyRound,
+  system: Settings,
+}
 
 function EntityBadge({ type }) {
-  if (!type) return null;
-  const cfg = ENTITY_COLORS[type] ?? ENTITY_COLORS.system;
-  const Icon = ENTITY_ICONS[type] ?? Settings;
+  if (!type) return null
+  const cfg = ENTITY_COLORS[type] ?? ENTITY_COLORS.system
+  const Icon = ENTITY_ICONS[type] ?? Settings
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600,
-      backgroundColor: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}`,
-      fontFamily: "'JetBrains Mono', monospace",
-    }}>
-      <Icon size={9} />{type}
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 8px',
+        borderRadius: 4,
+        fontSize: 10,
+        fontWeight: 600,
+        backgroundColor: cfg.bg,
+        color: cfg.text,
+        border: `1px solid ${cfg.border}`,
+        fontFamily: "'JetBrains Mono', monospace",
+      }}
+    >
+      <Icon size={9} />
+      {type}
     </span>
-  );
+  )
 }
 
 export default function ActivityLog() {
-  const { success: toastOk, error: toastErr } = useToast();
-  const { confirm } = useConfirm();
-  const { t } = useLang();
+  const { success: toastOk, error: toastErr } = useToast()
+  const { confirm } = useConfirm()
+  const { t } = useLang()
 
-  const [entries, setEntries] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [entityFilter, setEntityFilter] = useState("");
-  const [loading, setLoading] = useState(false);
-  const limit = 50;
+  const [entries, setEntries] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [searchInput, setSearchInput] = useState('')
+  const [entityFilter, setEntityFilter] = useState('')
+  const [loading, setLoading] = useState(false)
+  const limit = 50
 
   // #20 — debounce search
-  const search = useDebounce(searchInput, 300);
+  const search = useDebounce(searchInput, 300)
 
   const FILTER_TABS = [
-    { label: t("log_filter_all"),      value: "" },
-    { label: t("log_filter_cards"),    value: "card" },
-    { label: t("log_filter_profiles"), value: "profile" },
-    { label: t("log_filter_orders"),   value: "order" },
-    { label: t("log_filter_imap"),     value: "imap" },
-    { label: t("log_filter_sync"),     value: "sync" },
-    { label: t("log_filter_system"),   value: "system" },
-  ];
+    { label: t('log_filter_all'), value: '' },
+    { label: t('log_filter_cards'), value: 'card' },
+    { label: t('log_filter_profiles'), value: 'profile' },
+    { label: t('log_filter_orders'), value: 'order' },
+    { label: t('log_filter_imap'), value: 'imap' },
+    { label: t('log_filter_sync'), value: 'sync' },
+    { label: t('log_filter_system'), value: 'system' },
+  ]
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const res = await invoke("get_activity_log", {
-        filter: { event_type: search || null, entity_type: entityFilter || null, from_date: null, to_date: null },
+      const res = await invoke('get_activity_log', {
+        filter: {
+          event_type: search || null,
+          entity_type: entityFilter || null,
+          from_date: null,
+          to_date: null,
+        },
         page,
-      });
-      setEntries(res.items ?? []);
-      setTotal(res.total ?? 0);
-    } catch (e) { toastErr(String(e)); }
-    finally { setLoading(false); }
+      })
+      setEntries(res.items ?? [])
+      setTotal(res.total ?? 0)
+    } catch (e) {
+      toastErr(String(e))
+    } finally {
+      setLoading(false)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toastErr is stable from useToast
-  }, [search, entityFilter, page]);
+  }, [search, entityFilter, page])
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load()
+  }, [load])
 
   const handleClear = async () => {
-    const ok = await confirm(t("log_confirm_clear"), t("log_clear"));
-    if (!ok) return;
+    const ok = await confirm(t('log_confirm_clear'), t('log_clear'))
+    if (!ok) return
     try {
-      await invoke("clear_activity_log");
-      toastOk(t("log_cleared"));
-      setPage(1);
-      await load();
-    } catch (e) { toastErr(String(e)); }
-  };
+      await invoke('clear_activity_log')
+      toastOk(t('log_cleared'))
+      setPage(1)
+      await load()
+    } catch (e) {
+      toastErr(String(e))
+    }
+  }
 
-  const pages = Math.max(1, Math.ceil(total / limit));
+  const pages = Math.max(1, Math.ceil(total / limit))
 
   return (
     <div className="content">
       <div className="ph">
         <div>
-          <div className="ph-title">{t("log_title")}</div>
-          <div className="ph-sub">{total} {t("log_records")}</div>
+          <div className="ph-title">{t('log_title')}</div>
+          <div className="ph-sub">
+            {total} {t('log_records')}
+          </div>
         </div>
         <div className="ph-actions">
           <button className="btn btn-ghost btn-sm btn-icon" onClick={load} disabled={loading}>
-            {loading ? "…" : <><RefreshCw size={13} /> {t("btn_refresh")}</>}
+            {loading ? (
+              '…'
+            ) : (
+              <>
+                <RefreshCw size={13} /> {t('btn_refresh')}
+              </>
+            )}
           </button>
-          <button className="btn btn-r btn-sm" onClick={handleClear}>{t("log_clear")}</button>
+          <button className="btn btn-r btn-sm" onClick={handleClear}>
+            {t('log_clear')}
+          </button>
         </div>
       </div>
 
       <div className="filters">
-        {FILTER_TABS.map((tab) => (
+        {FILTER_TABS.map(tab => (
           <button
             key={tab.value}
-            className={`flt${entityFilter === tab.value ? " active" : ""}`}
-            onClick={() => { setEntityFilter(tab.value); setPage(1); }}
+            className={`flt${entityFilter === tab.value ? ' active' : ''}`}
+            onClick={() => {
+              setEntityFilter(tab.value)
+              setPage(1)
+            }}
           >
             {tab.label}
           </button>
         ))}
         <input
           className="search-box"
-          placeholder={t("log_search_placeholder")}
+          placeholder={t('log_search_placeholder')}
           value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); setPage(1); }}
+          onChange={e => {
+            setSearchInput(e.target.value)
+            setPage(1)
+          }}
         />
       </div>
 
       <div className="panel p-0 overflow-hidden">
         {entries.length === 0 && !loading ? (
-          <div style={{ padding: "40px 24px", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
-            {search || entityFilter ? t("log_not_found") : t("log_empty")}
+          <div
+            style={{
+              padding: '40px 24px',
+              textAlign: 'center',
+              color: 'var(--muted)',
+              fontSize: 13,
+            }}
+          >
+            {search || entityFilter ? t('log_not_found') : t('log_empty')}
           </div>
         ) : (
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{ paddingLeft: 16 }}>{t("log_col_time")}</th>
-                <th>{t("log_col_category")}</th>
-                <th>{t("log_col_event")}</th>
-                <th>{t("log_col_description")}</th>
+                <th style={{ paddingLeft: 16 }}>{t('log_col_time')}</th>
+                <th>{t('log_col_category')}</th>
+                <th>{t('log_col_event')}</th>
+                <th>{t('log_col_description')}</th>
               </tr>
             </thead>
             <tbody>
               {loading && entries.length === 0 ? <SkeletonRows count={8} cols={4} /> : null}
               {entries.map((e, i) => (
                 <tr key={e.id ?? i}>
-                  <td style={{ paddingLeft: 16, color: "var(--muted)", fontSize: 11, whiteSpace: "nowrap", fontFamily: "'JetBrains Mono',monospace" }}>
-                    {e.created_at ? new Date(e.created_at).toLocaleString() : "—"}
+                  <td
+                    style={{
+                      paddingLeft: 16,
+                      color: 'var(--muted)',
+                      fontSize: 11,
+                      whiteSpace: 'nowrap',
+                      fontFamily: "'JetBrains Mono',monospace",
+                    }}
+                  >
+                    {e.created_at ? new Date(e.created_at).toLocaleString() : '—'}
                   </td>
-                  <td><EntityBadge type={e.entity_type} /></td>
+                  <td>
+                    <EntityBadge type={e.entity_type} />
+                  </td>
                   <td className="text-blue-t text-[11px] font-mono">{e.event_type}</td>
-                  <td style={{ color: "var(--text)", fontSize: 12, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <td
+                    style={{
+                      color: 'var(--text)',
+                      fontSize: 12,
+                      maxWidth: 400,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     {e.description}
                   </td>
                 </tr>
@@ -163,13 +257,27 @@ export default function ActivityLog() {
 
       {pages > 1 && (
         <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted">
-          <span>{t("log_page")} {page} {t("log_of")} {pages}</span>
+          <span>
+            {t('log_page')} {page} {t('log_of')} {pages}
+          </span>
           <div className="flex gap-1">
-            <button className="btn btn-ghost btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>{t("log_prev")}</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page >= pages}>{t("log_next")}</button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              {t('log_prev')}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPage(p => Math.min(pages, p + 1))}
+              disabled={page >= pages}
+            >
+              {t('log_next')}
+            </button>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }

@@ -22,24 +22,24 @@
   right: 0;
   bottom: 0;
   left: 0;
-  background: radial-gradient(
-    circle at 30% 50%,
-    rgba(0, 217, 255, 0.08) 0%,
-    transparent 50%
-  ),
-  radial-gradient(
-    circle at 70% 50%,
-    rgba(168, 85, 247, 0.06) 0%,
-    transparent 50%
-  );
+  background:
+    radial-gradient(circle at 30% 50%, rgba(0, 217, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 70% 50%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
   animation: auth-bg-float 20s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes auth-bg-float {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  33% { transform: translate(5%, 5%) rotate(120deg); }
-  66% { transform: translate(-5%, 5%) rotate(240deg); }
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(5%, 5%) rotate(120deg);
+  }
+  66% {
+    transform: translate(-5%, 5%) rotate(240deg);
+  }
 }
 
 /* Legacy background glow */
@@ -72,16 +72,9 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(
-    circle at 30% 50%,
-    rgba(0, 217, 255, 0.08) 0%,
-    transparent 50%
-  ),
-  radial-gradient(
-    circle at 70% 50%,
-    rgba(168, 85, 247, 0.06) 0%,
-    transparent 50%
-  );
+  background:
+    radial-gradient(circle at 30% 50%, rgba(0, 217, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 70% 50%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
   animation: auth-bg-float 20s ease-in-out infinite;
   pointer-events: none;
 }
@@ -95,7 +88,9 @@
   border: 1px solid var(--border-hi);
   border-radius: var(--r-xl);
   padding: 40px 36px;
-  box-shadow: var(--shadow-lg), 0 0 60px rgba(0, 217, 255, 0.1);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 60px rgba(0, 217, 255, 0.1);
   position: relative;
   z-index: 1;
   animation: modal-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -153,7 +148,9 @@
   border-radius: var(--r-lg);
   padding: 2px;
   background: var(--gradient-accent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0.4;
@@ -262,7 +259,7 @@
   background: var(--gradient-accent);
   border: none;
   border-radius: var(--r-md);
-  color: #000;
+  color: var(--bg);
   font-size: 14px;
   font-weight: 700;
   font-family: 'Rajdhani', sans-serif;
