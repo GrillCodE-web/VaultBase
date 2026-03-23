@@ -207,6 +207,17 @@
 .cursor-pointer {
   cursor: pointer;
 }
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+/* ── User Select ────────────────────────────────────────── */
+.select-all {
+  user-select: all;
+}
+.select-none {
+  user-select: none;
+}
 
 /* ── Opacity ────────────────────────────────────────────── */
 .opacity-0 {

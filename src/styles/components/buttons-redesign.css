@@ -61,6 +61,11 @@
   font-size: 12px;
 }
 
+.btn-s {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
 /* ── Color Variants ─────────────────────────────────────── */
 .btn-b {
   background: rgba(59, 130, 246, 0.12);
