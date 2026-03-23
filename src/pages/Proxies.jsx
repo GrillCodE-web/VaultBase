@@ -883,7 +883,7 @@ export default function ProxyList() {
             </tbody>
           </table>
         ) : useVirtual ? (
-          <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+          <div ref={parentRef} className="virtual-scroll-container">
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
@@ -923,18 +923,7 @@ export default function ProxyList() {
                           <td style={{ color: 'var(--text-secondary)' }}>
                             {proxy.label || '—'}
                             {boundShop && (
-                              <span
-                                style={{
-                                  marginLeft: 6,
-                                  fontSize: 10,
-                                  padding: '1px 6px',
-                                  borderRadius: 999,
-                                  background: 'var(--color-info-bg)',
-                                  color: STATUS_COLORS.info,
-                                  border: '1px solid var(--color-info-bg)',
-                                  fontFamily: 'JetBrains Mono, monospace',
-                                }}
-                              >
+                              <span className="proxy-bound-badge">
                                 → {boundShop.name || boundShop.domain}
                               </span>
                             )}
@@ -1011,7 +1000,7 @@ export default function ProxyList() {
             </div>
           </div>
         ) : (
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <div className="flex-1-overflow">
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
@@ -1036,18 +1025,7 @@ export default function ProxyList() {
                       <td style={{ color: 'var(--text-secondary)' }}>
                         {proxy.label || '—'}
                         {boundShop && (
-                          <span
-                            style={{
-                              marginLeft: 6,
-                              fontSize: 10,
-                              padding: '1px 6px',
-                              borderRadius: 999,
-                              background: 'var(--color-info-bg)',
-                              color: STATUS_COLORS.info,
-                              border: '1px solid var(--color-info-bg)',
-                              fontFamily: 'JetBrains Mono, monospace',
-                            }}
-                          >
+                          <span className="proxy-bound-badge">
                             → {boundShop.name || boundShop.domain}
                           </span>
                         )}

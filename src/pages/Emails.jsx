@@ -57,59 +57,23 @@ function ImapLinkCell({ entry, imapAccounts, onLink, onNavigate }) {
         <span>{t('imap_link_to_pool').split(' ')[0]}</span>
       </button>
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: '100%',
-            marginTop: 4,
-            zIndex: 40,
-            minWidth: 180,
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="absolute left-0 top-full mt-1 z-40 min-w-[180px] bg-card border rounded-[10px] shadow-lg overflow-hidden">
           {imapAccounts.length === 0 ? (
-            <div
-              style={{
-                padding: '10px 14px',
-                fontSize: 12,
-                color: 'var(--muted)',
-                textAlign: 'center',
-              }}
-            >
+            <div className="p-[10px_14px] text-[12px] text-muted text-center">
               No IMAP accounts.{' '}
               <button
                 onClick={() => {
                   setOpen(false)
                   onNavigate?.('imap')
                 }}
-                style={{
-                  color: 'var(--accent)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                }}
+                className="text-accent bg-transparent border-none cursor-pointer text-[12px]"
               >
                 {t('imap_add_account')} →
               </button>
             </div>
           ) : (
             <>
-              <div
-                style={{
-                  padding: '6px 14px',
-                  fontSize: 10,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  color: 'var(--muted)',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
+              <div className="p-[6px_14px] text-[10px] uppercase tracking-wide text-muted border-b">
                 Select IMAP account
               </div>
               {imapAccounts.map(acc => (
@@ -119,21 +83,9 @@ function ImapLinkCell({ entry, imapAccounts, onLink, onNavigate }) {
                     onLink(entry.id, acc.id)
                     setOpen(false)
                   }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '8px 14px',
-                    fontSize: 12,
-                    color: 'var(--text)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
+                  className="w-full text-left p-[8px_14px] text-[12px] text-text bg-transparent border-none cursor-pointer flex items-center gap-2"
                 >
-                  <MailCheck size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                  <MailCheck size={12} className="text-accent shrink-0" />
                   <span className="overflow-hidden text-ellipsis whitespace-nowrap">
                     {acc.name || acc.login}
                   </span>
@@ -185,8 +137,7 @@ function EmailModal({ initial, onSave, onClose }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ width: 'var(--modal-sm)' }}
+        className="modal w-modal-sm"
         role="dialog"
         aria-modal="true"
         aria-labelledby="email-modal-title"
@@ -214,8 +165,8 @@ function EmailModal({ initial, onSave, onClose }) {
                   rows={2}
                   placeholder={placeholder}
                   disabled={isEdit && key === 'email'}
-                  className="form-input"
-                  style={{ resize: 'none', opacity: isEdit && key === 'email' ? 0.5 : 1 }}
+                  className="form-input resize-none"
+                  style={{ opacity: isEdit && key === 'email' ? 0.5 : 1 }}
                 />
               ) : (
                 <input
@@ -234,12 +185,8 @@ function EmailModal({ initial, onSave, onClose }) {
           <button
             onClick={handleSave}
             disabled={!valid || loading}
-            className="btn btn-b"
-            style={{
-              width: '100%',
-              opacity: !valid || loading ? 0.4 : 1,
-              cursor: !valid || loading ? 'not-allowed' : 'pointer',
-            }}
+            className="btn btn-b w-full"
+            style={{ opacity: !valid || loading ? 0.4 : 1 }}
           >
             {loading
               ? t('email_saving')
@@ -446,18 +393,11 @@ export default function EmailPool({ onNavigate, inTab = false }) {
     <>
       {/* inTab header */}
       {inTab && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 10,
-          }}
-        >
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+        <div className="flex justify-between items-center mb-2.5">
+          <div className="text-[12px] text-muted">
             {cleanCount} clean / {total} total
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="flex gap-2">
             <button className="btn btn-g btn-sm" onClick={() => setModal('add')}>
               + {t('add_email')}
             </button>
@@ -492,22 +432,18 @@ export default function EmailPool({ onNavigate, inTab = false }) {
       {/* Bulk Action Bar */}
       {selected.size > 0 && (
         <div
+          className="flex items-center gap-2 rounded-md p-[8px_14px] mb-2.5 text-[12px]"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
             background: STATUS_COLORS.infoBg,
             border: `1px solid ${STATUS_COLORS.info}33`,
-            borderRadius: 8,
-            padding: '8px 14px',
-            marginBottom: 10,
-            fontSize: 12,
           }}
         >
-          <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
+          <span className="font-semibold" style={{ color: STATUS_COLORS.info }}>
             {selected.size} selected
           </span>
-          <span style={{ color: 'var(--border)', margin: '0 4px' }}>|</span>
+          <span className="mx-1" style={{ color: 'var(--border)' }}>
+            |
+          </span>
           <button className="btn btn-r btn-sm" onClick={handleBulkBlock}>
             <ShieldOff size={12} /> Block Selected
           </button>
@@ -523,11 +459,11 @@ export default function EmailPool({ onNavigate, inTab = false }) {
       {/* Table */}
       <div className="panel p-0">
         {emails.length === 0 && loading ? (
-          <div className="overflow-y-auto" style={{ minHeight: 0, flex: 1 }}>
+          <div className="overflow-y-auto flex-1 min-h-0">
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
-                  <th className="bg-card" style={{ width: 36 }}>
+                  <th className="bg-card w-9">
                     <input type="checkbox" disabled />
                   </th>
                   <th className="bg-card">{t('col_email')}</th>
