@@ -385,7 +385,7 @@ export default function Settings() {
             <div className="setting-info">
               <div className="setting-title">Auto-lock timeout</div>
             </div>
-            <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+            <div className="flex gap-1 flex-wrap">
               {[
                 { label: '1m', value: '60' },
                 { label: '5m', value: '300' },
@@ -516,7 +516,7 @@ export default function Settings() {
             <div className="setting-info">
               <div className="setting-title">Server connection</div>
               {wsStatus?.group_id && (
-                <div className="setting-desc" style={{ fontFamily: 'monospace', fontSize: 10 }}>
+                <div className="setting-desc mono text-[10px]">
                   {wsStatus.group_id.slice(0, 20)}…
                 </div>
               )}
@@ -549,11 +549,8 @@ export default function Settings() {
               <div className="setting-desc">Queued for sync when connected</div>
             </div>
             <span
-              style={{
-                fontSize: 12,
-                fontFamily: 'monospace',
-                color: unsyncedCount > 0 ? STATUS_COLORS.warning : 'var(--muted)',
-              }}
+              className="text-[12px] mono"
+              style={{ color: unsyncedCount > 0 ? STATUS_COLORS.warning : 'var(--muted)' }}
             >
               {unsyncedCount}
             </span>
@@ -561,7 +558,7 @@ export default function Settings() {
         </div>
 
         {/* Change Password — full width */}
-        <div className="panel" style={{ gridColumn: '1 / -1' }}>
+        <div className="panel col-span-full">
           <div className="ptitle">
             <Shield size={13} className="inline mr-1.5" />
             Change Password
@@ -621,16 +618,13 @@ export default function Settings() {
         </div>
 
         {/* Sync Groups */}
-        <div className="panel" style={{ gridColumn: '1 / -1' }}>
+        <div className="panel col-span-full">
           <div className="ptitle">
             <Users size={13} className="inline mr-1.5" />
             Sync Groups
           </div>
           {syncGroup === null ? (
-            <div
-              className="text-muted text-[12px]"
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-            >
+            <div className="text-muted text-[12px] flex items-center gap-1.5">
               <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading...
             </div>
           ) : syncGroup === false ? (
@@ -739,17 +733,11 @@ export default function Settings() {
                 </button>
               </div>
               {generatedCode && (
-                <div
-                  className="mt-2 p-2 rounded-lg"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-                >
+                <div className="mt-2 p-2 rounded-lg bg-surface border">
                   <div className="text-[11px] text-muted mb-1">
                     Share this code with your partner (valid 15 min):
                   </div>
-                  <div
-                    className="font-mono text-[16px] font-bold tracking-widest text-center py-1"
-                    style={{ color: 'var(--accent)' }}
-                  >
+                  <div className="font-mono text-[16px] font-bold tracking-widest text-center py-1 text-accent">
                     {generatedCode.split(' ')[0]}
                   </div>
                   {generatedCode.includes('expires') && (
@@ -770,39 +758,35 @@ export default function Settings() {
           <Database size={13} className="inline mr-1.5" />
           Catalog
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="flex flex-col gap-3">
           {catalogStats && (catalogStats.items > 0 || catalogStats.shops > 0) ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-              <CheckCircle size={13} style={{ color: STATUS_COLORS.success, flexShrink: 0 }} />
-              <span style={{ color: 'var(--text)' }}>
+            <div className="flex items-center gap-2 text-[12px]">
+              <CheckCircle size={13} className="text-success shrink-0" />
+              <span className="text-text">
                 Catalog: <strong>{catalogStats.items.toLocaleString()}</strong> items,{' '}
                 <strong>{catalogStats.shops.toLocaleString()}</strong> shops — Auto-sync enabled
               </span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+            <div className="flex items-center gap-2 text-[12px]">
               <RefreshCw
                 size={13}
+                className="shrink-0"
                 style={{
                   animation: 'spin 1s linear infinite',
                   color: 'var(--blue-t)',
-                  flexShrink: 0,
                 }}
               />
-              <span style={{ color: 'var(--muted)' }}>Syncing catalog from server…</span>
+              <span className="text-muted">Syncing catalog from server…</span>
             </div>
           )}
-          <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+          <div className="text-[11px] text-dim">
             Catalog is downloaded automatically on first run and kept in sync in real-time.
           </div>
         </div>
       </div>
 
-      <div
-        style={{ textAlign: 'center', padding: '12px 0 4px', color: 'var(--muted)', fontSize: 11 }}
-      >
-        CC Manager v0.1.0
-      </div>
+      <div className="text-center py-3 pb-1 text-muted text-[11px]">CC Manager v0.1.0</div>
     </div>
   )
 }
