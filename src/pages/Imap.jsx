@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
+import { HEX_COLORS } from '../constants/colors.js'
 import { useConfirm } from '../hooks/useConfirm'
 import { detectImapConfig, detectSmtpConfig } from '../constants/emailProviders.js'
 
@@ -1603,7 +1604,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
               style={{
                 borderRadius: 0,
                 background: viewMode === 'inbox' ? 'var(--blue)' : 'transparent',
-                color: viewMode === 'inbox' ? '#fff' : 'var(--muted)',
+                color: viewMode === 'inbox' ? HEX_COLORS.white : 'var(--muted)',
               }}
             >
               <Inbox size={13} /> Inbox
@@ -1614,7 +1615,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
               style={{
                 borderRadius: 0,
                 background: viewMode === 'sent' ? 'var(--blue)' : 'transparent',
-                color: viewMode === 'sent' ? '#fff' : 'var(--muted)',
+                color: viewMode === 'sent' ? HEX_COLORS.white : 'var(--muted)',
               }}
             >
               <Send size={13} /> Sent

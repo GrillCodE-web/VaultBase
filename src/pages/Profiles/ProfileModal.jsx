@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { User, MapPin, Check, X, Shuffle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useToast } from '../../hooks/useToast'
+import { HEX_COLORS } from '../../constants/colors.js'
 
 export function ProfileModal({ onCreated, onClose }) {
   const { t } = useLang()
@@ -201,7 +202,7 @@ export function ProfileModal({ onCreated, onClose }) {
                   className="mode-toggle-btn"
                   style={{
                     background: mode === m ? 'var(--accent)' : 'transparent',
-                    color: mode === m ? '#fff' : 'var(--muted)',
+                    color: mode === m ? HEX_COLORS.white : 'var(--muted)',
                   }}
                 >
                   {m}
