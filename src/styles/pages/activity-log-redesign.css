@@ -184,6 +184,34 @@
   margin-bottom: 24px;
 }
 
+/* ── Filter Tabs ────────────────────────────────────────── */
+.flt {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  white-space: nowrap;
+}
+
+.flt:hover {
+  background: var(--hover);
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+
+.flt.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
 .log-stat-card {
   background: var(--gradient-card);
   border: 1px solid var(--border);

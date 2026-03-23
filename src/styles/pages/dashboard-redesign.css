@@ -272,6 +272,80 @@
   overflow: hidden;
 }
 
+/* ── Period Buttons ─────────────────────────────────────── */
+.pb {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  white-space: nowrap;
+}
+
+.pb:hover {
+  background: var(--hover);
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+
+.pb.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+/* ── Alert Row ──────────────────────────────────────────── */
+.alert-row {
+  padding: 12px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-family: 'Manrope', sans-serif;
+  transition: all var(--t-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.alert-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  opacity: 0.8;
+}
+
+.alert-row:hover {
+  background: var(--card-hi);
+  border-color: var(--border-hi);
+  transform: translateX(2px);
+}
+
+.alert-row.cr::before {
+  background: var(--red);
+}
+
+.alert-row.cy::before {
+  background: var(--yellow);
+}
+
+.alert-row.cb::before {
+  background: var(--blue);
+}
+
+.alert-row.cg::before {
+  background: var(--green);
+}
+
 .chart-container::before {
   content: '';
   position: absolute;
