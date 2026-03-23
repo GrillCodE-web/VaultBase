@@ -76,21 +76,16 @@ function OrderTimeline({ status, updatedAt }) {
             >
               <div className="flex flex-col items-center gap-0\.5">
                 <div
-                  className="rounded-full shrink-0"
+                  className="rounded-full shrink-0 transition-all duration-200"
                   style={{
                     width: isCurrent ? 12 : 10,
                     height: isCurrent ? 12 : 10,
                     background: color,
                     boxShadow: isCurrent ? `0 0 0 3px ${glowColor}, 0 0 12px ${glowColor}` : 'none',
-                    transition: 'all 0.2s ease',
                   }}
                 />
                 <span
-                  className="text-[10px] whitespace-nowrap"
-                  style={{
-                    color: isFuture ? 'var(--muted)' : 'var(--text-2)',
-                    fontWeight: isCurrent ? 600 : 400,
-                  }}
+                  className={`text-[10px] whitespace-nowrap ${isFuture ? 'text-muted' : 'text-text-2'} ${isCurrent ? 'font-semibold' : 'font-normal'}`}
                 >
                   {step}
                 </span>
@@ -102,15 +97,12 @@ function OrderTimeline({ status, updatedAt }) {
               </div>
               {i < steps.length - 1 && (
                 <div
-                  className="flex-1 rounded-sm"
+                  className="flex-1 rounded-sm mx-1\.5 mb-4 min-w-\[40px\]"
                   style={{
                     height: 1.5,
                     background: isPast
                       ? 'linear-gradient(90deg, var(--green), var(--green))'
                       : 'var(--border)',
-                    margin: '0 6px',
-                    marginBottom: 16,
-                    minWidth: 40,
                   }}
                 />
               )}
@@ -151,16 +143,7 @@ function RiskBlock({ result, loading }) {
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border text-[12px] text-muted">
-        <div
-          className="rounded-full shrink-0"
-          style={{
-            width: 12,
-            height: 12,
-            border: '1.5px solid var(--border-hi)',
-            borderTopColor: 'var(--text-2)',
-            animation: 'spin 0.7s linear infinite',
-          }}
-        />
+        <div className="rounded-full shrink-0 w-3 h-3 border-[1.5px] border-border-hi border-t-text-2 animate-spin" />
         {t('risk_checking')}
       </div>
     )

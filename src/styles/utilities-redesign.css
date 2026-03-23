@@ -163,8 +163,14 @@
 .w-3 {
   width: 12px;
 }
+.h-3 {
+  height: 12px;
+}
 .h-0\.5 {
   height: 2px;
+}
+.min-w-\[40px\] {
+  min-width: 40px;
 }
 
 /* ── Text Utilities ─────────────────────────────────────── */
@@ -221,6 +227,9 @@
 }
 .cursor-not-allowed {
   cursor: not-allowed;
+}
+.cursor-default {
+  cursor: default;
 }
 
 /* ── User Select ────────────────────────────────────────── */
@@ -520,6 +529,10 @@
 .mb-5 {
   margin-bottom: 20px;
 }
+.mx-1\.5 {
+  margin-left: 6px;
+  margin-right: 6px;
+}
 
 /* ── Additional Gap Sizes (for inline style replacement) ─── */
 .gap-0 {
@@ -629,6 +642,12 @@
 }
 .border-dashed {
   border-style: dashed;
+}
+.border-t-border-hi {
+  border-top: 1.5px solid var(--border-hi);
+}
+.border-t-text-2 {
+  border-top-color: var(--text-2);
 }
 
 /* ── Empty State Utilities ──────────────────────────────── */
