@@ -274,7 +274,7 @@ function AccountModal({ account, onSave, onClose }) {
             </div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div className="flex gap-2 mt-4">
           <button onClick={handleTest} disabled={testing} className="btn btn-b btn-sm">
             {testing ? <RefreshCw size={13} className="animate-spin" /> : <CheckCircle size={13} />}
             {t('btn_test')}
@@ -399,9 +399,7 @@ function SmtpModal({ onSave, onClose }) {
             {t('btn_cancel')}
           </button>
           <button onClick={handleSave} disabled={saving} className="btn btn-b btn-sm">
-            {saving ? (
-              <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-            ) : null}
+            {saving ? <RefreshCw size={13} className="animate-spin" /> : null}
             {saving ? t('email_saving') : t('btn_save')}
           </button>
         </div>
@@ -515,8 +513,7 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
               value={form.body}
               onChange={e => set('body', e.target.value)}
               rows={8}
-              className="form-input resize-vertical"
-              style={{ fontFamily: 'inherit' }}
+              className="form-input resize-vertical font-inherit"
             />
           </div>
         </div>
@@ -617,15 +614,11 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
             <iframe
               srcDoc={message.body}
               sandbox="allow-same-origin"
-              className="w-full h-full border-none"
-              style={{ background: '#fff' }}
+              className="w-full h-full border-none bg-white"
               title="email-body"
             />
           ) : (
-            <pre
-              className="p-4 text-[13px] whitespace-pre-wrap break-word m-0 text-text"
-              style={{ fontFamily: 'inherit' }}
-            >
+            <pre className="p-4 text-[13px] whitespace-pre-wrap break-word m-0 text-text font-inherit">
               {message.body}
             </pre>
           )
@@ -709,7 +702,7 @@ function FolderTree({
               selectedAccount?.id === -1 ? '2px solid var(--blue)' : '2px solid transparent',
           }}
         >
-          <Inbox size={13} className="shrink-0" style={{ color: 'var(--blue)' }} />
+          <Inbox size={13} className="shrink-0 text-blue" />
           <span className="text-[12px] flex-1 font-semibold">All Inboxes</span>
           {allUnread > 0 && (
             <span className="text-[10px] bg-red text-bg rounded-full py-[1px] px-[5px] shrink-0">
@@ -1644,10 +1637,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             <PenSquare size={13} /> {t('imap_compose')}
           </button>
           <button onClick={handleCheckAll} disabled={checking} className="btn btn-b btn-sm">
-            <RefreshCw
-              size={13}
-              style={{ animation: checking ? 'spin 1s linear infinite' : 'none' }}
-            />
+            <RefreshCw size={13} className={checking ? 'animate-spin' : ''} />
             {t('imap_check_now')}
           </button>
           <button
