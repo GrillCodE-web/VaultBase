@@ -217,17 +217,7 @@ function EmailShopsCell({ emailId }) {
       >
         {stats.unique_shops} shop{stats.unique_shops !== 1 ? 's' : ''}
       </span>
-      {stats.is_burned && (
-        <span
-          className="text-[9px] font-bold px-[5px] py-[1px] rounded-sm"
-          style={{
-            background: STATUS_COLORS.errorBg,
-            color: STATUS_COLORS.error,
-          }}
-        >
-          BURNED
-        </span>
-      )}
+      {stats.is_burned && <span className="badge-burned">BURNED</span>}
     </div>
   )
 }
@@ -429,19 +419,9 @@ export default function EmailPool({ onNavigate, inTab = false }) {
 
       {/* Bulk Action Bar */}
       {selected.size > 0 && (
-        <div
-          className="flex items-center gap-2 rounded-md p-[8px_14px] mb-2.5 text-[12px]"
-          style={{
-            background: STATUS_COLORS.infoBg,
-            border: `1px solid ${STATUS_COLORS.info}33`,
-          }}
-        >
-          <span className="font-semibold" style={{ color: STATUS_COLORS.info }}>
-            {selected.size} selected
-          </span>
-          <span className="mx-1" style={{ color: 'var(--border)' }}>
-            |
-          </span>
+        <div className="bulk-action-panel">
+          <span className="text-info-bold">{selected.size} selected</span>
+          <span className="text-border mx-1">|</span>
           <button className="btn btn-r btn-sm" onClick={handleBulkBlock}>
             <ShieldOff size={12} /> Block Selected
           </button>
@@ -476,7 +456,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
               <tbody>
                 <tr>
                   <td colSpan={8} className="p-0">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="skeleton-table">
                       <tbody>
                         <SkeletonRows count={5} cols={6} />
                       </tbody>
@@ -487,11 +467,11 @@ export default function EmailPool({ onNavigate, inTab = false }) {
             </table>
           </div>
         ) : emails.length === 0 ? (
-          <div className="overflow-y-auto" style={{ minHeight: 0, flex: 1 }}>
+          <div className="flex-1-overflow">
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
-                  <th className="bg-card" style={{ width: 36 }}>
+                  <th className="bg-card w-checkbox">
                     <input type="checkbox" disabled />
                   </th>
                   <th className="bg-card">{t('col_email')}</th>
@@ -519,11 +499,11 @@ export default function EmailPool({ onNavigate, inTab = false }) {
             </table>
           </div>
         ) : useVirtual ? (
-          <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+          <div ref={parentRef} className="virtual-scroll-container">
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
-                  <th className="bg-card" style={{ width: 36 }}>
+                  <th className="bg-card w-checkbox">
                     <input
                       type="checkbox"
                       checked={emails.length > 0 && selected.size === emails.length}
@@ -559,7 +539,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                   >
-                    <table className="tbl" style={{ marginBottom: 0 }}>
+                    <table className="tbl mb-0">
                       <tbody>
                         <tr
                           style={{
