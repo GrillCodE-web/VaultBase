@@ -71,41 +71,12 @@ export function CardSidePanel({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          right: 340,
-          background: 'rgba(0,0,0,0.25)',
-          zIndex: 199,
-        }}
+        className="fixed inset-0 right-[340px] bg-[rgba(0,0,0,0.25)] z-[199]"
       />
       {/* Panel */}
-      <div
-        style={{
-          position: 'fixed',
-          right: 0,
-          top: 0,
-          width: 340,
-          height: '100vh',
-          background: 'var(--card)',
-          borderLeft: '1px solid var(--border)',
-          zIndex: 200,
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '-8px 0 32px rgba(0,0,0,0.45)',
-          animation: 'side-panel-in 200ms ease-out',
-        }}
-      >
+      <div className="fixed right-0 top-0 w-[340px] h-screen bg-card border-l border-border z-[200] flex flex-col shadow-[-8px_0_32px_rgba(0,0,0,0.45)] animate-[side-panel-in_200ms_ease-out]">
         {/* Header */}
-        <div
-          style={{
-            padding: '14px 16px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+        <div className="p-[14px_16px] border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
@@ -137,24 +108,14 @@ export function CardSidePanel({
         </div>
 
         {/* Card number hero */}
-        <div
-          style={{
-            padding: '16px',
-            background: 'var(--surface)',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
+        <div className="p-4 bg-surface border-b border-border">
           <div className="flex items-center gap-2 mb-2">
             {badge && (
               <span
+                className="p-[2px_7px] rounded-[5px] text-[10px] font-bold mono"
                 style={{
-                  padding: '2px 7px',
-                  borderRadius: 5,
-                  fontSize: 10,
-                  fontWeight: 700,
                   background: badge.bg,
                   color: badge.color,
-                  fontFamily: "'JetBrains Mono',monospace",
                 }}
               >
                 {badge.label}
@@ -164,9 +125,8 @@ export function CardSidePanel({
             <span className={`st ${statusCls}`}>{statusLabel}</span>
             {(card.orders_count ?? 0) > 0 && (
               <span
+                className="text-[10px] mono"
                 style={{
-                  fontSize: 10,
-                  fontFamily: "'JetBrains Mono',monospace",
                   color:
                     (card.orders_count ?? 0) >= 5
                       ? 'var(--orange)'
@@ -180,16 +140,7 @@ export function CardSidePanel({
               </span>
             )}
           </div>
-          <div
-            style={{
-              fontFamily: "'JetBrains Mono',monospace",
-              fontSize: 15,
-              fontWeight: 700,
-              color: 'var(--text)',
-              letterSpacing: '0.05em',
-              marginBottom: 4,
-            }}
-          >
+          <div className="mono text-[15px] font-bold text-text tracking-[0.05em] mb-1">
             {displayNum}
           </div>
           <div className="flex gap-2 mt-2.5">
@@ -252,14 +203,7 @@ export function CardSidePanel({
         </div>
 
         {/* Actions footer */}
-        <div
-          style={{
-            padding: '12px 16px',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            gap: 6,
-          }}
-        >
+        <div className="p-[12px_16px] border-t border-border flex gap-[6px]">
           <button
             className="btn btn-g btn-sm"
             onClick={() => {
