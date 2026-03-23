@@ -43,64 +43,26 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg)',
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              maxWidth: '500px',
-              width: '100%',
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: '14px',
-              padding: '32px',
-              textAlign: 'center',
-            }}
-          >
+        <div className="min-h-screen flex items-center justify-center bg-bg p-5">
+          <div className="w-full card text-center" style={{ maxWidth: '500px', padding: '32px' }}>
             {/* Icon */}
             <div
+              className="flex items-center justify-center mx-auto mb-5"
               style={{
                 width: '64px',
                 height: '64px',
                 borderRadius: '12px',
                 background: 'rgba(239, 68, 68, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 20px',
               }}
             >
               <AlertTriangle size={32} style={{ color: '#ef4444' }} />
             </div>
 
             {/* Title */}
-            <h1
-              style={{
-                fontSize: '18px',
-                fontWeight: 600,
-                color: 'var(--text)',
-                marginBottom: '8px',
-              }}
-            >
-              Something went wrong
-            </h1>
+            <h1 className="text-lg font-semibold text-text mb-2">Something went wrong</h1>
 
             {/* Description */}
-            <p
-              style={{
-                fontSize: '13px',
-                color: 'var(--text-2)',
-                lineHeight: 1.6,
-                marginBottom: '24px',
-              }}
-            >
+            <p className="text-sm text-text-2 mb-6" style={{ lineHeight: 1.6 }}>
               An unexpected error occurred. You can try reloading the page or return to the
               dashboard.
             </p>
@@ -108,34 +70,15 @@ class ErrorBoundary extends React.Component {
             {/* Error details (collapsed by default) */}
             {this.state.error && (
               <details
-                style={{
-                  marginBottom: '24px',
-                  textAlign: 'left',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                }}
+                className="mb-6 text-left bg-surface card-pad"
+                style={{ borderRadius: '8px', padding: '12px' }}
               >
-                <summary
-                  style={{
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    color: 'var(--muted)',
-                    fontWeight: 500,
-                  }}
-                >
+                <summary className="cursor-pointer text-xs text-muted font-medium">
                   Error details
                 </summary>
                 <pre
-                  style={{
-                    marginTop: '12px',
-                    fontSize: '11px',
-                    color: 'var(--text-2)',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontFamily: 'JetBrains Mono, monospace',
-                  }}
+                  className="mt-3 text-xs text-text-2 mono"
+                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                 >
                   {this.state.error.toString()}
                   {this.state.errorInfo && this.state.errorInfo.componentStack}
@@ -144,33 +87,14 @@ class ErrorBoundary extends React.Component {
             )}
 
             {/* Action buttons */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '12px',
-                justifyContent: 'center',
-              }}
-            >
-              <button
-                onClick={this.handleReload}
-                className="btn btn-b"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
+            <div className="flex gap-3 justify-center">
+              <button onClick={this.handleReload} className="btn btn-b flex items-center gap-1.5">
                 <RefreshCw size={14} />
                 Reload
               </button>
               <button
                 onClick={this.handleGoToDashboard}
-                className="btn btn-ghost"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
+                className="btn btn-ghost flex items-center gap-1.5"
               >
                 <Home size={14} />
                 Go to Dashboard
