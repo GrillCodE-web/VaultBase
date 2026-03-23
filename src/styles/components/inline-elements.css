@@ -1,0 +1,134 @@
+/* ═══════════════════════════════════════════════════════════
+   INLINE ELEMENTS — CYBER-FINANCIAL TERMINAL
+   Compact inline form elements for filters and toolbars
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Inline Select ──────────────────────────────────────── */
+.inline-select {
+  min-width: 120px;
+  padding: 7px 32px 7px 12px;
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 500;
+  transition: all var(--t-fast);
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%238b949e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.inline-select:hover {
+  border-color: var(--border-hi);
+  background-color: var(--surface);
+}
+
+.inline-select:focus {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2300d9ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.inline-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--inset);
+}
+
+/* ── Small Inline Select ────────────────────────────────── */
+.inline-select-sm {
+  min-width: 90px;
+  padding: 5px 28px 5px 10px;
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 11px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 500;
+  transition: all var(--t-fast);
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238b949e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  cursor: pointer;
+}
+
+.inline-select-sm:hover {
+  border-color: var(--border-hi);
+  background-color: var(--surface);
+}
+
+.inline-select-sm:focus {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2300d9ff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.inline-select-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Inline Input ───────────────────────────────────────── */
+.inline-input {
+  min-width: 140px;
+  padding: 7px 12px;
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Manrope', sans-serif;
+  transition: all var(--t-fast);
+  outline: none;
+}
+
+.inline-input::placeholder {
+  color: var(--muted);
+}
+
+.inline-input:hover {
+  border-color: var(--border-hi);
+}
+
+.inline-input:focus {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.inline-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Filters Container ──────────────────────────────────── */
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: 16px;
+}
+
+.filters::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--gradient-accent);
+  opacity: 0.15;
+}

@@ -20,6 +20,7 @@
 /* ── Components (Redesigned) ────────────────────────────── */
 @import './components/buttons-redesign.css';
 @import './components/forms-redesign.css';
+@import './components/inline-elements.css';
 @import './components/modal-redesign.css';
 @import './components/table-redesign.css';
 @import './components/badges-redesign.css';

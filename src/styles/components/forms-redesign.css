@@ -32,7 +32,8 @@
 /* ── Input Fields ───────────────────────────────────────── */
 .input,
 .textarea,
-.select {
+.select,
+.form-input {
   width: 100%;
   padding: 10px 14px;
   background: var(--inset);
@@ -47,14 +48,16 @@
 
 .input:hover,
 .textarea:hover,
-.select:hover {
+.select:hover,
+.form-input:hover {
   border-color: var(--border-hi);
   background: var(--surface);
 }
 
 .input:focus,
 .textarea:focus,
-.select:focus {
+.select:focus,
+.form-input:focus {
   border-color: var(--accent-border);
   background: var(--surface);
   box-shadow: 0 0 0 3px var(--accent-dim);
@@ -62,13 +65,15 @@
 }
 
 .input::placeholder,
-.textarea::placeholder {
+.textarea::placeholder,
+.form-input::placeholder {
   color: var(--muted);
 }
 
 .input:disabled,
 .textarea:disabled,
-.select:disabled {
+.select:disabled,
+.form-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background: var(--inset);
