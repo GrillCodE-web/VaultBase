@@ -45,6 +45,10 @@ const KEYFRAME_CSS = `
   from { transform: translateX(110%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
 }
+@keyframes toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(110%); opacity: 0; }
+}
 @keyframes toast-progress { from{width:100%} to{width:0%} }
 `
 

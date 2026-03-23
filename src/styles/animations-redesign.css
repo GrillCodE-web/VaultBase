@@ -4,17 +4,31 @@
 
 /* ── Core Animations ────────────────────────────────────── */
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 1; box-shadow: 0 0 12px rgba(0, 217, 255, 0.3); }
-  50% { opacity: 0.7; box-shadow: 0 0 24px rgba(0, 217, 255, 0.5); }
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 12px rgba(0, 217, 255, 0.3);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 24px rgba(0, 217, 255, 0.5);
+  }
 }
 
 @keyframes live-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* ── Page Transitions ───────────────────────────────────── */
@@ -67,14 +81,30 @@
 .stagger-item {
   animation: stagger-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
 }
-.stagger-item:nth-child(1) { animation-delay: 0ms; }
-.stagger-item:nth-child(2) { animation-delay: 50ms; }
-.stagger-item:nth-child(3) { animation-delay: 100ms; }
-.stagger-item:nth-child(4) { animation-delay: 150ms; }
-.stagger-item:nth-child(5) { animation-delay: 200ms; }
-.stagger-item:nth-child(6) { animation-delay: 250ms; }
-.stagger-item:nth-child(7) { animation-delay: 300ms; }
-.stagger-item:nth-child(8) { animation-delay: 350ms; }
+.stagger-item:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-item:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger-item:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger-item:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger-item:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger-item:nth-child(6) {
+  animation-delay: 250ms;
+}
+.stagger-item:nth-child(7) {
+  animation-delay: 300ms;
+}
+.stagger-item:nth-child(8) {
+  animation-delay: 350ms;
+}
 
 /* ── Modal & Overlay ────────────────────────────────────── */
 @keyframes modal-in {
@@ -89,8 +119,12 @@
 }
 
 @keyframes overlay-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ── Glitch Effect (for critical actions) ───────────────── */
@@ -137,19 +171,31 @@
 
 /* ── Toast Progress ─────────────────────────────────────── */
 @keyframes toast-progress {
-  from { width: 100%; }
-  to { width: 0%; }
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
 }
 
 /* ── Button Interactions ────────────────────────────────── */
 @keyframes btn-warn-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
 }
 
 @keyframes btn-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.4);
   }
   50% {
@@ -248,9 +294,15 @@
 
 /* ── Magnetic Hover (for interactive elements) ──────────── */
 @keyframes magnetic-hover {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .magnetic-hover:hover {
@@ -259,13 +311,16 @@
 
 /* ── Glow Pulse (for active/live indicators) ────────────── */
 @keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 8px rgba(0, 217, 255, 0.3),
-                0 0 16px rgba(0, 217, 255, 0.2);
+  0%,
+  100% {
+    box-shadow:
+      0 0 8px rgba(0, 217, 255, 0.3),
+      0 0 16px rgba(0, 217, 255, 0.2);
   }
   50% {
-    box-shadow: 0 0 16px rgba(0, 217, 255, 0.5),
-                0 0 32px rgba(0, 217, 255, 0.3);
+    box-shadow:
+      0 0 16px rgba(0, 217, 255, 0.5),
+      0 0 32px rgba(0, 217, 255, 0.3);
   }
 }
 
@@ -280,5 +335,323 @@
   }
   to {
     transform: translateX(100%) translateY(100%);
+  }
+}
+
+/* ── Additional Animations ──────────────────────────────── */
+
+/* Fade In */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fade Out */
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Scale In */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scale Out */
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Shake (for form errors) */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Pulse (for success feedback) */
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+/* Checkmark Animation */
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 50;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+/* X Mark Animation (for errors) */
+@keyframes xmark {
+  0% {
+    stroke-dashoffset: 50;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+/* Bounce (for notifications) */
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-8px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  75% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Slide Out Right (for toast dismiss) */
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Slide Out Left */
+@keyframes slideOutLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+/* Row Highlight (when updated) */
+@keyframes rowHighlight {
+  0% {
+    background: rgba(0, 217, 255, 0.15);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Row Delete (fade out and slide) */
+@keyframes rowDelete {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+}
+
+/* Row Insert (slide in from top) */
+@keyframes rowInsert {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Status Badge Pulse (for in-use status) */
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.3);
+  }
+}
+
+/* Ripple Effect (for button clicks) */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* Progress Bar Fill */
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* ── Utility Classes ────────────────────────────────────── */
+
+/* Page entrance animation */
+.page-enter {
+  animation: page-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fade in */
+.fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fade out */
+.fade-out {
+  animation: fadeOut 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scale in */
+.scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Modal entrance */
+.modal-enter {
+  animation: modal-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Modal exit */
+.modal-exit {
+  animation: scaleOut 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Overlay fade */
+.overlay-enter {
+  animation: overlay-fade 0.2s ease-out;
+}
+
+/* Shake animation */
+.shake {
+  animation: shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Pulse animation */
+.pulse {
+  animation: pulse 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Bounce animation */
+.bounce {
+  animation: bounce 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Row highlight */
+.row-highlight {
+  animation: rowHighlight 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Row delete */
+.row-delete {
+  animation: rowDelete 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Row insert */
+.row-insert {
+  animation: rowInsert 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Toast slide out */
+.toast-exit {
+  animation: slideOutRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Status pulse */
+.status-pulse {
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* Spinner */
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Reduced Motion Support ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .scanline-overlay,
+  .noise-overlay {
+    display: none;
   }
 }

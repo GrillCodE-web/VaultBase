@@ -131,6 +131,7 @@
   background: rgba(245, 158, 11, 0.08);
   border-color: rgba(245, 158, 11, 0.25);
   color: var(--yellow-t);
+  animation: statusPulse 2s ease-in-out infinite;
 }
 
 .status-badge.dead {

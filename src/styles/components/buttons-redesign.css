@@ -346,7 +346,152 @@
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
 }
 
-/* ── Loading State ──────────────────────────────────────── */
+/* ── Primary Button ─────────────────────────────────────── */
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
+}
+
+.btn-primary:hover::before {
+  opacity: 1;
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 217, 255, 0.2);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Secondary Button ───────────────────────────────────── */
+.btn-secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-secondary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--hover);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.btn-secondary:hover {
+  border-color: var(--border-hi);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-secondary:hover::before {
+  opacity: 1;
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Danger Button ──────────────────────────────────────── */
+.btn-danger {
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-danger::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.btn-danger:hover {
+  background: var(--red-t);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover::before {
+  opacity: 1;
+}
+
+.btn-danger:active {
+  transform: translateY(0);
+  animation: btn-warn-shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
 .btn-loading {
   position: relative;
   color: transparent !important;

@@ -33,6 +33,7 @@ export function ConfirmProvider({ children }) {
       {children}
       {state && (
         <div
+          className="overlay-enter"
           style={{
             position: 'fixed',
             inset: 0,
@@ -41,10 +42,12 @@ export function ConfirmProvider({ children }) {
             alignItems: 'center',
             justifyContent: 'center',
             background: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(4px)',
           }}
         >
           <div
             ref={modalRef}
+            className="modal-enter"
             style={{
               background: 'var(--card)',
               border: '1px solid var(--border)',

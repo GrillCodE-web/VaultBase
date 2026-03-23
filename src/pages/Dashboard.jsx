@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
   AreaChart,
@@ -12,7 +12,9 @@ import {
 import { AlertTriangle, ChevronRight, RefreshCw, Download, FileDown } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
+import { SkeletonStats } from '../components/SkeletonCard.jsx'
 import { useToast } from '../hooks/useToast'
+import { usePageTransition } from '../hooks/useAnimation'
 import { formatCurrency, formatNumber } from '../utils/formatting'
 import {
   CHART_COLORS,
