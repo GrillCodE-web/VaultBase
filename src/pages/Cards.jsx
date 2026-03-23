@@ -10,6 +10,7 @@ import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { copyToClipboard } from '../utils/clipboard.js'
 import { buildPageNumbers } from '../utils/pagination.js'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ImportModal } from './Cards/ImportModal.jsx'
 import { CardFilters } from './Cards/CardFilters.jsx'
 import { CardRow } from './Cards/CardRow.jsx'
@@ -180,7 +181,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // Load cards when filters or page change
   useEffect(() => {
-    fetchCards().catch(e => toast(String(e), 'error'))
+    fetchCards().catch(e => {
+      const error = handleError(e, 'Cards.fetchCards')
+      toast(getErrorMessage(error), 'error')
+    })
   }, [fetchCards, toast])
 
   // Load filter metadata on mount
@@ -264,7 +268,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       await updateCard(id, { status })
       toast(t('card_marked_as') + ' ' + status, 'success')
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Cards.handleStatusChange')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -289,11 +294,12 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       try {
         await deleteCard(id)
       } catch (e) {
-        const msg = String(e)
+        const error = handleError(e, 'Cards.handleDelete')
+        const msg = error.details?.originalMessage || error.message
         if (msg.includes('in_use') || msg.includes('card_in_use')) {
           toast(t('card_cannot_delete_linked'), 'error')
         } else {
-          toast(msg, 'error')
+          toast(getErrorMessage(error), 'error')
         }
       }
     }, 5000)
@@ -311,7 +317,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       await bulkUpdateStatus([...selected], status)
       toast(selected.size + ' ' + t('cards_bulk_moved') + ' ' + status, 'success')
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Cards.handleBulkStatus')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -330,7 +337,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       await bulkUpdateStatus(deadIds, 'archive')
       toast(`${deadIds.length} dead cards archived`, 'success')
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Cards.handleArchiveDead')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -341,7 +349,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       await bulkDelete([...selected])
       toast(t('cards_bulk_deleted').replace('{n}', selected.size), 'success')
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Cards.handleBulkDelete')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -361,7 +370,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       toast(`BIN enriched: ${result.enriched} / ${result.total}`, 'success')
     } catch (e) {
       setEnrichProgress(null)
-      toast(String(e), 'error')
+      const error = handleError(e, 'Cards.handleBulkEnrich')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -374,7 +384,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       a.download = `cards_export.${format === 'csv' ? 'csv' : 'txt'}`
       a.click()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Cards.handleExport')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -382,7 +393,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     try {
       await updateCardNotes(id, notes)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Cards.handleEditNote')
+      toast(getErrorMessage(error), 'error')
     }
   }
 

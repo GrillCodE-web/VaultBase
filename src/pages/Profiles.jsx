@@ -30,6 +30,7 @@ import { CARD_STATUS_COLORS } from '../constants/status.js'
 import { shortId } from '../utils/formatting.js'
 import { buildPageNumbers } from '../utils/pagination.js'
 import { copyText } from '../utils/clipboard.js'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ProfileModal } from './Profiles/ProfileModal.jsx'
 import { ProfileFilters } from './Profiles/ProfileFilters.jsx'
 import { ProfileRow } from './Profiles/ProfileRow.jsx'
@@ -1382,11 +1383,12 @@ export default function ProfileList({
           n.delete(profile.id)
           return n
         })
+        const error = handleError(e, 'Profiles.handleDelete')
         if (e.includes?.('active_orders')) {
           const count = e.split(':')[1]
           toast(`Cannot delete: ${count} active order(s)`, 'error')
         } else {
-          toast(String(e), 'error')
+          toast(getErrorMessage(error), 'error')
         }
       }
     }, 5000)

@@ -30,6 +30,7 @@ import { useSmartSuggestions, SuggestionBadge } from './Shops'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { buildPageNumbers } from '../utils/pagination.js'
 import { STATUS_COLORS } from '../constants/colors.js'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { BatchImportModal } from './Orders/BatchImportModal.jsx'
 import { OrderFilters } from './Orders/OrderFilters.jsx'
 import { OrderRow } from './Orders/OrderRow.jsx'
@@ -409,7 +410,8 @@ function StatusMenu({ order, onUpdate, onClose }) {
       onUpdate()
       onClose()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Orders.handleStatusChange')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -420,7 +422,8 @@ function StatusMenu({ order, onUpdate, onClose }) {
       onUpdate()
       onClose()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Orders.handleShipped')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
