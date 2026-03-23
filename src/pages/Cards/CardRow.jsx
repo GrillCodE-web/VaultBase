@@ -129,10 +129,7 @@ export function CardRow({
       {/* CVV */}
       {visibleCols.includes('cvv') && (
         <td
-          className="cell-text-sm-mono"
-          style={{
-            cursor: rev?.cvv ? 'copy' : undefined,
-          }}
+          className={`cell-text-sm-mono ${rev?.cvv ? 'cursor-copy' : ''}`}
           onClick={e => {
             if (rev?.cvv) {
               e.stopPropagation()
@@ -162,10 +159,7 @@ export function CardRow({
       {/* Billing address */}
       {visibleCols.includes('billing') && (
         <td
-          className="cell-text-sm cell-truncate-lg"
-          style={{
-            cursor: rev?.billing_address ? 'copy' : undefined,
-          }}
+          className={`cell-text-sm cell-truncate-lg ${rev?.billing_address ? 'cursor-copy' : ''}`}
           onClick={e => {
             if (rev?.billing_address) {
               e.stopPropagation()
@@ -181,10 +175,7 @@ export function CardRow({
       {/* ZIP */}
       {visibleCols.includes('zip') && (
         <td
-          className="cell-text-sm-mono"
-          style={{
-            cursor: card.zip ? 'copy' : undefined,
-          }}
+          className={`cell-text-sm-mono ${card.zip ? 'cursor-copy' : ''}`}
           onClick={e => {
             if (card.zip) {
               e.stopPropagation()
@@ -200,8 +191,7 @@ export function CardRow({
       {/* City */}
       {visibleCols.includes('city') && (
         <td
-          className="cell-text-sm"
-          style={{ cursor: card.city ? 'copy' : undefined }}
+          className={`cell-text-sm ${card.city ? 'cursor-copy' : ''}`}
           onClick={e => {
             if (card.city) {
               e.stopPropagation()
@@ -217,8 +207,7 @@ export function CardRow({
       {/* State */}
       {visibleCols.includes('state') && (
         <td
-          className="cell-text-sm"
-          style={{ cursor: card.state ? 'copy' : undefined }}
+          className={`cell-text-sm ${card.state ? 'cursor-copy' : ''}`}
           onClick={e => {
             if (card.state) {
               e.stopPropagation()
@@ -255,10 +244,7 @@ export function CardRow({
       {/* Phone */}
       {visibleCols.includes('phone') && (
         <td
-          className="cell-text-sm-mono"
-          style={{
-            cursor: rev?.phone ? 'copy' : undefined,
-          }}
+          className={`cell-text-sm-mono ${rev?.phone ? 'cursor-copy' : ''}`}
           onClick={e => {
             if (rev?.phone) {
               e.stopPropagation()
@@ -296,9 +282,7 @@ export function CardRow({
         <td className="text-text-2">
           {card.card_type || '—'}
           {card.card_level && (
-            <span style={{ marginLeft: 4, fontSize: 11, color: 'var(--muted)' }}>
-              {card.card_level}
-            </span>
+            <span className="ml-1 text-[11px] text-muted">{card.card_level}</span>
           )}
         </td>
       )}
@@ -373,17 +357,8 @@ export function CardRow({
         <td onClick={e => e.stopPropagation()}>
           {(() => {
             const h = getCardHealth(card)
-            if (!h)
-              return (
-                <span className="text-muted" style={{ fontSize: 11 }}>
-                  —
-                </span>
-              )
-            return (
-              <span className={`st ${h.cls}`} style={{ fontSize: 10 }}>
-                {h.label}
-              </span>
-            )
+            if (!h) return <span className="text-muted text-[11px]">—</span>
+            return <span className={`st ${h.cls} text-[10px]`}>{h.label}</span>
           })()}
         </td>
       )}
@@ -397,14 +372,7 @@ export function CardRow({
 
       {/* Created */}
       {visibleCols.includes('created') && (
-        <td
-          style={{
-            color: 'var(--muted)',
-            fontSize: 11,
-            whiteSpace: 'nowrap',
-            fontFamily: "'JetBrains Mono',monospace",
-          }}
-        >
+        <td className="text-muted text-[11px] whitespace-nowrap mono">
           {card.created_at?.slice(0, 10)}
         </td>
       )}
@@ -414,11 +382,7 @@ export function CardRow({
         <td className="text-[11px] text-text-2">{rev?.email || '—'}</td>
       )}
       {visibleCols.includes('ip') && (
-        <td
-          style={{ fontSize: 11, color: 'var(--text-2)', fontFamily: "'JetBrains Mono',monospace" }}
-        >
-          {rev?.ip_address || '—'}
-        </td>
+        <td className="text-[11px] text-text-2 mono">{rev?.ip_address || '—'}</td>
       )}
 
       {/* Actions */}
