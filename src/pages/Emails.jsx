@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Mail, MailCheck, ShieldOff, Trash2, Plus, RefreshCw, X, Link2, Unlink } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
@@ -301,6 +302,16 @@ export default function EmailPool({ onNavigate, inTab = false }) {
   const { t } = useLang()
   const PER_PAGE = 50
 
+  // Virtualization setup
+  const parentRef = useRef(null)
+  const useVirtual = emails.length > 100
+  const rowVirtualizer = useVirtualizer({
+    count: useVirtual ? emails.length : 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 55,
+    overscan: 5,
+  })
+
   const load = useCallback(
     async (p = page, fb = filterBlocked) => {
       setLoading(true)
@@ -511,32 +522,24 @@ export default function EmailPool({ onNavigate, inTab = false }) {
 
       {/* Table */}
       <div className="panel p-0">
-        <div className="overflow-y-auto" style={{ minHeight: 0, flex: 1 }}>
-          <table className="tbl">
-            <thead className="sticky top-0 z-[3] bg-card">
-              <tr>
-                <th className="bg-card" style={{ width: 36 }}>
-                  <input
-                    type="checkbox"
-                    checked={emails.length > 0 && selected.size === emails.length}
-                    onChange={e =>
-                      e.target.checked
-                        ? setSelected(new Set(emails.map(em => em.id)))
-                        : setSelected(new Set())
-                    }
-                  />
-                </th>
-                <th className="bg-card">{t('col_email')}</th>
-                <th className="bg-card">{t('col_label')}</th>
-                <th className="bg-card">{t('col_imap')}</th>
-                <th className="bg-card">{t('col_status')}</th>
-                <th className="bg-card">{t('col_used_in')}</th>
-                <th className="bg-card">Shops</th>
-                <th className="bg-card"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {emails.length === 0 && loading && (
+        {emails.length === 0 && loading ? (
+          <div className="overflow-y-auto" style={{ minHeight: 0, flex: 1 }}>
+            <table className="tbl">
+              <thead className="sticky top-0 z-[3] bg-card">
+                <tr>
+                  <th className="bg-card" style={{ width: 36 }}>
+                    <input type="checkbox" disabled />
+                  </th>
+                  <th className="bg-card">{t('col_email')}</th>
+                  <th className="bg-card">{t('col_label')}</th>
+                  <th className="bg-card">{t('col_imap')}</th>
+                  <th className="bg-card">{t('col_status')}</th>
+                  <th className="bg-card">{t('col_used_in')}</th>
+                  <th className="bg-card">Shops</th>
+                  <th className="bg-card"></th>
+                </tr>
+              </thead>
+              <tbody>
                 <tr>
                   <td colSpan={8} className="p-0">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -546,8 +549,27 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                     </table>
                   </td>
                 </tr>
-              )}
-              {emails.length === 0 && !loading && (
+              </tbody>
+            </table>
+          </div>
+        ) : emails.length === 0 ? (
+          <div className="overflow-y-auto" style={{ minHeight: 0, flex: 1 }}>
+            <table className="tbl">
+              <thead className="sticky top-0 z-[3] bg-card">
+                <tr>
+                  <th className="bg-card" style={{ width: 36 }}>
+                    <input type="checkbox" disabled />
+                  </th>
+                  <th className="bg-card">{t('col_email')}</th>
+                  <th className="bg-card">{t('col_label')}</th>
+                  <th className="bg-card">{t('col_imap')}</th>
+                  <th className="bg-card">{t('col_status')}</th>
+                  <th className="bg-card">{t('col_used_in')}</th>
+                  <th className="bg-card">Shops</th>
+                  <th className="bg-card"></th>
+                </tr>
+              </thead>
+              <tbody>
                 <EmptyState
                   colSpan={8}
                   icon={<Mail size={38} />}
@@ -559,60 +581,194 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                     </button>
                   }
                 />
-              )}
-              {emails.map(entry => (
-                <tr
-                  key={entry.id}
-                  style={{
-                    opacity: entry.is_blocked ? 0.6 : 1,
-                    background: selected.has(entry.id) ? STATUS_COLORS.infoBg : undefined,
-                  }}
-                >
-                  <td onClick={e => e.stopPropagation()}>
+              </tbody>
+            </table>
+          </div>
+        ) : useVirtual ? (
+          <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+            <table className="tbl">
+              <thead className="sticky top-0 z-[3] bg-card">
+                <tr>
+                  <th className="bg-card" style={{ width: 36 }}>
                     <input
                       type="checkbox"
-                      checked={selected.has(entry.id)}
-                      onChange={() => toggleSelect(entry.id)}
+                      checked={emails.length > 0 && selected.size === emails.length}
+                      onChange={e =>
+                        e.target.checked
+                          ? setSelected(new Set(emails.map(em => em.id)))
+                          : setSelected(new Set())
+                      }
                     />
-                  </td>
-                  <td className="mono text-[11px]">{entry.email}</td>
-                  <td className="text-muted">{entry.label || '—'}</td>
-                  <td>
-                    <ImapLinkCell
-                      entry={entry}
-                      imapAccounts={imapAccounts}
-                      onLink={handleLink}
-                      onNavigate={onNavigate}
-                    />
-                  </td>
-                  <td>
-                    <span className={`st st-${statusLabel(entry)}`}>{statusLabel(entry)}</span>
-                  </td>
-                  <td className="text-[11px] text-muted">{usedInLabel(entry)}</td>
-                  <td>
-                    <EmailShopsCell emailId={entry.id} />
-                  </td>
-                  <td>
-                    <div className="tbl-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => setModal(entry)}>
-                        {t('btn_edit')}
-                      </button>
-                      <button
-                        className={`btn btn-sm ${entry.is_blocked ? 'btn-g' : 'btn-r'}`}
-                        onClick={() => handleBlock(entry)}
-                      >
-                        {entry.is_blocked ? t('btn_unblock') : t('btn_block')}
-                      </button>
-                      <button className="btn btn-r btn-sm" onClick={() => handleDelete(entry)}>
-                        {t('btn_delete')}
-                      </button>
-                    </div>
-                  </td>
+                  </th>
+                  <th className="bg-card">{t('col_email')}</th>
+                  <th className="bg-card">{t('col_label')}</th>
+                  <th className="bg-card">{t('col_imap')}</th>
+                  <th className="bg-card">{t('col_status')}</th>
+                  <th className="bg-card">{t('col_used_in')}</th>
+                  <th className="bg-card">Shops</th>
+                  <th className="bg-card"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+            </table>
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                const entry = emails[virtualRow.index]
+                return (
+                  <div
+                    key={virtualRow.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <table className="tbl" style={{ marginBottom: 0 }}>
+                      <tbody>
+                        <tr
+                          style={{
+                            opacity: entry.is_blocked ? 0.6 : 1,
+                            background: selected.has(entry.id) ? STATUS_COLORS.infoBg : undefined,
+                          }}
+                        >
+                          <td onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selected.has(entry.id)}
+                              onChange={() => toggleSelect(entry.id)}
+                            />
+                          </td>
+                          <td className="mono text-[11px]">{entry.email}</td>
+                          <td className="text-muted">{entry.label || '—'}</td>
+                          <td>
+                            <ImapLinkCell
+                              entry={entry}
+                              imapAccounts={imapAccounts}
+                              onLink={handleLink}
+                              onNavigate={onNavigate}
+                            />
+                          </td>
+                          <td>
+                            <span className={`st st-${statusLabel(entry)}`}>
+                              {statusLabel(entry)}
+                            </span>
+                          </td>
+                          <td className="text-[11px] text-muted">{usedInLabel(entry)}</td>
+                          <td>
+                            <EmailShopsCell emailId={entry.id} />
+                          </td>
+                          <td>
+                            <div className="tbl-actions">
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setModal(entry)}
+                              >
+                                {t('btn_edit')}
+                              </button>
+                              <button
+                                className={`btn btn-sm ${entry.is_blocked ? 'btn-g' : 'btn-r'}`}
+                                onClick={() => handleBlock(entry)}
+                              >
+                                {entry.is_blocked ? t('btn_unblock') : t('btn_block')}
+                              </button>
+                              <button
+                                className="btn btn-r btn-sm"
+                                onClick={() => handleDelete(entry)}
+                              >
+                                {t('btn_delete')}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-y-auto" style={{ minHeight: 0, flex: 1 }}>
+            <table className="tbl">
+              <thead className="sticky top-0 z-[3] bg-card">
+                <tr>
+                  <th className="bg-card" style={{ width: 36 }}>
+                    <input
+                      type="checkbox"
+                      checked={emails.length > 0 && selected.size === emails.length}
+                      onChange={e =>
+                        e.target.checked
+                          ? setSelected(new Set(emails.map(em => em.id)))
+                          : setSelected(new Set())
+                      }
+                    />
+                  </th>
+                  <th className="bg-card">{t('col_email')}</th>
+                  <th className="bg-card">{t('col_label')}</th>
+                  <th className="bg-card">{t('col_imap')}</th>
+                  <th className="bg-card">{t('col_status')}</th>
+                  <th className="bg-card">{t('col_used_in')}</th>
+                  <th className="bg-card">Shops</th>
+                  <th className="bg-card"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {emails.map(entry => (
+                  <tr
+                    key={entry.id}
+                    style={{
+                      opacity: entry.is_blocked ? 0.6 : 1,
+                      background: selected.has(entry.id) ? STATUS_COLORS.infoBg : undefined,
+                    }}
+                  >
+                    <td onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(entry.id)}
+                        onChange={() => toggleSelect(entry.id)}
+                      />
+                    </td>
+                    <td className="mono text-[11px]">{entry.email}</td>
+                    <td className="text-muted">{entry.label || '—'}</td>
+                    <td>
+                      <ImapLinkCell
+                        entry={entry}
+                        imapAccounts={imapAccounts}
+                        onLink={handleLink}
+                        onNavigate={onNavigate}
+                      />
+                    </td>
+                    <td>
+                      <span className={`st st-${statusLabel(entry)}`}>{statusLabel(entry)}</span>
+                    </td>
+                    <td className="text-[11px] text-muted">{usedInLabel(entry)}</td>
+                    <td>
+                      <EmailShopsCell emailId={entry.id} />
+                    </td>
+                    <td>
+                      <div className="tbl-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => setModal(entry)}>
+                          {t('btn_edit')}
+                        </button>
+                        <button
+                          className={`btn btn-sm ${entry.is_blocked ? 'btn-g' : 'btn-r'}`}
+                          onClick={() => handleBlock(entry)}
+                        >
+                          {entry.is_blocked ? t('btn_unblock') : t('btn_block')}
+                        </button>
+                        <button className="btn btn-r btn-sm" onClick={() => handleDelete(entry)}>
+                          {t('btn_delete')}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Pagination */}

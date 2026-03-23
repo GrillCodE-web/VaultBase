@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Download, ExternalLink, Store } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
@@ -795,6 +796,16 @@ export default function ShopList({ onNavigate }) {
   const { t } = useLang()
   const PER_PAGE = 50
 
+  // Virtualization setup - disable when any row is expanded
+  const parentRef = useRef(null)
+  const useVirtual = shops.length > 80 && expanded === null
+  const rowVirtualizer = useVirtualizer({
+    count: useVirtual ? shops.length : 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 5,
+  })
+
   const load = useCallback(
     async (p = page, s = search) => {
       setLoading(true)
@@ -990,6 +1001,174 @@ export default function ShopList({ onNavigate }) {
           <button onClick={() => setModal('new')} className="btn btn-b">
             + Add your first shop
           </button>
+        </div>
+      ) : useVirtual ? (
+        <div className="panel p-0 overflow-x-auto">
+          <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+            <table className="tbl">
+              <thead className="sticky top-0 z-[3] bg-card">
+                <tr>
+                  <th style={{ width: 32 }}>
+                    <input
+                      type="checkbox"
+                      checked={shops.length > 0 && selected.size === shops.length}
+                      onChange={e =>
+                        setSelected(e.target.checked ? new Set(shops.map(s => s.id)) : new Set())
+                      }
+                      className="cb"
+                    />
+                  </th>
+                  <th className="w-8"></th>
+                  <th>{t('col_shop_name')}</th>
+                  <th>{t('col_name_domain').split(' / ')[1] || 'Domain'}</th>
+                  <th>{t('col_category')}</th>
+                  <th>{t('col_flags')}</th>
+                  <th>{t('col_orders_count')}</th>
+                  <th>{t('col_success_rate')}</th>
+                  <th>{t('col_declined')}</th>
+                  <th>{t('revenue')}</th>
+                  <th>Risk</th>
+                  <th>Delivery %</th>
+                  <th>Exp. Value</th>
+                  <th>{t('cc_col_actions')}</th>
+                </tr>
+              </thead>
+            </table>
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                const shop = shops[virtualRow.index]
+                const successPct = shop.total_orders > 0 ? shop.success_rate : null
+                const declinePct = shop.total_orders > 0 ? shop.decline_rate : null
+                const successColor =
+                  successPct === null
+                    ? 'var(--muted)'
+                    : successPct >= 60
+                      ? STATUS_COLORS.success
+                      : successPct < 30
+                        ? STATUS_COLORS.error
+                        : STATUS_COLORS.warning
+                const declineColor =
+                  declinePct !== null && declinePct > 50 ? STATUS_COLORS.error : 'var(--dim)'
+
+                return (
+                  <div
+                    key={virtualRow.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <table className="tbl" style={{ marginBottom: 0 }}>
+                      <tbody>
+                        <tr style={{ cursor: 'pointer' }} onClick={() => setExpanded(shop.id)}>
+                          <td onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selected.has(shop.id)}
+                              onChange={e =>
+                                setSelected(prev => {
+                                  const next = new Set(prev)
+                                  e.target.checked ? next.add(shop.id) : next.delete(shop.id)
+                                  return next
+                                })
+                              }
+                              className="cb"
+                            />
+                          </td>
+                          <td className="text-center text-muted text-[12px]">
+                            <span>›</span>
+                          </td>
+                          <td>
+                            <b className="text-[13px]">{shop.name}</b>
+                          </td>
+                          <td>
+                            <span className="font-mono text-[11px] text-muted">{shop.domain}</span>
+                          </td>
+                          <td style={{ color: shop.category ? 'var(--dim)' : 'var(--muted)' }}>
+                            {shop.category || '—'}
+                          </td>
+                          <td>
+                            <FlagPills shop={shop} />
+                          </td>
+                          <td className="font-mono">{shop.total_orders}</td>
+                          <td>
+                            <span style={{ fontWeight: 600, color: successColor }}>
+                              {successPct !== null ? `${successPct.toFixed(1)}%` : '—'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ color: declineColor }}>
+                              {declinePct !== null ? `${declinePct.toFixed(1)}%` : '—'}
+                            </span>
+                          </td>
+                          <td className="font-mono">
+                            {shop.avg_order_value > 0 ? `$${shop.avg_order_value.toFixed(2)}` : '—'}
+                          </td>
+                          <td>
+                            <ShopRiskBadge shopId={shop.id} />
+                          </td>
+                          <td>
+                            {(() => {
+                              const wl = winLossMap[shop.id]
+                              if (!wl) return <span className="text-muted">—</span>
+                              const pct = wl.delivery_pct
+                              const color = getDeliveryRateColor(pct)
+                              return (
+                                <span
+                                  style={{ color, fontWeight: 600, fontSize: 12 }}
+                                  title={pct < 30 ? 'Low delivery rate' : undefined}
+                                >
+                                  {pct.toFixed(1)}%{pct < 30 ? ' ⚠' : ''}
+                                </span>
+                              )
+                            })()}
+                          </td>
+                          <td style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11 }}>
+                            {(() => {
+                              const wl = winLossMap[shop.id]
+                              if (!wl) return <span className="text-muted">—</span>
+                              return (
+                                <span style={{ color: 'var(--text-2)' }}>
+                                  ${wl.expected_value.toFixed(2)}
+                                </span>
+                              )
+                            })()}
+                          </td>
+                          <td onClick={e => e.stopPropagation()}>
+                            <div className="tbl-actions">
+                              <button
+                                onClick={() => openSite(shop)}
+                                className="btn btn-ghost btn-sm btn-icon"
+                                title="Visit site"
+                              >
+                                <ExternalLink size={12} />
+                              </button>
+                              <button
+                                onClick={() => setModal(shop)}
+                                className="btn btn-ghost btn-sm"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(shop)}
+                                className="btn btn-r btn-sm"
+                              >
+                                Del
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="panel p-0 overflow-x-auto">
