@@ -565,8 +565,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
         <tr>
           <td
             colSpan={99}
-            className="bg-surface text-muted text-[10px] font-bold border-b uppercase tracking-wide"
-            style={{ padding: '5px 10px' }}
+            className="bg-surface text-muted text-[10px] font-bold border-b uppercase tracking-wide py-[5px] px-2.5"
           >
             {bank} · {groupCards.length} {t('cards')} ·{' '}
             {groupCards.filter(c => c.status === 'free').length} {t('status_free')}
@@ -636,7 +635,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
               {total.toLocaleString()} {t('nav_cards')}
             </span>
             {freeTotal > 0 && (
-              <span className="text-[12px] text-green-t font-normal" style={{ marginLeft: 8 }}>
+              <span className="text-[12px] text-green-t font-normal ml-2">
                 · {freeTotal.toLocaleString()} {t('status_free')}
               </span>
             )}
@@ -715,30 +714,14 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
       {/* Expiring soon banner */}
       {activeTab === 'expiring' && (
-        <div
-          className="text-[12px] text-yellow-t rounded-md mb-2"
-          style={{
-            padding: '8px 14px',
-            background: 'var(--color-warning-bg)',
-            border: '1px solid var(--color-warning-bg)',
-          }}
-        >
+        <div className="text-[12px] text-yellow-t rounded-md mb-2 py-2 px-3 bg-warning border-warning">
           {t('cards_expiring_banner')}
         </div>
       )}
 
       {/* Bulk action bar — fixed bottom */}
       {selected.size > 0 && (
-        <div
-          className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100"
-          style={{
-            bottom: 24,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '10px 18px',
-            gap: 10,
-          }}
-        >
+        <div className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100 bottom-6 left-1/2 -translate-x-1/2 py-2.5 px-4 gap-2.5">
           <span className="text-accent font-semibold text-[12px]">
             {selected.size} {t('selected')}
           </span>
@@ -791,7 +774,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
-                <th style={{ width: 36, background: 'var(--card)' }}></th>
+                <th className="w-9 bg-card"></th>
                 {visibleHeaders.map(c => (
                   <th key={c.id} className="bg-card">
                     {t(c.label)}
@@ -822,21 +805,13 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           {/* #41 — inner scroll wrapper for sticky thead; virtual scroll when >200 cards */}
           <div
             ref={parentRef}
-            className="flex-1 overflow-y-auto"
-            style={
-              useVirtualCards
-                ? { minHeight: 0, height: 760, overflowY: 'scroll' }
-                : { minHeight: 0 }
-            }
+            className={`flex-1 overflow-y-auto min-h-0 ${useVirtualCards ? 'h-[760px] overflow-y-scroll' : ''}`}
           >
             <table className="tbl relative">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
                   {/* #48 — frozen checkbox column */}
-                  <th
-                    className="bg-card"
-                    style={{ width: 36, position: 'sticky', left: 0, zIndex: 4 }}
-                  >
+                  <th className="bg-card w-9 sticky left-0 z-[4]">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -855,28 +830,15 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                       onDragStart={() => handleColDragStart(c.id)}
                       onDragOver={handleColDragOver}
                       onDrop={() => handleColDrop(c.id)}
-                      style={{
-                        background: 'var(--card)',
-                        cursor: c.id !== 'actions' ? 'grab' : 'default',
-                        userSelect: 'none',
-                        ...(i === 0 && c.id !== 'actions'
-                          ? {
-                              position: 'sticky',
-                              left: 36,
-                              zIndex: 4,
-                              boxShadow: '4px 0 8px rgba(0,0,0,0.25)',
-                            }
-                          : {}),
-                      }}
+                      className={`bg-card select-none ${
+                        c.id !== 'actions' ? 'cursor-grab' : 'cursor-default'
+                      } ${
+                        i === 0 && c.id !== 'actions' ? 'sticky left-9 z-[4] shadow-frozen-col' : ''
+                      }`}
                     >
                       <span className="flex items-center gap-1">
                         {c.id !== 'actions' && (
-                          <span
-                            className="text-muted text-[9px]"
-                            style={{ opacity: 0.5, lineHeight: 1 }}
-                          >
-                            ⠿
-                          </span>
+                          <span className="text-muted text-[9px] opacity-50 leading-1">⠿</span>
                         )}
                         {t(c.label)}
                       </span>
@@ -906,19 +868,14 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             </button>
             {buildPageNumbers(page, totalPages).map((p, i) =>
               p === '…' ? (
-                <span key={i} className="text-muted px-1" style={{ lineHeight: '28px' }}>
+                <span key={i} className="text-muted px-1 leading-[28px]">
                   …
                 </span>
               ) : (
                 <button
                   key={i}
                   onClick={() => setPage(p)}
-                  className="btn btn-ghost btn-sm"
-                  style={
-                    p === page
-                      ? { background: 'var(--accent)', color: 'var(--text)', border: 'none' }
-                      : undefined
-                  }
+                  className={`btn btn-ghost btn-sm ${p === page ? 'btn-active' : ''}`}
                 >
                   {p}
                 </button>

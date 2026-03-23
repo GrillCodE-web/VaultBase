@@ -169,6 +169,12 @@
 .h-0\.5 {
   height: 2px;
 }
+.w-9 {
+  width: 36px;
+}
+.h-\[760px\] {
+  height: 760px;
+}
 .min-w-\[40px\] {
   min-width: 40px;
 }
@@ -212,6 +218,27 @@
 .fixed {
   position: fixed;
 }
+.sticky {
+  position: sticky;
+}
+.left-0 {
+  left: 0;
+}
+.left-9 {
+  left: 36px;
+}
+.left-1\/2 {
+  left: 50%;
+}
+.bottom-6 {
+  bottom: 24px;
+}
+.top-0 {
+  top: 0;
+}
+.-translate-x-1\/2 {
+  transform: translateX(-50%);
+}
 
 /* ── Overflow ───────────────────────────────────────────── */
 .overflow-x-auto {
@@ -219,6 +246,9 @@
 }
 .overflow-y-auto {
   overflow-y: auto;
+}
+.overflow-y-scroll {
+  overflow-y: scroll;
 }
 
 /* ── Cursor ─────────────────────────────────────────────── */
@@ -230,6 +260,9 @@
 }
 .cursor-default {
   cursor: default;
+}
+.cursor-grab {
+  cursor: grab;
 }
 
 /* ── User Select ────────────────────────────────────────── */
@@ -243,6 +276,9 @@
 /* ── Opacity ────────────────────────────────────────────── */
 .opacity-0 {
   opacity: 0;
+}
+.opacity-40 {
+  opacity: 0.4;
 }
 .opacity-50 {
   opacity: 0.5;
@@ -388,6 +424,9 @@
 .bg-transparent {
   background: transparent;
 }
+.bg-warning {
+  background: var(--color-warning-bg);
+}
 
 /* ── Border ─────────────────────────────────────────────── */
 .border {
@@ -401,6 +440,9 @@
 }
 .border-none {
   border: none;
+}
+.border-warning {
+  border: 1px solid var(--color-warning-bg);
 }
 
 /* ── Display ────────────────────────────────────────────── */
@@ -434,6 +476,9 @@
 .shadow-lg {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
+.shadow-frozen-col {
+  box-shadow: 4px 0 8px rgba(0, 0, 0, 0.25);
+}
 
 /* ── Z-Index ────────────────────────────────────────────── */
 .z-10 {
@@ -441,6 +486,12 @@
 }
 .z-100 {
   z-index: 100;
+}
+.z-\[3\] {
+  z-index: 3;
+}
+.z-\[4\] {
+  z-index: 4;
 }
 
 /* ── Margin Left/Right Auto ─────────────────────────────── */
@@ -510,6 +561,12 @@
 .leading-normal {
   line-height: 1.5;
 }
+.leading-1 {
+  line-height: 1;
+}
+.leading-\[28px\] {
+  line-height: 28px;
+}
 
 /* ── Animation Utilities ────────────────────────────────── */
 .animate-spin {
@@ -520,6 +577,14 @@
 .py-1\.5 {
   padding-top: 6px;
   padding-bottom: 6px;
+}
+.py-\[5px\] {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.px-2\.5 {
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 /* ── Additional Margin ──────────────────────────────────── */
@@ -533,10 +598,16 @@
   margin-left: 6px;
   margin-right: 6px;
 }
+.min-h-0 {
+  min-height: 0;
+}
 
 /* ── Additional Gap Sizes (for inline style replacement) ─── */
 .gap-0 {
   gap: 0;
+}
+.gap-2\.5 {
+  gap: 10px;
 }
 .gap-7 {
   gap: 28px;
@@ -594,6 +665,12 @@
 .h-11 {
   height: 44px;
 }
+.w-9 {
+  width: 36px;
+}
+.h-9 {
+  height: 36px;
+}
 
 /* ── Max Width ──────────────────────────────────────────── */
 .max-w-xs {
@@ -623,6 +700,12 @@
 /* ── Grid Template Columns ──────────────────────────────── */
 .grid-cols-1 {
   grid-template-columns: repeat(1, 1fr);
+}
+.col-span-2 {
+  grid-column: span 2 / span 2;
+}
+.col-span-full {
+  grid-column: 1 / -1;
 }
 
 /* ── Flex Alignment Utilities ───────────────────────────── */

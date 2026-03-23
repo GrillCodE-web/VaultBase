@@ -77,7 +77,7 @@ function DropForm({ initial, onSave, onCancel }) {
     <div className="bg-surface rounded-md border p-4 mt-2">
       <div className="grid grid-cols-2 gap-3">
         {fields.map(([key, label, span]) => (
-          <div key={key} style={span === 2 ? { gridColumn: '1 / -1' } : {}}>
+          <div key={key} className={span === 2 ? 'col-span-full' : ''}>
             <label className="block text-[10px] uppercase tracking-wide text-muted mb-1">
               {label}
             </label>
