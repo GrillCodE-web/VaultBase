@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
 import { invoke } from '@tauri-apps/api/core'
@@ -10,22 +10,12 @@ import {
   Trash2,
   Star,
   StarOff,
-  Search,
-  RefreshCw,
-  AlertTriangle,
   Package,
-  ExternalLink,
   Layers,
   Import,
   CheckCircle2,
-  XCircle,
   Edit2,
-  Check,
   X,
-  Filter,
-  MoreHorizontal,
-  Maximize2,
-  ClipboardCopy,
   SearchCode,
   Download,
   ShoppingCart,
@@ -783,7 +773,7 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   if (!detail) return null
 
   const { card, drops, orders } = detail
-  const primaryDrop = drops.find(d => d.is_primary)
+  const _primaryDrop = drops.find(d => d.is_primary)
 
   return (
     <div className="border-t border-border bg-[rgba(11,13,20,0.6)]">
@@ -1356,7 +1346,7 @@ export default function ProfileList({
     return () => window.removeEventListener('keydown', onKey)
   }, [profiles, selectedIdx, rowVirtualizer])
 
-  const handleSearch = e => {
+  const _handleSearch = e => {
     if (e.key === 'Enter') {
       setPage(1)
       load(1, filter)
@@ -1449,7 +1439,7 @@ export default function ProfileList({
     }
   }
 
-  const copyCard = async p => {
+  const _copyCard = async p => {
     try {
       const card = await invoke('reveal_card', { id: p.card_id })
       copyText(buildPipeString(p, card))
@@ -1615,7 +1605,7 @@ export default function ProfileList({
                     const isSelected = selectedIdx === idx
 
                     return (
-                      <React.Fragment key={p.id}>
+                      <>
                         <ProfileRow
                           profile={p}
                           idx={idx}
@@ -1657,7 +1647,7 @@ export default function ProfileList({
                             </td>
                           </tr>
                         )}
-                      </React.Fragment>
+                      </>
                     )
                   })}
 

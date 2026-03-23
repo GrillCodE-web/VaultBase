@@ -131,15 +131,6 @@ const STATUSES = [
   'declined',
   'cancelled',
 ]
-const STATUS_CSS = {
-  pending: 'st-pending',
-  processing: 'st-processing',
-  shipped: 'st-shipped',
-  in_transit: 'st-transit',
-  delivered: 'st-delivered',
-  declined: 'st-decline',
-  cancelled: 'st-cancelled',
-}
 
 const STATUS_DOT_COLOR = {
   pending: 'var(--yellow-t)',
@@ -1913,7 +1904,7 @@ export default function OrderList({
     }, 5000)
   }
 
-  const setFilterVal = (key, val) => setFilter(f => ({ ...f, [key]: val }))
+  const _setFilterVal = (key, val) => setFilter(f => ({ ...f, [key]: val }))
   const totalPages = Math.ceil(total / PER_PAGE)
 
   // Close status menu on outside click

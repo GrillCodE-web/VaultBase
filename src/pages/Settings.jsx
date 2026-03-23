@@ -40,7 +40,7 @@ export default function Settings() {
 
   const [syncGroup, setSyncGroup] = useState(null) // null = loading, false = no group, object = group info
   const [syncGroupLoading, setSyncGroupLoading] = useState(false)
-  const [pairCode, setPairCode] = useState('')
+  const [_pairCode, _setPairCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [newGroupName, setNewGroupName] = useState('')
   const [showCreateGroup, setShowCreateGroup] = useState(false)
@@ -51,7 +51,7 @@ export default function Settings() {
   const [binApiKey, setBinApiKey] = useState('')
   const [binApiSaved, setBinApiSaved] = useState(false)
   const [exportingBackup, setExportingBackup] = useState(false)
-  const [syncing, setSyncing] = useState(false)
+  const [_syncing, _setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState(null)
   const [wsStatus, setWsStatus] = useState(null) // { connected, connecting, group_id? }
   const [changingPw, setChangingPw] = useState(false)
@@ -59,14 +59,14 @@ export default function Settings() {
   const [alwaysOnTop, setAlwaysOnTop] = useState(false)
   const [autoLock, setAutoLock] = useState('300')
   const [unsyncedCount, setUnsyncedCount] = useState(0)
-  const [serverOnline, setServerOnline] = useState(null)
+  const [_serverOnline, _setServerOnline] = useState(null)
   const [lastBackup, setLastBackup] = useState(null)
   const [restoring, setRestoring] = useState(false)
   const [badgeNotifyImap, setBadgeNotifyImap] = useState(true)
   const [badgeNotifyTracking, setBadgeNotifyTracking] = useState(true)
   const [catalogStats, setCatalogStats] = useState(null)
-  const [catalogImporting, setCatalogImporting] = useState(false)
-  const [catalogProgress, setCatalogProgress] = useState(null)
+  const [_catalogImporting, _setCatalogImporting] = useState(false)
+  const [_catalogProgress, _setCatalogProgress] = useState(null)
 
   useEffect(() => {
     // All DB calls in parallel — fast
@@ -212,19 +212,19 @@ export default function Settings() {
     }
   }
 
-  const handleSyncNow = async () => {
-    setSyncing(true)
+  const _handleSyncNow = async () => {
+    _setSyncing(true)
     setSyncResult(null)
     try {
       const res = await invoke('sync_now')
       setSyncResult(res)
-      setServerOnline(res.server_reached ?? null)
+      _setServerOnline(res.server_reached ?? null)
       setUnsyncedCount(prev => Math.max(0, prev - (res.synced ?? 0)))
       toastOk(t('settings_synced_count') || `Synced ${res.synced} records`)
     } catch (e) {
       toastErr(String(e))
     } finally {
-      setSyncing(false)
+      _setSyncing(false)
     }
   }
 
@@ -291,8 +291,8 @@ export default function Settings() {
   const handleImportCatalogItems = async e => {
     const file = e.target.files?.[0]
     if (!file) return
-    setCatalogImporting(true)
-    setCatalogProgress('Reading file…')
+    _setCatalogImporting(true)
+    _setCatalogProgress('Reading file…')
     try {
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf, { type: 'array' })
@@ -317,7 +317,7 @@ export default function Settings() {
       let total = 0
       for (let i = 0; i < items.length; i += BATCH) {
         const batch = items.slice(i, i + BATCH)
-        setCatalogProgress(`Importing… ${i + batch.length} / ${items.length}`)
+        _setCatalogProgress(`Importing… ${i + batch.length} / ${items.length}`)
         const n = await invoke('import_catalog_items', { items: batch })
         total += n
       }
@@ -327,8 +327,8 @@ export default function Settings() {
     } catch (e) {
       toastErr(String(e))
     } finally {
-      setCatalogImporting(false)
-      setCatalogProgress(null)
+      _setCatalogImporting(false)
+      _setCatalogProgress(null)
       e.target.value = ''
     }
   }
@@ -336,8 +336,8 @@ export default function Settings() {
   const handleImportCatalogShops = async e => {
     const file = e.target.files?.[0]
     if (!file) return
-    setCatalogImporting(true)
-    setCatalogProgress('Reading CSV…')
+    _setCatalogImporting(true)
+    _setCatalogProgress('Reading CSV…')
     try {
       const text = await file.text()
       const lines = text.split('\n')
@@ -374,7 +374,7 @@ export default function Settings() {
       let total = 0
       for (let i = 0; i < shops.length; i += BATCH) {
         const batch = shops.slice(i, i + BATCH)
-        setCatalogProgress(`Importing shops… ${i + batch.length} / ${shops.length}`)
+        _setCatalogProgress(`Importing shops… ${i + batch.length} / ${shops.length}`)
         const n = await invoke('import_catalog_shops', { shops: batch })
         total += n
       }
@@ -384,8 +384,8 @@ export default function Settings() {
     } catch (e) {
       toastErr(String(e))
     } finally {
-      setCatalogImporting(false)
-      setCatalogProgress(null)
+      _setCatalogImporting(false)
+      _setCatalogProgress(null)
       e.target.value = ''
     }
   }

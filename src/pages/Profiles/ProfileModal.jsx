@@ -154,7 +154,7 @@ export function ProfileModal({ onCreated, onClose }) {
       if (emailId) {
         try {
           await invoke('set_profile_email', { profileId: p.id, emailPoolId: emailId })
-        } catch (_) {
+        } catch (_e) {
           /* email linking failed — profile still created */
         }
       }

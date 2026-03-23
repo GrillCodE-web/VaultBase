@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { RotateCcw, AlertTriangle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
