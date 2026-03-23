@@ -24,19 +24,7 @@ const FIELD_OPTIONS = [
 
 function Spinner() {
   return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: 12,
-        height: 12,
-        marginRight: 6,
-        border: '2px solid rgba(255,255,255,0.3)',
-        borderTopColor: 'var(--text)',
-        borderRadius: '50%',
-        animation: 'spin 0.7s linear infinite',
-        verticalAlign: 'middle',
-      }}
-    />
+    <span className="inline-block w-3 h-3 mr-1.5 border-2 border-[rgba(255,255,255,0.3)] border-t-text rounded-full animate-spin align-middle" />
   )
 }
 
@@ -137,12 +125,9 @@ export function ImportModal({ onClose, onImported }) {
               {[1, 2, 3].map(s => (
                 <div
                   key={s}
+                  className="w-6 h-1 rounded transition-colors duration-200"
                   style={{
-                    width: 24,
-                    height: 4,
-                    borderRadius: 4,
                     background: s <= step ? 'var(--accent)' : 'var(--border)',
-                    transition: 'background 0.2s',
                   }}
                 />
               ))}
@@ -218,12 +203,8 @@ export function ImportModal({ onClose, onImported }) {
                               title={
                                 isExp && norm && norm !== cell ? `Normalised: ${norm}` : undefined
                               }
+                              className="mono max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap"
                               style={{
-                                fontFamily: "'JetBrains Mono',monospace",
-                                maxWidth: 160,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
                                 background: bad ? 'var(--color-error-bg)' : undefined,
                                 color: bad ? 'var(--color-error)' : undefined,
                               }}
@@ -254,30 +235,9 @@ export function ImportModal({ onClose, onImported }) {
               {Array.from({ length: colCount }).map((_, ci) => (
                 <div
                   key={ci}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '10px 12px',
-                    background: 'var(--surface)',
-                    borderRadius: 7,
-                    border: '1px solid var(--border)',
-                  }}
+                  className="flex items-center gap-[10px] p-[10px_12px] bg-surface rounded-[7px] border border-border"
                 >
-                  <div
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 5,
-                      background: 'var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 11,
-                      color: 'var(--muted)',
-                      flexShrink: 0,
-                    }}
-                  >
+                  <div className="w-[22px] h-[22px] rounded-[5px] bg-border flex items-center justify-center text-[11px] text-muted flex-shrink-0">
                     {ci + 1}
                   </div>
                   <div className="flex-1 font-mono text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap">
