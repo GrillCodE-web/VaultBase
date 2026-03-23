@@ -15,11 +15,13 @@ export function EmptyState({ icon, title, subtitle, action, colSpan }) {
   )
 
   if (colSpan) {
-    ;<tr>
-      <td colSpan={colSpan} className="p-0">
-        {inner}
-      </td>
-    </tr>
+    return (
+      <tr>
+        <td colSpan={colSpan} className="p-0">
+          {inner}
+        </td>
+      </tr>
+    )
   }
   return inner
 }
