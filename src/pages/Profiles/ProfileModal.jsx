@@ -282,19 +282,7 @@ export function ProfileModal({ onCreated, onClose }) {
           </div>
           {/* Card billing preview */}
           {cardId && cardBillingPreview && (
-            <div
-              style={{
-                fontSize: 11,
-                color: 'var(--muted)',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: '6px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
+            <div className="billing-preview-box">
               <MapPin size={11} style={{ flexShrink: 0 }} />
               <span>{cardBillingPreview}</span>
             </div>
@@ -305,7 +293,7 @@ export function ProfileModal({ onCreated, onClose }) {
             <label className="form-label" style={{ marginBottom: 4 }}>
               Email (optional)
             </label>
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <div className="input-with-button">
               <input
                 className="form-input"
                 list="email-suggestions"
@@ -338,16 +326,7 @@ export function ProfileModal({ onCreated, onClose }) {
           </div>
 
           {mode === 'quick' ? (
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 12,
-                color: 'var(--muted)',
-                cursor: 'pointer',
-              }}
-            >
+            <label className="checkbox-label">
               <input
                 type="checkbox"
                 checked={autoCreateDrop}
@@ -371,30 +350,12 @@ export function ProfileModal({ onCreated, onClose }) {
               {templates.length > 0 && (
                 <div className="form-group">
                   <label className="form-label">Templates</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div className="template-list">
                     {templates.map(tpl => (
-                      <div
-                        key={tpl.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          background: 'var(--surface2)',
-                          borderRadius: 6,
-                          padding: '4px 8px',
-                        }}
-                      >
+                      <div key={tpl.id} className="template-item">
                         <button
                           type="button"
-                          style={{
-                            flex: 1,
-                            textAlign: 'left',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: 12,
-                            color: 'var(--fg)',
-                          }}
+                          className="template-apply-btn"
                           onClick={() => {
                             if (tpl.source) setNotes(n => (n ? n : `Source: ${tpl.source}`))
                           }}
@@ -417,16 +378,7 @@ export function ProfileModal({ onCreated, onClose }) {
                   </div>
                 </div>
               )}
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  fontSize: 12,
-                  color: 'var(--muted)',
-                  cursor: 'pointer',
-                }}
-              >
+              <label className="checkbox-label">
                 <input
                   type="checkbox"
                   checked={saveAsTemplate}
@@ -435,8 +387,7 @@ export function ProfileModal({ onCreated, onClose }) {
                 Save as template
                 {saveAsTemplate && (
                   <input
-                    className="form-input ml-2"
-                    style={{ flex: 1, padding: '3px 8px', fontSize: 12 }}
+                    className="form-input inline-input-sm ml-2"
                     placeholder="Template name…"
                     value={templateName}
                     onChange={e => setTemplateName(e.target.value)}
@@ -448,8 +399,8 @@ export function ProfileModal({ onCreated, onClose }) {
           <button
             onClick={handleCreate}
             disabled={loading || !cardId}
-            className="btn btn-b"
-            style={{ width: '100%', opacity: loading || !cardId ? 0.4 : 1 }}
+            className="btn btn-b btn-full-width"
+            style={{ opacity: loading || !cardId ? 0.4 : 1 }}
           >
             {loading ? t('msg_loading') : t('new_profile')}
           </button>

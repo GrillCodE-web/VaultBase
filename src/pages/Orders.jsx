@@ -1000,17 +1000,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                 </div>
                 {smartSuggs?.length > 0 && (
                   <div className="flex flex-col gap-1">
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: 10,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.1em',
-                        color: 'var(--muted)',
-                      }}
-                    >
+                    <div className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted">
                       <Sparkles size={11} /> Smart Suggestions
                     </div>
                     {smartSuggs.map((s, i) => (
@@ -1094,8 +1084,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                     value={customEmail}
                     onChange={e => setCustomEmail(e.target.value)}
                     placeholder="user@example.com"
-                    className="form-input"
-                    style={{ padding: '8px 12px', fontSize: 13 }}
+                    className="form-input p-[8px_12px] text-[13px]"
                   />
                 )}
               </div>
