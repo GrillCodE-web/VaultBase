@@ -190,11 +190,17 @@
 .h-0\.5 {
   height: 2px;
 }
+.w-8 {
+  width: 32px;
+}
 .w-9 {
   width: 36px;
 }
 .w-40 {
   width: 160px;
+}
+.h-\[600px\] {
+  height: 600px;
 }
 .h-\[760px\] {
   height: 760px;
@@ -306,6 +312,9 @@
 /* ── Opacity ────────────────────────────────────────────── */
 .opacity-0 {
   opacity: 0;
+}
+.opacity-20 {
+  opacity: 0.2;
 }
 .opacity-40 {
   opacity: 0.4;

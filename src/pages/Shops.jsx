@@ -575,7 +575,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
         <div>
           <div className="flex items-center justify-between mb-2.5">
             <p className="ptitle m-0">Products ({products.length})</p>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div className="flex gap-1">
               {products.length > 0 && (
                 <button
                   className="btn btn-ghost btn-sm"
@@ -976,7 +976,7 @@ export default function ShopList({ onNavigate }) {
         </div>
       ) : shops.length === 0 ? (
         <div className="panel text-center p-12">
-          <Store size={36} style={{ opacity: 0.2 }} className="mb-3 mx-auto" />
+          <Store size={36} className="mb-3 mx-auto opacity-20" />
           <p className="text-muted text-[13px] mb-[14px]">{t('no_shops')}</p>
           <button onClick={() => setModal('new')} className="btn btn-b">
             + Add your first shop
@@ -984,11 +984,11 @@ export default function ShopList({ onNavigate }) {
         </div>
       ) : useVirtual ? (
         <div className="panel p-0 overflow-x-auto">
-          <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+          <div ref={parentRef} className="h-[600px] overflow-auto">
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
-                  <th style={{ width: 32 }}>
+                  <th className="w-8">
                     <input
                       type="checkbox"
                       checked={shops.length > 0 && selected.size === shops.length}
