@@ -33,11 +33,8 @@ function CategoryBadge({ category }) {
   if (!category) return <span className="text-muted">—</span>
   return (
     <span
+      className="text-[10px] font-semibold px-[7px] py-[2px] rounded"
       style={{
-        fontSize: 10,
-        fontWeight: 600,
-        padding: '2px 7px',
-        borderRadius: 4,
         background: STATUS_COLORS.infoBg,
         color: STATUS_COLORS.info,
       }}
@@ -146,7 +143,7 @@ function ItemsTab() {
           onChange={e => handleSearch(e.target.value)}
           placeholder="Search by name or ASIN…"
         />
-        <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 4 }}>{total} items</span>
+        <span className="text-[12px] text-muted ml-1">{total} items</span>
         {selected.size > 0 && (
           <button className="btn btn-r btn-sm" onClick={handleDeleteSelected}>
             Delete {selected.size} selected
@@ -164,7 +161,7 @@ function ItemsTab() {
         <table className="tbl">
           <thead>
             <tr>
-              <th style={{ width: 32 }}>
+              <th className="w-8">
                 <input
                   type="checkbox"
                   className="cb"
@@ -185,13 +182,13 @@ function ItemsTab() {
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted" style={{ padding: 24 }}>
+                <td colSpan={7} className="text-center text-muted p-6">
                   Loading…
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted" style={{ padding: 24 }}>
+                <td colSpan={7} className="text-center text-muted p-6">
                   No items found
                 </td>
               </tr>
@@ -207,12 +204,10 @@ function ItemsTab() {
                     />
                   </td>
                   <td>
-                    <span style={{ fontWeight: 500, fontSize: 13 }}>{item.name}</span>
+                    <span className="font-medium text-[13px]">{item.name}</span>
                   </td>
                   <td>
-                    <span className="font-mono text-muted" style={{ fontSize: 11 }}>
-                      {item.asin || '—'}
-                    </span>
+                    <span className="font-mono text-muted text-[11px]">{item.asin || '—'}</span>
                   </td>
                   <td className="font-mono">
                     {item.price != null ? `$${item.price.toFixed(2)}` : '—'}
@@ -359,7 +354,7 @@ function ShopsTab() {
           onChange={e => handleSearch(e.target.value)}
           placeholder="Search by domain…"
         />
-        <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 4 }}>{total} shops</span>
+        <span className="text-[12px] text-muted ml-1">{total} shops</span>
       </div>
 
       {/* Table */}
@@ -378,13 +373,13 @@ function ShopsTab() {
           <tbody>
             {loading && shops.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted" style={{ padding: 24 }}>
+                <td colSpan={6} className="text-center text-muted p-6">
                   Loading…
                 </td>
               </tr>
             ) : shops.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted" style={{ padding: 24 }}>
+                <td colSpan={6} className="text-center text-muted p-6">
                   No shops found
                 </td>
               </tr>
@@ -392,9 +387,7 @@ function ShopsTab() {
               shops.map(shop => (
                 <tr key={shop.id} style={{ opacity: shop.excluded ? 0.5 : 1 }}>
                   <td>
-                    <span className="font-mono" style={{ fontSize: 12 }}>
-                      {shop.domain}
-                    </span>
+                    <span className="font-mono text-[12px]">{shop.domain}</span>
                   </td>
                   <td>
                     <CategoryBadge category={shop.category} />
@@ -403,7 +396,7 @@ function ShopsTab() {
                     <ScoreBadge score={shop.score} />
                   </td>
                   <td>
-                    <span style={{ fontSize: 13 }}>{shop.ship_us ? '✓' : '✗'}</span>
+                    <span className="text-[13px]">{shop.ship_us ? '✓' : '✗'}</span>
                   </td>
                   <td>
                     {shop.fraud_level ? (

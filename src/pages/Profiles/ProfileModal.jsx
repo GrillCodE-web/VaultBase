@@ -187,39 +187,21 @@ export function ProfileModal({ onCreated, onClose }) {
         aria-modal="true"
         aria-labelledby="create-profile-title"
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 24px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
+        <div className="modal-header">
           <div className="flex items-center gap-3">
             <User size={16} className="text-blue-t" />
             <span id="create-profile-title" className="modal-title m-0">
               {t('new_profile')}
             </span>
-            <div
-              className="flex gap-1"
-              style={{ background: 'var(--surface)', borderRadius: 6, padding: 2 }}
-            >
+            <div className="mode-toggle-group">
               {['quick', 'full'].map(m => (
                 <button
                   key={m}
                   onClick={() => setMode(m)}
+                  className="mode-toggle-btn"
                   style={{
-                    padding: '2px 10px',
-                    borderRadius: 4,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    border: 'none',
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
                     background: mode === m ? 'var(--accent)' : 'transparent',
                     color: mode === m ? '#fff' : 'var(--muted)',
-                    transition: 'all 0.15s',
                   }}
                 >
                   {m}
@@ -252,15 +234,7 @@ export function ProfileModal({ onCreated, onClose }) {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <div
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                maxHeight: 220,
-                overflowY: 'auto',
-                background: 'var(--surface)',
-              }}
-            >
+            <div className="card-selection-list">
               {cardsLoading ? (
                 <div className="p-4 text-center text-muted text-[12px]">Loading…</div>
               ) : filtered.length === 0 ? (
@@ -270,15 +244,9 @@ export function ProfileModal({ onCreated, onClose }) {
                   <div
                     key={c.id}
                     onClick={() => handleCardSelect(c)}
+                    className="card-selection-item"
                     style={{
-                      padding: '10px 14px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
                       background: cardId === String(c.id) ? 'var(--color-info-bg)' : 'transparent',
-                      borderBottom: '1px solid var(--border)',
-                      transition: 'background 0.15s',
                     }}
                     onMouseEnter={e => {
                       if (cardId !== String(c.id)) e.currentTarget.style.background = 'var(--hover)'
