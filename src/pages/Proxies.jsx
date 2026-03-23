@@ -132,17 +132,14 @@ function UsageStatsModal({ onClose }) {
                   <tr key={s.proxy_id}>
                     <td className="mono text-[11px]">#{s.proxy_id}</td>
                     <td>{s.total_orders}</td>
-                    <td style={{ color: STATUS_COLORS.success }}>{s.success_count}</td>
-                    <td style={{ color: STATUS_COLORS.error }}>{s.decline_count}</td>
+                    <td className="text-success">{s.success_count}</td>
+                    <td className="text-error">{s.decline_count}</td>
                     <td>
                       <span className="font-semibold" style={{ color }}>
                         {rate}%
                       </span>
                       {rate < 40 && (
-                        <span
-                          className="ml-2 text-[10px] inline-flex items-center gap-[3px]"
-                          style={{ color: STATUS_COLORS.error }}
-                        >
+                        <span className="ml-2 text-[10px] inline-flex items-center gap-[3px] text-error">
                           <AlertTriangle size={10} /> High decline rate — consider replacing
                         </span>
                       )}
@@ -423,26 +420,18 @@ function ImportModal({ onDone, onClose }) {
             <div className="flex flex-col gap-3.5">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-success-bg border border-success-bg rounded-[10px] p-4 text-center">
-                  <div className="text-[28px] font-bold" style={{ color: STATUS_COLORS.success }}>
-                    {result.parsed}
-                  </div>
+                  <div className="text-[28px] font-bold text-success">{result.parsed}</div>
                   <div className="text-[11px] text-muted mt-1">{t('cc_import_done')}</div>
                 </div>
                 <div className="bg-warning-bg border border-warning-bg rounded-[10px] p-4 text-center">
-                  <div className="text-[28px] font-bold" style={{ color: STATUS_COLORS.warning }}>
-                    {result.skipped}
-                  </div>
+                  <div className="text-[28px] font-bold text-warning">{result.skipped}</div>
                   <div className="text-[11px] text-muted mt-1">{t('profiles_skipped')}</div>
                 </div>
               </div>
               {result.errors?.length > 0 && (
                 <div className="bg-surface border rounded-md p-2.5 max-h-[120px] overflow-y-auto">
                   {result.errors.map((e, i) => (
-                    <div
-                      key={i}
-                      className="mono text-[11px] py-[2px]"
-                      style={{ color: STATUS_COLORS.error }}
-                    >
+                    <div key={i} className="mono text-[11px] py-[2px] text-error">
                       {e}
                     </div>
                   ))}
@@ -528,8 +517,7 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
           {currentBinding && (
             <button
               onClick={handleUnbind}
-              className="w-full text-left p-[8px_12px] text-[11px] bg-transparent border-none border-b cursor-pointer"
-              style={{ color: STATUS_COLORS.error }}
+              className="w-full text-left p-[8px_12px] text-[11px] bg-transparent border-none border-b cursor-pointer text-error"
             >
               Unbind from {currentBinding.name || currentBinding.domain}
             </button>
@@ -1022,7 +1010,7 @@ export default function ProxyList() {
                   const boundShop = proxyBindings[proxy.id] || null
                   return (
                     <tr key={proxy.id} style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
-                      <td style={{ color: 'var(--text-secondary)' }}>
+                      <td className="text-secondary">
                         {proxy.label || '—'}
                         {boundShop && (
                           <span className="proxy-bound-badge">
@@ -1032,7 +1020,7 @@ export default function ProxyList() {
                       </td>
                       <td className="mono text-[11px] text-muted">
                         {proxy.host}
-                        <span style={{ color: 'var(--border)' }}>:</span>
+                        <span className="text-border">:</span>
                         {proxy.port}
                       </td>
                       <td>

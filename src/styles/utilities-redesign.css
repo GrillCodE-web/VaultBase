@@ -471,6 +471,18 @@
   border-radius: 12px 12px 0 0;
 }
 
+.text-success {
+  color: var(--color-success);
+}
+
+.text-error {
+  color: var(--color-error);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
 /* ── Background Colors ──────────────────────────────────── */
 .bg-card {
   background: var(--card);
