@@ -16,6 +16,9 @@
 .text-text-3 {
   color: var(--text-3);
 }
+.text-secondary {
+  color: var(--text-secondary);
+}
 .text-accent {
   color: var(--accent-text);
 }
