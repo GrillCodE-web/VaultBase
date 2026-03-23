@@ -59,18 +59,11 @@ function EntityBadge({ type }) {
   const Icon = ENTITY_ICONS[type] ?? Settings
   return (
     <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold mono"
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '2px 8px',
-        borderRadius: 4,
-        fontSize: 10,
-        fontWeight: 600,
         backgroundColor: cfg.bg,
         color: cfg.text,
         border: `1px solid ${cfg.border}`,
-        fontFamily: "'JetBrains Mono', monospace",
       }}
     >
       <Icon size={9} />
@@ -197,21 +190,14 @@ export default function ActivityLog() {
 
       <div className="panel p-0 overflow-hidden">
         {entries.length === 0 && !loading ? (
-          <div
-            style={{
-              padding: '40px 24px',
-              textAlign: 'center',
-              color: 'var(--muted)',
-              fontSize: 13,
-            }}
-          >
+          <div className="py-10 px-6 text-center text-muted text-[13px]">
             {search || entityFilter ? t('log_not_found') : t('log_empty')}
           </div>
         ) : (
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{ paddingLeft: 16 }}>{t('log_col_time')}</th>
+                <th className="pl-4">{t('log_col_time')}</th>
                 <th>{t('log_col_category')}</th>
                 <th>{t('log_col_event')}</th>
                 <th>{t('log_col_description')}</th>
@@ -221,31 +207,14 @@ export default function ActivityLog() {
               {loading && entries.length === 0 ? <SkeletonRows count={8} cols={4} /> : null}
               {entries.map((e, i) => (
                 <tr key={e.id ?? i}>
-                  <td
-                    style={{
-                      paddingLeft: 16,
-                      color: 'var(--muted)',
-                      fontSize: 11,
-                      whiteSpace: 'nowrap',
-                      fontFamily: "'JetBrains Mono',monospace",
-                    }}
-                  >
+                  <td className="pl-4 text-muted text-[11px] whitespace-nowrap mono">
                     {e.created_at ? new Date(e.created_at).toLocaleString() : '—'}
                   </td>
                   <td>
                     <EntityBadge type={e.entity_type} />
                   </td>
                   <td className="text-blue-t text-[11px] font-mono">{e.event_type}</td>
-                  <td
-                    style={{
-                      color: 'var(--text)',
-                      fontSize: 12,
-                      maxWidth: 400,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <td className="text-text text-[12px] max-w-[400px] overflow-hidden text-ellipsis whitespace-nowrap">
                     {e.description}
                   </td>
                 </tr>
