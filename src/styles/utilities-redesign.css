@@ -42,6 +42,12 @@
 .text-purple-t {
   color: var(--purple-bright);
 }
+.text-red {
+  color: var(--red);
+}
+.text-success {
+  color: var(--color-success);
+}
 
 /* ── Monospace Font ─────────────────────────────────────── */
 .mono {
@@ -237,6 +243,9 @@
 .whitespace-nowrap {
   white-space: nowrap;
 }
+.tracking-widest {
+  letter-spacing: 0.1em;
+}
 
 /* ── Positioning ────────────────────────────────────────── */
 .relative {
@@ -254,6 +263,9 @@
 .left-0 {
   left: 0;
 }
+.left-3 {
+  left: 12px;
+}
 .left-9 {
   left: 36px;
 }
@@ -269,11 +281,17 @@
 .top-0 {
   top: 0;
 }
+.top-1\/2 {
+  top: 50%;
+}
 .top-8 {
   top: 32px;
 }
 .-translate-x-1\/2 {
   transform: translateX(-50%);
+}
+.-translate-y-1\/2 {
+  transform: translateY(-50%);
 }
 
 /* ── Overflow ───────────────────────────────────────────── */

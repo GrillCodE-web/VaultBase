@@ -149,15 +149,7 @@ export default function Activate({ onActivated }) {
         </div>
 
         {/* Instruction */}
-        <p
-          style={{
-            fontSize: 13,
-            textAlign: 'center',
-            marginBottom: 20,
-            lineHeight: 1.6,
-            color: 'var(--text-2)',
-          }}
-        >
+        <p className="text-[13px] text-center mb-5 leading-[1.6] text-text-2">
           {t('activate_instruction') ||
             'Send this code to your administrator to receive an activation key.'}
         </p>
@@ -166,16 +158,7 @@ export default function Activate({ onActivated }) {
         <div className="form-group">
           <label className="auth-label">{t('activate_key_label') || 'Activation Key'}</label>
           <div className="relative">
-            <KeyRound
-              size={15}
-              style={{
-                position: 'absolute',
-                left: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--muted)',
-              }}
-            />
+            <KeyRound size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="text"
               value={activationKey}
@@ -197,11 +180,9 @@ export default function Activate({ onActivated }) {
               onBlur={e => (e.target.style.borderColor = error ? 'var(--red)' : 'var(--border)')}
             />
           </div>
-          {error && <p style={{ marginTop: 6, fontSize: 11, color: 'var(--red)' }}>{error}</p>}
+          {error && <p className="mt-[6px] text-[11px] text-red">{error}</p>}
           {success && (
-            <p
-              style={{ marginTop: 6, fontSize: 11, color: 'var(--color-success)', fontWeight: 500 }}
-            >
+            <p className="mt-[6px] text-[11px] text-success font-medium">
               {t('activate_success') || 'Activated! Loading...'}
             </p>
           )}
