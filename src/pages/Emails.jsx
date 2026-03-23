@@ -212,17 +212,15 @@ function EmailShopsCell({ emailId }) {
   return (
     <div className="flex items-center gap-1">
       <span
-        style={{ fontSize: 11, color: stats.unique_shops > 0 ? 'var(--text-2)' : 'var(--muted)' }}
+        className="text-[11px]"
+        style={{ color: stats.unique_shops > 0 ? 'var(--text-2)' : 'var(--muted)' }}
       >
         {stats.unique_shops} shop{stats.unique_shops !== 1 ? 's' : ''}
       </span>
       {stats.is_burned && (
         <span
+          className="text-[9px] font-bold px-[5px] py-[1px] rounded-sm"
           style={{
-            fontSize: 9,
-            fontWeight: 700,
-            padding: '1px 5px',
-            borderRadius: 4,
             background: STATUS_COLORS.errorBg,
             color: STATUS_COLORS.error,
           }}
