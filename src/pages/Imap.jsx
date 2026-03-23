@@ -198,7 +198,7 @@ function AccountModal({ account, onSave, onClose }) {
               className="form-input"
             />
             {autoDetected && (
-              <div className="mt-1 text-[11px]" style={{ color: 'var(--color-success)' }}>
+              <div className="mt-1 text-[11px] text-success">
                 ✓ {t('imap_auto_configured')}: {autoDetected}:{form.port} —{' '}
                 {t('imap_use_app_password')}
               </div>
@@ -551,18 +551,10 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
       <div className="p-[12px_16px] border-b bg-card">
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 }}>
+        <div className="text-[14px] font-semibold mb-2 leading-[1.3]">
           {message.subject || '(no subject)'}
         </div>
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 3,
-            fontSize: 12,
-            color: 'var(--muted)',
-          }}
-        >
+        <div className="flex flex-col gap-[3px] text-[12px] text-muted">
           <div>
             <span className="text-dim">From:</span> {message.from_email}
           </div>
@@ -1053,7 +1045,7 @@ function AccountsPanel({
                                 title={acc.is_active ? 'Pause' : 'Resume'}
                               >
                                 {acc.is_active ? (
-                                  <ToggleRight size={15} style={{ color: 'var(--accent)' }} />
+                                  <ToggleRight size={15} className="text-accent-color" />
                                 ) : (
                                   <ToggleLeft size={15} />
                                 )}
