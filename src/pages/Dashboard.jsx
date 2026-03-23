@@ -39,10 +39,7 @@ const PERIODS = [
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div
-      className="bg-card border rounded-md px-3 py-2 text-[11px]"
-      style={{ borderColor: 'var(--border-hi)' }}
-    >
+    <div className="bg-card border border-border-hi rounded-md px-3 py-2 text-[11px]">
       <div className="font-semibold text-text mb-1">{label}</div>
       <div className="text-blue-t">Revenue: {formatCurrency(payload[0]?.value ?? 0)}</div>
       <div className="text-green-t">Profit: {formatCurrency(payload[1]?.value ?? 0)}</div>
@@ -53,11 +50,8 @@ function CustomTooltip({ active, payload, label }) {
 function RevenueChart({ data }) {
   if (!data || data.length === 0) {
     return (
-      <div
-        className="flex flex-col items-center justify-center text-muted gap-2"
-        style={{ height: 240 }}
-      >
-        <AlertTriangle size={20} style={{ color: 'var(--border-hi)', opacity: 0.7 }} />
+      <div className="flex flex-col items-center justify-center text-muted gap-2 h-[240px]">
+        <AlertTriangle size={20} className="text-border-hi opacity-50" />
         <span className="text-[12px]">No orders in this period</span>
       </div>
     )
@@ -118,10 +112,7 @@ function RevenueChart({ data }) {
 function Heatmap({ data, onCellClick }) {
   if (!data || data.length === 0) {
     return (
-      <div
-        className="flex items-center justify-center text-muted text-[12px]"
-        style={{ height: 80 }}
-      >
+      <div className="flex items-center justify-center text-muted text-[12px] h-[80px]">
         Not enough data (need ≥3 orders per combination)
       </div>
     )
@@ -136,13 +127,10 @@ function Heatmap({ data, onCellClick }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="tbl" style={{ borderSpacing: 2, borderCollapse: 'separate' }}>
+      <table className="tbl border-separate" style={{ borderSpacing: 2 }}>
         <thead>
           <tr>
-            <th
-              className="text-left text-muted font-medium text-[10px] pb-1"
-              style={{ paddingRight: 8 }}
-            >
+            <th className="text-left text-muted font-medium text-[10px] pb-1 pr-2">
               Bank ↓ / Shop →
             </th>
             {shops.map(s => (
@@ -416,8 +404,7 @@ function ExpiringTable({ data, onNavigate }) {
                 <td>
                   {c.has_profile ? (
                     <span
-                      className="bg-accent-dim text-accent text-[10px] rounded-full cursor-pointer"
-                      style={{ padding: '2px 8px' }}
+                      className="pill-badge accent cursor-pointer"
                       onClick={e => {
                         e.stopPropagation()
                         onNavigate && onNavigate('profiles')
@@ -455,10 +442,9 @@ function CollapsePanel({ title, id, collapsed, onToggle, children }) {
         <span className="text-[13px] font-semibold text-text-2">{title}</span>
         <ChevronRight
           size={14}
-          className="text-muted shrink-0"
+          className="text-muted shrink-0 transition-transform duration-200"
           style={{
             transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)',
-            transition: 'transform 180ms ease',
           }}
         />
       </button>
@@ -648,10 +634,7 @@ export default function Dashboard({ onNavigate }) {
             onClick={() => loadAll(true)}
             disabled={refreshing}
           >
-            <RefreshCw
-              size={13}
-              style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }}
-            />{' '}
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />{' '}
             {refreshing ? '…' : t('btn_refresh')}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={handleExport} disabled={exporting}>
@@ -665,14 +648,8 @@ export default function Dashboard({ onNavigate }) {
 
       {/* ── Empty state ── */}
       {isEmpty && (
-        <div
-          className="panel text-center border"
-          style={{ padding: '48px 24px', borderStyle: 'dashed' }}
-        >
-          <div
-            className="w-11 h-11 rounded-lg border flex items-center justify-center mx-auto mb-4"
-            style={{ background: 'rgba(255,255,255,0.04)' }}
-          >
+        <div className="panel text-center border border-dashed py-12 px-6">
+          <div className="empty-state-icon-box">
             <Download size={20} className="text-muted" />
           </div>
           <p className="text-[13px] font-semibold text-text mb-1\.5">{t('msg_no_data')}</p>
@@ -739,12 +716,10 @@ export default function Dashboard({ onNavigate }) {
       {!isEmpty && (
         <>
           <div className="slabel mt-2">{t('dashboard_base_total')}</div>
-          <div className="base-strip" style={{ opacity: hasNoActivity ? 0.5 : 1 }}>
+          <div className={`base-strip ${hasNoActivity ? 'opacity-50' : ''}`}>
             <div className="bsi">
               <div className="bsi-lbl">{t('total_cc')}</div>
-              <div className="bsi-val" style={{ color: 'var(--gray-t)' }}>
-                {formatNumber(s.total_cards ?? 0)}
-              </div>
+              <div className="bsi-val text-text-2">{formatNumber(s.total_cards ?? 0)}</div>
             </div>
             <div className="bsi">
               <div className="bsi-lbl">{t('status_free')}</div>
@@ -763,12 +738,8 @@ export default function Dashboard({ onNavigate }) {
               <div className="bsi-val text-blue-t">{formatNumber(s.total_profiles ?? 0)}</div>
             </div>
             <div className="bsi">
-              <div
-                className="bsi-lbl"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}
-              >
-                {t('dashboard_no_drop')}{' '}
-                <AlertTriangle size={10} style={{ color: 'var(--yellow-t)' }} />
+              <div className="bsi-lbl flex items-center justify-center gap-1">
+                {t('dashboard_no_drop')} <AlertTriangle size={10} className="text-yellow-t" />
               </div>
               <div className="bsi-val text-yellow-t">{formatNumber(s.no_drop_profiles ?? 0)}</div>
             </div>
@@ -821,19 +792,13 @@ export default function Dashboard({ onNavigate }) {
         <div className="panel">
           <div className="ptitle">
             {t('chart_title')}
-            <div className="flex text-[11px]" style={{ gap: 16 }}>
+            <div className="flex text-[11px] gap-4">
               <span className="flex items-center gap-1">
-                <span
-                  className="inline-block rounded-sm"
-                  style={{ width: 12, height: 2, backgroundColor: CHART_COLORS.revenue }}
-                />
+                <span className="inline-block rounded-sm w-3 h-0.5 bg-blue-t" />
                 <span className="text-muted">{t('chart_revenue')}</span>
               </span>
               <span className="flex items-center gap-1">
-                <span
-                  className="inline-block rounded-sm"
-                  style={{ width: 12, height: 2, backgroundColor: CHART_COLORS.profit }}
-                />
+                <span className="inline-block rounded-sm w-3 h-0.5 bg-green-t" />
                 <span className="text-muted">{t('chart_profit')}</span>
               </span>
             </div>
@@ -845,18 +810,15 @@ export default function Dashboard({ onNavigate }) {
         <div className="panel">
           <div className="ptitle">
             {t('heatmap_title')}
-            <div className="flex text-[10px]" style={{ gap: 10 }}>
+            <div className="flex text-[10px] gap-2">
               {[
-                { color: HEATMAP_COLORS.high, label: '≥50%' },
-                { color: HEATMAP_COLORS.medium, label: '20–50%' },
-                { color: HEATMAP_COLORS.low, label: '<20%' },
-                { color: HEATMAP_COLORS.noData, label: '<3 orders' },
-              ].map(({ color, label }) => (
+                { color: HEATMAP_COLORS.high, label: '≥50%', colorClass: 'bg-green-t' },
+                { color: HEATMAP_COLORS.medium, label: '20–50%', colorClass: 'bg-yellow-t' },
+                { color: HEATMAP_COLORS.low, label: '<20%', colorClass: 'bg-red-t' },
+                { color: HEATMAP_COLORS.noData, label: '<3 orders', colorClass: 'bg-border' },
+              ].map(({ label, colorClass }) => (
                 <span key={label} className="flex items-center gap-1">
-                  <span
-                    className="inline-block rounded-sm"
-                    style={{ width: 10, height: 10, backgroundColor: color }}
-                  />
+                  <span className={`inline-block rounded-sm w-2.5 h-2.5 ${colorClass}`} />
                   <span className="text-muted">{label}</span>
                 </span>
               ))}
@@ -879,12 +841,11 @@ export default function Dashboard({ onNavigate }) {
             {recentOrders.map(o => (
               <div
                 key={o.id}
-                className="flex items-center cursor-pointer border-b py-1\.5"
-                style={{ gap: 10 }}
+                className="flex items-center cursor-pointer border-b py-1\.5 gap-2"
                 onClick={() => onNavigate?.('orders')}
               >
                 <div className="flex-1">
-                  <div className="text-[12px] flex items-center" style={{ gap: 7 }}>
+                  <div className="text-[12px] flex items-center gap-1\.5">
                     {o.order_number} <span className={`st st-${o.status}`}>{o.status}</span>
                   </div>
                   <div className="text-[10px] text-muted mt-0\.5">

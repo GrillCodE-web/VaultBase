@@ -334,15 +334,18 @@
   transform: translateX(2px);
 }
 
-.alert-row.cr::before {
+.alert-row.cr::before,
+.alert-row.alert-r::before {
   background: var(--red);
 }
 
-.alert-row.cy::before {
+.alert-row.cy::before,
+.alert-row.alert-y::before {
   background: var(--yellow);
 }
 
-.alert-row.cb::before {
+.alert-row.cb::before,
+.alert-row.alert-b::before {
   background: var(--blue);
 }
 

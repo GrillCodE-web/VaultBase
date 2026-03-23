@@ -390,3 +390,43 @@
   color: var(--muted);
   text-decoration: line-through;
 }
+
+/* ── Health Badge ───────────────────────────────────────── */
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  transition: all var(--t-fast);
+}
+
+/* ── Small Pill Badge ───────────────────────────────────── */
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  white-space: nowrap;
+}
+
+.pill-badge.accent {
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  border: 1px solid var(--accent-border);
+}
+
+.pill-badge.success {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--green-t);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
