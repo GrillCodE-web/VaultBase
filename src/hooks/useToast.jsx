@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, createContext, useContext } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react'
+import { HEX_COLORS } from '../constants/colors.js'
 
 const ToastContext = createContext(null)
 
@@ -9,33 +10,33 @@ const TOAST_STYLES = {
   success: {
     bg: 'var(--card)',
     border: 'var(--border)',
-    leftBorder: '#22c55e',
-    color: '#ffffff',
-    iconColor: '#4ade80',
+    leftBorder: HEX_COLORS.green,
+    color: HEX_COLORS.white,
+    iconColor: HEX_COLORS.greenLight,
     Icon: CheckCircle,
   },
   error: {
     bg: 'var(--card)',
     border: 'var(--border)',
-    leftBorder: '#ef4444',
-    color: '#ffffff',
-    iconColor: '#f87171',
+    leftBorder: HEX_COLORS.red,
+    color: HEX_COLORS.white,
+    iconColor: HEX_COLORS.redLight,
     Icon: XCircle,
   },
   warn: {
     bg: 'var(--card)',
     border: 'var(--border)',
-    leftBorder: '#eab308',
-    color: '#ffffff',
-    iconColor: '#facc15',
+    leftBorder: HEX_COLORS.yellow,
+    color: HEX_COLORS.white,
+    iconColor: HEX_COLORS.yellowLight,
     Icon: AlertTriangle,
   },
   info: {
     bg: 'var(--card)',
     border: 'var(--border)',
-    leftBorder: '#3b82f6',
-    color: '#ffffff',
-    iconColor: '#60a5fa',
+    leftBorder: HEX_COLORS.blue,
+    color: HEX_COLORS.white,
+    iconColor: HEX_COLORS.blueLight,
     Icon: Info,
   },
 }
@@ -146,7 +147,7 @@ export function ToastProvider({ children }) {
                   }}
                   className="text-xs font-bold shrink-0 px-2 py-0.5 rounded cursor-pointer transition-colors"
                   style={{
-                    color: '#60a5fa',
+                    color: HEX_COLORS.blueLight,
                     border: '1px solid rgba(96,165,250,0.4)',
                     marginLeft: 4,
                   }}

@@ -7,6 +7,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Lock } from 'lucide-react'
 import { ORDER_STATUS_CSS } from './constants/status.js'
+import { HEX_COLORS } from './constants/colors.js'
 import './index.css'
 
 // ─── Copy button ──────────────────────────────────────────────
@@ -25,7 +26,7 @@ function CopyBtn({ value }) {
       className="float-copy"
       onClick={handleCopy}
       title="Copy"
-      style={{ color: copied ? '#4ade80' : undefined }}
+      style={{ color: copied ? HEX_COLORS.greenLight : undefined }}
     >
       {copied ? '✓' : '⎘'}
     </button>
@@ -50,21 +51,21 @@ function RiskBadge({ level }) {
   if (!level) return null
   const map = {
     safe: {
-      color: '#4ade80',
+      color: HEX_COLORS.greenLight,
       bg: 'rgba(34,197,94,0.12)',
       border: 'rgba(34,197,94,0.25)',
       label: 'Safe',
       icon: '🟢',
     },
     warning: {
-      color: '#facc15',
+      color: HEX_COLORS.yellowLight,
       bg: 'rgba(234,179,8,0.12)',
       border: 'rgba(234,179,8,0.25)',
       label: 'Warning',
       icon: '🟡',
     },
     high: {
-      color: '#f87171',
+      color: HEX_COLORS.redLight,
       bg: 'rgba(239,68,68,0.12)',
       border: 'rgba(239,68,68,0.25)',
       label: 'High Risk',
@@ -96,15 +97,15 @@ function CardHealth({ card, orderCount }) {
   let label, color, icon
   if (card.status === 'dead' || card.status === 'blocked') {
     label = 'Burned'
-    color = '#f87171'
+    color = HEX_COLORS.redLight
     icon = '🔴'
   } else if (orderCount >= 3 || card.status === 'in_use') {
     label = 'Used'
-    color = '#facc15'
+    color = HEX_COLORS.yellowLight
     icon = '🟡'
   } else {
     label = 'Fresh'
-    color = '#4ade80'
+    color = HEX_COLORS.greenLight
     icon = '🟢'
   }
 
@@ -314,7 +315,7 @@ function ProfileFloat() {
         className="flex flex-col items-center justify-center h-screen gap-10"
         style={{ background: 'rgba(11,15,22,0.82)' }}
       >
-        <span className="text-[12px]" style={{ color: '#f87171' }}>
+        <span className="text-[12px]" style={{ color: HEX_COLORS.redLight }}>
           {error ?? 'Profile not found'}
         </span>
         <button className="btn btn-ghost btn-sm" onClick={() => load(profileId)}>
@@ -376,7 +377,7 @@ function ProfileFloat() {
               style={{
                 width: 14,
                 height: 14,
-                background: '#ef4444',
+                background: HEX_COLORS.red,
                 border: 'none',
                 color: 'rgba(0,0,0,0.6)',
                 fontWeight: 700,

@@ -4,6 +4,24 @@
  * All colors reference CSS custom properties from tokens-redesign.css
  */
 
+// Raw hex colors (for contexts where CSS variables can't be used)
+export const HEX_COLORS = {
+  green: '#22c55e',
+  greenLight: '#4ade80',
+  yellow: '#eab308',
+  yellowLight: '#facc15',
+  red: '#ef4444',
+  redLight: '#f87171',
+  blue: '#3b82f6',
+  blueLight: '#60a5fa',
+  orange: '#f97316',
+  orangeLight: '#fb923c',
+  purple: '#a855f7',
+  gray: '#999',
+  white: '#ffffff',
+  border: '#1e2338',
+}
+
 // Status colors
 export const STATUS_COLORS = {
   success: 'var(--color-success)',

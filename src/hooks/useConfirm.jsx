@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, createContext, useContext } from 'react'
 import { useFocusTrap } from './useFocusTrap.js'
+import { HEX_COLORS } from '../constants/colors.js'
 
 const ConfirmContext = createContext(null)
 
@@ -44,7 +45,7 @@ export function ConfirmProvider({ children }) {
             ref={modalRef}
             className="bg-card rounded-xl p-6 w-full mx-4"
             style={{
-              border: '1px solid #1e2338',
+              border: `1px solid ${HEX_COLORS.border}`,
               maxWidth: '360px',
               boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
             }}
@@ -66,7 +67,7 @@ export function ConfirmProvider({ children }) {
                 onMouseLeave={() => setCancelHover(false)}
                 className="rounded-lg px-4 py-2 text-sm cursor-pointer transition-colors text-text-2"
                 style={{
-                  border: '1px solid #1e2338',
+                  border: `1px solid ${HEX_COLORS.border}`,
                   background: cancelHover ? 'var(--card-hi)' : 'transparent',
                 }}
               >
@@ -81,10 +82,10 @@ export function ConfirmProvider({ children }) {
                   background: state.danger
                     ? confirmHover
                       ? 'var(--red)'
-                      : '#ef4444'
+                      : HEX_COLORS.red
                     : confirmHover
                       ? 'var(--accent)'
-                      : '#3b82f6',
+                      : HEX_COLORS.blue,
                 }}
               >
                 {state.confirmLabel}
