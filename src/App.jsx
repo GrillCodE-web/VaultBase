@@ -150,7 +150,7 @@ function GlobalSearch({ onClose, onNavigate }) {
       <div className="search-box-wrap" onClick={e => e.stopPropagation()}>
         {/* Input */}
         <div className="search-input-row">
-          <Search size={16} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+          <Search size={16} className="text-muted icon-no-shrink" />
           <input
             ref={inputRef}
             value={query}
@@ -159,19 +159,7 @@ function GlobalSearch({ onClose, onNavigate }) {
             placeholder={t('app_search_placeholder')}
             className="search-main-input"
           />
-          {loading && (
-            <div
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                border: '2px solid var(--accent)',
-                borderTopColor: 'transparent',
-                animation: 'spin 0.8s linear infinite',
-                flexShrink: 0,
-              }}
-            />
-          )}
+          {loading && <div className="spinner-sm" />}
           <button onClick={onClose} className="bg-transparent border-none cursor-pointer p-0">
             <X size={15} className="text-muted" />
           </button>
@@ -217,12 +205,10 @@ function GlobalSearch({ onClose, onNavigate }) {
 
         {/* Footer */}
         <div className="search-footer">
-          <span style={{ color: 'var(--muted)', fontSize: 10 }}>
+          <span className="search-footer-text">
             {total > 0 ? t('search_result_count').replace('{n}', total) : ''}
           </span>
-          <span style={{ color: 'var(--muted)', fontSize: 10, marginLeft: 'auto' }}>
-            {t('shortcut_close')}
-          </span>
+          <span className="search-footer-text ml-auto">{t('shortcut_close')}</span>
         </div>
       </div>
     </div>
@@ -234,18 +220,9 @@ function GlobalSearch({ onClose, onNavigate }) {
 function Spinner() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg">
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            border: '2px solid var(--accent)',
-            borderTopColor: 'transparent',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Loading…</span>
+      <div className="spinner-container">
+        <div className="spinner" />
+        <span className="text-[13px] text-muted">Loading…</span>
       </div>
     </div>
   )
@@ -257,35 +234,12 @@ function RevokedScreen() {
   const { t } = useLang()
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg">
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 360,
-          backgroundColor: 'var(--card)',
-          border: '1px solid #3a1c1c',
-          borderRadius: 14,
-          padding: 32,
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 12,
-            backgroundColor: 'rgba(239,68,68,0.12)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px',
-          }}
-        >
+      <div className="revoked-card">
+        <div className="revoked-icon-box">
           <AlertTriangle size={28} style={{ color: '#ef4444' }} />
         </div>
-        <h1 style={{ fontSize: 16, fontWeight: 600, color: '#fff', marginBottom: 8 }}>
-          {t('license_revoked_title') || 'License Revoked'}
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
+        <h1 className="revoked-title">{t('license_revoked_title') || 'License Revoked'}</h1>
+        <p className="revoked-text">
           {t('license_revoked_body') ||
             'Your license has been revoked. Please contact your administrator.'}
         </p>
@@ -614,15 +568,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
   ]
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        width: '100%',
-        height: '100vh',
-        overflow: 'hidden',
-        background: 'var(--bg)',
-      }}
-    >
+    <div className="app-container">
       <a
         href="#main-content"
         style={{
@@ -648,35 +594,11 @@ function MainShell({ offlineMode, setOfflineMode }) {
         Skip to main content
       </a>
       {showOnboarding && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 200,
-            background: 'var(--bg)',
-            overflowY: 'auto',
-          }}
-        >
+        <div className="onboarding-overlay">
           <Suspense
             fallback={
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100vh',
-                }}
-              >
-                <div
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: '50%',
-                    border: '2px solid var(--border)',
-                    borderTopColor: 'var(--accent)',
-                    animation: 'spin 0.8s linear infinite',
-                  }}
-                />
+              <div className="onboarding-spinner-container">
+                <div className="spinner-xs" />
               </div>
             }
           >
@@ -703,9 +625,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
       <div className={`sidebar${sidebarExpanded ? ' expanded' : ''}`}>
         <div className="sidebar-logo">
           CC
-          {sidebarExpanded && (
-            <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13 }}>Manager</span>
-          )}
+          {sidebarExpanded && <span className="sidebar-logo-text">Manager</span>}
         </div>
 
         {/* #27 — sorted nav with drag-to-reorder */}
@@ -840,7 +760,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
       </div>
 
       {/* ── Main ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="main-content-wrapper">
         {/* Topbar tabs */}
         {TOPBAR_TABS[page]?.length > 0 && (
           <div className="topbar">
@@ -875,21 +795,12 @@ function MainShell({ offlineMode, setOfflineMode }) {
           </div>
         )}
 
-        <main id="main-content" style={{ flex: 1, overflowY: 'auto' }}>
+        <main id="main-content" className="main-content-scroll">
           <ErrorBoundary onReset={() => handlePageChange('dashboard')}>
             <Suspense
               fallback={
                 <div className="flex items-center justify-center flex-1">
-                  <div
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: '50%',
-                      border: '2px solid var(--border)',
-                      borderTopColor: 'var(--accent)',
-                      animation: 'spin 0.8s linear infinite',
-                    }}
-                  />
+                  <div className="spinner-xs" />
                 </div>
               }
             >
