@@ -9,6 +9,7 @@ import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { getDeliveryRateColor, getRiskColor, STATUS_COLORS } from '../constants/colors.js'
 import { ORDER_STATUS_COLORS } from '../constants/status.js'
 import { SHOP_FLAGS, getActiveShopFlags } from '../constants/shops.js'
+import { exportToCSV } from '../utils/csv.js'
 
 // ─── ShopRiskBadge ────────────────────────────────────────────────────────
 
@@ -538,24 +539,19 @@ function ShopDetailPanel({ shopId, onNavigate }) {
                   className="btn btn-ghost btn-sm"
                   title="Export products as CSV"
                   onClick={() => {
-                    const header = 'Name,ASIN,Amazon Price,Shop Price,Margin,URL'
-                    const rows = products.map(p =>
-                      [
-                        p.name,
-                        p.asin ?? '',
-                        p.amazon_price ?? '',
-                        p.shop_price ?? '',
-                        p.margin ?? '',
-                        p.url ?? '',
-                      ]
-                        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-                        .join(',')
+                    const rows = products.map(p => [
+                      p.name,
+                      p.asin ?? '',
+                      p.amazon_price ?? '',
+                      p.shop_price ?? '',
+                      p.margin ?? '',
+                      p.url ?? '',
+                    ])
+                    exportToCSV(
+                      `${detail.shop.name}_products.csv`,
+                      'Name,ASIN,Amazon Price,Shop Price,Margin,URL',
+                      rows
                     )
-                    const csv = [header, ...rows].join('\n')
-                    const a = document.createElement('a')
-                    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-                    a.download = `${detail.shop.name}_products.csv`
-                    a.click()
                   }}
                 >
                   <Download size={13} /> CSV

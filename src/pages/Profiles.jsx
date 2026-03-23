@@ -30,6 +30,7 @@ import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { CARD_STATUS_COLORS, ORDER_STATUS_CSS } from '../constants/status.js'
 import { shortId } from '../utils/formatting.js'
 import { buildPageNumbers } from '../utils/pagination.js'
+import { exportToCSV } from '../utils/csv.js'
 import { copyText } from '../utils/clipboard.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ProfileModal } from './Profiles/ProfileModal.jsx'
@@ -1316,27 +1317,21 @@ export default function ProfileList({
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => {
-              const rows = profiles.map(p =>
-                [
-                  p.id,
-                  p.holder_masked ?? '',
-                  p.last4 ?? '',
-                  p.bank_name ?? '',
-                  p.country ?? '',
-                  p.order_count,
-                  p.drop_count,
-                  p.card_status ?? '',
-                ]
-                  .map(v => `"${String(v).replace(/"/g, '""')}"`)
-                  .join(',')
+              const rows = profiles.map(p => [
+                p.id,
+                p.holder_masked ?? '',
+                p.last4 ?? '',
+                p.bank_name ?? '',
+                p.country ?? '',
+                p.order_count,
+                p.drop_count,
+                p.card_status ?? '',
+              ])
+              exportToCSV(
+                'profiles_export.csv',
+                'ID,Holder,Last4,Bank,Country,Orders,Drops,CardStatus',
+                rows
               )
-              const csv = ['ID,Holder,Last4,Bank,Country,Orders,Drops,CardStatus', ...rows].join(
-                '\n'
-              )
-              const a = document.createElement('a')
-              a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-              a.download = 'profiles_export.csv'
-              a.click()
             }}
           >
             <Download size={13} /> Export
