@@ -1653,7 +1653,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
       if (u2) u2()
       if (u3) u3()
     }
-  }, [selectedFolder, loadMessages, loadStats, msgSearch])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFolder, loadMessages, loadStats, msgSearch]) // setCheckingAccounts is stable setState
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleCheckAll = async () => {

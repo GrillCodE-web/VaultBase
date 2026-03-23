@@ -26,9 +26,8 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
-import { ActionsMenu } from '../components/ActionsMenu.jsx'
 import { CARD_STATUS_COLORS } from '../constants/status.js'
-import { buildPipeString, shortId } from '../utils/formatting.js'
+import { shortId } from '../utils/formatting.js'
 import { buildPageNumbers } from '../utils/pagination.js'
 import { copyText } from '../utils/clipboard.js'
 import { ProfileModal } from './Profiles/ProfileModal.jsx'
@@ -657,7 +656,8 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
     } finally {
       setLoading(false)
     }
-  }, [profileId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId]) // toast is stable from useToast hook
 
   useEffect(() => {
     load()
@@ -773,7 +773,6 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   if (!detail) return null
 
   const { card, drops, orders } = detail
-  const _primaryDrop = drops.find(d => d.is_primary)
 
   return (
     <div className="border-t border-border bg-[rgba(11,13,20,0.6)]">
@@ -1239,7 +1238,6 @@ export default function ProfileList({
   const tableBodyRef = useRef(null)
   const tableContainerRef = useRef(null)
   const { toast } = useToast()
-  const { confirm } = useConfirm()
   const { t } = useLang()
   const PER_PAGE = 50
 
@@ -1278,7 +1276,8 @@ export default function ProfileList({
         setLoading(false)
       }
     },
-    [page, filter]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [page, filter] // toast is stable from useToast hook
   )
 
   useEffect(() => {
@@ -1304,7 +1303,8 @@ export default function ProfileList({
       setPage(1)
       load(1, f)
     }
-  }, [activeTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]) // filter and load intentionally omitted to avoid infinite loop
 
   // H4: Keyboard navigation with virtual scrolling
   useEffect(() => {
@@ -1345,13 +1345,6 @@ export default function ProfileList({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [profiles, selectedIdx, rowVirtualizer])
-
-  const _handleSearch = e => {
-    if (e.key === 'Enter') {
-      setPage(1)
-      load(1, filter)
-    }
-  }
 
   const handleDelete = async profile => {
     // #15 — undo delete, no confirm dialog
@@ -1434,16 +1427,6 @@ export default function ProfileList({
       ]
       copyText(lines.join('\n'))
       toast('Profile copied', 'success')
-    } catch (e) {
-      toast(String(e), 'error')
-    }
-  }
-
-  const _copyCard = async p => {
-    try {
-      const card = await invoke('reveal_card', { id: p.card_id })
-      copyText(buildPipeString(p, card))
-      toast('Card format copied', 'success')
     } catch (e) {
       toast(String(e), 'error')
     }

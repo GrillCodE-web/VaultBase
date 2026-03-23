@@ -742,7 +742,7 @@ function CreateOrderModal({ onCreated, onClose }) {
         setShopId(created.id)
         setShopObj(created)
         setShopSearch(created.domain)
-      } catch (e) {
+      } catch {
         // Fallback: create shop with minimal info
         try {
           const created = await invoke('create_shop', {
@@ -1831,7 +1831,8 @@ export default function OrderList({
         setLoading(false)
       }
     },
-    [page, filter]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [page, filter] // toast is stable from useToast hook
   )
 
   useEffect(() => {
@@ -1839,7 +1840,8 @@ export default function OrderList({
     invoke('get_shops', { page: 1, perPage: 200, search: '' })
       .then(r => setShopOptions(r.items ?? []))
       .catch(() => {})
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentional: only run on mount
 
   useEffect(() => {
     let newStatus = ''
@@ -1904,7 +1906,6 @@ export default function OrderList({
     }, 5000)
   }
 
-  const _setFilterVal = (key, val) => setFilter(f => ({ ...f, [key]: val }))
   const totalPages = Math.ceil(total / PER_PAGE)
 
   // Close status menu on outside click

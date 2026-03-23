@@ -79,7 +79,8 @@ function UsageStatsModal({ onClose }) {
       .then(setStats)
       .catch(e => toast(String(e), 'error'))
       .finally(() => setLoading(false))
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentional: only run on mount, toast is stable
 
   const rateColor = rate => getDeliveryRateColor(rate)
 
@@ -680,7 +681,6 @@ export default function ProxyList() {
   const [checkingHealth, setCheckingHealth] = useState(false)
   // G2: proxy-shop bindings map: { [proxy_id]: shopObj }
   const [proxyBindings, setProxyBindings] = useState({}) // proxy_id -> shop obj
-  const [shopCache, setShopCache] = useState({}) // shop_id -> shop obj
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
@@ -706,7 +706,8 @@ export default function ProxyList() {
         setLoading(false)
       }
     },
-    [page, filterBlocked, filterType, filterUsed]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [page, filterBlocked, filterType, filterUsed] // toast is stable from useToast hook
   )
 
   useEffect(() => {
@@ -722,14 +723,14 @@ export default function ProxyList() {
       shops.forEach(s => {
         cache[s.id] = s
       })
-      setShopCache(cache)
       const bindMap = {}
       bindings.forEach(b => {
         if (cache[b.shop_id]) bindMap[b.proxy_id] = cache[b.shop_id]
       })
       setProxyBindings(bindMap)
     })
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentional: only run on mount, load is stable
 
   const handleAdd = async form => {
     await invoke('add_proxy', { input: form })
@@ -741,16 +742,6 @@ export default function ProxyList() {
     await invoke('update_proxy', { id: modal.id, input: form })
     toast('Proxy updated', 'success')
     load()
-  }
-
-  const handleBlock = async proxy => {
-    try {
-      await invoke('block_proxy', { id: proxy.id, blocked: !proxy.is_blocked })
-      toast(proxy.is_blocked ? 'Proxy unblocked' : 'Proxy blocked', 'success')
-      load()
-    } catch (e) {
-      toast(String(e), 'error')
-    }
   }
 
   const handleDelete = async proxy => {

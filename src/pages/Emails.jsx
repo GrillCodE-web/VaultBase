@@ -322,7 +322,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
         setLoading(false)
       }
     },
-    [page, filterBlocked]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [page, filterBlocked] // toast is stable from useToast hook
   )
 
   useEffect(() => {
@@ -330,7 +331,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
     invoke('get_imap_accounts')
       .then(setImapAccounts)
       .catch(() => {})
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentional: only run on mount
 
   const handleAdd = async form => {
     await invoke('add_email', { email: form.email, label: form.label, notes: form.notes })

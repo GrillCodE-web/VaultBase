@@ -23,14 +23,12 @@ import {
   Sun,
   Moon,
 } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTheme } from '../hooks/useTheme'
 import { LicenseSection } from '../components/LicenseSection'
 import { STATUS_COLORS } from '../constants/colors'
-import { parseCSVRow } from '../utils/csv'
 
 export default function Settings() {
   const { t, lang, setLang } = useLang()
@@ -40,7 +38,6 @@ export default function Settings() {
 
   const [syncGroup, setSyncGroup] = useState(null) // null = loading, false = no group, object = group info
   const [syncGroupLoading, setSyncGroupLoading] = useState(false)
-  const [_pairCode, _setPairCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [newGroupName, setNewGroupName] = useState('')
   const [showCreateGroup, setShowCreateGroup] = useState(false)
@@ -51,22 +48,17 @@ export default function Settings() {
   const [binApiKey, setBinApiKey] = useState('')
   const [binApiSaved, setBinApiSaved] = useState(false)
   const [exportingBackup, setExportingBackup] = useState(false)
-  const [_syncing, _setSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState(null)
   const [wsStatus, setWsStatus] = useState(null) // { connected, connecting, group_id? }
   const [changingPw, setChangingPw] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [alwaysOnTop, setAlwaysOnTop] = useState(false)
   const [autoLock, setAutoLock] = useState('300')
   const [unsyncedCount, setUnsyncedCount] = useState(0)
-  const [_serverOnline, _setServerOnline] = useState(null)
   const [lastBackup, setLastBackup] = useState(null)
   const [restoring, setRestoring] = useState(false)
   const [badgeNotifyImap, setBadgeNotifyImap] = useState(true)
   const [badgeNotifyTracking, setBadgeNotifyTracking] = useState(true)
   const [catalogStats, setCatalogStats] = useState(null)
-  const [_catalogImporting, _setCatalogImporting] = useState(false)
-  const [_catalogProgress, _setCatalogProgress] = useState(null)
 
   useEffect(() => {
     // All DB calls in parallel — fast
@@ -212,22 +204,6 @@ export default function Settings() {
     }
   }
 
-  const _handleSyncNow = async () => {
-    _setSyncing(true)
-    setSyncResult(null)
-    try {
-      const res = await invoke('sync_now')
-      setSyncResult(res)
-      _setServerOnline(res.server_reached ?? null)
-      setUnsyncedCount(prev => Math.max(0, prev - (res.synced ?? 0)))
-      toastOk(t('settings_synced_count') || `Synced ${res.synced} records`)
-    } catch (e) {
-      toastErr(String(e))
-    } finally {
-      _setSyncing(false)
-    }
-  }
-
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) return
     setSyncGroupLoading(true)
@@ -285,108 +261,6 @@ export default function Settings() {
       toastOk('Left sync group')
     } catch (e) {
       toastErr(String(e))
-    }
-  }
-
-  const handleImportCatalogItems = async e => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    _setCatalogImporting(true)
-    _setCatalogProgress('Reading file…')
-    try {
-      const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: 'array' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 })
-      // Header: ID, Предмет, ASIN, Цена, %, Комент, Комент (ENG), Дата, ..., Примечание, Примечание (ENG), ..., Стоп
-      const items = rows
-        .slice(1)
-        .filter(r => r[0] && r[1])
-        .map(r => ({
-          id: typeof r[0] === 'number' ? r[0] : null,
-          name: String(r[1] || ''),
-          asin: r[2] ? String(r[2]) : null,
-          price: r[3] ? Number(r[3]) : null,
-          pct: r[4] ? Number(r[4]) : 30,
-          category: r[5] ? String(r[5]) : null,
-          notes_en: r[6] ? String(r[6]) : null,
-          stop: r[13] === true || r[13] === 1,
-        }))
-      // Batch import (200 at a time)
-      const BATCH = 200
-      let total = 0
-      for (let i = 0; i < items.length; i += BATCH) {
-        const batch = items.slice(i, i + BATCH)
-        _setCatalogProgress(`Importing… ${i + batch.length} / ${items.length}`)
-        const n = await invoke('import_catalog_items', { items: batch })
-        total += n
-      }
-      const stats = await invoke('get_catalog_stats')
-      setCatalogStats(stats)
-      toastOk(`Imported ${total} catalog items`)
-    } catch (e) {
-      toastErr(String(e))
-    } finally {
-      _setCatalogImporting(false)
-      _setCatalogProgress(null)
-      e.target.value = ''
-    }
-  }
-
-  const handleImportCatalogShops = async e => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    _setCatalogImporting(true)
-    _setCatalogProgress('Reading CSV…')
-    try {
-      const text = await file.text()
-      const lines = text.split('\n')
-      const headers = lines[0]
-        .replace(/^\uFEFF/, '')
-        .split(',')
-        .map(h => h.replace(/"/g, '').trim())
-      const domainIdx = headers.indexOf('Domain')
-      const catIdx = headers.indexOf('Category')
-      const scoreIdx = headers.indexOf('Score')
-      const shipUsIdx = headers.indexOf('ShipUS')
-      const fraudIdx = headers.indexOf('FraudLevel')
-      const brandsIdx = headers.indexOf('TopBrands')
-      const prodsIdx = headers.indexOf('TopProducts')
-      const excludedIdx = headers.indexOf('Excluded')
-      const shops = lines
-        .slice(1)
-        .filter(l => l.trim())
-        .map(l => {
-          const c = parseCSVRow(l)
-          return {
-            domain: c[domainIdx]?.trim() || '',
-            category: c[catIdx]?.trim() || null,
-            score: c[scoreIdx] ? parseInt(c[scoreIdx]) : null,
-            ship_us: c[shipUsIdx]?.toLowerCase() === 'yes',
-            fraud_level: c[fraudIdx]?.trim() || null,
-            top_brands: c[brandsIdx]?.trim() || null,
-            top_products: c[prodsIdx]?.trim() || null,
-            excluded: c[excludedIdx]?.toLowerCase() === 'true',
-          }
-        })
-        .filter(s => s.domain)
-      const BATCH = 300
-      let total = 0
-      for (let i = 0; i < shops.length; i += BATCH) {
-        const batch = shops.slice(i, i + BATCH)
-        _setCatalogProgress(`Importing shops… ${i + batch.length} / ${shops.length}`)
-        const n = await invoke('import_catalog_shops', { shops: batch })
-        total += n
-      }
-      const stats = await invoke('get_catalog_stats')
-      setCatalogStats(stats)
-      toastOk(`Imported ${total} shops`)
-    } catch (e) {
-      toastErr(String(e))
-    } finally {
-      _setCatalogImporting(false)
-      _setCatalogProgress(null)
-      e.target.value = ''
     }
   }
 
@@ -665,11 +539,6 @@ export default function Settings() {
               {unsyncedCount}
             </span>
           </div>
-          {syncResult && (
-            <div style={{ fontSize: 11, color: 'var(--muted)', padding: '4px 0' }}>
-              Last sync: {syncResult.synced} sent, {syncResult.failed} failed
-            </div>
-          )}
         </div>
 
         {/* Change Password — full width */}
