@@ -41,24 +41,13 @@ function PasswordInput({ value, onChange, placeholder, onKeyDown, autoFocus, id 
         autoFocus={autoFocus}
         autoComplete="off"
         spellCheck={false}
-        className="auth-input"
-        style={{ paddingRight: 44 }}
+        className="auth-input pr-11"
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setShow(v => !v)}
-        style={{
-          position: 'absolute',
-          right: 12,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--muted)',
-          padding: 0,
-        }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-muted p-0"
       >
         {show ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
@@ -149,26 +138,8 @@ export default function Login({ onUnlocked }) {
 
   if (mode === 'loading') {
     return (
-      <div
-        style={{
-          width: '100vw',
-          height: '100vh',
-          background: 'var(--bg)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            border: '2px solid var(--blue)',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
+      <div className="w-screen h-screen bg-bg flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-blue-t border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -176,7 +147,7 @@ export default function Login({ onUnlocked }) {
   return (
     <div className="auth-screen">
       <div className="auth-bg-glow" />
-      <div style={{ position: 'relative', width: '100%', maxWidth: 400, margin: '0 16px' }}>
+      <div className="relative w-full max-w-[400px] mx-4">
         {/* Logo */}
         <div className="auth-logo-wrap">
           <div className="auth-logo-icon">
@@ -253,10 +224,8 @@ export default function Login({ onUnlocked }) {
           {/* Requirements (setup only) */}
           {mode === 'setup' && (
             <div className="auth-reqs form-group">
-              <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
-                {t('auth_req_title')}
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+              <p className="text-[11px] text-muted mb-2">{t('auth_req_title')}</p>
+              <div className="grid grid-cols-2 gap-1">
                 <Req met={reqs.length} label={t('auth_req_length')} />
                 <Req met={reqs.upper} label={t('auth_req_upper')} />
                 <Req met={reqs.lower} label={t('auth_req_lower')} />
@@ -292,12 +261,7 @@ export default function Login({ onUnlocked }) {
             disabled={loading || (mode === 'setup' && (!reqsMet || password !== confirm))}
             className="auth-btn"
           >
-            {loading && (
-              <div
-                className="auth-spinner"
-                style={{ display: 'inline-block', marginRight: 8, verticalAlign: 'middle' }}
-              />
-            )}
+            {loading && <div className="auth-spinner inline-block mr-2 align-middle" />}
             {loading
               ? t(mode === 'setup' ? 'auth_btn_creating' : 'auth_btn_unlocking')
               : t(mode === 'setup' ? 'auth_btn_create' : 'auth_btn_unlock')}
