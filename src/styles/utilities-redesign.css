@@ -187,6 +187,9 @@
 .w-\[12px\] {
   width: 12px;
 }
+.h-\[11px\] {
+  height: 11px;
+}
 .h-\[12px\] {
   height: 12px;
 }
@@ -986,6 +989,9 @@
 }
 .rounded-\[8px\] {
   border-radius: 8px;
+}
+.rounded-\[5px\] {
+  border-radius: 5px;
 }
 .rounded-\[10px\] {
   border-radius: 10px;

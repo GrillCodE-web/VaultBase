@@ -1,13 +1,12 @@
 export function SkeletonRow({ cols = 6 }) {
   const widths = ['40%', '70%', '55%', '80%', '45%', '60%']
   return (
-    <tr style={{ borderBottom: '1px solid var(--border)' }} className="fade-in">
+    <tr className="fade-in border-b">
       {Array.from({ length: cols }).map((_, i) => (
-        <td key={i} style={{ padding: '10px 12px' }}>
+        <td key={i} className="p-[10px_12px]">
           <div
+            className="h-[11px] rounded-[5px]"
             style={{
-              height: 11,
-              borderRadius: 5,
               background:
                 'linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%)',
               backgroundSize: '200% 100%',
