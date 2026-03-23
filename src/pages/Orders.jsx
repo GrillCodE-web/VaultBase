@@ -270,8 +270,7 @@ function ShippedModal({ onConfirm, onClose }) {
     <div className="modal-overlay">
       <div
         ref={modalRef}
-        className="modal"
-        style={{ width: 'var(--modal-sm)' }}
+        className="modal modal-sm"
         role="dialog"
         aria-modal="true"
         aria-labelledby="shipped-modal-title"
