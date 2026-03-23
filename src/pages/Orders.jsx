@@ -34,6 +34,7 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { BatchImportModal } from './Orders/BatchImportModal.jsx'
 import { OrderFilters } from './Orders/OrderFilters.jsx'
 import { OrderRow } from './Orders/OrderRow.jsx'
+import { useOrdersStore } from '../store/orders.js'
 
 // ─── OrderTimeline ────────────────────────────────────────────
 const STATUS_STEPS = ['pending', 'processing', 'shipped', 'delivered']
@@ -1758,31 +1759,41 @@ export default function OrderList({
   openCreate = false,
 }) {
   const { t } = useLang()
-  const [orders, setOrders] = useState([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [filter, setFilter] = useState({
-    status: '',
-    shop_id: null,
-    date_from: '',
-    date_to: '',
-    search: '',
-  })
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
+
+  // ── Zustand Store ──────────────────────────────────────────────
+  const {
+    orders,
+    total,
+    page,
+    loading,
+    filters,
+    selected,
+    deletingIds,
+    setPage,
+    setFilters,
+    toggleSelect,
+    toggleSelectAll,
+    clearSelection,
+    fetchOrders,
+    updateOrder,
+    deleteOrder,
+    undoDelete,
+    bulkUpdateStatus,
+    bulkDelete,
+  } = useOrdersStore()
+
+  // Local UI state (not in store)
   const [searchInput, setSearchInput] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [statusMenuId, setStatusMenuId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
   const [shopOptions, setShopOptions] = useState([])
-  const [selectedIds, setSelectedIds] = useState(new Set())
-  const [deletingIds, setDeletingIds] = useState(new Set())
-  // E1: repeat order state
   const [repeatOrder, setRepeatOrder] = useState(null)
-  // E3: batch import state
   const [showBatchImport, setShowBatchImport] = useState(false)
+
   const debouncedSearch = useDebounce(searchInput, 300)
-  const { toast } = useToast()
-  const { confirm } = useConfirm()
   const PER_PAGE = 50
 
   // Virtual scrolling setup
@@ -1808,69 +1819,49 @@ export default function OrderList({
     }
   }, [expandedId, rowVirtualizer, orders.length])
 
-  const load = useCallback(
-    async (p = page, f = filter) => {
-      setLoading(true)
-      try {
-        const r = await invoke('get_orders', {
-          filter: {
-            status: f.status || null,
-            shop_id: f.shop_id || null,
-            date_from: f.date_from || null,
-            date_to: f.date_to || null,
-            search: f.search || null,
-          },
-          page: p,
-          perPage: PER_PAGE,
-        })
-        setOrders(r.items)
-        setTotal(r.total)
-        if (r.items.length === 0 && r.total > 0 && p > 1) {
-          setPage(prev => Math.max(1, prev - 1))
-        }
-      } catch (e) {
-        toast(String(e), 'error')
-      } finally {
-        setLoading(false)
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [page, filter] // toast is stable from useToast hook
-  )
+  // ── Effects ────────────────────────────────────────────────────
 
-  useEffect(() => {
-    load()
-    invoke('get_shops', { page: 1, perPage: 200, search: '' })
-      .then(r => setShopOptions(r.items ?? []))
-      .catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Intentional: only run on mount
-
-  useEffect(() => {
-    let newStatus = ''
-    if (activeTab === 'pending') newStatus = 'pending'
-    else if (activeTab === 'delivered') newStatus = 'delivered'
-    const f = { ...filter, status: newStatus }
-    setFilter(f)
-    setPage(1)
-    load(1, f)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab])
-
+  // Initialize: open create modal if requested
   useEffect(() => {
     if (openCreate) setShowCreate(true)
   }, [openCreate])
 
-  // #20 debounce search
+  // Load orders on mount and fetch shop options
   useEffect(() => {
-    const f = { ...filter, search: debouncedSearch }
-    setFilter(f)
-    load(1, f)
-  }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
+    fetchOrders().catch(e => {
+      const error = handleError(e, 'Orders.fetchOrders')
+      toast(getErrorMessage(error), 'error')
+    })
+    invoke('get_shops', { page: 1, perPage: 200, search: '' })
+      .then(r => setShopOptions(r.items ?? []))
+      .catch(() => {})
+  }, [fetchOrders, toast])
+
+  // Handle activeTab changes (status filter)
+  useEffect(() => {
+    let newStatus = null
+    if (activeTab === 'pending') newStatus = 'pending'
+    else if (activeTab === 'delivered') newStatus = 'delivered'
+    setFilters({ status: newStatus })
+  }, [activeTab, setFilters])
+
+  // Debounced search: update filter when user stops typing
+  useEffect(() => {
+    setFilters({ search: debouncedSearch || null })
+  }, [debouncedSearch, setFilters])
+
+  // Close status menu on outside click
+  useEffect(() => {
+    if (!statusMenuId) return
+    const handler = () => setStatusMenuId(null)
+    document.addEventListener('click', handler, true)
+    return () => document.removeEventListener('click', handler, true)
+  }, [statusMenuId])
+
+  // ── Actions ────────────────────────────────────────────────────
 
   const handleDelete = async o => {
-    // #15 — undo delete, no confirm dialog
-    setDeletingIds(prev => new Set([...prev, o.id]))
+    // Soft delete with undo toast (no confirm dialog)
     let undone = false
     toast({
       message: t('order_deleted'),
@@ -1880,44 +1871,47 @@ export default function OrderList({
         label: 'Undo',
         onClick: () => {
           undone = true
-          setDeletingIds(prev => {
-            const n = new Set(prev)
-            n.delete(o.id)
-            return n
-          })
+          undoDelete(o.id)
         },
       },
     })
+
     setTimeout(async () => {
       if (undone) return
       try {
-        await invoke('delete_order', { id: o.id })
-        setDeletingIds(prev => {
-          const n = new Set(prev)
-          n.delete(o.id)
-          return n
-        })
-        load()
+        await deleteOrder(o.id)
       } catch (e) {
-        setDeletingIds(prev => {
-          const n = new Set(prev)
-          n.delete(o.id)
-          return n
-        })
-        toast(String(e), 'error')
+        const error = handleError(e, 'Orders.handleDelete')
+        toast(getErrorMessage(error), 'error')
       }
     }, 5000)
   }
 
+  const handleBulkStatus = async status => {
+    try {
+      await bulkUpdateStatus([...selected], status)
+      toast(`${selected.size} orders → ${status}`, 'success')
+    } catch (e) {
+      const error = handleError(e, 'Orders.handleBulkStatus')
+      toast(getErrorMessage(error), 'error')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const ok = await confirm(t('orders_confirm_delete_many'), { danger: true })
+    if (!ok) return
+    try {
+      await bulkDelete([...selected])
+      toast(t('orders_deleted_many').replace('{n}', selected.size), 'success')
+    } catch (e) {
+      const error = handleError(e, 'Orders.handleBulkDelete')
+      toast(getErrorMessage(error), 'error')
+    }
+  }
+
   const totalPages = Math.ceil(total / PER_PAGE)
 
-  // Close status menu on outside click
-  useEffect(() => {
-    if (!statusMenuId) return
-    const handler = () => setStatusMenuId(null)
-    document.addEventListener('click', handler, true)
-    return () => document.removeEventListener('click', handler, true)
-  }, [statusMenuId])
+  const allSelected = orders.length > 0 && selected.size === orders.length
 
   return (
     <div className="content">
@@ -1941,16 +1935,16 @@ export default function OrderList({
 
       {/* Filters */}
       <OrderFilters
-        filter={filter}
-        setFilter={setFilter}
-        load={load}
+        filter={filters}
+        setFilter={setFilters}
+        load={() => fetchOrders(true)}
         searchInput={searchInput}
         setSearchInput={setSearchInput}
         shopOptions={shopOptions}
       />
 
       {/* Bulk Action Panel */}
-      {selectedIds.size > 0 && (
+      {selected.size > 0 && (
         <div
           style={{
             display: 'flex',
@@ -1965,59 +1959,19 @@ export default function OrderList({
           }}
         >
           <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
-            {selectedIds.size} selected
+            {selected.size} selected
           </span>
           <span style={{ color: 'var(--border)', margin: '0 4px' }}>|</span>
-          <button
-            className="btn btn-b btn-sm"
-            onClick={async () => {
-              try {
-                for (const id of selectedIds)
-                  await invoke('update_order_status', { id, status: 'processing', meta: null })
-                toast(`${selectedIds.size} orders → processing`, 'success')
-                setSelectedIds(new Set())
-                load()
-              } catch (e) {
-                toast(String(e), 'error')
-              }
-            }}
-          >
+          <button className="btn btn-b btn-sm" onClick={() => handleBulkStatus('processing')}>
             → Processing
           </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={async () => {
-              try {
-                for (const id of selectedIds)
-                  await invoke('update_order_status', { id, status: 'shipped', meta: null })
-                toast(`${selectedIds.size} orders → shipped`, 'success')
-                setSelectedIds(new Set())
-                load()
-              } catch (e) {
-                toast(String(e), 'error')
-              }
-            }}
-          >
+          <button className="btn btn-ghost btn-sm" onClick={() => handleBulkStatus('shipped')}>
             → Shipped
           </button>
-          <button
-            className="btn btn-r btn-sm"
-            onClick={async () => {
-              const ok = await confirm(t('orders_confirm_delete_many'), { danger: true })
-              if (!ok) return
-              try {
-                for (const id of selectedIds) await invoke('delete_order', { id })
-                toast(`Deleted ${selectedIds.size} orders`, 'success')
-                setSelectedIds(new Set())
-                load()
-              } catch (e) {
-                toast(String(e), 'error')
-              }
-            }}
-          >
+          <button className="btn btn-r btn-sm" onClick={handleBulkDelete}>
             {t('btn_delete')}
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
+          <button className="btn btn-ghost btn-sm" onClick={clearSelection}>
             {t('orders_deselect_all')}
           </button>
         </div>
@@ -2035,11 +1989,9 @@ export default function OrderList({
               <th>
                 <input
                   type="checkbox"
-                  checked={orders.length > 0 && selectedIds.size === orders.length}
-                  onChange={e => {
-                    if (e.target.checked) setSelectedIds(new Set(orders.map(o => o.id)))
-                    else setSelectedIds(new Set())
-                  }}
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="accent-accent cursor-pointer"
                 />
               </th>
               <th>{t('col_order_num')}</th>
@@ -2088,18 +2040,13 @@ export default function OrderList({
                     <OrderRow
                       key={o.id}
                       order={o}
-                      isSelected={selectedIds.has(o.id)}
+                      isSelected={selected.has(o.id)}
                       isDeleting={deletingIds.has(o.id)}
                       isExpanded={expandedId === o.id}
                       onToggleExpand={() => {
                         setExpandedId(expandedId === o.id ? null : o.id)
                       }}
-                      onToggleSelect={e => {
-                        const next = new Set(selectedIds)
-                        if (e.target.checked) next.add(o.id)
-                        else next.delete(o.id)
-                        setSelectedIds(next)
-                      }}
+                      onToggleSelect={() => toggleSelect(o.id)}
                       onStatusMenuToggle={() =>
                         setStatusMenuId(statusMenuId === o.id ? null : o.id)
                       }
@@ -2109,7 +2056,7 @@ export default function OrderList({
                       StatusMenuComponent={
                         <StatusMenu
                           order={o}
-                          onUpdate={() => load()}
+                          onUpdate={() => fetchOrders(true)}
                           onClose={() => setStatusMenuId(null)}
                         />
                       }
@@ -2148,10 +2095,7 @@ export default function OrderList({
               ) : (
                 <button
                   key={p}
-                  onClick={() => {
-                    setPage(p)
-                    load(p, filter)
-                  }}
+                  onClick={() => setPage(p)}
                   className={`btn btn-ghost btn-sm${page === p ? ' active' : ''}`}
                   style={
                     page === p
@@ -2172,21 +2116,27 @@ export default function OrderList({
       )}
 
       {showCreate && (
-        <CreateOrderModal onCreated={() => load()} onClose={() => setShowCreate(false)} />
+        <CreateOrderModal
+          onCreated={() => fetchOrders(true)}
+          onClose={() => setShowCreate(false)}
+        />
       )}
 
       {/* E1: Repeat Order modal */}
       {repeatOrder && (
         <RepeatOrderModal
           order={repeatOrder}
-          onCreated={() => load()}
+          onCreated={() => fetchOrders(true)}
           onClose={() => setRepeatOrder(null)}
         />
       )}
 
       {/* E3: Batch Import modal */}
       {showBatchImport && (
-        <BatchImportModal onCreated={() => load()} onClose={() => setShowBatchImport(false)} />
+        <BatchImportModal
+          onCreated={() => fetchOrders(true)}
+          onClose={() => setShowBatchImport(false)}
+        />
       )}
     </div>
   )
