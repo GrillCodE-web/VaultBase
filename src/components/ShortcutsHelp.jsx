@@ -6,38 +6,18 @@ import { useLang } from '../hooks/useLang'
 // Visual keyboard key component
 function KeyboardKey({ keyName }) {
   const displayKey = formatKeyForDisplay(keyName)
-  return (
-    <kbd
-      style={{
-        display: 'inline-block',
-        background: 'var(--border)',
-        color: 'var(--text)',
-        borderRadius: 4,
-        padding: '3px 8px',
-        fontSize: 11,
-        fontFamily: 'JetBrains Mono, monospace',
-        fontWeight: 500,
-        whiteSpace: 'nowrap',
-        border: '1px solid rgba(255,255,255,0.1)',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-        minWidth: 24,
-        textAlign: 'center',
-      }}
-    >
-      {displayKey}
-    </kbd>
-  )
+  return <kbd className="kbd-key">{displayKey}</kbd>
 }
 
 // Render key combination with proper spacing
 function KeyCombo({ combo }) {
   const parts = combo.split('+').map(p => p.trim())
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+    <div className="key-combo">
       {parts.map((part, i) => (
         <React.Fragment key={i}>
           <KeyboardKey keyName={part} />
-          {i < parts.length - 1 && <span style={{ color: 'var(--muted)', fontSize: 10 }}>+</span>}
+          {i < parts.length - 1 && <span className="key-separator">+</span>}
         </React.Fragment>
       ))}
     </div>
@@ -47,11 +27,11 @@ function KeyCombo({ combo }) {
 // Render multiple key options (e.g., "Cmd+K or Ctrl+K")
 function KeyOptions({ keys }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+    <div className="key-options">
       {keys.map((key, i) => (
         <React.Fragment key={i}>
           <KeyCombo combo={key} />
-          {i < keys.length - 1 && <span style={{ color: 'var(--muted)', fontSize: 10 }}>or</span>}
+          {i < keys.length - 1 && <span className="key-separator">or</span>}
         </React.Fragment>
       ))}
     </div>
@@ -95,97 +75,29 @@ export default function ShortcutsHelp({ onClose }) {
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(4px)',
-      }}
+      className="shortcuts-overlay"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="shortcuts-title"
     >
-      <div
-        style={{
-          width: '90%',
-          maxWidth: 720,
-          maxHeight: '85vh',
-          backgroundColor: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="shortcuts-modal" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--border)',
-            background: 'var(--bg)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: 'var(--accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+        <div className="shortcuts-header">
+          <div className="shortcuts-header-content">
+            <div className="shortcuts-icon-box">
               <Keyboard size={16} style={{ color: 'white' }} />
             </div>
             <div>
-              <h2
-                id="shortcuts-title"
-                style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: '#fff',
-                  margin: 0,
-                }}
-              >
+              <h2 id="shortcuts-title" className="shortcuts-title">
                 {t('shortcuts_title') || 'Keyboard Shortcuts'}
               </h2>
-              <p
-                style={{
-                  fontSize: 11,
-                  color: 'var(--muted)',
-                  margin: 0,
-                }}
-              >
-                {totalShortcuts} shortcuts available
-              </p>
+              <p className="shortcuts-subtitle">{totalShortcuts} shortcuts available</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 6,
-              borderRadius: 6,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background 0.15s',
-            }}
+            className="shortcuts-close-btn"
             onMouseEnter={e => {
               e.currentTarget.style.background = 'var(--border)'
             }}
@@ -199,25 +111,9 @@ export default function ShortcutsHelp({ onClose }) {
         </div>
 
         {/* Search */}
-        <div
-          style={{
-            padding: '12px 20px',
-            borderBottom: '1px solid var(--border)',
-            background: 'var(--bg)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '8px 12px',
-            }}
-          >
-            <Search size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+        <div className="shortcuts-search-container">
+          <div className="shortcuts-search-wrapper">
+            <Search size={14} className="text-muted icon-no-shrink" />
             <input
               ref={inputRef}
               type="text"
@@ -225,27 +121,13 @@ export default function ShortcutsHelp({ onClose }) {
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search shortcuts..."
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: 'var(--text)',
-                fontSize: 13,
-              }}
+              className="shortcuts-search-input"
               aria-label="Search shortcuts"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
+                className="shortcuts-clear-btn"
                 aria-label="Clear search"
               >
                 <X size={12} className="text-muted" />
@@ -255,64 +137,18 @@ export default function ShortcutsHelp({ onClose }) {
         </div>
 
         {/* Shortcuts list */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '16px 20px',
-          }}
-        >
+        <div className="shortcuts-list">
           {Object.keys(filteredShortcuts).length === 0 ? (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '40px 20px',
-                color: 'var(--muted)',
-                fontSize: 13,
-              }}
-            >
-              No shortcuts found for &quot;{searchQuery}&quot;
-            </div>
+            <div className="shortcuts-empty">No shortcuts found for &quot;{searchQuery}&quot;</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="shortcuts-categories">
               {Object.entries(filteredShortcuts).map(([category, items]) => (
                 <div key={category}>
-                  <h3
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: 'var(--accent)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: 12,
-                    }}
-                  >
-                    {category}
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <h3 className="shortcuts-category-title">{category}</h3>
+                  <div className="shortcuts-category-items">
                     {items.map((shortcut, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 16,
-                          padding: '10px 12px',
-                          background: 'var(--bg)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 8,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: 13,
-                            color: 'var(--text)',
-                            flex: 1,
-                          }}
-                        >
-                          {shortcut.description}
-                        </span>
+                      <div key={i} className="shortcuts-item">
+                        <span className="shortcuts-item-desc">{shortcut.description}</span>
                         <KeyOptions keys={shortcut.keys} />
                       </div>
                     ))}
@@ -324,25 +160,16 @@ export default function ShortcutsHelp({ onClose }) {
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            padding: '12px 20px',
-            borderTop: '1px solid var(--border)',
-            background: 'var(--bg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+        <div className="shortcuts-footer">
+          <span className="shortcuts-footer-text">
             {searchQuery
               ? `Showing ${filteredCount} of ${totalShortcuts} shortcuts`
               : `${totalShortcuts} shortcuts`}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>Press</span>
+          <div className="shortcuts-footer-hint">
+            <span className="shortcuts-footer-text">Press</span>
             <KeyboardKey keyName="Esc" />
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>to close</span>
+            <span className="shortcuts-footer-text">to close</span>
           </div>
         </div>
       </div>
