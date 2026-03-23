@@ -10,6 +10,7 @@ import { getDeliveryRateColor, getRiskColor, STATUS_COLORS } from '../constants/
 import { ORDER_STATUS_COLORS } from '../constants/status.js'
 import { SHOP_FLAGS, getActiveShopFlags } from '../constants/shops.js'
 import { exportToCSV } from '../utils/csv.js'
+import { DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
 
 // ─── ShopRiskBadge ────────────────────────────────────────────────────────
 
@@ -716,7 +717,6 @@ export default function ShopList({ onNavigate }) {
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
-  const PER_PAGE = 50
 
   // Virtualization setup - disable when any row is expanded
   const parentRef = useRef(null)
@@ -732,7 +732,11 @@ export default function ShopList({ onNavigate }) {
     async (p = page, s = search) => {
       setLoading(true)
       try {
-        const r = await invoke('get_shops', { page: p, perPage: PER_PAGE, search: s || '' })
+        const r = await invoke('get_shops', {
+          page: p,
+          perPage: DEFAULT_PAGE_SIZE,
+          search: s || '',
+        })
         setShops(r.items)
         setTotal(r.total)
       } catch (e) {
@@ -788,7 +792,7 @@ export default function ShopList({ onNavigate }) {
     window.open(url, '_blank')
   }
 
-  const totalPages = Math.ceil(total / PER_PAGE)
+  const totalPages = getTotalPages(total)
 
   // Aggregate stats for stat bar
   const totOrders = shops.reduce((s, x) => s + (x.total_orders ?? 0), 0)

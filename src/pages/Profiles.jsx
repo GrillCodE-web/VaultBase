@@ -29,7 +29,7 @@ import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { CARD_STATUS_COLORS, ORDER_STATUS_CSS } from '../constants/status.js'
 import { shortId } from '../utils/formatting.js'
-import { buildPageNumbers } from '../utils/pagination.js'
+import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
 import { exportToCSV } from '../utils/csv.js'
 import { copyText } from '../utils/clipboard.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
@@ -1044,7 +1044,6 @@ export default function ProfileList({
   const tableContainerRef = useRef(null)
   const { toast } = useToast()
   const { t } = useLang()
-  const PER_PAGE = 50
 
   // Virtual scrolling setup
   const rowVirtualizer = useVirtualizer({
@@ -1068,7 +1067,7 @@ export default function ProfileList({
         const result = await invoke('get_profiles', {
           filter: { has_drop: f.has_drop, search: f.search || null, card_status: f.card_status },
           page: p,
-          perPage: PER_PAGE,
+          perPage: DEFAULT_PAGE_SIZE,
         })
         setProfiles(result.items)
         setTotal(result.total)
@@ -1304,7 +1303,7 @@ export default function ProfileList({
     }
   }
 
-  const totalPages = Math.ceil(total / PER_PAGE)
+  const totalPages = getTotalPages(total)
 
   return (
     <div className="content">

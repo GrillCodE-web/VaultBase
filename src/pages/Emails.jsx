@@ -8,7 +8,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { STATUS_COLORS } from '../constants/colors.js'
-import { buildPageNumbers } from '../utils/pagination.js'
+import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
 
 // ─── IMAP link cell ───────────────────────────────────────────
 function ImapLinkCell({ entry, imapAccounts, onLink, onNavigate }) {
@@ -235,7 +235,6 @@ export default function EmailPool({ onNavigate, inTab = false }) {
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
-  const PER_PAGE = 50
 
   // Virtualization setup
   const parentRef = useRef(null)
@@ -255,7 +254,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
         const r = await invoke('get_emails', {
           filter,
           page: p,
-          perPage: PER_PAGE,
+          perPage: DEFAULT_PAGE_SIZE,
         })
         setEmails(r.items)
         setTotal(r.total)
@@ -357,7 +356,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
     }
   }
 
-  const totalPages = Math.ceil(total / PER_PAGE)
+  const totalPages = getTotalPages(total)
 
   const applyFilter = v => {
     const f = v === filterBlocked ? null : v

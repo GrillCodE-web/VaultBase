@@ -23,7 +23,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { timeAgo } from '../utils/formatting'
-import { buildPageNumbers } from '../utils/pagination'
+import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination'
 import { STATUS_COLORS, getDeliveryRateColor } from '../constants/colors'
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -566,7 +566,6 @@ export default function ProxyList() {
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
-  const PER_PAGE = 50
 
   // Virtualization setup
   const parentRef = useRef(null)
@@ -585,7 +584,7 @@ export default function ProxyList() {
         const r = await invoke('get_proxies', {
           filter: { is_blocked: fb, is_used: fu, proxy_type: ft },
           page: p,
-          perPage: PER_PAGE,
+          perPage: DEFAULT_PAGE_SIZE,
         })
         setProxies(r.items)
         setTotal(r.total)
@@ -720,7 +719,7 @@ export default function ProxyList() {
   const cleanCount = proxies.filter(p => !p.is_blocked && !p.shops_used?.length).length
   const blockedCount = proxies.filter(p => p.is_blocked).length
   const usedCount = proxies.filter(p => !p.is_blocked && p.shops_used?.length > 0).length
-  const totalPages = Math.ceil(total / PER_PAGE)
+  const totalPages = getTotalPages(total)
 
   const applyTypeFilter = v => {
     const f = v === filterType ? null : v

@@ -10,7 +10,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { copyToClipboard } from '../utils/clipboard.js'
-import { buildPageNumbers } from '../utils/pagination.js'
+import { buildPageNumbers, getTotalPages, getPageRange } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ImportModal } from './Cards/ImportModal.jsx'
 import { CardFilters } from './Cards/CardFilters.jsx'
@@ -167,8 +167,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const [searchInput, setSearchInput] = useState('')
   const debouncedSearch = useDebounce(searchInput, 300)
 
-  const PER_PAGE = 50
-  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
+  const totalPages = getTotalPages(total)
 
   // Virtual scroll container ref
   const parentRef = useRef(null)
@@ -621,8 +620,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       // Ignore localStorage errors
     }
   }
-  const from = (page - 1) * PER_PAGE + 1
-  const to = Math.min(page * PER_PAGE, total)
+  const { from, to } = getPageRange(page, total)
 
   return (
     <div className="content">

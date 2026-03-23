@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event'
 import { BookOpen } from 'lucide-react'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
+import { DEFAULT_PAGE_SIZE } from '../utils/pagination.js'
 import { STATUS_COLORS, RISK_COLORS } from '../constants/colors'
 
 // ─── Score badge ──────────────────────────────────────────────
@@ -56,14 +57,17 @@ function ItemsTab() {
   const [selected, setSelected] = useState(new Set())
   const { toast } = useToast()
   const { confirm } = useConfirm()
-  const PER_PAGE = 50
   const searchTimer = useRef(null)
 
   const load = useCallback(
     async (p = page, s = search) => {
       setLoading(true)
       try {
-        const r = await invoke('get_catalog_items', { page: p, perPage: PER_PAGE, search: s || '' })
+        const r = await invoke('get_catalog_items', {
+          page: p,
+          perPage: DEFAULT_PAGE_SIZE,
+          search: s || '',
+        })
         setItems(r.items)
         setTotal(r.total)
         setPages(r.pages)
@@ -295,14 +299,17 @@ function ShopsTab() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
-  const PER_PAGE = 50
   const searchTimer = useRef(null)
 
   const load = useCallback(
     async (p = page, s = search) => {
       setLoading(true)
       try {
-        const r = await invoke('get_catalog_shops', { page: p, perPage: PER_PAGE, search: s || '' })
+        const r = await invoke('get_catalog_shops', {
+          page: p,
+          perPage: DEFAULT_PAGE_SIZE,
+          search: s || '',
+        })
         setShops(r.items)
         setTotal(r.total)
         setPages(r.pages)

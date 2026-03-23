@@ -29,7 +29,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { useSmartSuggestions, SuggestionBadge } from './Shops'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
-import { buildPageNumbers } from '../utils/pagination.js'
+import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
 import { STATUS_COLORS } from '../constants/colors.js'
 import { ORDER_STATUS_STEPS, ORDER_STATUSES, ORDER_STATUS_DOT_COLORS } from '../constants/status.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
@@ -1355,7 +1355,6 @@ export default function OrderList({
   const [showBatchImport, setShowBatchImport] = useState(false)
 
   const debouncedSearch = useDebounce(searchInput, 300)
-  const PER_PAGE = 50
 
   // Virtual scrolling setup
   const parentRef = useRef(null)
@@ -1489,7 +1488,7 @@ export default function OrderList({
     }
   }
 
-  const totalPages = Math.ceil(total / PER_PAGE)
+  const totalPages = getTotalPages(total, DEFAULT_PAGE_SIZE)
 
   const allSelected = orders.length > 0 && selected.size === orders.length
 
