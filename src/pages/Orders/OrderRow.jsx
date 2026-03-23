@@ -23,6 +23,7 @@ function CopyNumberBtn({ value }) {
         handleCopy()
       }}
       title={t('cc_copy_num')}
+      aria-label={t('cc_copy_num')}
       style={{
         marginLeft: 4,
         padding: '1px 4px',

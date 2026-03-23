@@ -92,6 +92,7 @@ export function ProfileRow({
           <button
             className="btn btn-ghost btn-sm"
             title="New Order"
+            aria-label="Create new order for this profile"
             onClick={onQuickOrder}
             style={{ display: 'flex', alignItems: 'center', gap: 4 }}
           >

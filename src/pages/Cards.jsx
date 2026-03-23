@@ -743,6 +743,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                 onClick={handleBulkEnrich}
                 className="btn btn-b btn-sm btn-icon"
                 title="Enrich BIN data for selected cards"
+                aria-label="Enrich BIN data for selected cards"
               >
                 <Zap size={12} /> BIN Enrich
               </button>

@@ -149,7 +149,12 @@ export default function ActivityLog() {
           </div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-ghost btn-sm btn-icon" onClick={load} disabled={loading}>
+          <button
+            className="btn btn-ghost btn-sm btn-icon"
+            onClick={load}
+            disabled={loading}
+            aria-label={t('btn_refresh')}
+          >
             {loading ? (
               '…'
             ) : (

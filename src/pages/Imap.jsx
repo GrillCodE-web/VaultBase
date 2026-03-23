@@ -595,7 +595,11 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
           >
             <Archive size={12} /> Archive
           </button>
-          <button className="btn btn-r btn-sm btn-icon" onClick={() => onDelete(message)}>
+          <button
+            className="btn btn-r btn-sm btn-icon"
+            onClick={() => onDelete(message)}
+            aria-label="Delete message"
+          >
             <Trash2 size={12} /> Delete
           </button>
         </div>

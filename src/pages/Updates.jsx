@@ -106,7 +106,7 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
         <div className="cancel-box">
           <div className="text-[12px] text-red-t mb-2">{t('upd_cancel_note')}</div>
           <div className="flex gap-1">
-            <button className="btn btn-o btn-sm btn-icon">
+            <button className="btn btn-o btn-sm btn-icon" aria-label={t('upd_rebid')}>
               <RefreshCw size={12} /> {t('upd_rebid')}
             </button>
             <button className="btn btn-r btn-sm">💀 {t('upd_mark_dead')}</button>
@@ -119,7 +119,7 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
         <div className="status-row flex items-center gap-2">
           <span className="st st-delivered">{t('status_delivered')}</span>
           <span className="text-[11px] text-muted">→ {t('upd_auto_updated')}</span>
-          <button className="btn btn-o btn-sm btn-icon ml-auto">
+          <button className="btn btn-o btn-sm btn-icon ml-auto" aria-label={t('upd_rebid')}>
             <RefreshCw size={12} /> {t('upd_rebid')}
           </button>
         </div>
@@ -416,7 +416,11 @@ export default function Updates() {
         <div className="text-center py-12 text-[13px] text-red-t">
           {error}
           <br />
-          <button className="btn btn-ghost btn-sm btn-icon mt-3" onClick={handleRefresh}>
+          <button
+            className="btn btn-ghost btn-sm btn-icon mt-3"
+            onClick={handleRefresh}
+            aria-label={t('upd_refresh')}
+          >
             <RefreshCw size={13} /> {t('upd_refresh')}
           </button>
         </div>

@@ -43,6 +43,9 @@ export function ActionsMenu({ items = [], align = 'right' }) {
         onClick={toggle}
         className="btn btn-ghost btn-sm btn-icon-only w-[26px] h-[26px]"
         title="Actions"
+        aria-label="Open actions menu"
+        aria-expanded={open}
+        aria-haspopup="true"
       >
         <MoreHorizontal size={14} />
       </button>

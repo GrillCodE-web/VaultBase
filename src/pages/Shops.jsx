@@ -613,6 +613,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
                               target="_blank"
                               rel="noreferrer"
                               className="btn btn-ghost btn-sm btn-icon"
+                              aria-label="Visit product page"
                             >
                               <ExternalLink size={12} />
                             </a>
@@ -1046,6 +1047,7 @@ export default function ShopList({ onNavigate }) {
                                 onClick={() => openSite(shop)}
                                 className="btn btn-ghost btn-sm btn-icon"
                                 title="Visit site"
+                                aria-label="Visit shop website"
                               >
                                 <ExternalLink size={12} />
                               </button>
@@ -1206,6 +1208,7 @@ export default function ShopList({ onNavigate }) {
                             onClick={() => openSite(shop)}
                             className="btn btn-ghost btn-sm btn-icon"
                             title="Visit site"
+                            aria-label="Visit shop website"
                           >
                             <ExternalLink size={12} />
                           </button>

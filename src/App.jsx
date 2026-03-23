@@ -147,7 +147,13 @@ function GlobalSearch({ onClose, onNavigate }) {
   const total = sections.reduce((acc, s) => acc + s.items.length, 0)
 
   return (
-    <div className="search-overlay" onClick={onClose}>
+    <div
+      className="search-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Global search"
+    >
       <div className="search-box-wrap" onClick={e => e.stopPropagation()}>
         {/* Input */}
         <div className="search-input-row">
@@ -159,9 +165,14 @@ function GlobalSearch({ onClose, onNavigate }) {
             onKeyDown={handleKey}
             placeholder={t('app_search_placeholder')}
             className="search-main-input"
+            aria-label="Search"
           />
           {loading && <div className="spinner-sm" />}
-          <button onClick={onClose} className="bg-transparent border-none cursor-pointer p-0">
+          <button
+            onClick={onClose}
+            className="bg-transparent border-none cursor-pointer p-0"
+            aria-label="Close search"
+          >
             <X size={15} className="text-muted" />
           </button>
         </div>

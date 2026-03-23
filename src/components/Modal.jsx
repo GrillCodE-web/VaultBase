@@ -54,6 +54,9 @@ export function Modal({
     >
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? 'modal-title' : undefined}
         className="modal-enter bg-card border border-border rounded-lg w-full flex flex-col"
         style={{
           maxWidth: sizes[size],
@@ -64,10 +67,15 @@ export function Modal({
         {/* Header */}
         {(title || showCloseButton) && (
           <div className="flex items-center justify-between py-5 px-6 border-b">
-            {title && <h2 className="text-[16px] font-semibold text-text m-0">{title}</h2>}
+            {title && (
+              <h2 id="modal-title" className="text-[16px] font-semibold text-text m-0">
+                {title}
+              </h2>
+            )}
             {showCloseButton && (
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="bg-transparent border-none text-text-3 cursor-pointer p-1 flex items-center justify-center rounded-sm ml-auto"
                 style={{
                   transition: 'all var(--t-fast)',

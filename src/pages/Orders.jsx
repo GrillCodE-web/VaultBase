@@ -1277,7 +1277,11 @@ function CreateOrderModal({ onCreated, onClose }) {
                 >
                   Save
                 </button>
-                <button onClick={() => setShowSaveTemplate(false)} className="btn-icon-only">
+                <button
+                  onClick={() => setShowSaveTemplate(false)}
+                  className="btn-icon-only"
+                  aria-label="Cancel save template"
+                >
                   <X size={14} />
                 </button>
               </div>
