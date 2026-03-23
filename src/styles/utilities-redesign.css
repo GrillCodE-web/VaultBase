@@ -205,6 +205,9 @@
 .h-0\.5 {
   height: 2px;
 }
+.h-1 {
+  height: 4px;
+}
 .h-px {
   height: 1px;
 }
@@ -531,6 +534,9 @@
 .border {
   border: 1px solid var(--border);
 }
+.border-2 {
+  border-width: 2px;
+}
 .border-accent {
   border: 1px solid var(--accent-border);
 }
@@ -539,6 +545,9 @@
 }
 .border-none {
   border: none;
+}
+.border-transparent {
+  border-color: transparent;
 }
 .border-warning {
   border: 1px solid var(--color-warning-bg);
@@ -594,6 +603,9 @@
 }
 .z-100 {
   z-index: 100;
+}
+.z-9999 {
+  z-index: 9999;
 }
 .z-\[3\] {
   z-index: 3;
@@ -1005,6 +1017,9 @@
 }
 
 /* ── Additional Border Radius ───────────────────────────── */
+.rounded-\[2px\] {
+  border-radius: 2px;
+}
 .rounded-\[3px\] {
   border-radius: 3px;
 }
@@ -1267,6 +1282,9 @@
 }
 .bg-border {
   background: var(--border);
+}
+.bg-gradient-accent {
+  background: var(--gradient-accent);
 }
 
 /* ── Conditional Text Colors ────────────────────────────── */
