@@ -927,23 +927,15 @@ function CreateOrderModal({ onCreated, onClose }) {
                   setProfileDetail(null)
                 }}
                 placeholder={t('orders_holder_search_placeholder')}
-                style={inputStyle}
+                className="form-input"
               />
               {profileResults.length > 0 && (
-                <div style={dropdownStyle}>
+                <div className="dropdown-results">
                   {profileResults.map(p => (
-                    <button key={p.id} onClick={() => selectProfile(p)} style={dropdownBtnStyle}>
+                    <button key={p.id} onClick={() => selectProfile(p)} className="dropdown-btn">
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-text">{p.holder_masked || '—'}</span>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            fontSize: 12,
-                            color: 'var(--muted)',
-                          }}
-                        >
+                        <div className="flex items-center gap-2 text-[12px] text-muted">
                           <span className="font-mono">···{p.last4}</span>
                           <span>{p.bank_name || ''}</span>
                           <span
@@ -963,22 +955,10 @@ function CreateOrderModal({ onCreated, onClose }) {
             </div>
             {/* Profile card */}
             {profileDetail && (
-              <div
-                style={{
-                  marginTop: 8,
-                  background: 'var(--bg)',
-                  borderRadius: 12,
-                  border: '1px solid var(--border)',
-                  padding: '12px 16px',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr',
-                  gap: 12,
-                  fontSize: 12,
-                }}
-              >
+              <div className="info-card">
                 <div>
                   <div className="text-muted mb-0.5">Card</div>
-                  <div style={{ color: 'var(--text)', fontFamily: "'JetBrains Mono',monospace" }}>
+                  <div className="text-text mono">
                     ···{profileDetail.profile.last4 || profileDetail.card?.last4}
                   </div>
                 </div>
@@ -988,14 +968,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                 </div>
                 <div>
                   <div className="text-muted mb-0.5">{t('primary_drop')}</div>
-                  <div
-                    style={{
-                      color: 'var(--text)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <div className="text-text text-truncate">
                     {primaryDrop
                       ? `${primaryDrop.city}, ${primaryDrop.country}`
                       : t('profile_no_drop')}
@@ -1017,42 +990,20 @@ function CreateOrderModal({ onCreated, onClose }) {
                   setShopObj(null)
                 }}
                 placeholder={t('orders_shop_search_placeholder')}
-                style={inputStyle}
+                className="form-input"
               />
               {shopResults.length > 0 && (
-                <div style={dropdownStyle}>
+                <div className="dropdown-results">
                   {shopResults.map(s => (
                     <button
                       key={s._fromCatalog ? `cat-${s.id}` : s.id}
                       onClick={() => selectShop(s)}
-                      style={dropdownBtnStyle}
+                      className="dropdown-btn"
                     >
                       <div className="flex items-center justify-between">
-                        <span style={{ fontSize: 13, color: 'var(--text)' }}>
-                          {s.name || s.domain}
-                        </span>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            fontSize: 11,
-                            color: 'var(--muted)',
-                          }}
-                        >
-                          {s._fromCatalog && (
-                            <span
-                              style={{
-                                fontSize: 9,
-                                color: STATUS_COLORS.info,
-                                background: STATUS_COLORS.infoBg,
-                                padding: '1px 5px',
-                                borderRadius: 999,
-                              }}
-                            >
-                              catalog
-                            </span>
-                          )}
+                        <span className="text-[13px] text-text">{s.name || s.domain}</span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                          {s._fromCatalog && <span className="badge-catalog">catalog</span>}
                           {s.domain && !s._fromCatalog && <span className="mono">{s.domain}</span>}
                           {s.score > 0 && (
                             <span
@@ -1164,24 +1115,10 @@ function CreateOrderModal({ onCreated, onClose }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 text-[12px]">
-                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>
-                          {d.recipient_name}
-                        </span>
-                        {d.is_primary && (
-                          <span
-                            style={{
-                              fontSize: 9,
-                              color: STATUS_COLORS.success,
-                              background: `${STATUS_COLORS.success}1A`,
-                              padding: '1px 6px',
-                              borderRadius: 999,
-                            }}
-                          >
-                            primary
-                          </span>
-                        )}
+                        <span className="text-text font-medium">{d.recipient_name}</span>
+                        {d.is_primary && <span className="badge-primary">primary</span>}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      <div className="text-[11px] text-muted">
                         {d.address}, {d.city}
                         {d.state ? `, ${d.state}` : ''} {d.zip}, {d.country}
                       </div>
@@ -1196,34 +1133,17 @@ function CreateOrderModal({ onCreated, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="form-label">4. Email (optional)</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', gap: 4 }}>
+              <div className="flex flex-col gap-1">
+                <div className="flex gap-1">
                   <button
                     onClick={() => setEmailMode('pool')}
-                    style={{
-                      fontSize: 11,
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      border: '1px solid var(--border)',
-                      cursor: 'pointer',
-                      background: emailMode === 'pool' ? `${STATUS_COLORS.info}26` : 'transparent',
-                      color: emailMode === 'pool' ? 'var(--blue-t)' : 'var(--muted)',
-                    }}
+                    className={`mode-toggle-btn ${emailMode === 'pool' ? 'active' : ''}`}
                   >
                     Pool
                   </button>
                   <button
                     onClick={() => setEmailMode('custom')}
-                    style={{
-                      fontSize: 11,
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      border: '1px solid var(--border)',
-                      cursor: 'pointer',
-                      background:
-                        emailMode === 'custom' ? `${STATUS_COLORS.info}26` : 'transparent',
-                      color: emailMode === 'custom' ? 'var(--blue-t)' : 'var(--muted)',
-                    }}
+                    className={`mode-toggle-btn ${emailMode === 'custom' ? 'active' : ''}`}
                   >
                     Custom
                   </button>
@@ -1251,7 +1171,8 @@ function CreateOrderModal({ onCreated, onClose }) {
                     value={customEmail}
                     onChange={e => setCustomEmail(e.target.value)}
                     placeholder="user@example.com"
-                    style={{ ...inputStyle, padding: '8px 12px', fontSize: 13 }}
+                    className="form-input"
+                    style={{ padding: '8px 12px', fontSize: 13 }}
                   />
                 )}
               </div>
@@ -1287,28 +1208,12 @@ function CreateOrderModal({ onCreated, onClose }) {
                 )
                 if (geoMatches.length === 0) return null
                 return (
-                  <div
-                    style={{
-                      marginTop: 6,
-                      padding: '6px 10px',
-                      borderRadius: 8,
-                      background: STATUS_COLORS.infoBg,
-                      border: `1px solid ${STATUS_COLORS.info}33`,
-                      fontSize: 11,
-                      color: 'var(--text-2)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 3,
-                    }}
-                  >
+                  <div className="info-hint-box">
                     <div style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
                       🎯 {billingCountry.toUpperCase()} proxy recommended for this profile
                     </div>
                     {geoMatches.slice(0, 3).map(px => (
-                      <div
-                        key={px.id}
-                        style={{ color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace' }}
-                      >
+                      <div key={px.id} className="text-muted mono">
                         {px.label || `${px.host}:${px.port}`}
                       </div>
                     ))}
@@ -1331,7 +1236,7 @@ function CreateOrderModal({ onCreated, onClose }) {
               value={orderNumber}
               onChange={e => setOrderNumber(e.target.value)}
               placeholder="ORD-12345"
-              style={{ ...inputStyle, fontFamily: "'JetBrains Mono',monospace" }}
+              className="form-input mono"
             />
           </div>
 
@@ -1346,44 +1251,15 @@ function CreateOrderModal({ onCreated, onClose }) {
                     <button className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer">
                       <FolderOpen size={12} /> Templates
                     </button>
-                    <div
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: '100%',
-                        marginTop: 4,
-                        display: 'none',
-                        zIndex: 20,
-                        background: 'var(--card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 12,
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                        minWidth: 180,
-                        overflow: 'hidden',
-                      }}
-                    >
+                    <div className="template-dropdown-menu">
                       {templates.map(t => (
                         <button
                           key={t.id}
                           onClick={() => loadTemplate(t)}
-                          style={{
-                            width: '100%',
-                            textAlign: 'left',
-                            padding: '8px 12px',
-                            fontSize: 12,
-                            color: 'var(--text-2)',
-                            background: 'transparent',
-                            border: 'none',
-                            borderBottom: '1px solid var(--border)',
-                            cursor: 'pointer',
-                          }}
+                          className="template-dropdown-item"
                         >
                           {t.name}
-                          {t.shop_tag && (
-                            <span style={{ color: 'var(--muted)', marginLeft: 4 }}>
-                              ({t.shop_tag})
-                            </span>
-                          )}
+                          {t.shop_tag && <span className="text-muted ml-1">({t.shop_tag})</span>}
                         </button>
                       ))}
                     </div>
@@ -1400,12 +1276,8 @@ function CreateOrderModal({ onCreated, onClose }) {
 
             <div className="flex flex-col gap-2">
               {items.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="grid gap-2 items-center"
-                  style={{ gridTemplateColumns: '4fr 3fr 2fr 2fr 1fr' }}
-                >
-                  <div style={{ position: 'relative' }}>
+                <div key={idx} className="grid gap-2 items-center grid-items-layout">
+                  <div className="relative">
                     <input
                       value={item.name}
                       onChange={e => {
@@ -1420,24 +1292,10 @@ function CreateOrderModal({ onCreated, onClose }) {
                         }, 200)
                       }
                       placeholder={t('item_name')}
-                      style={smallInputStyle}
+                      className="form-input-sm"
                     />
                     {activeItemIdx === idx && (itemSuggestions[idx] || []).length > 0 && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: 0,
-                          right: 0,
-                          top: '100%',
-                          zIndex: 30,
-                          background: 'var(--card)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 8,
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                          maxHeight: 200,
-                          overflowY: 'auto',
-                        }}
-                      >
+                      <div className="dropdown-results-sm">
                         {(itemSuggestions[idx] || []).map(ci => (
                           <button
                             key={ci.id}
@@ -1447,50 +1305,14 @@ function CreateOrderModal({ onCreated, onClose }) {
                               if (ci.price) setItem(idx, 'price', String(ci.price))
                               setItemSuggestions(p => ({ ...p, [idx]: [] }))
                             }}
-                            style={{
-                              width: '100%',
-                              textAlign: 'left',
-                              padding: '8px 10px',
-                              background: 'transparent',
-                              border: 'none',
-                              borderBottom: '1px solid var(--border)',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                            }}
+                            className="dropdown-btn-sm flex justify-between items-center"
                           >
-                            <span
-                              style={{
-                                fontSize: 12,
-                                color: 'var(--text)',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                flex: 1,
-                                marginRight: 8,
-                              }}
-                            >
+                            <span className="text-[12px] text-text text-truncate flex-1 mr-2">
                               {ci.name}
                             </span>
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: 6,
-                                alignItems: 'center',
-                                flexShrink: 0,
-                              }}
-                            >
+                            <div className="flex gap-1.5 items-center shrink-0">
                               {ci.asin && (
-                                <span
-                                  style={{
-                                    fontSize: 10,
-                                    fontFamily: 'monospace',
-                                    color: 'var(--muted)',
-                                  }}
-                                >
-                                  {ci.asin}
-                                </span>
+                                <span className="text-[10px] mono text-muted">{ci.asin}</span>
                               )}
                               {ci.price && (
                                 <span style={{ fontSize: 11, color: STATUS_COLORS.success }}>
@@ -1507,7 +1329,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                     value={item.sku}
                     onChange={e => setItem(idx, 'sku', e.target.value)}
                     placeholder="SKU"
-                    style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }}
+                    className="form-input-sm mono"
                   />
                   <input
                     type="number"
@@ -1515,7 +1337,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                     value={item.qty}
                     onChange={e => setItem(idx, 'qty', e.target.value)}
                     placeholder="Qty"
-                    style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }}
+                    className="form-input-sm mono"
                   />
                   <input
                     type="number"
@@ -1523,7 +1345,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                     value={item.price}
                     onChange={e => setItem(idx, 'price', e.target.value)}
                     placeholder="$0.00"
-                    style={{ ...smallInputStyle, fontFamily: "'JetBrains Mono',monospace" }}
+                    className="form-input-sm mono"
                   />
                   <button
                     onClick={() => removeItem(idx)}
@@ -1543,56 +1365,24 @@ function CreateOrderModal({ onCreated, onClose }) {
               ))}
             </div>
             <div className="flex items-center justify-between mt-2">
-              <button
-                onClick={addItem}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  fontSize: 12,
-                  color: STATUS_COLORS.info,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
+              <button onClick={addItem} className="btn-text-info">
                 <Plus size={12} /> Add Item
               </button>
               {total > 0 && (
                 <div className="text-[12px] text-gray-t">
-                  Total:{' '}
-                  <span
-                    style={{
-                      color: 'var(--text)',
-                      fontWeight: 500,
-                      fontFamily: "'JetBrains Mono',monospace",
-                    }}
-                  >
-                    ${total.toFixed(2)}
-                  </span>
+                  Total: <span className="text-text text-mono-medium">${total.toFixed(2)}</span>
                 </div>
               )}
             </div>
 
             {/* Save template inline dialog */}
             {showSaveTemplate && (
-              <div
-                style={{
-                  marginTop: 12,
-                  background: 'var(--bg)',
-                  borderRadius: 12,
-                  border: '1px solid var(--border)',
-                  padding: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
+              <div className="template-dialog">
                 <input
                   value={templateName}
                   onChange={e => setTemplateName(e.target.value)}
                   placeholder={t('template_name')}
-                  style={{ ...smallInputStyle, flex: 1, width: 'auto', background: 'transparent' }}
+                  className="form-input-sm flex-1-auto bg-transparent"
                 />
                 <button
                   onClick={handleSaveTemplate}
@@ -1602,15 +1392,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                 >
                   Save
                 </button>
-                <button
-                  onClick={() => setShowSaveTemplate(false)}
-                  style={{
-                    color: 'var(--muted)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button onClick={() => setShowSaveTemplate(false)} className="btn-icon-only">
                   <X size={14} />
                 </button>
               </div>
@@ -1624,7 +1406,7 @@ function CreateOrderModal({ onCreated, onClose }) {
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              style={{ ...inputStyle, resize: 'none' }}
+              className="form-input resize-none"
             />
           </div>
 
@@ -1632,11 +1414,8 @@ function CreateOrderModal({ onCreated, onClose }) {
           <button
             onClick={handleCreate}
             disabled={loading || !profileId || !shopId || !dropId}
-            className="btn btn-b"
+            className="btn btn-b btn-submit-full"
             style={{
-              width: '100%',
-              padding: '12px 0',
-              fontSize: 14,
               opacity: loading || !profileId || !shopId || !dropId ? 0.4 : 1,
               cursor: loading || !profileId || !shopId || !dropId ? 'not-allowed' : 'pointer',
             }}
@@ -1870,23 +1649,9 @@ export default function OrderList({
 
       {/* Bulk Action Panel */}
       {selected.size > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: STATUS_COLORS.infoBg,
-            border: `1px solid ${STATUS_COLORS.info}33`,
-            borderRadius: 8,
-            padding: '8px 14px',
-            marginBottom: 10,
-            fontSize: 12,
-          }}
-        >
-          <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
-            {selected.size} selected
-          </span>
-          <span style={{ color: 'var(--border)', margin: '0 4px' }}>|</span>
+        <div className="bulk-action-panel">
+          <span className="text-info-bold">{selected.size} selected</span>
+          <span className="text-border mx-1">|</span>
           <button className="btn btn-b btn-sm" onClick={() => handleBulkStatus('processing')}>
             → Processing
           </button>
@@ -1903,11 +1668,7 @@ export default function OrderList({
       )}
 
       {/* Table with virtual scrolling */}
-      <div
-        ref={parentRef}
-        className="panel p-0 overflow-x-auto"
-        style={{ height: 760, overflowY: 'auto' }}
-      >
+      <div ref={parentRef} className="panel p-0 overflow-x-auto table-scroll-container">
         <table className="tbl">
           <thead>
             <tr>

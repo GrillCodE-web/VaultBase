@@ -248,11 +248,8 @@ function ProductModal({ initial, onSave, onClose }) {
           <div className="form-group">
             <label className="form-label">Margin</label>
             <div
-              className="form-input"
+              className="form-input flex items-center mono"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                fontFamily: "'JetBrains Mono',monospace",
                 color:
                   margin === null
                     ? 'var(--muted)'
@@ -425,27 +422,15 @@ function ShopModal({ initial, onSave, onClose }) {
               <label
                 key={f.key}
                 onClick={toggle(f.key)}
+                className="flex items-center gap-2\.5 p-[9px_12px] rounded-md cursor-pointer transition-all"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '9px 12px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
                   border: form[f.key] ? `1px solid ${f.color}40` : '1px solid var(--border)',
                   background: form[f.key] ? f.bg : 'transparent',
-                  transition: 'all 0.15s',
                 }}
               >
                 <div
+                  className="w-4 h-4 rounded-sm shrink-0 flex items-center justify-center"
                   style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 4,
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     background: form[f.key] ? 'var(--accent-hover)' : 'transparent',
                     border: form[f.key]
                       ? '1px solid var(--accent-hover)'
@@ -698,22 +683,11 @@ function ShopDetailPanel({ shopId, onNavigate }) {
                   text: STATUS_COLORS.neutral,
                 }
                 return (
-                  <div
-                    key={o.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 0',
-                      borderBottom: '1px solid var(--border)',
-                    }}
-                  >
+                  <div key={o.id} className="flex items-center justify-between py-2 border-b">
                     <div className="flex items-center gap-2">
                       <span
+                        className="text-[10px] px-[7px] py-[2px] rounded-[20px]"
                         style={{
-                          fontSize: 10,
-                          padding: '2px 7px',
-                          borderRadius: 20,
                           background: sc.bg,
                           color: sc.text,
                         }}
@@ -895,27 +869,19 @@ export default function ShopList({ onNavigate }) {
             ].map(({ label, val, color }) => (
               <div
                 key={label}
+                className="flex items-center gap-\[7px\] rounded-md p-\[4px_12px\]"
                 style={{
                   background: `${color}12`,
                   border: `1px solid ${color}25`,
-                  borderRadius: 8,
-                  padding: '4px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 7,
                 }}
               >
                 <span
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: '50%',
-                    background: color,
-                    flexShrink: 0,
-                    display: 'inline-block',
-                  }}
+                  className="w-\[5px\] h-\[5px\] rounded-full shrink-0 inline-block"
+                  style={{ background: color }}
                 />
-                <span style={{ color, fontSize: 12, fontWeight: 500 }}>{val}</span>
+                <span className="text-[12px] font-medium" style={{ color }}>
+                  {val}
+                </span>
                 <span className="text-[11px] text-muted">{label}</span>
               </div>
             ))}
@@ -925,21 +891,8 @@ export default function ShopList({ onNavigate }) {
 
       {/* Bulk actions toolbar */}
       {selected.size > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 12px',
-            background: 'var(--card-hi)',
-            border: '1px solid var(--border-hi)',
-            borderRadius: 'var(--r-md)',
-            marginBottom: 8,
-          }}
-        >
-          <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>
-            {selected.size} selected
-          </span>
+        <div className="flex items-center gap-2 p-[8px_12px] bg-card-hi border-hi rounded-md mb-2">
+          <span className="text-[12px] text-text-2 font-semibold">{selected.size} selected</span>
           <button
             className="btn btn-r btn-sm"
             onClick={async () => {
@@ -1014,7 +967,7 @@ export default function ShopList({ onNavigate }) {
                 </tr>
               </thead>
             </table>
-            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+            <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
               {rowVirtualizer.getVirtualItems().map(virtualRow => {
                 const shop = shops[virtualRow.index]
                 const successPct = shop.total_orders > 0 ? shop.success_rate : null
@@ -1042,9 +995,9 @@ export default function ShopList({ onNavigate }) {
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                   >
-                    <table className="tbl" style={{ marginBottom: 0 }}>
+                    <table className="tbl mb-0">
                       <tbody>
-                        <tr style={{ cursor: 'pointer' }} onClick={() => setExpanded(shop.id)}>
+                        <tr className="cursor-pointer" onClick={() => setExpanded(shop.id)}>
                           <td onClick={e => e.stopPropagation()}>
                             <input
                               type="checkbox"
@@ -1068,15 +1021,13 @@ export default function ShopList({ onNavigate }) {
                           <td>
                             <span className="font-mono text-[11px] text-muted">{shop.domain}</span>
                           </td>
-                          <td style={{ color: shop.category ? 'var(--dim)' : 'var(--muted)' }}>
-                            {shop.category || '—'}
-                          </td>
+                          <td className="text-dim-or-muted">{shop.category || '—'}</td>
                           <td>
                             <FlagPills shop={shop} />
                           </td>
                           <td className="font-mono">{shop.total_orders}</td>
                           <td>
-                            <span style={{ fontWeight: 600, color: successColor }}>
+                            <span className="font-semibold" style={{ color: successColor }}>
                               {successPct !== null ? `${successPct.toFixed(1)}%` : '—'}
                             </span>
                           </td>
@@ -1099,7 +1050,8 @@ export default function ShopList({ onNavigate }) {
                               const color = getDeliveryRateColor(pct)
                               return (
                                 <span
-                                  style={{ color, fontWeight: 600, fontSize: 12 }}
+                                  className="font-semibold text-[12px]"
+                                  style={{ color }}
                                   title={pct < 30 ? 'Low delivery rate' : undefined}
                                 >
                                   {pct.toFixed(1)}%{pct < 30 ? ' ⚠' : ''}
@@ -1107,14 +1059,12 @@ export default function ShopList({ onNavigate }) {
                               )
                             })()}
                           </td>
-                          <td style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11 }}>
+                          <td className="mono text-[11px]">
                             {(() => {
                               const wl = winLossMap[shop.id]
                               if (!wl) return <span className="text-muted">—</span>
                               return (
-                                <span style={{ color: 'var(--text-2)' }}>
-                                  ${wl.expected_value.toFixed(2)}
-                                </span>
+                                <span className="text-text-2">${wl.expected_value.toFixed(2)}</span>
                               )
                             })()}
                           </td>
@@ -1155,7 +1105,7 @@ export default function ShopList({ onNavigate }) {
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{ width: 32 }}>
+                <th className="w-8">
                   <input
                     type="checkbox"
                     checked={shops.length > 0 && selected.size === shops.length}
@@ -1199,10 +1149,7 @@ export default function ShopList({ onNavigate }) {
                 return (
                   <React.Fragment key={shop.id}>
                     <tr
-                      style={{
-                        cursor: 'pointer',
-                        background: isExpanded ? 'var(--card)' : undefined,
-                      }}
+                      className={`cursor-pointer ${isExpanded ? 'row-expanded' : ''}`}
                       onClick={() => setExpanded(isExpanded ? null : shop.id)}
                     >
                       <td onClick={e => e.stopPropagation()}>
@@ -1221,11 +1168,7 @@ export default function ShopList({ onNavigate }) {
                       </td>
                       <td className="text-center text-muted text-[12px]">
                         <span
-                          style={{
-                            display: 'inline-block',
-                            transition: 'transform 0.15s',
-                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                          }}
+                          className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
                         >
                           ›
                         </span>
@@ -1236,7 +1179,7 @@ export default function ShopList({ onNavigate }) {
                       <td>
                         <span className="font-mono text-[11px] text-muted">{shop.domain}</span>
                       </td>
-                      <td style={{ color: shop.category ? 'var(--dim)' : 'var(--muted)' }}>
+                      <td className={shop.category ? 'text-dim' : 'text-muted'}>
                         {shop.category || '—'}
                       </td>
                       <td>
@@ -1244,7 +1187,7 @@ export default function ShopList({ onNavigate }) {
                       </td>
                       <td className="font-mono">{shop.total_orders}</td>
                       <td>
-                        <span style={{ fontWeight: 600, color: successColor }}>
+                        <span className="font-semibold" style={{ color: successColor }}>
                           {successPct !== null ? `${successPct.toFixed(1)}%` : '—'}
                         </span>
                       </td>
@@ -1267,7 +1210,8 @@ export default function ShopList({ onNavigate }) {
                           const color = getDeliveryRateColor(pct)
                           return (
                             <span
-                              style={{ color, fontWeight: 600, fontSize: 12 }}
+                              className="font-semibold text-[12px]"
+                              style={{ color }}
                               title={pct < 30 ? 'Low delivery rate' : undefined}
                             >
                               {pct.toFixed(1)}%{pct < 30 ? ' ⚠' : ''}
@@ -1275,14 +1219,12 @@ export default function ShopList({ onNavigate }) {
                           )
                         })()}
                       </td>
-                      <td style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11 }}>
+                      <td className="mono text-[11px]">
                         {(() => {
                           const wl = winLossMap[shop.id]
                           if (!wl) return <span className="text-muted">—</span>
                           return (
-                            <span style={{ color: 'var(--text-2)' }}>
-                              ${wl.expected_value.toFixed(2)}
-                            </span>
+                            <span className="text-text-2">${wl.expected_value.toFixed(2)}</span>
                           )
                         })()}
                       </td>
