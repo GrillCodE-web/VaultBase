@@ -82,7 +82,7 @@
 .imap-connection-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
@@ -121,12 +121,12 @@
 .folder-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   padding: 10px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   cursor: pointer;
   transition: all var(--t-fast);
 }
@@ -259,7 +259,7 @@
   font-weight: 500;
   color: var(--text-2);
   font-family: 'Manrope', sans-serif;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -279,7 +279,7 @@
 .imap-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
+  gap: 16px;
   margin-top: 16px;
 }
 
@@ -319,7 +319,7 @@
 .smtp-config-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   margin-bottom: 16px;
 }
 

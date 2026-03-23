@@ -16,7 +16,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 12px 12px 12px 12px;
+  padding: 12px;
   text-align: left;
   border-bottom: 2px solid var(--border);
   font-family: 'JetBrains Mono', monospace;
@@ -45,7 +45,7 @@
 
 /* ── Table Body ─────────────────────────────────────────── */
 .tbl td {
-  padding: 14px 12px;
+  padding: 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
   transition: all var(--t-fast);
@@ -178,7 +178,7 @@
   color: var(--text);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-weight: 500;
 }
 
@@ -255,7 +255,7 @@
 
 .pagination-controls {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .pagination-btn {

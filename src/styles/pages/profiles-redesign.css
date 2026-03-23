@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .profile-name {
@@ -76,7 +76,7 @@
 .profile-details {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 16px;
   margin-bottom: 12px;
 }
 
@@ -136,7 +136,7 @@
 /* ── Profile Actions ────────────────────────────────────── */
 .profile-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   opacity: 0;
   transition: opacity var(--t-fast);
 }
@@ -185,7 +185,7 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-family: 'Rajdhani', sans-serif;
 }
 
@@ -199,7 +199,7 @@
 .template-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 20px;
 }
 
@@ -246,7 +246,7 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-family: 'Rajdhani', sans-serif;
 }
 
@@ -362,7 +362,7 @@
 .keyboard-hint {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 12px 16px;
   background: var(--inset);
   border: 1px solid var(--border);
@@ -375,7 +375,7 @@
 
 .keyboard-hint-keys {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .kbd {

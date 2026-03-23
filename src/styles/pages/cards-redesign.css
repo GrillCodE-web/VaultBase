@@ -71,7 +71,7 @@
 .card-health {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 4px 10px;
   border-radius: var(--r-sm);
   font-size: 11px;
@@ -188,7 +188,7 @@
 .card-action-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   padding: 10px 14px;
   background: transparent;
   border: none;
@@ -338,7 +338,7 @@
 .bulk-actions-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 16px;
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);
@@ -438,7 +438,7 @@
 .card-detail-item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .card-detail-label {
@@ -514,7 +514,7 @@
 .column-option {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   padding: 10px 14px;
   cursor: pointer;
   transition: all var(--t-fast);
@@ -562,7 +562,7 @@
   border-bottom: 2px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   cursor: pointer;
   transition: all var(--t-fast);
 }

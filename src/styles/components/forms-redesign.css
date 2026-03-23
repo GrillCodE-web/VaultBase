@@ -105,7 +105,7 @@
 .checkbox-wrapper {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
   user-select: none;
 }
@@ -162,7 +162,7 @@
 .radio-wrapper {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
   user-select: none;
 }
@@ -302,7 +302,7 @@
 .form-error {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 6px;
   font-size: 12px;
   color: var(--red-t);

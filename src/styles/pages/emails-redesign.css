@@ -8,7 +8,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 16px 18px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   transition: all var(--t-fast);
   position: relative;
   overflow: hidden;
@@ -39,7 +39,7 @@
 .email-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 12px;
 }
 
@@ -127,7 +127,7 @@
 .email-info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
+  gap: 16px;
   margin-top: 12px;
 }
 
@@ -295,7 +295,7 @@
 /* ── Search & Filter Bar ────────────────────────────────── */
 .email-search-bar {
   display: flex;
-  gap: 10px;
+  gap: 16px;
   margin-bottom: 20px;
   align-items: center;
 }

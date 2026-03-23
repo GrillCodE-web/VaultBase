@@ -115,7 +115,7 @@
 /* ── Modal Footer ───────────────────────────────────────── */
 .modal-footer {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   justify-content: flex-end;
   padding-top: 20px;
   border-top: 1px solid var(--border);
@@ -347,7 +347,7 @@
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   pointer-events: none;
 }
 

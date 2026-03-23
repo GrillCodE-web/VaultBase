@@ -8,7 +8,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 16px 18px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   transition: all var(--t-fast);
   position: relative;
   overflow: hidden;
@@ -44,7 +44,7 @@
 .catalog-item-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 12px;
 }
 
@@ -90,7 +90,7 @@
 .catalog-item-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 10px;
+  gap: 16px;
   margin-top: 12px;
 }
 
@@ -240,7 +240,7 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -324,15 +324,19 @@
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* ── Bulk Actions ───────────────────────────────────────── */
 .catalog-bulk-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 14px 18px;
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);

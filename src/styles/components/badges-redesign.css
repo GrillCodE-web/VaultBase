@@ -112,7 +112,7 @@
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 5px 12px;
   border-radius: var(--r-md);
   font-size: 12px;
@@ -249,7 +249,7 @@
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 5px 10px;
   border-radius: var(--r-md);
   font-size: 12px;
@@ -321,7 +321,7 @@
 .live-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 4px 10px;
   border-radius: 12px;
   background: rgba(239, 68, 68, 0.12);

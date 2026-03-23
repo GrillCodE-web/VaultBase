@@ -110,7 +110,7 @@
 /* ── Filter Chips (Toggle Buttons) ──────────────────────── */
 .filter-chips {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -128,7 +128,7 @@
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .filter-chip:hover {
@@ -171,7 +171,7 @@
   transition: all var(--t-fast);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .filter-clear:hover {
@@ -194,7 +194,7 @@
   transition: all var(--t-fast);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .filter-advanced-toggle:hover {
@@ -289,7 +289,7 @@
 .active-filter-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 4px 10px;
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);

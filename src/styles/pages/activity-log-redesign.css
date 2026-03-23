@@ -67,8 +67,8 @@
 .log-entry-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
 .log-entry-icon {
@@ -180,7 +180,7 @@
 .log-stats-bar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
@@ -294,7 +294,7 @@
 /* ── Search Bar ─────────────────────────────────────────── */
 .log-search-bar {
   display: flex;
-  gap: 10px;
+  gap: 16px;
   margin-bottom: 20px;
   align-items: center;
 }
@@ -328,7 +328,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 0;
-  gap: 12px;
+  gap: 16px;
 }
 
 .log-pagination-info {
@@ -339,7 +339,7 @@
 
 .log-pagination-controls {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .log-pagination-btn {
@@ -403,7 +403,7 @@
   font-size: 18px;
   font-weight: 700;
   color: var(--text-2);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-family: 'Rajdhani', sans-serif;
   letter-spacing: 0.02em;
 }

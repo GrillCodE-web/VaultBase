@@ -60,7 +60,7 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-weight: 600;
 }
 
@@ -80,7 +80,7 @@
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 16px;
 }
 
@@ -107,6 +107,10 @@
   border-top: 3px solid;
   overflow: hidden;
   position: relative;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .sc::before {
@@ -141,7 +145,7 @@
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .sc-val {
@@ -380,7 +384,7 @@
 /* ── Period Selector ────────────────────────────────────── */
 .period-bar {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 16px;
   padding: 6px;
   background: var(--inset);
@@ -440,7 +444,7 @@
 
 .heatmap-legend {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
   font-size: 11px;
   color: var(--text-3);
@@ -450,7 +454,7 @@
 .heatmap-legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .heatmap-legend-color {
@@ -472,7 +476,7 @@
 
 .activity-item {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   padding: 12px;
   border-radius: var(--r-md);
   transition: background var(--t-fast);
