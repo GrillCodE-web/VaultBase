@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { ToastProvider, useToast } from '../useToast'
+import { screen, fireEvent } from '@testing-library/react'
 
 describe('useToast', () => {
   it('throws error when used outside provider', () => {
@@ -108,5 +109,282 @@ describe('useToast', () => {
       },
       { timeout: 1000 }
     )
+  })
+
+  it('accepts toast with object syntax and custom type', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast({ message: 'Custom toast', type: 'success' })
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Custom toast')
+    })
+  })
+
+  it('accepts toast with string syntax and type argument', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast('String toast', 'error')
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('String toast')
+    })
+  })
+
+  it('defaults to info type when no type specified', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast('Default type toast')
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Default type toast')
+    })
+  })
+
+  it('removes toast when clicked (without action)', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.info('Click to dismiss')
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Click to dismiss')
+    })
+
+    // Find and click the toast
+    const toastRegion = screen.getByRole('region', { name: 'Notifications' })
+    const toastElement = toastRegion.querySelector('div[style*="cursor: pointer"]')
+
+    act(() => {
+      toastElement?.click()
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).not.toContain('Click to dismiss')
+    })
+  })
+
+  it('shows toast with action button', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    const actionFn = vi.fn()
+
+    act(() => {
+      result.current.toast({
+        message: 'Toast with action',
+        action: { label: 'Undo', onClick: actionFn },
+      })
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Toast with action')
+      expect(document.body.textContent).toContain('Undo')
+    })
+  })
+
+  it('calls action onClick and removes toast', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    const actionFn = vi.fn()
+
+    act(() => {
+      result.current.toast({
+        message: 'Action toast',
+        action: { label: 'Click me', onClick: actionFn },
+      })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Click me')).toBeInTheDocument()
+    })
+
+    const actionButton = screen.getByText('Click me')
+
+    act(() => {
+      actionButton.click()
+    })
+
+    expect(actionFn).toHaveBeenCalledTimes(1)
+
+    await waitFor(() => {
+      expect(document.body.textContent).not.toContain('Action toast')
+    })
+  })
+
+  it('shows close button for toasts with actions', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast({
+        message: 'Toast with close',
+        action: { label: 'Action', onClick: () => {} },
+      })
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('✕')
+    })
+  })
+
+  it('removes toast when close button clicked', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast({
+        message: 'Closeable toast',
+        action: { label: 'Action', onClick: () => {} },
+      })
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Closeable toast')
+    })
+
+    const closeButton = screen.getByText('✕')
+
+    act(() => {
+      closeButton.click()
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).not.toContain('Closeable toast')
+    })
+  })
+
+  it('pauses auto-dismiss on hover', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast({ message: 'Hover me', duration: 500 })
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Hover me')
+    })
+
+    const toastRegion = screen.getByRole('region', { name: 'Notifications' })
+    const toastElement = toastRegion.querySelector('div[style*="cursor"]')
+
+    // Hover over toast
+    act(() => {
+      fireEvent.mouseEnter(toastElement)
+    })
+
+    // Wait longer than duration
+    await new Promise(resolve => setTimeout(resolve, 600))
+
+    // Toast should still be visible because of hover
+    expect(document.body.textContent).toContain('Hover me')
+
+    // Leave hover
+    act(() => {
+      fireEvent.mouseLeave(toastElement)
+    })
+  })
+
+  it('resumes auto-dismiss after hover ends', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast({ message: 'Hover and leave', duration: 500 })
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Hover and leave')
+    })
+
+    const toastRegion = screen.getByRole('region', { name: 'Notifications' })
+    const toastElement = toastRegion.querySelector('div[style*="cursor"]')
+
+    // Hover
+    act(() => {
+      fireEvent.mouseEnter(toastElement)
+    })
+
+    // Leave hover
+    act(() => {
+      fireEvent.mouseLeave(toastElement)
+    })
+
+    // Wait for reduced duration (40% of original)
+    await waitFor(
+      () => {
+        expect(document.body.textContent).not.toContain('Hover and leave')
+      },
+      { timeout: 500 }
+    )
+  })
+
+  it('handles multiple toasts with different types', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.success('Success 1')
+      result.current.error('Error 1')
+      result.current.warn('Warning 1')
+      result.current.info('Info 1')
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Success 1')
+      expect(document.body.textContent).toContain('Error 1')
+      expect(document.body.textContent).toContain('Warning 1')
+      expect(document.body.textContent).toContain('Info 1')
+    })
+  })
+
+  it('respects custom duration', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.toast({ message: 'Quick toast', duration: 300 })
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Quick toast')
+    })
+
+    await waitFor(
+      () => {
+        expect(document.body.textContent).not.toContain('Quick toast')
+      },
+      { timeout: 500 }
+    )
+  })
+
+  it('uses default duration when not specified', async () => {
+    const wrapper = ({ children }) => <ToastProvider>{children}</ToastProvider>
+    const { result } = renderHook(() => useToast(), { wrapper })
+
+    act(() => {
+      result.current.info('Default duration')
+    })
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Default duration')
+    })
+
+    // Should still be visible after 1 second (default is 3500ms)
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    expect(document.body.textContent).toContain('Default duration')
   })
 })
