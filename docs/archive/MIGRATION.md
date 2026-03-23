@@ -52,10 +52,11 @@ That's it! The new design system is now active.
 **Goal:** Replace design tokens and base styles
 
 1. **Keep both style systems:**
+
    ```css
    /* src/index.css */
-   @import './styles/tokens.css';          /* Old */
-   @import './styles/index-redesign.css';  /* New (overrides) */
+   @import './styles/tokens.css'; /* Old */
+   @import './styles/index-redesign.css'; /* New (overrides) */
    ```
 
 2. **Test in isolation:**
@@ -76,6 +77,7 @@ That's it! The new design system is now active.
 **Goal:** Migrate individual components
 
 **Priority Order:**
+
 1. Buttons (highest usage)
 2. Forms (inputs, selects)
 3. Badges & Status
@@ -95,18 +97,19 @@ That's it! The new design system is now active.
 
 **Component Mapping:**
 
-| Old Class | New Class | Notes |
-|-----------|-----------|-------|
-| `btn-p` | `btn-accent` | Purple → Cyan accent |
-| `.sc.cp` | `.sc.cp2` | Stat card purple → cyan |
-| `text-blue-t` | `text-accent` | Semantic naming |
-| `.icon-btn-purple` | `.icon-btn-cyan` | New color |
+| Old Class          | New Class        | Notes                   |
+| ------------------ | ---------------- | ----------------------- |
+| `btn-p`            | `btn-accent`     | Purple → Cyan accent    |
+| `.sc.cp`           | `.sc.cp2`        | Stat card purple → cyan |
+| `text-blue-t`      | `text-accent`    | Semantic naming         |
+| `.icon-btn-purple` | `.icon-btn-cyan` | New color               |
 
 ### Phase 3: Pages (Week 3)
 
 **Goal:** Update page-specific styles
 
 **Dashboard:**
+
 ```jsx
 // Update stat cards
 <div className="sc cg">  {/* Green stays */}
@@ -115,6 +118,7 @@ That's it! The new design system is now active.
 ```
 
 **Cards Page:**
+
 ```jsx
 // Add stagger animation
 <div className="cards-grid">
@@ -127,6 +131,7 @@ That's it! The new design system is now active.
 ```
 
 **Forms:**
+
 ```jsx
 // Update form elements
 <input className="input" />      {/* Same */}
@@ -139,18 +144,16 @@ That's it! The new design system is now active.
 **Goal:** Add new features and effects
 
 1. **Enable animations:**
+
    ```jsx
    // Add to page wrapper
-   <div className="content-main">
-     {/* Content animates on mount */}
-   </div>
+   <div className="content-main">{/* Content animates on mount */}</div>
    ```
 
 2. **Add glow effects:**
+
    ```jsx
-   <button className="btn btn-accent glow-pulse">
-     Live Status
-   </button>
+   <button className="btn btn-accent glow-pulse">Live Status</button>
    ```
 
 3. **Enable noise/scanline:**
@@ -247,7 +250,7 @@ That's it! The new design system is now active.
 ```css
 /* src/styles/tokens-redesign.css */
 :root {
-  --accent: #00d9ff;        /* Your color */
+  --accent: #00d9ff; /* Your color */
   --accent-bright: #14f195; /* Lighter variant */
   --accent-dim: rgba(0, 217, 255, 0.08);
   --accent-border: rgba(0, 217, 255, 0.25);
@@ -259,8 +262,8 @@ That's it! The new design system is now active.
 ```css
 /* src/styles/tokens-redesign.css */
 :root {
-  --noise-opacity: 0;      /* No noise texture */
-  --scanline-opacity: 0;   /* No scanline */
+  --noise-opacity: 0; /* No noise texture */
+  --scanline-opacity: 0; /* No scanline */
 }
 ```
 
@@ -269,7 +272,7 @@ That's it! The new design system is now active.
 ```css
 /* src/styles/animations-redesign.css */
 :root {
-  --t-fast: 100ms;  /* Faster transitions */
+  --t-fast: 100ms; /* Faster transitions */
   --t-mid: 180ms;
   --t-slow: 300ms;
 }
@@ -282,6 +285,7 @@ That's it! The new design system is now active.
 ### Issue: Styles not applying
 
 **Solution:**
+
 1. Clear browser cache (Cmd+Shift+R)
 2. Check import order in `index.css`
 3. Verify file paths are correct
@@ -290,6 +294,7 @@ That's it! The new design system is now active.
 ### Issue: Fonts not loading
 
 **Solution:**
+
 ```css
 /* Verify Google Fonts import in index-redesign.css */
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -298,6 +303,7 @@ That's it! The new design system is now active.
 ### Issue: Colors look wrong
 
 **Solution:**
+
 1. Check if Tailwind is overriding CSS variables
 2. Verify `:root` selector in tokens-redesign.css
 3. Use browser DevTools to inspect computed styles
@@ -305,6 +311,7 @@ That's it! The new design system is now active.
 ### Issue: Animations laggy
 
 **Solution:**
+
 ```css
 /* Reduce animation complexity */
 :root {
@@ -366,11 +373,13 @@ That's it! The new design system is now active.
 ### Pre-Deploy
 
 1. **Build production:**
+
    ```bash
    npm run build
    ```
 
 2. **Test production build:**
+
    ```bash
    npm run preview
    ```
@@ -383,12 +392,14 @@ That's it! The new design system is now active.
 ### Deploy
 
 1. **Commit changes:**
+
    ```bash
    git add src/styles/*redesign.css
    git commit -m "feat: implement Cyber-Financial Terminal redesign"
    ```
 
 2. **Deploy to staging:**
+
    ```bash
    # Your deploy command
    ```
@@ -446,11 +457,13 @@ Track these metrics post-deployment:
 ## 🤝 Support
 
 **Questions?**
+
 - Check `REDESIGN.md` for detailed docs
 - Review `design-demo.html` for examples
 - Inspect `RedesignExamples.jsx` for React patterns
 
 **Issues?**
+
 - Check browser console for errors
 - Verify file paths and imports
 - Test in incognito mode (no extensions)

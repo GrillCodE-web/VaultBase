@@ -19,13 +19,16 @@ Then open: http://localhost:5173
 ## 🎨 What Changed
 
 ### Visual Design
+
 - **Accent Color**: Cyan/Teal (#00d9ff) replaces purple
 - **Typography**: Rajdhani (headings) + Manrope (body) + JetBrains Mono (data)
 - **Effects**: Gradient borders, glow effects, subtle noise texture, scanline
 - **Depth**: Enhanced shadows, layered backgrounds, better visual hierarchy
 
 ### Components
+
 All existing components work the same, but with enhanced visuals:
+
 - Buttons have gradient shine effects
 - Forms have better focus states
 - Tables have smooth hover animations
@@ -79,12 +82,12 @@ Edit `src/styles/tokens-redesign.css`:
 ```css
 :root {
   /* Change accent color */
-  --accent: #00d9ff;  /* Your color */
-  
+  --accent: #00d9ff; /* Your color */
+
   /* Disable effects */
   --noise-opacity: 0;
   --scanline-opacity: 0;
-  
+
   /* Adjust speed */
   --t-fast: 140ms;
   --t-mid: 220ms;
@@ -96,19 +99,24 @@ Edit `src/styles/tokens-redesign.css`:
 ## 🐛 Troubleshooting
 
 ### Fonts not loading
+
 Check browser console for 404 errors. The fonts are loaded from Google Fonts CDN.
 
 ### Colors look wrong
+
 Clear browser cache: `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows)
 
 ### Animations laggy
+
 Disable effects in `tokens-redesign.css`:
+
 ```css
 --noise-opacity: 0;
 --scanline-opacity: 0;
 ```
 
 ### Styles not applying
+
 1. Check `src/index.css` imports `index-redesign.css`
 2. Restart dev server
 3. Clear browser cache

@@ -19,17 +19,20 @@
 ### Цветовая палитра
 
 **Акценты:**
+
 - Primary: `#00d9ff` (Cyan) — основной акцент, интерактивные элементы
 - Secondary: `#a855f7` (Electric Purple) — вторичный акцент, highlights
 - Bright: `#14f195` (Neon Green) — success states, live indicators
 
 **Статусы:**
+
 - Success: `#10b981` (Emerald)
 - Error: `#ef4444` (Red)
 - Warning: `#f59e0b` (Amber)
 - Info: `#3b82f6` (Blue)
 
 **Нейтральные:**
+
 - Background: `#0d1117` (Deep Dark)
 - Surface: `#161b22` (Dark Gray)
 - Card: `#1c2128` (Medium Dark)
@@ -116,11 +119,11 @@ src/styles/
 Используйте data-атрибут для переключения:
 
 ```html
-<body data-theme="redesign">
+<body data-theme="redesign"></body>
 ```
 
 ```css
-[data-theme="redesign"] {
+[data-theme='redesign'] {
   /* Применяются новые стили */
 }
 ```
@@ -186,11 +189,13 @@ src/styles/
 Добавьте класс `.stagger-item` к элементам списка:
 
 ```jsx
-{items.map((item, i) => (
-  <div key={i} className="stagger-item">
-    {item}
-  </div>
-))}
+{
+  items.map((item, i) => (
+    <div key={i} className="stagger-item">
+      {item}
+    </div>
+  ))
+}
 ```
 
 ### Glow Effect
@@ -212,6 +217,7 @@ src/styles/
 ### 1. Градиентные акценты
 
 Все основные элементы используют `--gradient-accent`:
+
 - Логотип
 - Активные табы
 - Primary кнопки
@@ -220,6 +226,7 @@ src/styles/
 ### 2. Многослойность
 
 Каждая карточка/панель имеет:
+
 - Базовый фон (`--card`)
 - Тонкий градиент сверху (::before)
 - Border с hover эффектом
@@ -234,6 +241,7 @@ src/styles/
 ### 4. Интерактивность
 
 Все интерактивные элементы имеют:
+
 - Hover state (transform, glow)
 - Active state (scale, brightness)
 - Focus state (outline, shadow)
@@ -249,7 +257,7 @@ src/styles/
 
 ```css
 :root {
-  --accent: #00d9ff;        /* Ваш цвет */
+  --accent: #00d9ff; /* Ваш цвет */
   --accent-bright: #14f195; /* Светлый вариант */
   --accent-dim: rgba(0, 217, 255, 0.08); /* Прозрачный */
 }
@@ -259,8 +267,8 @@ src/styles/
 
 ```css
 :root {
-  --noise-opacity: 0;      /* Убрать шум */
-  --scanline-opacity: 0;   /* Убрать scanline */
+  --noise-opacity: 0; /* Убрать шум */
+  --scanline-opacity: 0; /* Убрать scanline */
 }
 ```
 

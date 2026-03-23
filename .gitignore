@@ -15,5 +15,13 @@ coverage/
 # Logs
 *.log
 
+# Data files (local development only)
+*.db
+*.db-shm
+*.db-wal
+*.xlsx
+*.csv
+*.zip
+
 # Claude Code
 .claude/
