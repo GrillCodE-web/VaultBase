@@ -71,15 +71,7 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
       <div className="upd-head">
         <div className={`upd-icon ${meta.uiCls}`}>{meta.icon}</div>
         <div className="flex-1 min-w-0">
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <div className="text-sm font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
             {item.description ?? item.event_type ?? '(no description)'}
           </div>
           <div className="text-[11px] text-muted mt-0.5">
@@ -308,23 +300,18 @@ export default function Updates() {
       {/* ── App update banner ──────────────────────────────── */}
       {showBanner && (
         <div
-          style={{
-            padding: '10px 14px',
-            marginBottom: 12,
-            borderRadius: 8,
-            background: bannerBg,
-            border: `1px solid ${bannerBdr}`,
-          }}
+          className="px-3.5 py-2.5 mb-3 rounded-lg"
+          style={{ background: bannerBg, border: `1px solid ${bannerBdr}` }}
         >
           <div
             className="flex items-center justify-between"
             style={{ marginBottom: downloadState === 'downloading' ? 8 : 0 }}
           >
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span style={{ color: bannerColor, fontWeight: 600, fontSize: 13, flexShrink: 0 }}>
+              <span className="text-sm font-semibold shrink-0" style={{ color: bannerColor }}>
                 {isBeta ? '🧪 Beta' : '🆕 Stable'} v{updateAvailable.version}
               </span>
-              <span style={{ fontSize: 11, color: bannerColor, opacity: 0.8, flexShrink: 0 }}>
+              <span className="text-xs shrink-0" style={{ color: bannerColor, opacity: 0.8 }}>
                 {isBeta ? t('upd_optional_update') : t('upd_recommended_update')}
               </span>
               {updateAvailable.body && (
@@ -363,22 +350,10 @@ export default function Updates() {
           </div>
 
           {downloadState === 'downloading' && (
-            <div
-              style={{
-                height: 4,
-                borderRadius: 2,
-                background: 'var(--color-info-bg)',
-                overflow: 'hidden',
-              }}
-            >
+            <div className="h-1 rounded overflow-hidden bg-color-info-bg">
               <div
-                style={{
-                  height: '100%',
-                  borderRadius: 2,
-                  background: 'var(--blue-t)',
-                  width: `${downloadProgress}%`,
-                  transition: 'width 0.2s ease',
-                }}
+                className="h-full rounded bg-blue-t transition-all"
+                style={{ width: `${downloadProgress}%` }}
               />
             </div>
           )}
@@ -388,15 +363,8 @@ export default function Updates() {
       {/* ── Already up to date ─────────────────────────────── */}
       {!updateAvailable && !loading && (
         <div
-          style={{
-            fontSize: 11,
-            color: 'var(--muted)',
-            marginBottom: 12,
-            padding: '6px 14px',
-            background: 'var(--color-success-bg)',
-            border: '1px solid var(--color-success-bg)',
-            borderRadius: 6,
-          }}
+          className="text-xs text-muted mb-3 px-3.5 py-1.5 bg-color-success-bg rounded-md"
+          style={{ border: '1px solid var(--color-success-bg)' }}
         >
           ✓ {t('upd_current_version')} v{currentVersion}
         </div>
