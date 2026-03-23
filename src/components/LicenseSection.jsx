@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { ShieldCheck, ShieldAlert, WifiOff, RefreshCw, Copy, Check } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
+import { HEX_COLORS } from '../constants/colors.js'
 
 export function LicenseSection() {
   const { t } = useLang()
@@ -74,7 +75,7 @@ export function LicenseSection() {
   const { label, color, Icon } = meta
 
   return (
-    <div className="rounded-xl p-5 bg-inset" style={{ border: '1px solid #1e2338' }}>
+    <div className="rounded-xl p-5 bg-inset" style={{ border: `1px solid ${HEX_COLORS.border}` }}>
       <h3 className="text-sm font-semibold text-white mb-4">
         {t('settings_license') || 'License'}
       </h3>

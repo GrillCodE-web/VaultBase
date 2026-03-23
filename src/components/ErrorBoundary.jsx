@@ -1,5 +1,6 @@
 import React from 'react'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { HEX_COLORS } from '../constants/colors.js'
 
 /**
  * Error Boundary component to catch React errors and prevent white screen
@@ -55,7 +56,7 @@ class ErrorBoundary extends React.Component {
                 background: 'rgba(239, 68, 68, 0.12)',
               }}
             >
-              <AlertTriangle size={32} style={{ color: '#ef4444' }} />
+              <AlertTriangle size={32} style={{ color: HEX_COLORS.red }} />
             </div>
 
             {/* Title */}

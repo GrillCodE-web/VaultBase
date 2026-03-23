@@ -8,6 +8,7 @@ import { ConfirmProvider } from './hooks/useConfirm'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { HEX_COLORS } from './constants/colors.js'
 
 // Auth screens — loaded immediately (shown before app)
 import Login from './pages/Login'
@@ -236,7 +237,7 @@ function RevokedScreen() {
     <div className="min-h-screen flex items-center justify-center bg-bg">
       <div className="revoked-card">
         <div className="revoked-icon-box">
-          <AlertTriangle size={28} style={{ color: '#ef4444' }} />
+          <AlertTriangle size={28} style={{ color: HEX_COLORS.red }} />
         </div>
         <h1 className="revoked-title">{t('license_revoked_title') || 'License Revoked'}</h1>
         <p className="revoked-text">

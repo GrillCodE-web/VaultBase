@@ -2,6 +2,8 @@
  * Card and order status definitions with colors
  */
 
+import { HEX_COLORS } from './colors.js'
+
 export const CARD_STATUS = {
   FREE: 'free',
   IN_USE: 'in_use',
@@ -12,22 +14,22 @@ export const CARD_STATUS = {
 export const CARD_STATUS_COLORS = {
   [CARD_STATUS.FREE]: {
     bg: 'rgba(34, 197, 94, 0.1)',
-    text: '#4ade80',
+    text: HEX_COLORS.greenLight,
     label: 'Free',
   },
   [CARD_STATUS.IN_USE]: {
     bg: 'rgba(59, 130, 246, 0.1)',
-    text: '#60a5fa',
+    text: HEX_COLORS.blueLight,
     label: 'In Use',
   },
   [CARD_STATUS.DEAD]: {
     bg: 'rgba(239, 68, 68, 0.1)',
-    text: '#f87171',
+    text: HEX_COLORS.redLight,
     label: 'Dead',
   },
   [CARD_STATUS.ARCHIVE]: {
     bg: 'rgba(156, 163, 175, 0.1)',
-    text: '#999',
+    text: HEX_COLORS.gray,
     label: 'Archive',
   },
 }
@@ -45,37 +47,37 @@ export const ORDER_STATUS = {
 export const ORDER_STATUS_COLORS = {
   [ORDER_STATUS.PENDING]: {
     bg: 'rgba(234, 179, 8, 0.1)',
-    text: '#facc15',
+    text: HEX_COLORS.yellowLight,
     label: 'Pending',
   },
   [ORDER_STATUS.PROCESSING]: {
     bg: 'rgba(59, 130, 246, 0.1)',
-    text: '#60a5fa',
+    text: HEX_COLORS.blueLight,
     label: 'Processing',
   },
   [ORDER_STATUS.SHIPPED]: {
     bg: 'rgba(168, 85, 247, 0.1)',
-    text: '#a855f7',
+    text: HEX_COLORS.purple,
     label: 'Shipped',
   },
   [ORDER_STATUS.DELIVERED]: {
     bg: 'rgba(34, 197, 94, 0.1)',
-    text: '#4ade80',
+    text: HEX_COLORS.greenLight,
     label: 'Delivered',
   },
   [ORDER_STATUS.CANCELLED]: {
     bg: 'rgba(156, 163, 175, 0.1)',
-    text: '#999',
+    text: HEX_COLORS.gray,
     label: 'Cancelled',
   },
   [ORDER_STATUS.REFUNDED]: {
     bg: 'rgba(251, 146, 60, 0.1)',
-    text: '#fb923c',
+    text: HEX_COLORS.orangeLight,
     label: 'Refunded',
   },
   [ORDER_STATUS.FAILED]: {
     bg: 'rgba(239, 68, 68, 0.1)',
-    text: '#f87171',
+    text: HEX_COLORS.redLight,
     label: 'Failed',
   },
 }
@@ -88,7 +90,7 @@ export const ORDER_STATUS_COLORS = {
  */
 export function getStatusColor(status, type = 'card') {
   const colors = type === 'card' ? CARD_STATUS_COLORS : ORDER_STATUS_COLORS
-  return colors[status] || { bg: 'rgba(156, 163, 175, 0.1)', text: '#999', label: status }
+  return colors[status] || { bg: 'rgba(156, 163, 175, 0.1)', text: HEX_COLORS.gray, label: status }
 }
 
 // Order status workflow steps
