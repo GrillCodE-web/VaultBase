@@ -51,7 +51,7 @@ function NeedsAttentionBadge({ order }) {
     return (
       <AlertTriangle
         size={13}
-        style={{ color: 'var(--orange)', flexShrink: 0, marginLeft: 4 }}
+        className="text-orange-t flex-shrink-0 ml-1"
         title="Pending for 3+ days"
       />
     )
@@ -60,7 +60,7 @@ function NeedsAttentionBadge({ order }) {
     return (
       <AlertTriangle
         size={13}
-        style={{ color: 'var(--red)', flexShrink: 0, marginLeft: 4 }}
+        className="text-red flex-shrink-0 ml-1"
         title="Shipped 14+ days ago - check delivery"
       />
     )
@@ -133,19 +133,12 @@ export function OrderRow({
         </td>
         <td>{order.shop_name || '—'}</td>
         <td>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <div className="flex items-center gap-[2px]">
             <span className={`st ${STATUS_CSS[order.status] ?? 'st-archive'}`}>{order.status}</span>
             <NeedsAttentionBadge order={order} />
           </div>
         </td>
-        <td
-          style={{
-            color: STATUS_COLORS.info,
-            fontFamily: "'JetBrains Mono',monospace",
-            textAlign: 'right',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <td className="text-blue-t mono text-right whitespace-nowrap">
           {order.total_amount != null ? `$${order.total_amount.toFixed(2)}` : '—'}
         </td>
         <td className="font-mono text-[10px] text-muted">{order.tracking_number ?? '—'}</td>
@@ -153,14 +146,7 @@ export function OrderRow({
         <td className="text-[11px] text-muted">{order.proxy_label ?? '—'}</td>
         <td className="text-[11px] text-muted">{order.email_addr ?? '—'}</td>
         <td
-          style={{
-            fontSize: 11,
-            color: 'var(--muted)',
-            maxWidth: 120,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
+          className="text-[11px] text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
           title={order.notes ?? ''}
         >
           {order.notes ?? '—'}
@@ -217,14 +203,7 @@ export function OrderRow({
       </tr>
       {isExpanded && (
         <tr key={`${order.id}-timeline`}>
-          <td
-            colSpan={13}
-            style={{
-              padding: '12px 16px 16px',
-              background: 'var(--surface)',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
+          <td colSpan={13} className="p-[12px_16px_16px] bg-surface border-b border-border">
             {TimelineComponent}
           </td>
         </tr>
