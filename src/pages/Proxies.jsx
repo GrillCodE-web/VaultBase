@@ -174,22 +174,12 @@ function PasswordField({ value, onChange, placeholder = 'Password' }) {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="form-input mono"
-        style={{ paddingRight: 36 }}
+        className="form-input mono pr-9"
       />
       <button
         type="button"
         onClick={() => setShow(s => !s)}
-        style={{
-          position: 'absolute',
-          right: 10,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--muted)',
-        }}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-muted"
       >
         {show ? <EyeOff size={13} /> : <Eye size={13} />}
       </button>
@@ -253,8 +243,7 @@ function ProxyModal({ initial, onSave, onClose }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ width: 'var(--modal-sm)' }}
+        className="modal w-modal-sm"
         role="dialog"
         aria-modal="true"
         aria-labelledby="proxy-modal-title"
@@ -269,7 +258,7 @@ function ProxyModal({ initial, onSave, onClose }) {
         </div>
         <div className="flex flex-col gap-3.5">
           {/* Host + Port */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+          <div className="grid grid-cols-[2fr_1fr] gap-2.5">
             <div className="form-group">
               <label className="form-label">Host *</label>
               <input
@@ -299,8 +288,7 @@ function ProxyModal({ initial, onSave, onClose }) {
                 <button
                   key={t}
                   onClick={() => setForm(f => ({ ...f, proxy_type: t }))}
-                  className={`btn btn-sm ${form.proxy_type === t ? 'btn-b' : 'btn-ghost'}`}
-                  style={{ flex: 1, fontFamily: 'JetBrains Mono, monospace' }}
+                  className={`btn btn-sm mono flex-1 ${form.proxy_type === t ? 'btn-b' : 'btn-ghost'}`}
                 >
                   {t.toUpperCase()}
                 </button>
@@ -309,7 +297,7 @@ function ProxyModal({ initial, onSave, onClose }) {
           </div>
 
           {/* Auth */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="grid grid-cols-2 gap-2.5">
             <div className="form-group">
               <label className="form-label">Username</label>
               <input
@@ -348,12 +336,8 @@ function ProxyModal({ initial, onSave, onClose }) {
           <button
             onClick={handleSave}
             disabled={!valid || loading}
-            className="btn btn-b"
-            style={{
-              width: '100%',
-              opacity: !valid || loading ? 0.4 : 1,
-              cursor: !valid || loading ? 'not-allowed' : 'pointer',
-            }}
+            className="btn btn-b w-full"
+            style={{ opacity: !valid || loading ? 0.4 : 1 }}
           >
             {loading ? t('email_saving') : isEdit ? t('btn_save') : t('add_proxy')}
           </button>
@@ -395,8 +379,7 @@ function ImportModal({ onDone, onClose }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ width: 'var(--modal-md)' }}
+        className="modal w-modal-md"
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-proxies-title"
@@ -412,20 +395,8 @@ function ImportModal({ onDone, onClose }) {
         <div className="flex flex-col gap-3.5">
           {!result ? (
             <>
-              <div
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  padding: '10px 14px',
-                  fontSize: 11,
-                  color: 'var(--muted)',
-                  fontFamily: 'JetBrains Mono, monospace',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>
-                  Supported formats:
-                </div>
+              <div className="bg-surface border rounded-md p-[10px_14px] text-[11px] text-muted mono">
+                <div className="font-semibold mb-1.5 text-text-2">Supported formats:</div>
                 <div>host:port:user:pass</div>
                 <div>socks5://user:pass@host:port</div>
                 <div>http://host:port</div>
@@ -437,14 +408,13 @@ function ImportModal({ onDone, onClose }) {
                 placeholder={
                   '192.168.1.1:8080:user:pass\nsocks5://user:pass@proxy.com:1080\nhttp://10.0.0.1:3128'
                 }
-                className="form-input mono"
-                style={{ resize: 'none', fontSize: 12 }}
+                className="form-input mono resize-none text-[12px]"
               />
               <button
                 onClick={handleImport}
                 disabled={!raw.trim() || loading}
-                className="btn btn-b"
-                style={{ width: '100%', opacity: !raw.trim() || loading ? 0.4 : 1 }}
+                className="btn btn-b w-full"
+                style={{ opacity: !raw.trim() || loading ? 0.4 : 1 }}
               >
                 {loading ? t('proxy_importing') : t('import_proxies') + ' →'}
               </button>
@@ -452,51 +422,26 @@ function ImportModal({ onDone, onClose }) {
           ) : (
             <div className="flex flex-col gap-3.5">
               <div className="grid grid-cols-2 gap-3">
-                <div
-                  style={{
-                    background: 'var(--color-success-bg)',
-                    border: '1px solid var(--color-success-bg)',
-                    borderRadius: 10,
-                    padding: 16,
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.success }}>
+                <div className="bg-success-bg border border-success-bg rounded-[10px] p-4 text-center">
+                  <div className="text-[28px] font-bold" style={{ color: STATUS_COLORS.success }}>
                     {result.parsed}
                   </div>
                   <div className="text-[11px] text-muted mt-1">{t('cc_import_done')}</div>
                 </div>
-                <div
-                  style={{
-                    background: 'var(--color-warning-bg)',
-                    border: '1px solid var(--color-warning-bg)',
-                    borderRadius: 10,
-                    padding: 16,
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.warning }}>
+                <div className="bg-warning-bg border border-warning-bg rounded-[10px] p-4 text-center">
+                  <div className="text-[28px] font-bold" style={{ color: STATUS_COLORS.warning }}>
                     {result.skipped}
                   </div>
                   <div className="text-[11px] text-muted mt-1">{t('profiles_skipped')}</div>
                 </div>
               </div>
               {result.errors?.length > 0 && (
-                <div
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    padding: 10,
-                    maxHeight: 120,
-                    overflowY: 'auto',
-                  }}
-                >
+                <div className="bg-surface border rounded-md p-2.5 max-h-[120px] overflow-y-auto">
                   {result.errors.map((e, i) => (
                     <div
                       key={i}
-                      className="mono"
-                      style={{ fontSize: 11, color: STATUS_COLORS.error, padding: '2px 0' }}
+                      className="mono text-[11px] py-[2px]"
+                      style={{ color: STATUS_COLORS.error }}
                     >
                       {e}
                     </div>
@@ -570,7 +515,7 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={ref} className="relative inline-block">
       <button
         className="btn btn-ghost btn-sm"
         onClick={() => setOpen(o => !o)}
@@ -579,61 +524,25 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
         <Store size={12} />
       </button>
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: '100%',
-            marginTop: 4,
-            zIndex: 30,
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-            minWidth: 180,
-            maxHeight: 240,
-            overflowY: 'auto',
-          }}
-        >
+        <div className="absolute right-0 top-full mt-1 z-30 bg-card border rounded-[10px] shadow-dropdown min-w-[180px] max-h-[240px] overflow-y-auto">
           {currentBinding && (
             <button
               onClick={handleUnbind}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '8px 12px',
-                fontSize: 11,
-                color: STATUS_COLORS.error,
-                background: 'transparent',
-                border: 'none',
-                borderBottom: '1px solid var(--border)',
-                cursor: 'pointer',
-              }}
+              className="w-full text-left p-[8px_12px] text-[11px] bg-transparent border-none border-b cursor-pointer"
+              style={{ color: STATUS_COLORS.error }}
             >
               Unbind from {currentBinding.name || currentBinding.domain}
             </button>
           )}
           {shops.length === 0 && (
-            <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--muted)' }}>
-              Loading shops…
-            </div>
+            <div className="p-[8px_12px] text-[11px] text-muted">Loading shops…</div>
           )}
           {shops.map(s => (
             <button
               key={s.id}
               onClick={() => handleBind(s)}
               disabled={loading}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '8px 12px',
-                fontSize: 11,
-                color: 'var(--text-2)',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: '1px solid var(--border)',
-                cursor: 'pointer',
-              }}
+              className="w-full text-left p-[8px_12px] text-[11px] text-text-2 bg-transparent border-none border-b cursor-pointer"
             >
               {s.name || s.domain}
             </button>
@@ -910,7 +819,7 @@ export default function ProxyList() {
             </button>
           )
         })}
-        <div style={{ width: 1, background: 'var(--border)', margin: '0 4px' }} />
+        <div className="w-px bg-border mx-1" />
         {[
           ['http', 'HTTP'],
           ['socks5', 'SOCKS5'],
@@ -920,8 +829,7 @@ export default function ProxyList() {
           <button
             key={val}
             onClick={() => applyTypeFilter(val)}
-            className={`flt${filterType === val ? ' active' : ''}`}
-            style={{ fontFamily: 'JetBrains Mono, monospace' }}
+            className={`flt mono${filterType === val ? ' active' : ''}`}
           >
             {label}
           </button>
