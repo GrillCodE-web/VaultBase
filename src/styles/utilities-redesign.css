@@ -481,6 +481,11 @@
   line-height: 1.5;
 }
 
+/* ── Animation Utilities ────────────────────────────────── */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* ── Additional Padding ─────────────────────────────────── */
 .py-1\.5 {
   padding-top: 6px;

@@ -66,6 +66,24 @@
   color: var(--red-t);
 }
 
+.st-archive {
+  background: rgba(107, 114, 128, 0.12);
+  border-color: rgba(107, 114, 128, 0.25);
+  color: var(--text-2);
+}
+
+.st-dead {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: var(--red-t);
+}
+
+.st-transit {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: var(--blue-t);
+}
+
 /* ── Status Dot ─────────────────────────────────────────── */
 .status-dot {
   width: 6px;
@@ -96,8 +114,13 @@
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* ── Order Card (for detail view) ───────────────────────── */
