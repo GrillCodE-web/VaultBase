@@ -84,6 +84,30 @@
   color: var(--blue-t);
 }
 
+.st-free {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: var(--green-t);
+}
+
+.st-inuse {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: var(--yellow-t);
+}
+
+.st-processing {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: var(--blue-t);
+}
+
+.st-shipped {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.25);
+  color: var(--teal-t);
+}
+
 /* ── Status Dot ─────────────────────────────────────────── */
 .status-dot {
   width: 6px;

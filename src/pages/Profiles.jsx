@@ -1015,7 +1015,7 @@ function QuickOrderModal({ profile, onClose, onCreated }) {
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn" onClick={onClose}>
+          <button className="btn btn-ghost" onClick={onClose}>
             Cancel
           </button>
           <button className="btn btn-g" onClick={handleCreate} disabled={!shop || saving}>
