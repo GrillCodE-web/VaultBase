@@ -278,6 +278,9 @@
 .sticky {
   position: sticky;
 }
+.inset-0 {
+  inset: 0;
+}
 .left-0 {
   left: 0;
 }
@@ -585,6 +588,9 @@
 }
 .z-30 {
   z-index: 30;
+}
+.z-50 {
+  z-index: 50;
 }
 .z-100 {
   z-index: 100;

@@ -41,17 +41,10 @@ export function Modal({
 
   return (
     <div
-      className="overlay-enter"
+      className="overlay-enter fixed inset-0 z-50 flex items-center justify-center p-5"
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         background: 'rgba(0, 0, 0, 0.7)',
         backdropFilter: 'blur(4px)',
-        padding: '20px',
       }}
       onClick={e => {
         if (e.target === e.currentTarget) {
@@ -61,57 +54,23 @@ export function Modal({
     >
       <div
         ref={modalRef}
-        className="modal-enter"
+        className="modal-enter bg-card border border-border rounded-lg w-full flex flex-col"
         style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)',
-          width: '100%',
           maxWidth: sizes[size],
           maxHeight: 'calc(100vh - 40px)',
-          display: 'flex',
-          flexDirection: 'column',
           boxShadow: 'var(--shadow-lg)',
         }}
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: 'var(--sp-5) var(--sp-6)',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            {title && (
-              <h2
-                style={{
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: 'var(--text)',
-                  margin: 0,
-                }}
-              >
-                {title}
-              </h2>
-            )}
+          <div className="flex items-center justify-between py-5 px-6 border-b">
+            {title && <h2 className="text-[16px] font-semibold text-text m-0">{title}</h2>}
             {showCloseButton && (
               <button
                 onClick={onClose}
+                className="bg-transparent border-none text-text-3 cursor-pointer p-1 flex items-center justify-center rounded-sm ml-auto"
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-3)',
-                  cursor: 'pointer',
-                  padding: 4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 'var(--r-sm)',
                   transition: 'all var(--t-fast)',
-                  marginLeft: 'auto',
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = 'var(--hover)'
@@ -129,30 +88,10 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: 'var(--sp-6)',
-          }}
-        >
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
 
         {/* Footer */}
-        {footer && (
-          <div
-            style={{
-              padding: 'var(--sp-5) var(--sp-6)',
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              gap: 'var(--sp-3)',
-              justifyContent: 'flex-end',
-            }}
-          >
-            {footer}
-          </div>
-        )}
+        {footer && <div className="py-5 px-6 border-t flex gap-3 justify-end">{footer}</div>}
       </div>
     </div>
   )
