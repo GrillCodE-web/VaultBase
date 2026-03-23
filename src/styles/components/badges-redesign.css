@@ -430,3 +430,25 @@
   color: var(--green-t);
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
+
+/* ── Tiny Badge (for flags/chips) ───────────────────────── */
+.tiny-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Flag Pill (for shop flags) ─────────────────────────── */
+.flag-pill {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}

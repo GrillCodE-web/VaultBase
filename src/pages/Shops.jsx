@@ -22,16 +22,10 @@ function ShopRiskBadge({ shopId }) {
   const riskConfig = getRiskColor(risk.risk_level)
   return (
     <span
+      className="tiny-badge"
       style={{
-        fontSize: 10,
-        fontWeight: 600,
-        padding: '2px 6px',
-        borderRadius: 4,
         background: riskConfig.bg,
         color: riskConfig.color,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 3,
       }}
     >
       <span className={`status-dot ${riskConfig.dot}`} /> {risk.risk_level}
@@ -78,14 +72,10 @@ function FlagPills({ shop }) {
       {active.map(f => (
         <span
           key={f.key}
+          className="flag-pill"
           style={{
-            fontSize: 10,
-            fontWeight: 600,
-            padding: '2px 7px',
-            borderRadius: 4,
             background: f.bg,
             color: f.color,
-            whiteSpace: 'nowrap',
           }}
         >
           {f.label}
@@ -99,17 +89,12 @@ function FlagPills({ shop }) {
 
 function StatCard({ label, value, sub, accent }) {
   return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        borderRadius: 10,
-        border: '1px solid var(--border)',
-        padding: '10px 14px',
-      }}
-    >
-      <div className="text-[10px] uppercase tracking-[0.08em] text-muted mb-1">{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: accent || 'var(--text)' }}>{value}</div>
-      {sub && <div className="text-[11px] text-muted mt-0.5">{sub}</div>}
+    <div className="stat-card">
+      <div className="stat-card-label">{label}</div>
+      <div className="stat-card-value" style={{ color: accent || 'var(--text)' }}>
+        {value}
+      </div>
+      {sub && <div className="stat-card-sub">{sub}</div>}
     </div>
   )
 }
@@ -131,13 +116,8 @@ function SuggestionBadge({ s }) {
   const lvl = s.level || 'info'
   return (
     <div
+      className="flex items-start gap-2 px-2\.5 py-1\.5 rounded-md text-[12px]"
       style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-        padding: '7px 10px',
-        borderRadius: 7,
-        fontSize: 12,
         background: bgMap[lvl] || bgMap.info,
         color: colorMap[lvl] || colorMap.info,
         border: `1px solid ${colorMap[lvl] || colorMap.info}30`,
