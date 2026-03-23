@@ -807,10 +807,9 @@ export default function ShopList({ onNavigate }) {
       } finally {
         setLoading(false)
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [page, search]
-  ) // toast is stable from useToast hook
+    [page, search, toast]
+  )
 
   useEffect(() => {
     load()
