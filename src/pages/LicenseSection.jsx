@@ -74,10 +74,7 @@ export function LicenseSection() {
   const { label, color, Icon } = meta
 
   return (
-    <div
-      className="rounded-xl p-5"
-      style={{ backgroundColor: 'var(--inset)', border: '1px solid var(--border)' }}
-    >
+    <div className="rounded-xl p-5 bg-inset border border-border">
       <h3 className="text-sm font-semibold text-white mb-4">
         {t('settings_license') || 'License'}
       </h3>
@@ -100,15 +97,7 @@ export function LicenseSection() {
         </span>
         <div className="flex items-center gap-2">
           {showId ? (
-            <span
-              className="text-xs font-mono px-2 py-1 rounded-lg select-all"
-              style={{
-                backgroundColor: 'var(--card)',
-                color: 'var(--text-2)',
-                maxWidth: 200,
-                wordBreak: 'break-all',
-              }}
-            >
+            <span className="text-xs mono px-2 py-1 rounded-lg select-all bg-card text-text-2 max-w-[200px] break-all">
               {installId || '—'}
             </span>
           ) : (
@@ -116,19 +105,15 @@ export function LicenseSection() {
           )}
           <button
             onClick={() => setShowId(v => !v)}
-            className="text-xs px-2 py-1 rounded-lg transition-colors"
-            style={{ color: 'var(--muted)', backgroundColor: 'var(--card)' }}
+            className="text-xs px-2 py-1 rounded-lg transition-colors text-muted bg-card"
           >
             {showId ? t('btn_hide') : t('btn_show')}
           </button>
           {showId && installId && (
             <button
               onClick={handleCopyId}
-              className="p-1 rounded-lg transition-colors"
-              style={{
-                color: copied ? 'var(--color-success)' : 'var(--muted)',
-                backgroundColor: 'var(--card)',
-              }}
+              className="p-1 rounded-lg transition-colors bg-card"
+              style={{ color: copied ? 'var(--color-success)' : 'var(--muted)' }}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
             </button>
@@ -141,11 +126,8 @@ export function LicenseSection() {
         <button
           onClick={handleRetry}
           disabled={retrying}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors bg-warning-bg text-warning border border-warning-bg"
           style={{
-            backgroundColor: 'var(--color-warning-bg)',
-            color: 'var(--color-warning)',
-            border: '1px solid var(--color-warning-bg)',
             opacity: retrying ? 0.6 : 1,
             cursor: retrying ? 'not-allowed' : 'pointer',
           }}
