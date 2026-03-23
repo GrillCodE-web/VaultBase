@@ -917,10 +917,10 @@ export default function ProxyList() {
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                   >
-                    <table className="tbl" style={{ marginBottom: 0 }}>
+                    <table className="tbl mb-0">
                       <tbody>
                         <tr style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
-                          <td style={{ color: 'var(--text-secondary)' }}>
+                          <td className="text-secondary">
                             {proxy.label || '—'}
                             {boundShop && (
                               <span className="proxy-bound-badge">
@@ -930,7 +930,7 @@ export default function ProxyList() {
                           </td>
                           <td className="mono text-[11px] text-muted">
                             {proxy.host}
-                            <span style={{ color: 'var(--border)' }}>:</span>
+                            <span className="text-border">:</span>
                             {proxy.port}
                           </td>
                           <td>
@@ -1101,11 +1101,7 @@ export default function ProxyList() {
           <div className="flex gap-1">
             {buildPageNumbers(page, totalPages).map((p, idx) =>
               p === '…' ? (
-                <span
-                  key={`ellipsis-${idx}`}
-                  className="btn btn-sm btn-ghost"
-                  style={{ cursor: 'default' }}
-                >
+                <span key={`ellipsis-${idx}`} className="btn btn-sm btn-ghost cursor-default">
                   …
                 </span>
               ) : (

@@ -283,16 +283,14 @@ export function ProfileModal({ onCreated, onClose }) {
           {/* Card billing preview */}
           {cardId && cardBillingPreview && (
             <div className="billing-preview-box">
-              <MapPin size={11} style={{ flexShrink: 0 }} />
+              <MapPin size={11} className="icon-no-shrink" />
               <span>{cardBillingPreview}</span>
             </div>
           )}
 
           {/* Email assignment */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" style={{ marginBottom: 4 }}>
-              Email (optional)
-            </label>
+          <div className="form-group mb-0">
+            <label className="form-label mb-1">Email (optional)</label>
             <div className="input-with-button">
               <input
                 className="form-input"
@@ -305,15 +303,13 @@ export function ProfileModal({ onCreated, onClose }) {
                   const match = availableEmails.find(em => em.email === e.target.value)
                   setEmailId(match ? match.id : null)
                 }}
-                style={{ flex: 1 }}
               />
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm text-sm"
                 type="button"
                 title="Auto-assign free email"
                 disabled={emailLoading}
                 onClick={handleAutoAssignEmail}
-                style={{ flexShrink: 0, fontSize: 14 }}
               >
                 🎲
               </button>
@@ -333,7 +329,7 @@ export function ProfileModal({ onCreated, onClose }) {
                 onChange={e => setAutoCreateDrop(e.target.checked)}
               />
               <span>Auto-create drop from billing address</span>
-              <span style={{ fontSize: 10, opacity: 0.6 }}>(faster setup)</span>
+              <span className="helper-text">(faster setup)</span>
             </label>
           ) : (
             <>
@@ -366,8 +362,7 @@ export function ProfileModal({ onCreated, onClose }) {
                         </button>
                         <button
                           type="button"
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '2px 4px', color: 'var(--red)' }}
+                          className="btn btn-ghost btn-sm template-delete-btn"
                           onClick={() => handleDeleteTemplate(tpl.id)}
                           title="Delete template"
                         >

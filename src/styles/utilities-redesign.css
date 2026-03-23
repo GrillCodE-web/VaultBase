@@ -1735,6 +1735,15 @@
   align-items: center;
 }
 
+.input-with-button > input,
+.input-with-button > .form-input {
+  flex: 1;
+}
+
+.input-with-button > button {
+  flex-shrink: 0;
+}
+
 /* ── Checkbox Label ─────────────────────────────────────── */
 .checkbox-label {
   display: flex;
@@ -1781,6 +1790,23 @@
 /* ── Button Full Width ──────────────────────────────────── */
 .btn-full-width {
   width: 100%;
+}
+
+/* ── Icon Flex Shrink ───────────────────────────────────── */
+.icon-no-shrink {
+  flex-shrink: 0;
+}
+
+/* ── Helper Text ────────────────────────────────────────── */
+.helper-text {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* ── Template Delete Button ─────────────────────────────── */
+.template-delete-btn {
+  padding: 2px 4px;
+  color: var(--red);
 }
 
 /* ── Margin Bottom 0 ────────────────────────────────────── */
