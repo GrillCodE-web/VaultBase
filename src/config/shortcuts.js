@@ -1,0 +1,231 @@
+// Keyboard shortcuts configuration for CC Manager
+
+export const SHORTCUTS = {
+  // Navigation shortcuts
+  navigation: {
+    dashboard: {
+      keys: ['Alt+1', 'g d'],
+      description: 'Go to Dashboard',
+      action: 'navigate:dashboard',
+    },
+    cards: {
+      keys: ['Alt+2', 'g c'],
+      description: 'Go to Cards',
+      action: 'navigate:cards',
+    },
+    profiles: {
+      keys: ['Alt+3', 'g p'],
+      description: 'Go to Profiles',
+      action: 'navigate:profiles',
+    },
+    orders: {
+      keys: ['Alt+4', 'g o'],
+      description: 'Go to Orders',
+      action: 'navigate:orders',
+    },
+    shops: {
+      keys: ['Alt+5'],
+      description: 'Go to Shops',
+      action: 'navigate:shops',
+    },
+    proxies: {
+      keys: ['Alt+6'],
+      description: 'Go to Proxies',
+      action: 'navigate:proxies',
+    },
+    imap: {
+      keys: ['Alt+7'],
+      description: 'Go to IMAP',
+      action: 'navigate:imap',
+    },
+    activity: {
+      keys: ['Alt+8'],
+      description: 'Go to Activity Log',
+      action: 'navigate:activity_log',
+    },
+    updates: {
+      keys: ['Alt+9'],
+      description: 'Go to Updates',
+      action: 'navigate:updates',
+    },
+    settings: {
+      keys: ['Alt+0', 'Cmd+,', 'Ctrl+,'],
+      description: 'Go to Settings',
+      action: 'navigate:settings',
+    },
+  },
+
+  // Global actions
+  global: {
+    search: {
+      keys: ['Cmd+K', 'Ctrl+K'],
+      description: 'Global search',
+      action: 'global:search',
+    },
+    focusSearch: {
+      keys: ['/', 'f'],
+      description: 'Focus search input',
+      action: 'global:focus-search',
+      requireNoInput: true,
+    },
+    refresh: {
+      keys: ['r', 'Cmd+R', 'Ctrl+R'],
+      description: 'Refresh current page',
+      action: 'global:refresh',
+      requireNoInput: true,
+    },
+    new: {
+      keys: ['n', 'Cmd+N', 'Ctrl+N'],
+      description: 'Create new item',
+      action: 'global:new',
+      requireNoInput: true,
+    },
+    save: {
+      keys: ['Cmd+S', 'Ctrl+S'],
+      description: 'Save (in forms)',
+      action: 'global:save',
+    },
+    close: {
+      keys: ['Escape'],
+      description: 'Close modal/panel',
+      action: 'global:close',
+    },
+    help: {
+      keys: ['?'],
+      description: 'Show keyboard shortcuts',
+      action: 'global:help',
+      requireNoInput: true,
+    },
+  },
+
+  // Page-specific shortcuts
+  cards: {
+    create: {
+      keys: ['c'],
+      description: 'Create new card',
+      action: 'cards:create',
+      requireNoInput: true,
+      page: 'cards',
+    },
+    import: {
+      keys: ['i'],
+      description: 'Import cards',
+      action: 'cards:import',
+      requireNoInput: true,
+      page: 'cards',
+    },
+    export: {
+      keys: ['e'],
+      description: 'Export cards',
+      action: 'cards:export',
+      requireNoInput: true,
+      page: 'cards',
+    },
+  },
+
+  orders: {
+    create: {
+      keys: ['o'],
+      description: 'Create new order',
+      action: 'orders:create',
+      requireNoInput: true,
+      page: 'orders',
+    },
+    batchImport: {
+      keys: ['b'],
+      description: 'Batch import orders',
+      action: 'orders:batch',
+      requireNoInput: true,
+      page: 'orders',
+    },
+  },
+
+  profiles: {
+    create: {
+      keys: ['p'],
+      description: 'Create new profile',
+      action: 'profiles:create',
+      requireNoInput: true,
+      page: 'profiles',
+    },
+    addDrop: {
+      keys: ['d'],
+      description: 'Add drop address',
+      action: 'profiles:drop',
+      requireNoInput: true,
+      page: 'profiles',
+    },
+  },
+
+  settings: {
+    save: {
+      keys: ['s', 'Cmd+S', 'Ctrl+S'],
+      description: 'Save settings',
+      action: 'settings:save',
+      requireNoInput: true,
+      page: 'settings',
+    },
+  },
+}
+
+// Helper to get all shortcuts as flat array
+export function getAllShortcuts() {
+  const result = []
+  Object.entries(SHORTCUTS).forEach(([category, shortcuts]) => {
+    Object.entries(shortcuts).forEach(([key, config]) => {
+      result.push({
+        ...config,
+        category,
+        id: `${category}:${key}`,
+      })
+    })
+  })
+  return result
+}
+
+// Helper to get shortcuts by category
+export function getShortcutsByCategory() {
+  return {
+    Navigation: getAllShortcuts().filter(s => s.category === 'navigation'),
+    'Global Actions': getAllShortcuts().filter(s => s.category === 'global'),
+    'Cards Page': getAllShortcuts().filter(s => s.category === 'cards'),
+    'Orders Page': getAllShortcuts().filter(s => s.category === 'orders'),
+    'Profiles Page': getAllShortcuts().filter(s => s.category === 'profiles'),
+    'Settings Page': getAllShortcuts().filter(s => s.category === 'settings'),
+  }
+}
+
+// Helper to check if user is in an input field
+export function isInInputField() {
+  const el = document.activeElement
+  return (
+    el &&
+    (el.tagName === 'INPUT' ||
+      el.tagName === 'TEXTAREA' ||
+      el.tagName === 'SELECT' ||
+      el.contentEditable === 'true')
+  )
+}
+
+// Helper to normalize key combination
+export function normalizeKey(key) {
+  return key
+    .replace(/Cmd/gi, 'Meta')
+    .replace(/Ctrl/gi, 'Control')
+    .replace(/Alt/gi, 'Alt')
+    .replace(/Shift/gi, 'Shift')
+}
+
+// Helper to format key for display (Mac vs Windows)
+export function formatKeyForDisplay(key) {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  if (isMac) {
+    return key
+      .replace(/Ctrl/g, '⌃')
+      .replace(/Alt/g, '⌥')
+      .replace(/Shift/g, '⇧')
+      .replace(/Meta/g, '⌘')
+      .replace(/Cmd/g, '⌘')
+  }
+  return key
+}

@@ -1,0 +1,132 @@
+import { useEffect, useRef, useCallback } from 'react'
+import { isInInputField } from '../config/shortcuts'
+
+/**
+ * Custom hook for managing keyboard shortcuts
+ * Supports:
+ * - Single keys (e.g., 'f', 'r', 'n')
+ * - Modifier combinations (e.g., 'Cmd+K', 'Ctrl+S')
+ * - Key sequences (e.g., 'g d', 'g c')
+ */
+export function useKeyboardShortcuts(shortcuts, options = {}) {
+  const { enabled = true, currentPage = null } = options
+  const sequenceRef = useRef({ keys: [], timer: null })
+
+  const handleKeyDown = useCallback(
+    e => {
+      if (!enabled) return
+
+      // Build current key combination
+      const modifiers = []
+      if (e.metaKey) modifiers.push('Meta')
+      if (e.ctrlKey) modifiers.push('Control')
+      if (e.altKey) modifiers.push('Alt')
+      if (e.shiftKey) modifiers.push('Shift')
+
+      const key = e.key
+      const combo = modifiers.length > 0 ? `${modifiers.join('+')}+${key}` : key
+
+      // Check for sequence shortcuts (e.g., 'g d')
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && key.length === 1) {
+        // Clear sequence timer
+        if (sequenceRef.current.timer) {
+          clearTimeout(sequenceRef.current.timer)
+        }
+
+        // Add key to sequence
+        sequenceRef.current.keys.push(key)
+
+        // Set timer to reset sequence after 1 second
+        sequenceRef.current.timer = setTimeout(() => {
+          sequenceRef.current.keys = []
+        }, 1000)
+
+        // Check if sequence matches any shortcut
+        const sequence = sequenceRef.current.keys.join(' ')
+        for (const shortcut of shortcuts) {
+          if (shortcut.keys.includes(sequence)) {
+            // Check if shortcut requires no input field focus
+            if (shortcut.requireNoInput && isInInputField()) {
+              continue
+            }
+
+            // Check if shortcut is page-specific
+            if (shortcut.page && shortcut.page !== currentPage) {
+              continue
+            }
+
+            e.preventDefault()
+            sequenceRef.current.keys = []
+            clearTimeout(sequenceRef.current.timer)
+            shortcut.handler(e)
+            return
+          }
+        }
+
+        // If sequence is longer than 2 keys, reset
+        if (sequenceRef.current.keys.length > 2) {
+          sequenceRef.current.keys = []
+        }
+
+        return
+      }
+
+      // Check for direct key matches
+      for (const shortcut of shortcuts) {
+        // Normalize shortcut keys for comparison
+        const normalizedKeys = shortcut.keys.map(k =>
+          k
+            .replace(/Cmd/gi, 'Meta')
+            .replace(/Ctrl/gi, 'Control')
+            .replace(/Alt/gi, 'Alt')
+            .replace(/Shift/gi, 'Shift')
+        )
+
+        if (normalizedKeys.includes(combo) || normalizedKeys.includes(key)) {
+          // Check if shortcut requires no input field focus
+          if (shortcut.requireNoInput && isInInputField()) {
+            continue
+          }
+
+          // Check if shortcut is page-specific
+          if (shortcut.page && shortcut.page !== currentPage) {
+            continue
+          }
+
+          e.preventDefault()
+          shortcut.handler(e)
+          return
+        }
+      }
+    },
+    [enabled, shortcuts, currentPage]
+  )
+
+  useEffect(() => {
+    if (!enabled) return
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      const timer = sequenceRef.current.timer
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
+  }, [enabled, handleKeyDown])
+}
+
+/**
+ * Hook for registering a single shortcut
+ */
+export function useShortcut(keys, handler, options = {}) {
+  const shortcuts = [
+    {
+      keys: Array.isArray(keys) ? keys : [keys],
+      handler,
+      ...options,
+    },
+  ]
+
+  useKeyboardShortcuts(shortcuts, options)
+}

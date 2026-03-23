@@ -144,7 +144,7 @@ export function CardFilters({
           <button
             onClick={loadCards}
             className="btn btn-ghost btn-sm"
-            title="Refresh"
+            title="Refresh (r)"
             data-shortcut="refresh"
           >
             {loading ? '⟳' : '↺'}

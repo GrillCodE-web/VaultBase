@@ -25,6 +25,7 @@ import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDebounce } from '../hooks/useDebounce.js'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { useSmartSuggestions, SuggestionBadge } from './Shops'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
@@ -1805,6 +1806,25 @@ export default function OrderList({
     return () => document.removeEventListener('click', handler, true)
   }, [statusMenuId])
 
+  // ── Page-specific keyboard shortcuts ──────────────────────────────────
+
+  const pageShortcuts = [
+    {
+      keys: ['o'],
+      handler: () => setShowCreate(true),
+      requireNoInput: true,
+      page: 'orders',
+    },
+    {
+      keys: ['b'],
+      handler: () => setShowBatchImport(true),
+      requireNoInput: true,
+      page: 'orders',
+    },
+  ]
+
+  useKeyboardShortcuts(pageShortcuts, { currentPage: 'orders' })
+
   // ── Actions ────────────────────────────────────────────────────
 
   const handleDelete = async o => {
@@ -1868,10 +1888,19 @@ export default function OrderList({
           <div className="ph-title">Orders</div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-g" onClick={() => setShowCreate(true)} data-shortcut="new">
+          <button
+            className="btn btn-g"
+            onClick={() => setShowCreate(true)}
+            data-shortcut="new"
+            title="Create order (o)"
+          >
             + {t('create_order')}
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowBatchImport(true)}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowBatchImport(true)}
+            title="Batch import (b)"
+          >
             <Upload size={13} /> Batch Import
           </button>
           <button className="btn btn-ghost btn-sm" disabled title={t('export_coming_soon')}>

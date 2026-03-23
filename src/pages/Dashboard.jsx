@@ -628,7 +628,11 @@ export default function Dashboard({ onNavigate }) {
           <div className="ph-sub">{t('dashboard_auto_refresh')}</div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-b" onClick={() => onNavigate?.('cards', { openImport: true })}>
+          <button
+            className="btn btn-b"
+            onClick={() => onNavigate?.('cards', { openImport: true })}
+            title="Quick import cards (Alt+2 then i)"
+          >
             + {t('quick_import_cc')}
           </button>
           <button className="btn btn-g" onClick={() => onNavigate?.('profiles')}>
@@ -671,7 +675,11 @@ export default function Dashboard({ onNavigate }) {
           </div>
           <p className="text-[13px] font-semibold text-text mb-1\.5">{t('msg_no_data')}</p>
           <p className="text-[11px] text-muted mb-4">{t('dashboard_empty_hint')}</p>
-          <button className="btn btn-b" onClick={() => onNavigate?.('cards', { openImport: true })}>
+          <button
+            className="btn btn-b"
+            onClick={() => onNavigate?.('cards', { openImport: true })}
+            title="Quick import cards (Alt+2 then i)"
+          >
             + {t('quick_import_cc')}
           </button>
         </div>

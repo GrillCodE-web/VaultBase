@@ -6,6 +6,8 @@ import { LangProvider, useLang } from './hooks/useLang'
 import { ToastProvider, useToast } from './hooks/useToast'
 import { ConfirmProvider } from './hooks/useConfirm'
 import ErrorBoundary from './components/ErrorBoundary'
+import ShortcutsHelp from './components/ShortcutsHelp'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 // Auth screens — loaded immediately (shown before app)
 import Login from './pages/Login'
@@ -42,7 +44,6 @@ import {
   BookOpen,
   Search,
   X,
-  Keyboard,
   Bell,
   ChevronLeft,
   ChevronRight,
@@ -293,103 +294,7 @@ function RevokedScreen() {
   )
 }
 
-// ─── Keyboard Shortcuts Popup ─────────────────────────────────
-
-function ShortcutsPopup({ onClose }) {
-  const { t } = useLang()
-  const SHORTCUTS = [
-    { keys: 'Alt+1 … Alt+9', desc: t('shortcut_nav_pages') },
-    { keys: 'Alt+0', desc: t('nav_settings') },
-    { keys: '⌘K / Ctrl+K', desc: t('shortcut_global_search') },
-    { keys: 'Esc', desc: t('shortcut_close') },
-  ]
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,.6)',
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: 320,
-          backgroundColor: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          overflow: 'hidden',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '14px 20px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Keyboard size={15} className="text-muted" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
-              {t('shortcuts_title')}
-            </span>
-          </div>
-          <button onClick={onClose} className="bg-transparent border-none cursor-pointer p-0">
-            <X size={15} className="text-muted" />
-          </button>
-        </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {SHORTCUTS.map(({ keys, desc }) => (
-            <div
-              key={keys}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 16,
-              }}
-            >
-              <span className="text-[12px] text-gray-t">{desc}</span>
-              <kbd
-                style={{
-                  background: 'var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 4,
-                  padding: '2px 7px',
-                  fontSize: 10,
-                  fontFamily: 'JetBrains Mono,monospace',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {keys}
-              </kbd>
-            </div>
-          ))}
-        </div>
-        <div
-          style={{
-            padding: '10px 20px',
-            textAlign: 'center',
-            fontSize: 10,
-            color: 'var(--muted)',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          {t('shortcuts_hint_prefix')}{' '}
-          <kbd style={{ background: 'var(--border)', borderRadius: 3, padding: '1px 5px' }}>?</kbd>{' '}
-          {t('shortcuts_hint_suffix')}
-        </div>
-      </div>
-    </div>
-  )
-}
+// ─── Keyboard Shortcuts Popup (removed - now using ShortcutsHelp component) ─────
 
 // ─── Main Shell ───────────────────────────────────────────────
 
@@ -532,77 +437,125 @@ function MainShell({ offlineMode, setOfflineMode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setOfflineMode])
 
-  // Global hotkeys
-  useEffect(() => {
-    const ALT_PAGES = [
-      'dashboard',
-      'cards',
-      'profiles',
-      'orders',
-      'shops',
-      'proxies',
-      'imap',
-      'activity_log',
-      'updates',
-      'settings',
-    ]
-    const handleKey = e => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setSearchOpen(v => !v)
-        return
-      }
-      if (e.key === 'Escape') {
+  // Global keyboard shortcuts using new system
+  const keyboardShortcuts = [
+    // Global search
+    {
+      keys: ['Meta+k', 'Control+k'],
+      handler: () => setSearchOpen(v => !v),
+    },
+    // Close modals/search
+    {
+      keys: ['Escape'],
+      handler: () => {
         setSearchOpen(false)
         setShowShortcuts(false)
-        return
-      }
-      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const tag = document.activeElement?.tagName
-        if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
-          setShowShortcuts(v => !v)
-          return
-        }
-      }
-      if (e.altKey && !e.metaKey && !e.ctrlKey) {
-        const idx = parseInt(e.key, 10)
-        if (!isNaN(idx) && idx >= 0 && idx <= 9) {
-          e.preventDefault()
-          const target = ALT_PAGES[idx === 0 ? 9 : idx - 1]
-          if (target) handlePageChange(target)
-        }
-      }
-      const isInInput = () => {
-        const el = document.activeElement
-        return (
-          el &&
-          (el.tagName === 'INPUT' ||
-            el.tagName === 'TEXTAREA' ||
-            el.tagName === 'SELECT' ||
-            el.contentEditable === 'true')
-        )
-      }
-      if (!isInInput() && !e.altKey && !e.ctrlKey && !e.metaKey) {
-        if (e.key === 'f' || e.key === '/') {
-          e.preventDefault()
-          document
-            .querySelector(
-              'input[type="search"], input[placeholder*="earch"], input[placeholder*="EARCH"]'
-            )
-            ?.focus()
-        } else if (e.key === 'r') {
-          e.preventDefault()
-          document.querySelector('[data-shortcut="refresh"]')?.click()
-        } else if (e.key === 'n') {
-          e.preventDefault()
-          document.querySelector('[data-shortcut="new"]')?.click()
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      },
+    },
+    // Show shortcuts help
+    {
+      keys: ['?'],
+      handler: () => setShowShortcuts(v => !v),
+      requireNoInput: true,
+    },
+    // Navigation shortcuts (Alt+1-9, Alt+0)
+    {
+      keys: ['Alt+1'],
+      handler: () => handlePageChange('dashboard'),
+    },
+    {
+      keys: ['Alt+2'],
+      handler: () => handlePageChange('cards'),
+    },
+    {
+      keys: ['Alt+3'],
+      handler: () => handlePageChange('profiles'),
+    },
+    {
+      keys: ['Alt+4'],
+      handler: () => handlePageChange('orders'),
+    },
+    {
+      keys: ['Alt+5'],
+      handler: () => handlePageChange('shops'),
+    },
+    {
+      keys: ['Alt+6'],
+      handler: () => handlePageChange('proxies'),
+    },
+    {
+      keys: ['Alt+7'],
+      handler: () => handlePageChange('imap'),
+    },
+    {
+      keys: ['Alt+8'],
+      handler: () => handlePageChange('activity_log'),
+    },
+    {
+      keys: ['Alt+9'],
+      handler: () => handlePageChange('updates'),
+    },
+    {
+      keys: ['Alt+0'],
+      handler: () => handlePageChange('settings'),
+    },
+    // Vim-style navigation (g then key)
+    {
+      keys: ['g d'],
+      handler: () => handlePageChange('dashboard'),
+      requireNoInput: true,
+    },
+    {
+      keys: ['g c'],
+      handler: () => handlePageChange('cards'),
+      requireNoInput: true,
+    },
+    {
+      keys: ['g p'],
+      handler: () => handlePageChange('profiles'),
+      requireNoInput: true,
+    },
+    {
+      keys: ['g o'],
+      handler: () => handlePageChange('orders'),
+      requireNoInput: true,
+    },
+    // Settings shortcut
+    {
+      keys: ['Meta+,', 'Control+,'],
+      handler: () => handlePageChange('settings'),
+    },
+    // Focus search input
+    {
+      keys: ['f', '/'],
+      handler: () => {
+        document
+          .querySelector(
+            'input[type="search"], input[placeholder*="earch"], input[placeholder*="EARCH"]'
+          )
+          ?.focus()
+      },
+      requireNoInput: true,
+    },
+    // Refresh current page
+    {
+      keys: ['r'],
+      handler: () => {
+        document.querySelector('[data-shortcut="refresh"]')?.click()
+      },
+      requireNoInput: true,
+    },
+    // Create new item (context-aware)
+    {
+      keys: ['n'],
+      handler: () => {
+        document.querySelector('[data-shortcut="new"]')?.click()
+      },
+      requireNoInput: true,
+    },
+  ]
+
+  useKeyboardShortcuts(keyboardShortcuts, { currentPage: page })
 
   const handleLock = async () => {
     try {
@@ -744,7 +697,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
       {searchOpen && (
         <GlobalSearch onClose={() => setSearchOpen(false)} onNavigate={p => handlePageChange(p)} />
       )}
-      {showShortcuts && <ShortcutsPopup onClose={() => setShowShortcuts(false)} />}
+      {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
 
       {/* ── Sidebar ── */}
       <div className={`sidebar${sidebarExpanded ? ' expanded' : ''}`}>

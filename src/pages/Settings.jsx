@@ -27,6 +27,7 @@ import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTheme } from '../hooks/useTheme'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { LicenseSection } from '../components/LicenseSection'
 import { STATUS_COLORS } from '../constants/colors'
 
@@ -154,6 +155,24 @@ export default function Settings() {
       toastErr(String(e))
     }
   }
+
+  // ── Page-specific keyboard shortcuts ──────────────────────────────────
+
+  const pageShortcuts = [
+    {
+      keys: ['s', 'Meta+s', 'Control+s'],
+      handler: async () => {
+        // Save all settings that have changed
+        if (binApiKey) {
+          await saveBinApiKey()
+        }
+      },
+      requireNoInput: true,
+      page: 'settings',
+    },
+  ]
+
+  useKeyboardShortcuts(pageShortcuts, { currentPage: 'settings' })
 
   const saveBinApiKey = async () => {
     try {

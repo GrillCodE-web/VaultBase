@@ -6,6 +6,7 @@ import { useLang } from '../hooks/useLang.jsx'
 import { useToast } from '../hooks/useToast.jsx'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { copyToClipboard } from '../utils/clipboard.js'
@@ -256,6 +257,35 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [statusMenuId, setStatusMenuId])
+
+  // ── Page-specific keyboard shortcuts ──────────────────────────────────
+
+  const pageShortcuts = [
+    {
+      keys: ['c'],
+      handler: () => setShowImport(true),
+      requireNoInput: true,
+      page: 'cards',
+    },
+    {
+      keys: ['i'],
+      handler: () => setShowImport(true),
+      requireNoInput: true,
+      page: 'cards',
+    },
+    {
+      keys: ['e'],
+      handler: () => {
+        if (selected.size > 0) {
+          handleExport('txt')
+        }
+      },
+      requireNoInput: true,
+      page: 'cards',
+    },
+  ]
+
+  useKeyboardShortcuts(pageShortcuts, { currentPage: 'cards' })
 
   // ── Actions ────────────────────────────────────────────────────────────
 
@@ -657,7 +687,12 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             >
               <Archive size={12} /> {t('cc_archive_dead')}
             </button>
-            <button onClick={() => setShowImport(true)} className="btn btn-b" data-shortcut="new">
+            <button
+              onClick={() => setShowImport(true)}
+              className="btn btn-b"
+              data-shortcut="new"
+              title="Import cards (i or c)"
+            >
               <Upload size={12} /> {t('btn_import')}
             </button>
           </div>
