@@ -174,8 +174,7 @@ function AccountModal({ account, onSave, onClose }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ width: 'var(--modal-md)' }}
+        className="modal w-modal-md"
         role="dialog"
         aria-modal="true"
         aria-labelledby="imap-account-title"
@@ -199,7 +198,7 @@ function AccountModal({ account, onSave, onClose }) {
               className="form-input"
             />
             {autoDetected && (
-              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--color-success)' }}>
+              <div className="mt-1 text-[11px]" style={{ color: 'var(--color-success)' }}>
                 ✓ {t('imap_auto_configured')}: {autoDetected}:{form.port} —{' '}
                 {t('imap_use_app_password')}
               </div>
@@ -243,14 +242,8 @@ function AccountModal({ account, onSave, onClose }) {
         </div>
         {testResult && (
           <div
+            className="mt-3 p-[10px_12px] rounded-md text-[12px] flex items-center gap-2"
             style={{
-              marginTop: 12,
-              padding: '10px 12px',
-              borderRadius: 8,
-              fontSize: 12,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
               backgroundColor: testResult.ok ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
               border: `1px solid ${testResult.ok ? 'var(--color-success-bg)' : 'var(--color-error-bg)'}`,
               color: testResult.ok ? 'var(--color-success)' : 'var(--color-error)',
@@ -262,24 +255,13 @@ function AccountModal({ account, onSave, onClose }) {
         )}
         {!isEdit && smtpDetected && (
           <div
+            className="mt-3 p-[10px_12px] rounded-md"
             style={{
-              marginTop: 12,
-              padding: '10px 12px',
-              borderRadius: 8,
               background: 'var(--color-info-bg)',
               border: '1px solid var(--color-info-bg)',
             }}
           >
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
+            <label className="flex items-center gap-2 cursor-pointer text-[12px] font-semibold">
               <input
                 type="checkbox"
                 checked={setupSmtp}
@@ -287,7 +269,7 @@ function AccountModal({ account, onSave, onClose }) {
               />
               Also configure SMTP: {smtpDetected.host}:{smtpDetected.port}
             </label>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
+            <div className="text-[11px] text-muted mt-[3px]">
               Will use same login and app password for outgoing mail
             </div>
           </div>
@@ -353,8 +335,7 @@ function SmtpModal({ onSave, onClose }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ width: 'var(--modal-md)' }}
+        className="modal w-modal-md"
         role="dialog"
         aria-modal="true"
         aria-labelledby="smtp-modal-title"
@@ -393,8 +374,8 @@ function SmtpModal({ onSave, onClose }) {
               />
             </div>
           ))}
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 13 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <div className="flex gap-4 items-center text-[13px]">
+            <label className="flex items-center gap-1\.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.use_tls}
@@ -402,7 +383,7 @@ function SmtpModal({ onSave, onClose }) {
               />
               Use TLS (port 465)
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <label className="flex items-center gap-1\.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.use_starttls}
@@ -412,7 +393,7 @@ function SmtpModal({ onSave, onClose }) {
             </label>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div className="flex gap-2 mt-4">
           <div className="flex-1" />
           <button onClick={onClose} className="btn btn-ghost btn-sm">
             {t('btn_cancel')}
@@ -480,15 +461,14 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ width: 'var(--modal-lg)' }}
+        className="modal w-modal-lg"
         role="dialog"
         aria-modal="true"
         aria-labelledby="compose-modal-title"
       >
         <div className="flex items-center justify-between mb-[18px]">
           <div id="compose-modal-title" className="modal-title">
-            <PenSquare size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+            <PenSquare size={14} className="align-middle mr-1\.5" />
             {t('imap_compose_title')}
           </div>
           <button onClick={onClose} className="modal-close" aria-label="Close">
@@ -535,12 +515,12 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
               value={form.body}
               onChange={e => set('body', e.target.value)}
               rows={8}
-              className="form-input"
-              style={{ resize: 'vertical', fontFamily: 'inherit' }}
+              className="form-input resize-vertical"
+              style={{ fontFamily: 'inherit' }}
             />
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div className="flex gap-2 mt-4">
           <div className="flex-1" />
           <button onClick={onClose} className="btn btn-ghost btn-sm">
             {t('btn_cancel')}
@@ -559,18 +539,9 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
 function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
   if (!message) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--muted)',
-          fontSize: 13,
-        }}
-      >
-        <div style={{ textAlign: 'center', opacity: 0.5 }}>
-          <Mail size={40} style={{ marginBottom: 8 }} />
+      <div className="flex-1 flex items-center justify-center text-muted text-[13px]">
+        <div className="text-center opacity-50">
+          <Mail size={40} className="mb-2" />
           <div>Select a message to read</div>
         </div>
       </div>
@@ -580,15 +551,9 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
   const isHtml = message.body?.trim().startsWith('<')
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
-      <div
-        style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--card)',
-        }}
-      >
+      <div className="p-[12px_16px] border-b bg-card">
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 }}>
           {message.subject || '(no subject)'}
         </div>
@@ -602,40 +567,29 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
           }}
         >
           <div>
-            <span style={{ color: 'var(--dim)' }}>From:</span> {message.from_email}
+            <span className="text-dim">From:</span> {message.from_email}
           </div>
           {message.to_email && (
             <div>
-              <span style={{ color: 'var(--dim)' }}>To:</span> {message.to_email}
+              <span className="text-dim">To:</span> {message.to_email}
             </div>
           )}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 4,
-            }}
-          >
+          <div className="flex items-center justify-between flex-wrap gap-1">
             <span>{message.received_at ? new Date(message.received_at).toLocaleString() : ''}</span>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div className="flex gap-1\.5 items-center">
               {message.action_taken && <ActionBadge action={message.action_taken} />}
               {message.extracted_order_number && (
-                <span style={{ fontSize: 11, color: 'var(--blue-t)' }}>
-                  <Package size={10} style={{ display: 'inline', marginRight: 2 }} />#
-                  {message.extracted_order_number}
+                <span className="text-[11px] text-blue-t">
+                  <Package size={10} className="inline mr-0\.5" />#{message.extracted_order_number}
                 </span>
               )}
               {message.extracted_tracking && (
-                <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
-                  {message.extracted_tracking}
-                </span>
+                <span className="mono text-[11px] text-muted">{message.extracted_tracking}</span>
               )}
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+        <div className="flex gap-1\.5 mt-2">
           {!message.is_read && (
             <button onClick={() => onMarkRead(message)} className="btn btn-b btn-sm">
               <CheckCircle size={12} /> Mark Read
@@ -657,32 +611,26 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
         </div>
       </div>
       {/* Body */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
+      <div className="flex-1 overflow-auto p-0">
         {message.body ? (
           isHtml ? (
             <iframe
               srcDoc={message.body}
               sandbox="allow-same-origin"
-              style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
+              className="w-full h-full border-none"
+              style={{ background: '#fff' }}
               title="email-body"
             />
           ) : (
             <pre
-              style={{
-                padding: '16px',
-                fontSize: 13,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                margin: 0,
-                color: 'var(--text)',
-                fontFamily: 'inherit',
-              }}
+              className="p-4 text-[13px] whitespace-pre-wrap break-word m-0 text-text"
+              style={{ fontFamily: 'inherit' }}
             >
               {message.body}
             </pre>
           )
         ) : (
-          <div style={{ padding: 16, fontSize: 12, color: 'var(--muted)' }}>No body content</div>
+          <div className="p-4 text-[12px] text-muted">No body content</div>
         )}
       </div>
     </div>
@@ -700,32 +648,21 @@ function FolderRow({ acc, folder, s, selectedAccount, selectedFolder, onSelectFo
   return (
     <div
       onClick={() => onSelectFolder(acc, folder)}
+      className="p-[6px_10px] cursor-pointer flex items-center gap-1\.5 text-[12px] rounded-sm mx-1 my-[1px]"
       style={{
-        padding: '6px 10px',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        fontSize: 12,
         background: isActive ? 'var(--color-info-bg)' : 'transparent',
-        borderRadius: 4,
-        margin: '1px 4px',
       }}
     >
-      <span style={{ color: 'var(--muted)', display: 'flex' }}>
+      <span className="text-muted flex">
         <FolderIcon name={folder} size={12} />
       </span>
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {folder}
-      </span>
+      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{folder}</span>
       {unread > 0 && (
         <span
+          className="text-[10px] rounded-full py-[1px] px-[5px]"
           style={{
-            fontSize: 10,
             background: 'var(--color-error-bg)',
             color: 'var(--color-error)',
-            borderRadius: 999,
-            padding: '1px 5px',
           }}
         >
           {unread}
@@ -750,32 +687,13 @@ function FolderTree({
 }) {
   const allUnread = Object.values(stats).reduce((s, a) => s + (a?.unread ?? 0), 0)
   return (
-    <div
-      style={{
-        width: 220,
-        flexShrink: 0,
-        borderRight: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowY: 'auto',
-        background: 'var(--surface)',
-      }}
-    >
-      <div
-        style={{
-          padding: '10px 12px',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>ACCOUNTS</span>
+    <div className="w-[220px] shrink-0 border-r flex flex-col overflow-y-auto bg-surface">
+      <div className="p-[10px_12px] border-b flex justify-between items-center">
+        <span className="text-[12px] font-semibold text-muted">ACCOUNTS</span>
         <button
           onClick={onAddImap}
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm p-[2px_6px]"
           title="Add IMAP account"
-          style={{ padding: '2px 6px' }}
         >
           <Plus size={13} />
         </button>
@@ -784,43 +702,27 @@ function FolderTree({
       {accounts.length > 1 && (
         <div
           onClick={() => onSelectFolder(ALL_INBOX, 'INBOX')}
+          className="p-[8px_10px] cursor-pointer flex items-center gap-1\.5 border-b"
           style={{
-            padding: '8px 10px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
             background: selectedAccount?.id === -1 ? 'var(--color-info-bg)' : 'transparent',
             borderLeft:
               selectedAccount?.id === -1 ? '2px solid var(--blue)' : '2px solid transparent',
-            borderBottom: '1px solid var(--border)',
           }}
         >
-          <Inbox size={13} style={{ color: 'var(--blue)', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, flex: 1, fontWeight: 600 }}>All Inboxes</span>
+          <Inbox size={13} className="shrink-0" style={{ color: 'var(--blue)' }} />
+          <span className="text-[12px] flex-1 font-semibold">All Inboxes</span>
           {allUnread > 0 && (
-            <span
-              style={{
-                fontSize: 10,
-                background: 'var(--red)',
-                color: 'var(--bg)',
-                borderRadius: 999,
-                padding: '1px 5px',
-                flexShrink: 0,
-              }}
-            >
+            <span className="text-[10px] bg-red text-bg rounded-full py-[1px] px-[5px] shrink-0">
               {allUnread}
             </span>
           )}
         </div>
       )}
       {accounts.length === 0 && (
-        <div
-          style={{ padding: '20px 12px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}
-        >
+        <div className="p-[20px_12px] text-center text-[12px] text-muted">
           No accounts
           <br />
-          <button onClick={onAddImap} className="btn btn-g btn-sm" style={{ marginTop: 8 }}>
+          <button onClick={onAddImap} className="btn btn-g btn-sm mt-2">
             <Plus size={11} /> Add
           </button>
         </div>
@@ -835,57 +737,35 @@ function FolderTree({
           <div key={acc.id}>
             <div
               onClick={() => onToggleExpand(acc)}
+              className="p-[8px_10px] cursor-pointer flex items-center gap-1\.5"
               style={{
-                padding: '8px 10px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
                 background: isSelected ? 'var(--color-info-bg)' : 'transparent',
                 borderLeft: isSelected ? '2px solid var(--blue)' : '2px solid transparent',
               }}
             >
               {expanded ? (
-                <ChevronDown size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                <ChevronDown size={13} className="text-muted shrink-0" />
               ) : (
-                <ChevronRight size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                <ChevronRight size={13} className="text-muted shrink-0" />
               )}
               <Inbox
                 size={13}
-                style={{ color: acc.is_active ? 'var(--blue)' : 'var(--muted)', flexShrink: 0 }}
+                className="shrink-0"
+                style={{ color: acc.is_active ? 'var(--blue)' : 'var(--muted)' }}
               />
-              <span
-                style={{
-                  fontSize: 12,
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <span className="text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                 {acc.label}
               </span>
               {unread > 0 && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    background: 'var(--red)',
-                    color: 'var(--bg)',
-                    borderRadius: 999,
-                    padding: '1px 5px',
-                    flexShrink: 0,
-                  }}
-                >
+                <span className="text-[10px] bg-red text-bg rounded-full py-[1px] px-[5px] shrink-0">
                   {unread}
                 </span>
               )}
             </div>
             {expanded && (
-              <div style={{ paddingLeft: 8 }}>
+              <div className="pl-2">
                 {loadingFolders[acc.id] ? (
-                  <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--muted)' }}>
-                    Loading…
-                  </div>
+                  <div className="p-[6px_12px] text-[11px] text-muted">Loading…</div>
                 ) : folders.length === 0 ? (
                   ['INBOX'].map(f => (
                     <FolderRow
@@ -953,89 +833,46 @@ function MessageList({
   }
 
   return (
-    <div
-      style={{
-        width: 300,
-        flexShrink: 0,
-        borderRight: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowY: 'auto',
-      }}
-    >
-      <div
-        style={{
-          padding: '8px 12px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--card)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{selectedFolder}</span>
-        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{msgTotal} msgs</span>
+    <div className="w-[300px] shrink-0 border-r flex flex-col overflow-y-auto">
+      <div className="p-[8px_12px] border-b bg-card flex items-center gap-1\.5">
+        <span className="text-[12px] font-semibold flex-1">{selectedFolder}</span>
+        <span className="text-[11px] text-muted">{msgTotal} msgs</span>
         <button
           onClick={() =>
             selectedAccount &&
             onLoadMessages(selectedAccount.id, selectedFolder, msgPage, msgSearch)
           }
-          className="btn btn-ghost btn-sm"
-          style={{ padding: '2px 4px' }}
+          className="btn btn-ghost btn-sm p-[2px_4px]"
           title="Refresh"
         >
           <RefreshCw size={11} />
         </button>
       </div>
-      <div
-        style={{
-          padding: '6px 10px',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: 'var(--surface)',
-        }}
-      >
-        <Search size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+      <div className="p-[6px_10px] border-b flex items-center gap-1\.5 bg-surface">
+        <Search size={12} className="text-muted shrink-0" />
         <input
           type="search"
           placeholder="Search messages…"
           defaultValue={msgSearch}
           ref={searchRef}
           onChange={handleSearchChange}
-          style={{
-            flex: 1,
-            border: 'none',
-            background: 'transparent',
-            outline: 'none',
-            fontSize: 12,
-            color: 'var(--text)',
-            minWidth: 0,
-          }}
+          className="flex-1 border-none bg-transparent outline-none text-[12px] text-text min-w-0"
         />
       </div>
       {loadingMsgs ? (
-        <div style={{ padding: 12 }}>
+        <div className="p-3">
           {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              style={{ height: 52, background: 'var(--hover)', borderRadius: 6, marginBottom: 6 }}
-            />
+            <div key={i} className="h-[52px] bg-hover rounded mb-1\.5" />
           ))}
         </div>
       ) : messages.length === 0 ? (
-        <div
-          style={{ padding: '40px 16px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}
-        >
-          <Mail size={30} style={{ opacity: 0.3, marginBottom: 8 }} />
+        <div className="p-[40px_16px] text-center text-[12px] text-muted">
+          <Mail size={30} className="opacity-[0.3] mb-2" />
           <div>No messages in {selectedFolder}</div>
-          <div style={{ fontSize: 11, marginTop: 4, color: 'var(--dim)' }}>
-            Click Check Now to fetch
-          </div>
+          <div className="text-[11px] mt-1 text-dim">Click Check Now to fetch</div>
         </div>
       ) : (
-        <div style={{ flex: 1 }}>
+        <div className="flex-1">
           {messages.map(msg => (
             <div
               key={msg.id}
@@ -1044,10 +881,8 @@ function MessageList({
                 e.preventDefault()
                 onMsgContextMenu?.({ x: e.clientX, y: e.clientY, msg })
               }}
+              className="p-[10px_12px] cursor-pointer border-b"
               style={{
-                padding: '10px 12px',
-                cursor: 'pointer',
-                borderBottom: '1px solid var(--border)',
                 background: selectedMessage?.id === msg.id ? 'var(--color-info-bg)' : 'transparent',
                 borderLeft:
                   selectedMessage?.id === msg.id
@@ -1055,56 +890,35 @@ function MessageList({
                     : '2px solid transparent',
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: 4,
-                }}
-              >
+              <div className="flex justify-between items-start gap-1">
                 <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: msg.is_read ? 400 : 600,
-                    flex: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
+                  className="text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
+                  style={{ fontWeight: msg.is_read ? 400 : 600 }}
                 >
                   {msg.from_email?.replace(/<.*>/, '').trim() || '(unknown)'}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
+                <div className="text-[10px] text-muted shrink-0">
                   {msg.received_at ? new Date(msg.received_at).toLocaleDateString() : ''}
                 </div>
               </div>
               <div
-                style={{
-                  fontSize: 12,
-                  color: msg.is_read ? 'var(--muted)' : 'var(--text)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  marginTop: 2,
-                }}
+                className="text-[12px] overflow-hidden text-ellipsis whitespace-nowrap mt-0\.5"
+                style={{ color: msg.is_read ? 'var(--muted)' : 'var(--text)' }}
               >
                 {msg.subject || '(no subject)'}
               </div>
               {(msg.action_taken || msg.extracted_order_number) && (
-                <div style={{ display: 'flex', gap: 4, marginTop: 3, flexWrap: 'wrap' }}>
+                <div className="flex gap-1 mt-[3px] flex-wrap">
                   {msg.action_taken && <ActionBadge action={msg.action_taken} />}
                   {msg.extracted_order_number && (
-                    <span style={{ fontSize: 10, color: 'var(--blue-t)' }}>
-                      #{msg.extracted_order_number}
-                    </span>
+                    <span className="text-[10px] text-blue-t">#{msg.extracted_order_number}</span>
                   )}
                 </div>
               )}
             </div>
           ))}
           {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: 12 }}>
+            <div className="flex justify-center gap-2 p-3">
               <button
                 disabled={msgPage <= 1}
                 onClick={() =>
@@ -1114,7 +928,7 @@ function MessageList({
               >
                 ← Prev
               </button>
-              <span style={{ fontSize: 12, color: 'var(--muted)', alignSelf: 'center' }}>
+              <span className="text-[12px] text-muted self-center">
                 {msgPage} / {totalPages}
               </span>
               <button
@@ -1160,26 +974,13 @@ function AccountsPanel({
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{
-          width: 'var(--modal-lg)',
-          maxHeight: '80vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className="modal w-modal-lg max-h-\[80vh\] flex flex-col"
         role="dialog"
         aria-modal="true"
         aria-labelledby="imap-settings-title"
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 16,
-          }}
-        >
-          <div id="imap-settings-title" style={{ display: 'flex', gap: 0 }}>
+        <div className="flex items-center justify-between mb-4">
+          <div id="imap-settings-title" className="flex gap-0">
             {[
               { key: 'imap', label: 'IMAP Accounts' },
               { key: 'smtp', label: 'SMTP Configs' },
@@ -1187,12 +988,8 @@ function AccountsPanel({
               <button
                 key={key}
                 onClick={() => setView(key)}
+                className="py-1\.5 px-\[14px] border-none bg-transparent cursor-pointer text-[12px]"
                 style={{
-                  padding: '6px 14px',
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  fontSize: 12,
                   color: view === key ? 'var(--blue)' : 'var(--muted)',
                   borderBottom: view === key ? '2px solid var(--blue)' : '2px solid transparent',
                   fontWeight: view === key ? 600 : 400,
@@ -1207,17 +1004,10 @@ function AccountsPanel({
           </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="flex-1 overflow-y-auto">
           {view === 'imap' && (
             <>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 8,
-                }}
-              >
+              <div className="flex justify-between items-center mb-2">
                 <button
                   onClick={onLinkAll}
                   className="btn btn-b btn-sm"
@@ -1230,14 +1020,7 @@ function AccountsPanel({
                 </button>
               </div>
               {accounts.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '40px 0',
-                    color: 'var(--muted)',
-                    fontSize: 13,
-                  }}
-                >
+                <div className="text-center py-10 text-muted text-[13px]">
                   {t('imap_no_accounts')}
                 </div>
               ) : (
@@ -1257,10 +1040,10 @@ function AccountsPanel({
                       return (
                         <tr key={acc.id}>
                           <td>
-                            <div style={{ fontWeight: 500 }}>{acc.label}</div>
-                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{acc.login}</div>
+                            <div className="font-medium">{acc.label}</div>
+                            <div className="text-[11px] text-muted">{acc.login}</div>
                           </td>
-                          <td style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                          <td className="mono text-[11px]">
                             {acc.host}:{acc.port}
                           </td>
                           <td>
@@ -1310,22 +1093,13 @@ function AccountsPanel({
 
           {view === 'smtp' && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <div className="flex justify-end mb-2">
                 <button onClick={onAddSmtp} className="btn btn-g btn-sm">
                   <Plus size={13} /> {t('imap_add_smtp_btn')}
                 </button>
               </div>
               {smtpConfigs.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '40px 0',
-                    color: 'var(--muted)',
-                    fontSize: 13,
-                  }}
-                >
-                  {t('imap_no_smtp')}
-                </div>
+                <div className="text-center py-10 text-muted text-[13px]">{t('imap_no_smtp')}</div>
               ) : (
                 <table className="tbl">
                   <thead>
@@ -1341,10 +1115,10 @@ function AccountsPanel({
                     {smtpConfigs.map(c => (
                       <tr key={c.id}>
                         <td>{c.label}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                        <td className="mono text-[11px]">
                           {c.host}:{c.port}
                         </td>
-                        <td style={{ fontSize: 11 }}>{c.login}</td>
+                        <td className="text-[11px]">{c.login}</td>
                         <td>
                           <span className="st">
                             {c.use_tls ? 'TLS' : c.use_starttls ? 'STARTTLS' : 'None'}
@@ -1827,7 +1601,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
   // ── (FolderRow, FolderTree, MessageList are top-level components above) ──
 
   return (
-    <div className="content" style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="content flex flex-col">
       {/* ── Header ── */}
       <div className="ph">
         <div>
@@ -1837,34 +1611,25 @@ export default function Imap({ onNavigate: _onNavigate }) {
           </div>
         </div>
         <div className="ph-actions">
-          <div
-            style={{
-              display: 'flex',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              overflow: 'hidden',
-            }}
-          >
+          <div className="flex border rounded overflow-hidden">
             <button
               onClick={() => setViewMode('inbox')}
-              className="btn btn-sm"
+              className="btn btn-sm border-none"
               style={{
                 borderRadius: 0,
                 background: viewMode === 'inbox' ? 'var(--blue)' : 'transparent',
                 color: viewMode === 'inbox' ? '#fff' : 'var(--muted)',
-                border: 'none',
               }}
             >
               <Inbox size={13} /> Inbox
             </button>
             <button
               onClick={() => setViewMode('sent')}
-              className="btn btn-sm"
+              className="btn btn-sm border-none"
               style={{
                 borderRadius: 0,
                 background: viewMode === 'sent' ? 'var(--blue)' : 'transparent',
                 color: viewMode === 'sent' ? '#fff' : 'var(--muted)',
-                border: 'none',
               }}
             >
               <Send size={13} /> Sent
@@ -1897,7 +1662,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
 
       {/* ── 3-column inbox view ── */}
       {viewMode === 'inbox' && (
-        <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+        <div className="flex-1 flex min-h-0 overflow-hidden">
           <FolderTree
             accounts={accounts}
             expandedAccounts={expandedAccounts}
@@ -1942,16 +1707,9 @@ export default function Imap({ onNavigate: _onNavigate }) {
 
       {/* ── Sent emails view ── */}
       {viewMode === 'sent' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 4px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 4px',
-            }}
-          >
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+        <div className="flex-1 overflow-y-auto px-1">
+          <div className="flex items-center justify-between p-[8px_4px]">
+            <span className="text-[12px] text-muted">
               {sentTotal} sent email{sentTotal !== 1 ? 's' : ''}
             </span>
             <button onClick={() => loadSentEmails(sentPage)} className="btn btn-ghost btn-sm">
@@ -1959,27 +1717,9 @@ export default function Imap({ onNavigate: _onNavigate }) {
             </button>
           </div>
           {loadingSent ? (
-            <div
-              style={{
-                padding: '40px 0',
-                textAlign: 'center',
-                color: 'var(--muted)',
-                fontSize: 13,
-              }}
-            >
-              Loading…
-            </div>
+            <div className="py-10 text-center text-muted text-[13px]">Loading…</div>
           ) : sentEmails.length === 0 ? (
-            <div
-              style={{
-                padding: '60px 0',
-                textAlign: 'center',
-                color: 'var(--muted)',
-                fontSize: 13,
-              }}
-            >
-              No sent emails
-            </div>
+            <div className="py-[60px] text-center text-muted text-[13px]">No sent emails</div>
           ) : (
             <table className="tbl">
               <thead>
@@ -1994,9 +1734,9 @@ export default function Imap({ onNavigate: _onNavigate }) {
               <tbody>
                 {sentEmails.map(e => (
                   <tr key={e.id}>
-                    <td style={{ fontSize: 11, color: 'var(--muted)' }}>{e.from_email ?? '—'}</td>
-                    <td style={{ fontSize: 12 }}>{e.to_email}</td>
-                    <td style={{ fontSize: 12 }}>{e.subject ?? '—'}</td>
+                    <td className="text-[11px] text-muted">{e.from_email ?? '—'}</td>
+                    <td className="text-[12px]">{e.to_email}</td>
+                    <td className="text-[12px]">{e.subject ?? '—'}</td>
                     <td>
                       <span
                         className={`st ${e.status === 'sent' ? 'st-delivered' : e.status === 'failed' ? 'st-decline' : 'st-pending'}`}
@@ -2004,7 +1744,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
                         {e.status}
                       </span>
                     </td>
-                    <td style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    <td className="text-[11px] text-muted">
                       {e.sent_at ? e.sent_at.slice(0, 16).replace('T', ' ') : '—'}
                     </td>
                   </tr>
@@ -2013,7 +1753,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             </table>
           )}
           {sentTotal > 50 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '12px 0' }}>
+            <div className="flex justify-center gap-2 py-3">
               <button
                 disabled={sentPage <= 1}
                 onClick={() => loadSentEmails(sentPage - 1)}
@@ -2021,7 +1761,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
               >
                 ← Prev
               </button>
-              <span style={{ fontSize: 12, color: 'var(--muted)', lineHeight: '28px' }}>
+              <span className="text-[12px] text-muted leading-[28px]">
                 Page {sentPage} / {Math.ceil(sentTotal / 50)}
               </span>
               <button
@@ -2039,17 +1779,11 @@ export default function Imap({ onNavigate: _onNavigate }) {
       {/* ── Context menu ── */}
       {contextMenu && (
         <div
+          className="fixed bg-card border rounded-md min-w-\[160px\] py-1 z-\[9999\]"
           style={{
-            position: 'fixed',
             top: contextMenu.y,
             left: contextMenu.x,
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-            zIndex: 9999,
-            minWidth: 160,
-            padding: '4px 0',
           }}
           onClick={e => e.stopPropagation()}
         >
@@ -2082,19 +1816,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             <button
               key={label}
               onClick={action}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                padding: '8px 14px',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                fontSize: 13,
-                color: 'var(--text)',
-                textAlign: 'left',
-              }}
+              className="flex items-center gap-2 w-full py-2 px-\[14px\] border-none bg-transparent cursor-pointer text-[13px] text-text text-left"
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >

@@ -174,15 +174,7 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
         aria-labelledby="import-drops-title"
       >
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 24px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
+        <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-2">
             <Import size={18} className="text-blue-t" />
             <span id="import-drops-title" className="modal-title m-0">
@@ -193,12 +185,9 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
             {[1, 2, 3].map(s => (
               <div
                 key={s}
+                className="w-6 h-1.5 rounded-[3px] transition-bg"
                 style={{
-                  width: 24,
-                  height: 6,
-                  borderRadius: 3,
                   background: step >= s ? 'var(--blue)' : 'var(--border)',
-                  transition: 'background 0.2s',
                 }}
               />
             ))}
@@ -220,25 +209,13 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                 onChange={e => setRaw(e.target.value)}
                 rows={12}
                 placeholder="John Doe | 123 Main St | New York | NY | 10001 | US | +1-555-0100"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  padding: '12px 16px',
-                  fontSize: 13,
-                  color: 'var(--text)',
-                  fontFamily: "'JetBrains Mono',monospace",
-                  outline: 'none',
-                  resize: 'none',
-                }}
+                className="w-full box-border bg-surface border rounded-md p-\[12px_16px\] text-[13px] text-text mono outline-none resize-none"
               />
               <button
                 onClick={handlePreview}
                 disabled={!raw.trim() || loading}
-                className="btn btn-b"
-                style={{ width: '100%', opacity: !raw.trim() || loading ? 0.4 : 1 }}
+                className="btn btn-b w-full"
+                style={{ opacity: !raw.trim() || loading ? 0.4 : 1 }}
               >
                 {loading ? t('drops_detecting') : t('drops_detect_btn')}
               </button>
@@ -263,15 +240,7 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                               m[i] = e.target.value
                               setMapping(m)
                             }}
-                            style={{
-                              background: 'var(--surface)',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text)',
-                              borderRadius: 6,
-                              padding: '5px 10px',
-                              fontSize: 12,
-                              outline: 'none',
-                            }}
+                            className="bg-surface border text-text rounded py-\[5px\] px-\[10px\] text-[12px] outline-none"
                           >
                             {DROP_COLUMNS.map(c => (
                               <option key={c} value={c}>
@@ -289,8 +258,8 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                         {row.map((cell, ci) => (
                           <td
                             key={ci}
+                            className="mono"
                             style={{
-                              fontFamily: "'JetBrains Mono',monospace",
                               color: mapping[ci] === 'skip' ? 'var(--muted)' : 'var(--text)',
                               opacity: mapping[ci] === 'skip' ? 0.5 : 1,
                             }}
@@ -310,8 +279,8 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                 <button
                   onClick={handleImport}
                   disabled={loading}
-                  className="btn btn-b"
-                  style={{ flex: 1, opacity: loading ? 0.4 : 1 }}
+                  className="btn btn-b flex-1"
+                  style={{ opacity: loading ? 0.4 : 1 }}
                 >
                   {loading
                     ? t('drops_importing')
@@ -324,42 +293,17 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
           {step === 3 && result && (
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
-                <div
-                  style={{
-                    background: 'var(--color-success-bg)',
-                    border: '1px solid var(--color-success-bg)',
-                    borderRadius: 10,
-                    padding: 16,
-                    textAlign: 'center',
-                  }}
-                >
+                <div className="bg-[var(--color-success-bg)] border-[var(--color-success-bg)] rounded-[10px] p-4 text-center">
                   <div className="text-[32px] font-bold text-green-t">{result.imported}</div>
                   <div className="text-[12px] text-muted mt-1">{t('cc_import_done')}</div>
                 </div>
-                <div
-                  style={{
-                    background: 'rgba(250,204,21,0.08)',
-                    border: '1px solid rgba(250,204,21,0.2)',
-                    borderRadius: 10,
-                    padding: 16,
-                    textAlign: 'center',
-                  }}
-                >
+                <div className="bg-warning-yellow border-warning-yellow rounded-[10px] p-4 text-center">
                   <div className="text-[32px] font-bold text-yellow-t">{result.skipped}</div>
                   <div className="text-[12px] text-muted mt-1">{t('profiles_skipped')}</div>
                 </div>
               </div>
               {result.errors?.length > 0 && (
-                <div
-                  style={{
-                    background: 'var(--surface)',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    padding: 12,
-                    maxHeight: 160,
-                    overflowY: 'auto',
-                  }}
-                >
+                <div className="bg-surface rounded-[10px] border p-3 max-h-[160px] overflow-y-auto">
                   {result.errors.map((e, i) => (
                     <div key={i} className="text-[12px] text-red-t font-mono py-[2px]">
                       {e}
@@ -403,30 +347,13 @@ function DuplicateDropsModal({ groups, onClose }) {
         aria-modal="true"
         aria-labelledby="duplicate-drops-title"
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 24px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
+        <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-2">
             <SearchCode size={18} className="text-yellow-t" />
             <span id="duplicate-drops-title" className="modal-title m-0">
               {t('duplicate_drops')}
             </span>
-            <span
-              style={{
-                marginLeft: 8,
-                fontSize: 11,
-                background: 'var(--color-warning-bg)',
-                color: 'var(--color-warning)',
-                padding: '2px 8px',
-                borderRadius: 20,
-              }}
-            >
+            <span className="ml-2 text-[11px] bg-warning text-[var(--color-warning)] py-0.5 px-2 rounded-[20px]">
               {groups.length} groups
             </span>
           </div>
@@ -439,42 +366,22 @@ function DuplicateDropsModal({ groups, onClose }) {
             <div className="text-center py-12 text-muted">
               <CheckCircle2
                 size={40}
-                className="mx-auto mb-3"
-                style={{ color: 'var(--color-success)', opacity: 0.4 }}
+                className="mx-auto mb-3 text-[var(--color-success)] opacity-40"
               />
               <p className="m-0">{t('no_dup_drops')}</p>
             </div>
           ) : (
             groups.map((group, gi) => (
-              <div
-                key={gi}
-                style={{
-                  border: '1px solid rgba(250,204,21,0.2)',
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    background: 'var(--color-warning-bg)',
-                    padding: '8px 16px',
-                    fontSize: 12,
-                    color: 'var(--color-warning)',
-                    fontWeight: 500,
-                    borderBottom: '1px solid var(--color-warning-bg)',
-                  }}
-                >
+              <div key={gi} className="border-warning-yellow rounded-[10px] overflow-hidden">
+                <div className="bg-warning p-\[8px_16px\] text-[12px] text-[var(--color-warning)] font-medium border-b-[var(--color-warning-bg)]">
                   {group[0].address}, {group[0].city}, {group[0].country} — {group.length}{' '}
                   duplicates
                 </div>
                 {group.map((d, di) => (
                   <div
                     key={d.id}
+                    className="p-\[8px_16px\] flex items-center justify-between"
                     style={{
-                      padding: '8px 16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
                       borderTop: di === 0 ? 'none' : '1px solid var(--border)',
                     }}
                   >
@@ -518,30 +425,13 @@ function DuplicateProfilesModal({ groups, onClose }) {
         aria-modal="true"
         aria-labelledby="duplicate-profiles-title"
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 24px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
+        <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-2">
             <Layers size={18} className="text-orange-t" />
             <span id="duplicate-profiles-title" className="modal-title m-0">
               {t('duplicate_profiles')}
             </span>
-            <span
-              style={{
-                marginLeft: 8,
-                fontSize: 11,
-                background: 'var(--color-warning-bg)',
-                color: 'var(--orange)',
-                padding: '2px 8px',
-                borderRadius: 20,
-              }}
-            >
+            <span className="ml-2 text-[11px] bg-warning text-[var(--orange)] py-0.5 px-2 rounded-[20px]">
               {groups.length} groups
             </span>
           </div>
@@ -554,8 +444,7 @@ function DuplicateProfilesModal({ groups, onClose }) {
             <div className="text-center py-12 text-muted">
               <CheckCircle2
                 size={40}
-                className="mx-auto mb-3"
-                style={{ color: 'var(--color-success)', opacity: 0.4 }}
+                className="mx-auto mb-3 text-[var(--color-success)] opacity-40"
               />
               <p className="m-0">{t('no_dup_profiles')}</p>
             </div>
@@ -563,32 +452,16 @@ function DuplicateProfilesModal({ groups, onClose }) {
             groups.map((group, gi) => (
               <div
                 key={gi}
-                style={{
-                  border: '1px solid var(--color-warning-bg)',
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                }}
+                className="border-[var(--color-warning-bg)] rounded-[10px] overflow-hidden"
               >
-                <div
-                  style={{
-                    background: 'var(--color-warning-bg)',
-                    padding: '8px 16px',
-                    fontSize: 12,
-                    color: 'var(--orange)',
-                    fontWeight: 500,
-                    borderBottom: '1px solid var(--color-warning-bg)',
-                  }}
-                >
+                <div className="bg-warning p-\[8px_16px\] text-[12px] text-[var(--orange)] font-medium border-b-[var(--color-warning-bg)]">
                   Card {group[0].bin}••••{group[0].last4} — {group.length} profiles
                 </div>
                 {group.map((p, pi) => (
                   <div
                     key={p.id}
+                    className="p-\[8px_16px\] flex items-center justify-between"
                     style={{
-                      padding: '8px 16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
                       borderTop: pi === 0 ? 'none' : '1px solid var(--border)',
                     }}
                   >
@@ -742,16 +615,7 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: '50%',
-            border: '2px solid var(--color-info-bg)',
-            borderTopColor: 'var(--blue)',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
+        <div className="w-6 h-6 rounded-full border-2 border-[var(--color-info-bg)] border-t-blue animate-spin" />
       </div>
     )
   }
@@ -788,9 +652,8 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
               <div key={label} className="flex items-center justify-between">
                 <span className="text-[11px] text-muted">{label}</span>
                 <span
+                  className="text-[12px] mono"
                   style={{
-                    fontSize: 12,
-                    fontFamily: "'JetBrains Mono',monospace",
                     color:
                       label === t('cc_col_status')
                         ? CARD_STATUS_COLORS[card.status]?.text || 'var(--muted)'
@@ -821,18 +684,7 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   rows={3}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 6,
-                    padding: '8px 12px',
-                    fontSize: 12,
-                    color: 'var(--text)',
-                    outline: 'none',
-                    resize: 'none',
-                  }}
+                  className="w-full box-border bg-surface border rounded p-\[8px_12px\] text-[12px] text-text outline-none resize-none"
                 />
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setEditNotes(false)} className="btn btn-ghost btn-sm">
@@ -912,12 +764,10 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                   />
                 ) : (
                   <div
+                    className="rounded-[10px] p-3 transition-border"
                     style={{
-                      borderRadius: 10,
-                      padding: 12,
                       border: `1px solid ${drop.is_primary ? 'var(--color-success-bg)' : 'var(--border)'}`,
                       background: drop.is_primary ? 'var(--color-success-bg)' : 'var(--surface)',
-                      transition: 'border-color 0.2s',
                     }}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -986,14 +836,7 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
             </button>
           </div>
           {ltvData && (
-            <div
-              style={{
-                fontSize: 11,
-                color: 'var(--muted)',
-                marginBottom: 10,
-                fontFamily: "'JetBrains Mono',monospace",
-              }}
-            >
+            <div className="text-[11px] text-muted mb-2.5 mono">
               LTV: ${Number(ltvData.total).toFixed(2)} | {ltvData.orders} orders | Avg $
               {Number(ltvData.avg).toFixed(2)}
             </div>
@@ -1008,11 +851,8 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
             {orders.map((o, oi) => (
               <div
                 key={o.id}
+                className="flex items-center justify-between py-2"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 0',
                   borderBottom: oi < orders.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
               >
@@ -1111,19 +951,19 @@ function QuickOrderModal({ profile, onClose, onCreated }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+      <div className="modal max-w-\[420px\]" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <span>New Order — {profile.holder_masked || `••••${profile.last4 || '?????'}`}</span>
           <button className="icon-btn" onClick={onClose}>
             ✕
           </button>
         </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="modal-body flex flex-col gap-3">
           <div>
-            <label style={{ fontSize: 11, color: 'var(--muted)' }}>Shop URL or Domain</label>
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+            <label className="text-[11px] text-muted">Shop URL or Domain</label>
+            <div className="flex gap-1.5 mt-1">
               <input
-                className="inp"
+                className="inp flex-1"
                 placeholder="nike.com or https://nike.com/checkout"
                 value={url}
                 onChange={e => {
@@ -1131,7 +971,6 @@ function QuickOrderModal({ profile, onClose, onCreated }) {
                   setShop(null)
                 }}
                 onKeyDown={e => e.key === 'Enter' && handleLookup()}
-                style={{ flex: 1 }}
                 autoFocus
               />
               <button
@@ -1145,17 +984,7 @@ function QuickOrderModal({ profile, onClose, onCreated }) {
           </div>
 
           {shop && (
-            <div
-              style={{
-                padding: '8px 12px',
-                background: 'var(--surface2)',
-                borderRadius: 6,
-                fontSize: 12,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
+            <div className="p-\[8px_12px\] bg-[var(--surface2)] rounded text-[12px] flex items-center gap-2">
               <span style={{ color: shop.is_new ? 'var(--accent)' : 'var(--text)' }}>
                 {shop.is_new ? '✦ New shop:' : '✓ Found:'} <strong>{shop.domain}</strong>
               </span>
@@ -1553,7 +1382,7 @@ export default function ProfileList({
       <div className="panel p-0 overflow-x-auto">
         <div
           ref={tableContainerRef}
-          style={{ flex: 1, minHeight: 0, overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}
+          className="flex-1 min-h-0 overflow-y-auto max-h-[calc(100vh-280px)]"
         >
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
@@ -1592,7 +1421,7 @@ export default function ProfileList({
                   {/* Spacer for virtual scroll offset */}
                   {rowVirtualizer.getVirtualItems().length > 0 && (
                     <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                      <td colSpan={12} style={{ padding: 0, border: 0 }}></td>
+                      <td colSpan={12} className="p-0 border-none"></td>
                     </tr>
                   )}
 
@@ -1665,7 +1494,7 @@ export default function ProfileList({
                         }px`,
                       }}
                     >
-                      <td colSpan={12} style={{ padding: 0, border: 0 }}></td>
+                      <td colSpan={12} className="p-0 border-none"></td>
                     </tr>
                   )}
                 </>
@@ -1698,7 +1527,6 @@ export default function ProfileList({
                       ? {
                           background: 'var(--accent)',
                           color: 'var(--text)',
-                          borderColor: 'var(--accent)',
                         }
                       : {}
                   }
@@ -1733,19 +1561,10 @@ export default function ProfileList({
           const left = Math.min(rect.right + 10, window.innerWidth - 240)
           return (
             <div
+              className="fixed z-200 pointer-events-none bg-card border rounded-[10px] p-\[12px_14px\] min-w-\[200px\] max-w-\[240px\] shadow-lg"
               style={{
-                position: 'fixed',
                 top,
                 left,
-                zIndex: 200,
-                pointerEvents: 'none',
-                background: 'var(--card)',
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                padding: '12px 14px',
-                minWidth: 200,
-                maxWidth: 240,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
               }}
             >
               <div className="flex items-center gap-2 mb-1.5">
@@ -1753,10 +1572,8 @@ export default function ProfileList({
                   ••••-{p.last4 || '????'}
                 </span>
                 <span
+                  className="text-[10px] py-\[1px\] px-1.5 rounded-sm"
                   style={{
-                    fontSize: 10,
-                    padding: '1px 6px',
-                    borderRadius: 4,
                     background:
                       p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)',
                     border: `1px solid ${p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)'}`,
@@ -1774,7 +1591,7 @@ export default function ProfileList({
                 {p.bank_name && <span className="text-[11px] text-muted">· {p.bank_name}</span>}
               </div>
               {p.drop_count !== undefined && (
-                <div className="mt-[5px] text-muted text-[11px]">
+                <div className="mt-\[5px\] text-muted text-[11px]">
                   {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
                 </div>
               )}
