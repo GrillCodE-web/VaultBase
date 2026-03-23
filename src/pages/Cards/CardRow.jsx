@@ -105,15 +105,10 @@ export function CardRow({
           <div className="flex items-center gap-[5px] mb-0.5">
             {badge && (
               <span
+                className="card-network-badge"
                 style={{
-                  padding: '1px 5px',
-                  borderRadius: 4,
-                  fontSize: 9,
-                  fontWeight: 700,
                   background: badge.bg,
                   color: badge.color,
-                  fontFamily: "'JetBrains Mono',monospace",
-                  flexShrink: 0,
                 }}
               >
                 {badge.label}
@@ -134,10 +129,8 @@ export function CardRow({
       {/* CVV */}
       {visibleCols.includes('cvv') && (
         <td
+          className="cell-text-sm-mono"
           style={{
-            fontSize: 11,
-            color: 'var(--text-2)',
-            fontFamily: "'JetBrains Mono',monospace",
             cursor: rev?.cvv ? 'copy' : undefined,
           }}
           onClick={e => {
@@ -155,14 +148,7 @@ export function CardRow({
       {/* Holder */}
       {visibleCols.includes('holder') && (
         <td
-          style={{
-            color: 'var(--text-2)',
-            maxWidth: 140,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            cursor: 'copy',
-          }}
+          className="cell-text-sm-copy cell-truncate"
           onClick={e => {
             e.stopPropagation()
             handleCopyToast(rev?.holder_name || card.holder_name || '')
@@ -176,13 +162,8 @@ export function CardRow({
       {/* Billing address */}
       {visibleCols.includes('billing') && (
         <td
+          className="cell-text-sm cell-truncate-lg"
           style={{
-            fontSize: 11,
-            color: 'var(--text-2)',
-            maxWidth: 160,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
             cursor: rev?.billing_address ? 'copy' : undefined,
           }}
           onClick={e => {
@@ -200,10 +181,8 @@ export function CardRow({
       {/* ZIP */}
       {visibleCols.includes('zip') && (
         <td
+          className="cell-text-sm-mono"
           style={{
-            fontSize: 11,
-            color: 'var(--text-2)',
-            fontFamily: "'JetBrains Mono',monospace",
             cursor: card.zip ? 'copy' : undefined,
           }}
           onClick={e => {
@@ -221,7 +200,8 @@ export function CardRow({
       {/* City */}
       {visibleCols.includes('city') && (
         <td
-          style={{ fontSize: 11, color: 'var(--text-2)', cursor: card.city ? 'copy' : undefined }}
+          className="cell-text-sm"
+          style={{ cursor: card.city ? 'copy' : undefined }}
           onClick={e => {
             if (card.city) {
               e.stopPropagation()
@@ -237,7 +217,8 @@ export function CardRow({
       {/* State */}
       {visibleCols.includes('state') && (
         <td
-          style={{ fontSize: 11, color: 'var(--text-2)', cursor: card.state ? 'copy' : undefined }}
+          className="cell-text-sm"
+          style={{ cursor: card.state ? 'copy' : undefined }}
           onClick={e => {
             if (card.state) {
               e.stopPropagation()
@@ -260,15 +241,7 @@ export function CardRow({
                 setFilter(f => ({ ...f, country: card.country }))
                 setPage(1)
               }}
-              style={{
-                padding: '2px 6px',
-                background: 'var(--surface)',
-                borderRadius: 5,
-                fontSize: 11,
-                color: 'var(--text-2)',
-                cursor: 'pointer',
-                display: 'inline-block',
-              }}
+              className="filter-link-badge"
               title={t('filter_by') + ' ' + card.country}
             >
               {countryFlag(card.country)} {card.country}
@@ -282,10 +255,8 @@ export function CardRow({
       {/* Phone */}
       {visibleCols.includes('phone') && (
         <td
+          className="cell-text-sm-mono"
           style={{
-            fontSize: 11,
-            color: 'var(--text-2)',
-            fontFamily: "'JetBrains Mono',monospace",
             cursor: rev?.phone ? 'copy' : undefined,
           }}
           onClick={e => {
@@ -303,9 +274,7 @@ export function CardRow({
       {/* Bank — click to filter */}
       {visibleCols.includes('bin_bank') && (
         <td>
-          <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>
-            {card.bin || '——'}
-          </span>
+          <span className="mono cell-text-sm">{card.bin || '——'}</span>
           {card.bank_name && (
             <span
               onClick={e => {
@@ -313,13 +282,7 @@ export function CardRow({
                 setFilter(f => ({ ...f, bank_name: card.bank_name }))
                 setPage(1)
               }}
-              style={{
-                display: 'block',
-                fontSize: 11,
-                color: 'var(--muted)',
-                cursor: 'pointer',
-                textDecoration: 'underline dotted',
-              }}
+              className="filter-link-text"
               title={t('filter_by') + ' ' + card.bank_name}
             >
               {card.bank_name}
@@ -342,18 +305,7 @@ export function CardRow({
 
       {/* Source */}
       {visibleCols.includes('source') && (
-        <td
-          style={{
-            color: 'var(--text-2)',
-            fontSize: 11,
-            maxWidth: 120,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {card.source || '—'}
-        </td>
+        <td className="cell-text-sm cell-truncate-sm">{card.source || '—'}</td>
       )}
 
       {/* Status with inline quick-change menu and burn indicator */}
@@ -372,21 +324,7 @@ export function CardRow({
                 {statusLabel}
               </span>
               {statusMenuId === card.id && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    zIndex: 50,
-                    marginTop: 4,
-                    background: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 7,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                    minWidth: 100,
-                    overflow: 'hidden',
-                  }}
-                >
+                <div className="status-menu-dropdown">
                   {[
                     { s: 'free', label: t('status_free'), cls: 'st-free' },
                     { s: 'dead', label: t('status_dead'), cls: 'st-dead' },
@@ -401,19 +339,7 @@ export function CardRow({
                           setStatusMenuId(null)
                           handleStatusChange(card.id, o.s)
                         }}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '8px 12px',
-                          background: 'none',
-                          border: 'none',
-                          fontSize: 12,
-                          cursor: 'pointer',
-                          color: 'var(--text)',
-                        }}
-                        onMouseEnter={e => (e.target.style.background = 'var(--surface)')}
-                        onMouseLeave={e => (e.target.style.background = 'none')}
+                        className="status-menu-btn"
                       >
                         <span className={`st ${o.cls}`}>{o.label}</span>
                       </button>
@@ -500,17 +426,15 @@ export function CardRow({
         <div className="tbl-actions">
           <button
             onClick={() => setShopUsageCardId(card.id)}
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm btn-compact"
             title="Shops used"
-            style={{ padding: '3px 7px' }}
           >
             <Store size={12} />
           </button>
           <button
             onClick={() => setTimelineCardId(card.id)}
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm btn-compact"
             title="Timeline"
-            style={{ padding: '3px 7px' }}
           >
             <Clock size={12} />
           </button>

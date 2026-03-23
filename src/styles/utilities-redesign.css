@@ -1544,3 +1544,112 @@
   margin-left: 4px;
   margin-right: 4px;
 }
+
+/* ── Card Table Cell Utilities ──────────────────────────── */
+.cell-text-sm {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.cell-text-sm-mono {
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.cell-text-sm-copy {
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: copy;
+}
+
+.cell-truncate {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-truncate-lg {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-truncate-sm {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Card Network Badge ─────────────────────────────────── */
+.card-network-badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+
+/* ── Filter Link Badge ──────────────────────────────────── */
+.filter-link-badge {
+  padding: 2px 6px;
+  background: var(--surface);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-block;
+}
+
+.filter-link-text {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+/* ── Status Menu Dropdown ───────────────────────────────── */
+.status-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  margin-top: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  min-width: 100px;
+  overflow: hidden;
+}
+
+.status-menu-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.status-menu-btn:hover {
+  background: var(--surface);
+}
+
+/* ── Action Button Compact ──────────────────────────────── */
+.btn-compact {
+  padding: 3px 7px;
+}
+
+/* ── Margin Bottom 0 ────────────────────────────────────── */
+.mb-0 {
+  margin-bottom: 0;
+}

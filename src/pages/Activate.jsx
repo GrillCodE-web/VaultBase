@@ -93,48 +93,30 @@ export default function Activate({ onActivated }) {
   return (
     <div className="auth-screen">
       <div className="auth-bg-glow" />
-      <div className="auth-card" style={{ maxWidth: 440 }}>
+      <div className="auth-card max-w-[440px]">
         {/* Header */}
         <div className="auth-logo-wrap">
           <div
-            className="auth-logo-icon"
-            style={{ background: 'var(--color-info-bg)', border: '1px solid var(--color-info-bg)' }}
+            className="auth-logo-icon border"
+            style={{ background: 'var(--color-info-bg)', borderColor: 'var(--color-info-bg)' }}
           >
             <ShieldCheck size={28} style={{ color: 'var(--blue)' }} />
           </div>
-          <h1 className="auth-title" style={{ fontSize: 18 }}>
-            {t('activate_title') || 'Activation Required'}
-          </h1>
+          <h1 className="auth-title text-[18px]">{t('activate_title') || 'Activation Required'}</h1>
           <p className="auth-sub">
             {t('activate_subtitle') || 'This copy of CC Manager must be activated.'}
           </p>
         </div>
 
         {/* Installation Code Block */}
-        <div
-          style={{
-            background: 'var(--inset)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            padding: 16,
-            marginBottom: 20,
-          }}
-        >
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 12 }}>
+        <div className="bg-inset border rounded-[10px] p-4 mb-5">
+          <p className="text-[11px] text-muted mb-3">
             {t('activate_your_code') || 'Your installation code:'}
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div className="flex items-center gap-3 mb-3">
             <span
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                fontSize: 18,
-                fontFamily: 'JetBrains Mono,monospace',
-                fontWeight: 700,
-                letterSpacing: '0.15em',
-                color: 'var(--blue)',
-                userSelect: 'all',
-              }}
+              className="flex-1 text-center text-[18px] mono font-bold tracking-widest select-all"
+              style={{ color: 'var(--blue)' }}
             >
               {challengeCode || t('msg_loading')}
             </span>
@@ -152,23 +134,10 @@ export default function Activate({ onActivated }) {
             </button>
           </div>
           {installationId && (
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-              <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>
-                Installation ID:
-              </p>
+            <div className="border-t pt-[10px]">
+              <p className="text-[11px] text-muted mb-[6px]">Installation ID:</p>
               <div className="flex items-center gap-2">
-                <span
-                  className="mono"
-                  style={{
-                    flex: 1,
-                    fontSize: 11,
-                    color: 'var(--muted)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    userSelect: 'all',
-                  }}
-                >
+                <span className="mono flex-1 text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap select-all">
                   {installationId}
                 </span>
                 <button onClick={handleCopyId} className="btn btn-ghost btn-sm shrink-0">
