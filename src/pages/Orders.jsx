@@ -71,8 +71,7 @@ function OrderTimeline({ status, updatedAt }) {
           return (
             <div
               key={step}
-              className="flex items-center"
-              style={{ flex: i < steps.length - 1 ? 1 : 0 }}
+              className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : 'flex-0'}`}
             >
               <div className="flex flex-col items-center gap-0\.5">
                 <div
@@ -199,8 +198,9 @@ function RiskBlock({ result, loading }) {
     >
       <button
         onClick={() => result.warnings?.length && setOpen(o => !o)}
-        className="flex items-center justify-between w-full px-3 py-2 text-[12px] bg-transparent border-none text-text"
-        style={{ cursor: result.warnings?.length ? 'pointer' : 'default' }}
+        className={`flex items-center justify-between w-full px-3 py-2 text-[12px] bg-transparent border-none text-text ${
+          result.warnings?.length ? 'cursor-pointer' : 'cursor-default'
+        }`}
       >
         <div className="flex items-center gap-2">
           <IconComponent size={14} style={{ color: c.iconColor }} />
@@ -219,11 +219,7 @@ function RiskBlock({ result, loading }) {
         {result.warnings?.length > 0 && (
           <ChevronDown
             size={13}
-            className="text-muted"
-            style={{
-              transform: open ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.2s',
-            }}
+            className={`text-muted transition-transform ${open ? 'rotate-180' : ''}`}
           />
         )}
       </button>
@@ -232,10 +228,9 @@ function RiskBlock({ result, loading }) {
           {result.warnings.map((w, i) => (
             <div
               key={i}
-              className="flex items-start gap-2 px-3 py-2 text-[12px]"
-              style={{
-                borderBottom: i < result.warnings.length - 1 ? '1px solid var(--border)' : 'none',
-              }}
+              className={`flex items-start gap-2 px-3 py-2 text-[12px] ${
+                i < result.warnings.length - 1 ? 'border-b border-border' : ''
+              }`}
             >
               {w.severity === 'high' ? (
                 <AlertTriangle
@@ -379,16 +374,7 @@ function StatusMenu({ order, onUpdate, onClose }) {
 
   return (
     <>
-      <div
-        className="absolute bg-card border rounded-lg overflow-hidden"
-        style={{
-          right: 0,
-          top: 32,
-          zIndex: 30,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          width: 160,
-        }}
-      >
+      <div className="absolute bg-card border rounded-lg overflow-hidden right-0 top-8 z-30 shadow-dropdown w-40">
         {STATUSES.filter(s => s !== order.status).map(s => (
           <button
             key={s}
@@ -476,8 +462,7 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
     <div className="modal-overlay">
       <div
         ref={modalRef}
-        className="modal"
-        style={{ width: 'var(--modal-sm)' }}
+        className="modal w-modal-sm"
         role="dialog"
         aria-modal="true"
         aria-labelledby="repeat-order-title"
@@ -494,7 +479,7 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
           </button>
         </div>
 
-        <div className="text-[13px] text-text-2 mb-4" style={{ lineHeight: 1.5 }}>
+        <div className="text-[13px] text-text-2 mb-4 leading-normal">
           Repeat order for <strong className="text-text">{shopLabel}</strong>
           {itemLabel !== '—' && (
             <>
@@ -508,15 +493,12 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
         <div className="form-group">
           <label className="form-label">Select Profile</label>
           {loadingProfiles ? (
-            <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>
-              Loading profiles…
-            </div>
+            <div className="text-[12px] text-muted py-2">Loading profiles…</div>
           ) : (
             <select
               value={selectedProfileId}
               onChange={e => setSelectedProfileId(e.target.value)}
               className="inline-select w-full"
-              style={{ width: '100%' }}
             >
               <option value="">— Select profile —</option>
               {profiles.map(p => (
@@ -536,8 +518,7 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
           <button
             onClick={handleRepeat}
             disabled={loading || !selectedProfileId}
-            className="btn btn-b btn-sm flex-1"
-            style={{ opacity: loading || !selectedProfileId ? 0.4 : 1 }}
+            className={`btn btn-b btn-sm flex-1 ${loading || !selectedProfileId ? 'opacity-40' : ''}`}
           >
             {loading ? 'Creating…' : 'Repeat Order'}
           </button>
@@ -915,30 +896,16 @@ function CreateOrderModal({ onCreated, onClose }) {
     <div className="modal-overlay items-start overflow-y-auto py-6">
       <div
         ref={createModalRef}
-        className="modal"
-        style={{ width: 'var(--modal-lg)', margin: 'auto' }}
+        className="modal w-modal-lg m-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-order-title"
       >
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 24px',
-            borderBottom: '1px solid var(--border)',
-            position: 'sticky',
-            top: 0,
-            background: 'var(--card)',
-            zIndex: 10,
-            borderRadius: '12px 12px 0 0',
-          }}
-        >
+        <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-card z-10 rounded-t-xl">
           <div className="flex items-center gap-2">
             <ShoppingCart size={16} className="text-blue-t" />
-            <span id="create-order-title" style={{ fontWeight: 600, color: 'var(--text)' }}>
+            <span id="create-order-title" className="font-semibold text-text">
               {t('create_order')}
             </span>
           </div>

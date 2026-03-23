@@ -55,6 +55,9 @@
 .flex-1 {
   flex: 1;
 }
+.flex-0 {
+  flex: 0;
+}
 .flex-col {
   flex-direction: column;
 }
@@ -166,11 +169,32 @@
 .h-3 {
   height: 12px;
 }
+.w-\[10px\] {
+  width: 10px;
+}
+.h-\[10px\] {
+  height: 10px;
+}
+.w-\[12px\] {
+  width: 12px;
+}
+.h-\[12px\] {
+  height: 12px;
+}
+.w-1\.5 {
+  width: 6px;
+}
+.h-1\.5 {
+  height: 6px;
+}
 .h-0\.5 {
   height: 2px;
 }
 .w-9 {
   width: 36px;
+}
+.w-40 {
+  width: 160px;
 }
 .h-\[760px\] {
   height: 760px;
@@ -230,11 +254,17 @@
 .left-1\/2 {
   left: 50%;
 }
+.right-0 {
+  right: 0;
+}
 .bottom-6 {
   bottom: 24px;
 }
 .top-0 {
   top: 0;
+}
+.top-8 {
+  top: 32px;
 }
 .-translate-x-1\/2 {
   transform: translateX(-50%);
@@ -407,6 +437,9 @@
 .rounded-full {
   border-radius: 9999px;
 }
+.rounded-t-xl {
+  border-radius: 12px 12px 0 0;
+}
 
 /* ── Background Colors ──────────────────────────────────── */
 .bg-card {
@@ -479,10 +512,16 @@
 .shadow-frozen-col {
   box-shadow: 4px 0 8px rgba(0, 0, 0, 0.25);
 }
+.shadow-dropdown {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
 
 /* ── Z-Index ────────────────────────────────────────────── */
 .z-10 {
   z-index: 10;
+}
+.z-30 {
+  z-index: 30;
 }
 .z-100 {
   z-index: 100;
@@ -498,6 +537,9 @@
 .mx-auto {
   margin-left: auto;
   margin-right: auto;
+}
+.m-auto {
+  margin: auto;
 }
 
 /* ── Additional Gap Sizes ───────────────────────────────── */
@@ -572,6 +614,12 @@
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+.rotate-180 {
+  transform: rotate(180deg);
+}
+.transition-transform {
+  transition: transform 0.2s;
+}
 
 /* ── Additional Padding ─────────────────────────────────── */
 .py-1\.5 {
@@ -581,6 +629,10 @@
 .py-\[5px\] {
   padding-top: 5px;
   padding-bottom: 5px;
+}
+.py-2 {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 .px-2\.5 {
   padding-left: 10px;
@@ -671,6 +723,12 @@
 .h-9 {
   height: 36px;
 }
+.w-modal-sm {
+  width: var(--modal-sm);
+}
+.w-modal-lg {
+  width: var(--modal-lg);
+}
 
 /* ── Max Width ──────────────────────────────────────────── */
 .max-w-xs {
@@ -731,6 +789,9 @@
 }
 .border-t-text-2 {
   border-top-color: var(--text-2);
+}
+.border-b-last-none:last-child {
+  border-bottom: none;
 }
 
 /* ── Empty State Utilities ──────────────────────────────── */
