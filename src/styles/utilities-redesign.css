@@ -106,6 +106,12 @@
 .gap-4 {
   gap: 16px;
 }
+.gap-5 {
+  gap: 20px;
+}
+.gap-6 {
+  gap: 24px;
+}
 .shrink-0 {
   flex-shrink: 0;
 }
@@ -152,6 +158,15 @@
 .mb-4 {
   margin-bottom: 16px;
 }
+.mb-6 {
+  margin-bottom: 6px;
+}
+.mb-8 {
+  margin-bottom: 8px;
+}
+.mb-\[4px\] {
+  margin-bottom: 4px;
+}
 .ml-auto {
   margin-left: auto;
 }
@@ -165,6 +180,9 @@
 }
 .h-full {
   height: 100%;
+}
+.h-screen {
+  height: 100vh;
 }
 .min-w-0 {
   min-width: 0;
@@ -401,6 +419,23 @@
 }
 .text-\[20px\] {
   font-size: 20px;
+}
+
+/* ── Additional Font Sizes ──────────────────────────────── */
+.text-\[4px\] {
+  font-size: 4px;
+}
+.text-\[5px\] {
+  font-size: 5px;
+}
+.text-\[6px\] {
+  font-size: 6px;
+}
+.text-\[7px\] {
+  font-size: 7px;
+}
+.text-\[8px\] {
+  font-size: 8px;
 }
 
 /* ── Padding (Tailwind-style) ───────────────────────────── */
@@ -747,6 +782,53 @@
 }
 .gap-8 {
   gap: 32px;
+}
+
+/* ── Additional Gap Utilities ───────────────────────────── */
+.gap-10 {
+  gap: 10px;
+}
+.gap-\[8px\] {
+  gap: 8px;
+}
+
+/* ── Padding Utilities ──────────────────────────────────── */
+.p-\[8px\] {
+  padding: 8px;
+}
+.px-\[10px\] {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.py-\[10px\] {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.px-\[12px\] {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.py-\[8px\] {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.p-\[10px_12px\] {
+  padding: 10px 12px;
+}
+.p-\[8px_12px\] {
+  padding: 8px 12px;
+}
+.p-\[10px_14px\] {
+  padding: 10px 14px;
+}
+.p-\[2px_8px\] {
+  padding: 2px 8px;
+}
+.p-\[4px_8px\] {
+  padding: 4px 8px;
+}
+.p-\[1px_4px\] {
+  padding: 1px 4px;
 }
 
 /* ── Display Flex with Common Gaps ──────────────────────── */
