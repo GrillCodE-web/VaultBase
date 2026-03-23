@@ -67,8 +67,7 @@ export function BatchImportModal({ onCreated, onClose }) {
     <div className="modal-overlay">
       <div
         ref={modalRef}
-        className="modal"
-        style={{ width: 'var(--modal-sm)' }}
+        className="modal w-[var(--modal-sm)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-import-title"
@@ -85,20 +84,8 @@ export function BatchImportModal({ onCreated, onClose }) {
 
         {!result ? (
           <div className="flex flex-col gap-4">
-            <div
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                padding: '10px 14px',
-                fontSize: 11,
-                color: 'var(--muted)',
-                fontFamily: 'JetBrains Mono, monospace',
-              }}
-            >
-              <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text-2)' }}>
-                CSV format:
-              </div>
+            <div className="bg-surface border border-border rounded-lg p-[10px_14px] text-[11px] text-muted mono">
+              <div className="font-semibold mb-1 text-text-2">CSV format:</div>
               <div>profile_id,shop_id,item_name,item_sku,amount</div>
             </div>
 
@@ -108,8 +95,7 @@ export function BatchImportModal({ onCreated, onClose }) {
                 type="file"
                 accept=".csv"
                 onChange={handleFile}
-                className="form-input"
-                style={{ padding: '7px 12px', fontSize: 12, cursor: 'pointer' }}
+                className="form-input p-[7px_12px] text-[12px] cursor-pointer"
               />
             </div>
 
@@ -139,8 +125,7 @@ export function BatchImportModal({ onCreated, onClose }) {
               <button
                 onClick={handleCreate}
                 disabled={loading || parsedRows.length === 0}
-                className="btn btn-b btn-sm flex-1"
-                style={{ opacity: loading || parsedRows.length === 0 ? 0.4 : 1 }}
+                className="btn btn-b btn-sm flex-1 disabled:opacity-40"
               >
                 {loading ? 'Creating…' : `Create ${parsedRows.length} Orders`}
               </button>
@@ -161,7 +146,7 @@ export function BatchImportModal({ onCreated, onClose }) {
                 <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.success }}>
                   {result.created}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Created</div>
+                <div className="text-[11px] text-muted mt-1">Created</div>
               </div>
               <div
                 style={{
@@ -175,7 +160,7 @@ export function BatchImportModal({ onCreated, onClose }) {
                 <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.error }}>
                   {result.failed}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Failed</div>
+                <div className="text-[11px] text-muted mt-1">Failed</div>
               </div>
             </div>
             <button onClick={onClose} className="btn btn-g w-full">
