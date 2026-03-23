@@ -1420,3 +1420,127 @@
 .rotate-90 {
   transform: rotate(90deg);
 }
+
+/* ── Bulk Action Panel ──────────────────────────────────── */
+.bulk-action-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-info-bg);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+/* ── Text Variants ──────────────────────────────────────── */
+.text-info-bold {
+  color: var(--blue-t);
+  font-weight: 600;
+}
+
+.text-border {
+  color: var(--border);
+}
+
+/* ── Table Scroll Container ─────────────────────────────── */
+.table-scroll-container {
+  height: 760px;
+  overflow-y: auto;
+}
+
+/* ── Template Dropdown ──────────────────────────────────── */
+.template-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  display: none;
+  z-index: 20;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  min-width: 180px;
+  overflow: hidden;
+}
+
+.template-group:hover .template-dropdown-menu {
+  display: block;
+}
+
+.template-dropdown-item {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.template-dropdown-item:hover {
+  background: var(--surface);
+}
+
+/* ── Radio Button Styles ────────────────────────────────── */
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.radio-label.selected {
+  border: 1px solid var(--accent-border);
+  background: var(--color-info-bg);
+}
+
+.radio-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid var(--border-hi);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.radio-circle.selected {
+  border: none;
+  background: var(--accent);
+}
+
+.radio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+/* ── Additional Padding ─────────────────────────────────── */
+.p-2 {
+  padding: 8px;
+}
+
+.ml-1 {
+  margin-left: 4px;
+}
+
+.mx-1 {
+  margin-left: 4px;
+  margin-right: 4px;
+}

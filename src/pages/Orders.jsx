@@ -839,48 +839,6 @@ function CreateOrderModal({ onCreated, onClose }) {
   const drops = profileDetail?.drops || []
   const primaryDrop = drops.find(d => d.is_primary) || drops[0]
 
-  const inputStyle = {
-    width: '100%',
-    boxSizing: 'border-box',
-    background: 'var(--bg)',
-    border: '1px solid var(--border)',
-    borderRadius: 12,
-    padding: '10px 16px',
-    fontSize: 13,
-    color: 'var(--text)',
-    outline: 'none',
-    transition: 'border-color 0.15s',
-  }
-  const smallInputStyle = {
-    ...inputStyle,
-    borderRadius: 8,
-    padding: '7px 12px',
-    fontSize: 12,
-  }
-  const dropdownStyle = {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 'calc(100% + 4px)',
-    zIndex: 20,
-    background: 'var(--card)',
-    border: '1px solid var(--border)',
-    borderRadius: 12,
-    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-    overflow: 'hidden',
-    maxHeight: 208,
-    overflowY: 'auto',
-  }
-  const dropdownBtnStyle = {
-    width: '100%',
-    textAlign: 'left',
-    padding: '10px 16px',
-    background: 'transparent',
-    border: 'none',
-    borderBottom: '1px solid var(--border)',
-    cursor: 'pointer',
-    color: 'var(--text)',
-  }
   const createModalRef = useRef(null)
   useFocusTrap(createModalRef, true)
 
@@ -1073,45 +1031,10 @@ function CreateOrderModal({ onCreated, onClose }) {
                   <label
                     key={d.id}
                     onClick={() => setDropId(d.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '10px 12px',
-                      borderRadius: 12,
-                      cursor: 'pointer',
-                      border:
-                        dropId === d.id
-                          ? '1px solid var(--accent-border)'
-                          : '1px solid var(--border)',
-                      background: dropId === d.id ? STATUS_COLORS.infoBg : 'transparent',
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
+                    className={`radio-label ${dropId === d.id ? 'selected' : ''}`}
                   >
-                    <div
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        border: dropId === d.id ? 'none' : '1px solid var(--border-hi)',
-                        background: dropId === d.id ? 'var(--accent)' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'background 0.15s',
-                      }}
-                    >
-                      {dropId === d.id && (
-                        <div
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: 'var(--text)',
-                          }}
-                        />
-                      )}
+                    <div className={`radio-circle ${dropId === d.id ? 'selected' : ''}`}>
+                      {dropId === d.id && <div className="radio-dot" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 text-[12px]">
@@ -1209,7 +1132,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                 if (geoMatches.length === 0) return null
                 return (
                   <div className="info-hint-box">
-                    <div style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
+                    <div className="text-info-bold">
                       🎯 {billingCountry.toUpperCase()} proxy recommended for this profile
                     </div>
                     {geoMatches.slice(0, 3).map(px => (
@@ -1315,9 +1238,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                                 <span className="text-[10px] mono text-muted">{ci.asin}</span>
                               )}
                               {ci.price && (
-                                <span style={{ fontSize: 11, color: STATUS_COLORS.success }}>
-                                  ${ci.price}
-                                </span>
+                                <span className="text-[11px] text-green-t">${ci.price}</span>
                               )}
                             </div>
                           </button>
@@ -1351,10 +1272,6 @@ function CreateOrderModal({ onCreated, onClose }) {
                     onClick={() => removeItem(idx)}
                     disabled={items.length === 1}
                     style={{
-                      padding: 8,
-                      color: 'var(--muted)',
-                      background: 'none',
-                      border: 'none',
                       cursor: items.length === 1 ? 'not-allowed' : 'pointer',
                       opacity: items.length === 1 ? 0.3 : 1,
                     }}

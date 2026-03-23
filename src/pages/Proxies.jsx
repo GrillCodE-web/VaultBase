@@ -37,11 +37,8 @@ function TypeBadge({ type }) {
   const cfg = colorMap[type] || { color: 'var(--muted)', bg: 'var(--surface)' }
   return (
     <span
-      className="mono"
+      className="mono text-[10px] px-2 py-[2px] rounded-[6px]"
       style={{
-        fontSize: 10,
-        padding: '2px 8px',
-        borderRadius: 6,
         color: cfg.color,
         background: cfg.bg,
         border: `1px solid ${cfg.color}33`,
@@ -88,18 +85,13 @@ function UsageStatsModal({ onClose }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ width: 'var(--modal-md)' }}
+        className="modal w-modal-md"
         role="dialog"
         aria-modal="true"
         aria-labelledby="proxy-stats-title"
       >
         <div className="flex items-center justify-between mb-[18px]">
-          <div
-            id="proxy-stats-title"
-            className="modal-title"
-            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-          >
+          <div id="proxy-stats-title" className="modal-title flex items-center gap-2">
             <BarChart2 size={15} /> Proxy Usage Stats
           </div>
           <button onClick={onClose} className="modal-close" aria-label="Close">
@@ -108,18 +100,14 @@ function UsageStatsModal({ onClose }) {
         </div>
 
         {loading && (
-          <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 13 }}>
-            <Loader2
-              size={18}
-              className="animate-spin"
-              style={{ display: 'inline-block', marginBottom: 8 }}
-            />
+          <div className="text-center p-8 text-muted text-[13px]">
+            <Loader2 size={18} className="animate-spin inline-block mb-2" />
             <div>Loading stats...</div>
           </div>
         )}
 
         {!loading && (!stats || stats.length === 0) && (
-          <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 13 }}>
+          <div className="text-center p-8 text-muted text-[13px]">
             No proxy usage data found. Assign proxies to orders to see stats here.
           </div>
         )}
@@ -147,17 +135,13 @@ function UsageStatsModal({ onClose }) {
                     <td style={{ color: STATUS_COLORS.success }}>{s.success_count}</td>
                     <td style={{ color: STATUS_COLORS.error }}>{s.decline_count}</td>
                     <td>
-                      <span style={{ color, fontWeight: 600 }}>{rate}%</span>
+                      <span className="font-semibold" style={{ color }}>
+                        {rate}%
+                      </span>
                       {rate < 40 && (
                         <span
-                          style={{
-                            marginLeft: 8,
-                            fontSize: 10,
-                            color: STATUS_COLORS.error,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                          }}
+                          className="ml-2 text-[10px] inline-flex items-center gap-[3px]"
+                          style={{ color: STATUS_COLORS.error }}
                         >
                           <AlertTriangle size={10} /> High decline rate — consider replacing
                         </span>
@@ -170,7 +154,7 @@ function UsageStatsModal({ onClose }) {
           </table>
         )}
 
-        <div style={{ marginTop: 16, textAlign: 'right' }}>
+        <div className="mt-4 text-right">
           <button onClick={onClose} className="btn btn-ghost btn-sm">
             Close
           </button>
