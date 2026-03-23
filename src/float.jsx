@@ -6,6 +6,7 @@ import { ToastProvider, useToast } from './hooks/useToast'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Lock } from 'lucide-react'
+import { ORDER_STATUS_CSS } from './constants/status.js'
 import './index.css'
 
 // ─── Copy button ──────────────────────────────────────────────
@@ -118,16 +119,6 @@ function CardHealth({ card, orderCount }) {
       )}
     </div>
   )
-}
-
-// ─── Order status helpers ─────────────────────────────────────
-const STATUS_CSS = {
-  pending: 'st-pending',
-  processing: 'st-inuse',
-  shipped: 'st-transit',
-  delivered: 'st-delivered',
-  declined: 'st-decline',
-  cancelled: 'st-archive',
 }
 
 function fmtDate(iso) {
@@ -598,7 +589,7 @@ function ProfileFloat() {
                         {order.shop_name ?? `Shop #${order.shop_id}`}
                       </span>
                       <div className="flex items-center flex-shrink-0 gap-4">
-                        <span className={`st ${STATUS_CSS[order.status] ?? ''} text-[10px]`}>
+                        <span className={`st ${ORDER_STATUS_CSS[order.status] ?? ''} text-[10px]`}>
                           {order.status}
                         </span>
                         {/* F2: Quick status change dropdown */}

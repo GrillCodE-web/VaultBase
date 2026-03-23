@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { RotateCcw, AlertTriangle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { STATUS_COLORS } from '../../constants/colors'
+import { ORDER_STATUS_CSS } from '../../constants/status'
 
 // ─── CopyNumberBtn ───────────────────────────────────────────
 function CopyNumberBtn({ value }) {
@@ -68,16 +69,6 @@ function NeedsAttentionBadge({ order }) {
   return null
 }
 
-const STATUS_CSS = {
-  pending: 'st-pending',
-  processing: 'st-processing',
-  shipped: 'st-shipped',
-  in_transit: 'st-transit',
-  delivered: 'st-delivered',
-  declined: 'st-decline',
-  cancelled: 'st-cancelled',
-}
-
 export function OrderRow({
   order,
   isSelected,
@@ -134,7 +125,9 @@ export function OrderRow({
         <td>{order.shop_name || '—'}</td>
         <td>
           <div className="flex items-center gap-[2px]">
-            <span className={`st ${STATUS_CSS[order.status] ?? 'st-archive'}`}>{order.status}</span>
+            <span className={`st ${ORDER_STATUS_CSS[order.status] ?? 'st-archive'}`}>
+              {order.status}
+            </span>
             <NeedsAttentionBadge order={order} />
           </div>
         </td>

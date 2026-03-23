@@ -3,13 +3,7 @@ import { useLang } from '../../hooks/useLang'
 import { ActionsMenu } from '../../components/ActionsMenu.jsx'
 import { shortId } from '../../utils/formatting.js'
 import { invoke } from '@tauri-apps/api/core'
-
-const CARD_STATUS_CSS = {
-  free: 'st-free',
-  in_use: 'st-inuse',
-  dead: 'st-dead',
-  archive: 'st-archive',
-}
+import { CARD_STATUS_CSS } from '../../constants/status.js'
 
 export function ProfileRow({
   profile,

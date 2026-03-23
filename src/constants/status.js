@@ -90,3 +90,46 @@ export function getStatusColor(status, type = 'card') {
   const colors = type === 'card' ? CARD_STATUS_COLORS : ORDER_STATUS_COLORS
   return colors[status] || { bg: 'rgba(156, 163, 175, 0.1)', text: '#999', label: status }
 }
+
+// Order status workflow steps
+export const ORDER_STATUS_STEPS = ['pending', 'processing', 'shipped', 'delivered']
+
+// All possible order statuses
+export const ORDER_STATUSES = [
+  'pending',
+  'processing',
+  'shipped',
+  'in_transit',
+  'delivered',
+  'declined',
+  'cancelled',
+]
+
+// Status dot colors for order timeline
+export const ORDER_STATUS_DOT_COLORS = {
+  pending: 'var(--yellow-t)',
+  processing: 'var(--blue-t)',
+  shipped: 'var(--blue-t)',
+  in_transit: 'var(--cyan-t)',
+  delivered: 'var(--green-t)',
+  declined: 'var(--red-t)',
+  cancelled: 'var(--text-2)',
+}
+
+// Card status CSS class mappings
+export const CARD_STATUS_CSS = {
+  free: 'st-free',
+  in_use: 'st-inuse',
+  dead: 'st-dead',
+  archive: 'st-archive',
+}
+
+// Order status CSS class mappings
+export const ORDER_STATUS_CSS = {
+  pending: 'st-pending',
+  processing: 'st-inuse',
+  shipped: 'st-transit',
+  delivered: 'st-delivered',
+  declined: 'st-decline',
+  cancelled: 'st-archive',
+}

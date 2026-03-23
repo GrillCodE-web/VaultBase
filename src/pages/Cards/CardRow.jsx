@@ -8,15 +8,9 @@ import {
 } from '../../utils/formatting.js'
 import { getBinBadge } from '../../constants/cardTypes.js'
 import { getCardHealth } from '../../utils/cardHealth.js'
+import { CARD_STATUS_CSS } from '../../constants/status.js'
 import { ExpiryCell } from './ExpiryCell.jsx'
 import { NoteCell } from './NoteCell.jsx'
-
-const STATUS_CSS = {
-  free: 'st-free',
-  in_use: 'st-inuse',
-  dead: 'st-dead',
-  archive: 'st-archive',
-}
 
 export function CardRow({
   card,
@@ -47,7 +41,7 @@ export function CardRow({
   const displayNum = rev?.card_number
     ? formatCardNumber(rev.card_number)
     : formatBinMasked(card.bin, card.last4)
-  const statusCls = STATUS_CSS[card.status] ?? 'st-archive'
+  const statusCls = CARD_STATUS_CSS[card.status] ?? 'st-archive'
   const statusLabel = card.status === 'in_use' ? 'in use' : card.status
   const badge = getBinBadge(card.card_type)
   const burnCount = card.orders_count ?? 0

@@ -155,12 +155,12 @@ export function shortId(id) {
  * @returns {string} Relative time (e.g., "5m ago", "2h ago", "3d ago")
  */
 export function timeAgo(isoStr) {
-  if (!isoStr) return "Never";
-  const diff = (Date.now() - new Date(isoStr).getTime()) / 1000;
-  if (diff < 60)        return `${Math.round(diff)}s ago`;
-  if (diff < 3600)      return `${Math.round(diff / 60)}m ago`;
-  if (diff < 86400)     return `${Math.round(diff / 3600)}h ago`;
-  return `${Math.round(diff / 86400)}d ago`;
+  if (!isoStr) return 'Never'
+  const diff = (Date.now() - new Date(isoStr).getTime()) / 1000
+  if (diff < 60) return `${Math.round(diff)}s ago`
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`
+  return `${Math.round(diff / 86400)}d ago`
 }
 
 /**
@@ -181,4 +181,24 @@ export function formatCurrency(value) {
 export function formatNumber(value) {
   if (value == null || isNaN(value)) return '0'
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+/**
+ * Format ISO date to short date (YYYY-MM-DD)
+ * @param {string} isoDate - ISO 8601 date string
+ * @returns {string} Short date (e.g., "2024-03-23") or "—" if empty
+ */
+export function formatDateShort(isoDate) {
+  if (!isoDate) return '—'
+  return isoDate.slice(0, 10)
+}
+
+/**
+ * Format ISO datetime to datetime without seconds (YYYY-MM-DD HH:MM)
+ * @param {string} isoDate - ISO 8601 datetime string
+ * @returns {string} Datetime (e.g., "2024-03-23 14:30") or "—" if empty
+ */
+export function formatDateTime(isoDate) {
+  if (!isoDate) return '—'
+  return isoDate.slice(0, 16).replace('T', ' ')
 }

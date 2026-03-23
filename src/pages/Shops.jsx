@@ -8,6 +8,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { getDeliveryRateColor, getRiskColor, STATUS_COLORS } from '../constants/colors.js'
 import { ORDER_STATUS_COLORS } from '../constants/status.js'
+import { SHOP_FLAGS, getActiveShopFlags } from '../constants/shops.js'
 
 // ─── ShopRiskBadge ────────────────────────────────────────────────────────
 
@@ -33,39 +34,10 @@ function ShopRiskBadge({ shopId }) {
   )
 }
 
-// ─── Flag definitions ─────────────────────────────────────────────────────
-
-const FLAGS = [
-  {
-    key: 'requires_cvv_match',
-    label: 'CVV Match',
-    bg: STATUS_COLORS.infoBg,
-    color: STATUS_COLORS.info,
-  },
-  { key: 'blocks_vpn', label: 'Blocks VPN', bg: STATUS_COLORS.errorBg, color: STATUS_COLORS.error },
-  {
-    key: 'phone_must_match',
-    label: 'Phone Match',
-    bg: STATUS_COLORS.warningBg,
-    color: STATUS_COLORS.warning,
-  },
-  {
-    key: 'accepts_amex',
-    label: 'Amex OK',
-    bg: STATUS_COLORS.successBg,
-    color: STATUS_COLORS.success,
-  },
-  { key: 'requires_avs', label: 'AVS', bg: STATUS_COLORS.warningBg, color: STATUS_COLORS.warning },
-  {
-    key: 'high_cancel_risk',
-    label: 'Cancel Risk',
-    bg: STATUS_COLORS.errorBg,
-    color: STATUS_COLORS.error,
-  },
-]
+// ─── Flag Pills Component ─────────────────────────────────────────────────
 
 function FlagPills({ shop }) {
-  const active = FLAGS.filter(f => shop[f.key])
+  const active = getActiveShopFlags(shop)
   if (!active.length) return <span className="text-[12px] text-muted">—</span>
   return (
     <div className="flex flex-wrap gap-1">
@@ -418,7 +390,7 @@ function ShopModal({ initial, onSave, onClose }) {
         <div className="form-group">
           <label className="form-label mb-2">Risk Flags</label>
           <div className="grid grid-cols-2 gap-2">
-            {FLAGS.map(f => (
+            {SHOP_FLAGS.map(f => (
               <label
                 key={f.key}
                 onClick={toggle(f.key)}

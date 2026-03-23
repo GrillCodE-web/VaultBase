@@ -31,6 +31,7 @@ import { useSmartSuggestions, SuggestionBadge } from './Shops'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { buildPageNumbers } from '../utils/pagination.js'
 import { STATUS_COLORS } from '../constants/colors.js'
+import { ORDER_STATUS_STEPS, ORDER_STATUSES, ORDER_STATUS_DOT_COLORS } from '../constants/status.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { BatchImportModal } from './Orders/BatchImportModal.jsx'
 import { OrderFilters } from './Orders/OrderFilters.jsx'
@@ -38,11 +39,10 @@ import { OrderRow } from './Orders/OrderRow.jsx'
 import { useOrdersStore } from '../store/orders.js'
 
 // ─── OrderTimeline ────────────────────────────────────────────
-const STATUS_STEPS = ['pending', 'processing', 'shipped', 'delivered']
 
 function OrderTimeline({ status, updatedAt }) {
   const isTerminal = status === 'cancelled' || status === 'declined'
-  const steps = isTerminal ? [...STATUS_STEPS.slice(0, 2), status] : STATUS_STEPS
+  const steps = isTerminal ? [...ORDER_STATUS_STEPS.slice(0, 2), status] : ORDER_STATUS_STEPS
   const currentIdx = steps.indexOf(status)
 
   return (
@@ -111,27 +111,6 @@ function OrderTimeline({ status, updatedAt }) {
       </div>
     </div>
   )
-}
-
-// ─── Constants ───────────────────────────────────────────────
-const STATUSES = [
-  'pending',
-  'processing',
-  'shipped',
-  'in_transit',
-  'delivered',
-  'declined',
-  'cancelled',
-]
-
-const STATUS_DOT_COLOR = {
-  pending: 'var(--yellow-t)',
-  processing: 'var(--blue-t)',
-  shipped: 'var(--blue-t)',
-  in_transit: 'var(--cyan-t)',
-  delivered: 'var(--green-t)',
-  declined: 'var(--red-t)',
-  cancelled: 'var(--text-2)',
 }
 
 // ─── Risk Check display ───────────────────────────────────────
@@ -375,7 +354,7 @@ function StatusMenu({ order, onUpdate, onClose }) {
   return (
     <>
       <div className="absolute bg-card border rounded-lg overflow-hidden right-0 top-8 z-30 shadow-dropdown w-40">
-        {STATUSES.filter(s => s !== order.status).map(s => (
+        {ORDER_STATUSES.filter(s => s !== order.status).map(s => (
           <button
             key={s}
             onClick={() => handleStatus(s)}
@@ -386,7 +365,7 @@ function StatusMenu({ order, onUpdate, onClose }) {
               style={{
                 width: 6,
                 height: 6,
-                backgroundColor: STATUS_DOT_COLOR[s] ?? 'var(--text-2)',
+                backgroundColor: ORDER_STATUS_DOT_COLORS[s] ?? 'var(--text-2)',
               }}
             />
             {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}

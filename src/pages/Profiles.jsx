@@ -27,7 +27,7 @@ import { useDebounce } from '../hooks/useDebounce.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
-import { CARD_STATUS_COLORS } from '../constants/status.js'
+import { CARD_STATUS_COLORS, ORDER_STATUS_CSS } from '../constants/status.js'
 import { shortId } from '../utils/formatting.js'
 import { buildPageNumbers } from '../utils/pagination.js'
 import { copyText } from '../utils/clipboard.js'
@@ -35,16 +35,6 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ProfileModal } from './Profiles/ProfileModal.jsx'
 import { ProfileFilters } from './Profiles/ProfileFilters.jsx'
 import { ProfileRow } from './Profiles/ProfileRow.jsx'
-
-// ─── helpers ─────────────────────────────────────────────────
-const ORDER_STATUS_CSS = {
-  pending: 'st-pending',
-  processing: 'st-inuse',
-  shipped: 'st-transit',
-  delivered: 'st-delivered',
-  declined: 'st-decline',
-  cancelled: 'st-archive',
-}
 
 // ─── DropForm ─────────────────────────────────────────────────
 function DropForm({ initial, onSave, onCancel }) {
