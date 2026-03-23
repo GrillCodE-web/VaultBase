@@ -127,7 +127,7 @@ function Heatmap({ data, onCellClick }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="tbl border-separate" style={{ borderSpacing: 2 }}>
+      <table className="tbl border-separate border-spacing-0.5">
         <thead>
           <tr>
             <th className="text-left text-muted font-medium text-[10px] pb-1 pr-2">
@@ -148,8 +148,7 @@ function Heatmap({ data, onCellClick }) {
           {banks.map(bank => (
             <tr key={bank}>
               <td
-                className="text-text-2 text-[10px] font-medium overflow-hidden text-ellipsis whitespace-nowrap py-0\.5"
-                style={{ paddingRight: 12 }}
+                className="text-text-2 text-[10px] font-medium overflow-hidden text-ellipsis whitespace-nowrap py-0.5 pr-3"
                 title={bank}
               >
                 {bank.length > 18 ? bank.slice(0, 18) + '…' : bank}
@@ -162,12 +161,11 @@ function Heatmap({ data, onCellClick }) {
                   <td
                     key={shop}
                     onClick={() => cell && onCellClick && onCellClick(bank, shop)}
-                    className="text-[10px] text-center rounded-sm p-1"
+                    className="text-[10px] text-center rounded-sm p-1 min-w-[72px]"
                     style={{
                       backgroundColor: getHeatmapColor(rate),
                       color: rate < 0 ? 'var(--muted)' : 'var(--text)',
                       cursor: cell ? 'pointer' : 'default',
-                      minWidth: 72,
                       fontWeight: cell ? 500 : 400,
                     }}
                     title={
@@ -442,10 +440,7 @@ function CollapsePanel({ title, id, collapsed, onToggle, children }) {
         <span className="text-[13px] font-semibold text-text-2">{title}</span>
         <ChevronRight
           size={14}
-          className="text-muted shrink-0 transition-transform duration-200"
-          style={{
-            transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)',
-          }}
+          className={`text-muted shrink-0 transition-transform duration-200 ${collapsed ? '' : 'rotate-90'}`}
         />
       </button>
       {!collapsed && <div className="px-4 pb-4">{children}</div>}
