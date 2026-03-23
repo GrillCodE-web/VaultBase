@@ -3,7 +3,7 @@
 // React components using the redesigned styles
 // ═══════════════════════════════════════════════════════════
 
-import { useState } from 'react';
+import { useState } from 'react'
 import {
   CreditCard,
   AlertTriangle,
@@ -13,8 +13,8 @@ import {
   Filter,
   Download,
   Upload,
-  MoreVertical
-} from 'lucide-react';
+  MoreVertical,
+} from 'lucide-react'
 
 // ─── Dashboard Stat Card ────────────────────────────────────
 export function StatCard({ label, value, change, trend, color = 'cg' }) {
@@ -22,13 +22,9 @@ export function StatCard({ label, value, change, trend, color = 'cg' }) {
     <div className={`sc ${color} stagger-item`}>
       <div className="sc-lbl">{label}</div>
       <div className="sc-val">{value}</div>
-      {change && (
-        <div className={`sc-sub ${trend === 'up' ? 'up' : 'dn'}`}>
-          {change}
-        </div>
-      )}
+      {change && <div className={`sc-sub ${trend === 'up' ? 'up' : 'dn'}`}>{change}</div>}
     </div>
-  );
+  )
 }
 
 // Usage:
@@ -42,7 +38,7 @@ export function StatCard({ label, value, change, trend, color = 'cg' }) {
 
 // ─── Card Row Component ─────────────────────────────────────
 export function CardRow({ card, selected, onSelect, onAction }) {
-  const [showMenu, setShowMenu] = useState(false);
+  const [showMenu, setShowMenu] = useState(false)
 
   const getHealthBadge = () => {
     if (card.status === 'dead') {
@@ -51,7 +47,7 @@ export function CardRow({ card, selected, onSelect, onAction }) {
           <span className="card-health-dot"></span>
           Burned
         </span>
-      );
+      )
     }
     if (card.status === 'in_use') {
       return (
@@ -59,15 +55,15 @@ export function CardRow({ card, selected, onSelect, onAction }) {
           <span className="card-health-dot"></span>
           Used
         </span>
-      );
+      )
     }
     return (
       <span className="card-health fresh">
         <span className="card-health-dot"></span>
         Fresh
       </span>
-    );
-  };
+    )
+  }
 
   return (
     <tr className={`card-row ${selected ? 'selected' : ''}`}>
@@ -98,10 +94,7 @@ export function CardRow({ card, selected, onSelect, onAction }) {
       </td>
       <td>
         <div style={{ position: 'relative' }}>
-          <button
-            className="icon-btn"
-            onClick={() => setShowMenu(!showMenu)}
-          >
+          <button className="icon-btn" onClick={() => setShowMenu(!showMenu)}>
             <MoreVertical size={16} />
           </button>
           {showMenu && (
@@ -127,7 +120,7 @@ export function CardRow({ card, selected, onSelect, onAction }) {
         </div>
       </td>
     </tr>
-  );
+  )
 }
 
 // ─── Filter Bar Component ───────────────────────────────────
@@ -139,7 +132,7 @@ export function FilterBar({ filters, onFilterChange, onClear }) {
         <select
           className="filter-select"
           value={filters.status}
-          onChange={(e) => onFilterChange('status', e.target.value)}
+          onChange={e => onFilterChange('status', e.target.value)}
         >
           <option value="all">All Cards</option>
           <option value="free">Fresh</option>
@@ -153,7 +146,7 @@ export function FilterBar({ filters, onFilterChange, onClear }) {
         <select
           className="filter-select"
           value={filters.bank}
-          onChange={(e) => onFilterChange('bank', e.target.value)}
+          onChange={e => onFilterChange('bank', e.target.value)}
         >
           <option value="all">All Banks</option>
           <option value="chase">Chase</option>
@@ -168,7 +161,7 @@ export function FilterBar({ filters, onFilterChange, onClear }) {
           className="filter-search-input"
           placeholder="Search cards..."
           value={filters.search}
-          onChange={(e) => onFilterChange('search', e.target.value)}
+          onChange={e => onFilterChange('search', e.target.value)}
         />
         <Search className="filter-search-icon" size={16} />
       </div>
@@ -180,7 +173,7 @@ export function FilterBar({ filters, onFilterChange, onClear }) {
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 // ─── Bulk Actions Toolbar ───────────────────────────────────
@@ -205,22 +198,20 @@ export function BulkActionsBar({ selectedCount, onExport, onDelete, onDeselect }
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 // ─── Info Panel Component ───────────────────────────────────
 export function InfoPanel({ type = 'info', title, message, icon: Icon }) {
   return (
     <div className={`info-panel ${type}`}>
-      <div className="info-panel-icon">
-        {Icon && <Icon size={20} />}
-      </div>
+      <div className="info-panel-icon">{Icon && <Icon size={20} />}</div>
       <div className="info-panel-content">
         <div className="info-panel-title">{title}</div>
         <div className="info-panel-text">{message}</div>
       </div>
     </div>
-  );
+  )
 }
 
 // Usage:
@@ -233,28 +224,22 @@ export function InfoPanel({ type = 'info', title, message, icon: Icon }) {
 
 // ─── Modal Component ────────────────────────────────────────
 export function Modal({ isOpen, onClose, title, children, footer }) {
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-title">
           <span>{title}</span>
           <button className="modal-close" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
-        <div className="modal-body">
-          {children}
-        </div>
-        {footer && (
-          <div className="modal-footer">
-            {footer}
-          </div>
-        )}
+        <div className="modal-body">{children}</div>
+        {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>
-  );
+  )
 }
 
 // Usage:
@@ -283,9 +268,9 @@ export function Toast({ type = 'info', title, message }) {
     error: AlertTriangle,
     warning: AlertTriangle,
     info: AlertTriangle,
-  };
+  }
 
-  const Icon = icons[type];
+  const Icon = icons[type]
 
   return (
     <div className={`toast ${type}`}>
@@ -296,7 +281,7 @@ export function Toast({ type = 'info', title, message }) {
       </div>
       <div className="toast-progress"></div>
     </div>
-  );
+  )
 }
 
 // ─── Page Header Component ──────────────────────────────────
@@ -307,13 +292,9 @@ export function PageHeader({ title, subtitle, actions }) {
         <h1 className="page-title">{title}</h1>
         {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
-      {actions && (
-        <div className="page-actions">
-          {actions}
-        </div>
-      )}
+      {actions && <div className="page-actions">{actions}</div>}
     </div>
-  );
+  )
 }
 
 // Usage:
@@ -336,7 +317,7 @@ export function PageHeader({ title, subtitle, actions }) {
 
 // ─── Side Panel Component ───────────────────────────────────
 export function SidePanel({ isOpen, onClose, title, children, footer }) {
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   return (
     <>
@@ -348,33 +329,51 @@ export function SidePanel({ isOpen, onClose, title, children, footer }) {
             <X size={20} />
           </button>
         </div>
-        <div className="side-panel-body">
-          {children}
-        </div>
-        {footer && (
-          <div className="side-panel-footer">
-            {footer}
-          </div>
-        )}
+        <div className="side-panel-body">{children}</div>
+        {footer && <div className="side-panel-footer">{footer}</div>}
       </div>
     </>
-  );
+  )
 }
 
 // ─── Complete Page Example ──────────────────────────────────
 export function CardsPageExample() {
-  const [selectedCards, setSelectedCards] = useState([]);
+  const [selectedCards, setSelectedCards] = useState([])
   const [filters, setFilters] = useState({
     status: 'all',
     bank: 'all',
-    search: ''
-  });
+    search: '',
+  })
 
   const cards = [
-    { id: 1, last4: '4242', status: 'free', network: 'VISA', expiry: '12/26', bank: 'Chase', orders_count: 0 },
-    { id: 2, last4: '8888', status: 'in_use', network: 'MC', expiry: '03/27', bank: 'BofA', orders_count: 3 },
-    { id: 3, last4: '1234', status: 'dead', network: 'AMEX', expiry: '08/25', bank: 'Wells', orders_count: 12 },
-  ];
+    {
+      id: 1,
+      last4: '4242',
+      status: 'free',
+      network: 'VISA',
+      expiry: '12/26',
+      bank: 'Chase',
+      orders_count: 0,
+    },
+    {
+      id: 2,
+      last4: '8888',
+      status: 'in_use',
+      network: 'MC',
+      expiry: '03/27',
+      bank: 'BofA',
+      orders_count: 3,
+    },
+    {
+      id: 3,
+      last4: '1234',
+      status: 'dead',
+      network: 'AMEX',
+      expiry: '08/25',
+      bank: 'Wells',
+      orders_count: 12,
+    },
+  ]
 
   return (
     <div className="content-main">
@@ -404,8 +403,12 @@ export function CardsPageExample() {
       {selectedCards.length > 0 && (
         <BulkActionsBar
           selectedCount={selectedCards.length}
-          onExport={() => {/* Export action */}}
-          onDelete={() => {/* Delete action */}}
+          onExport={() => {
+            /* Export action */
+          }}
+          onDelete={() => {
+            /* Delete action */
+          }}
           onDeselect={() => setSelectedCards([])}
         />
       )}
@@ -430,21 +433,21 @@ export function CardsPageExample() {
                 key={card.id}
                 card={card}
                 selected={selectedCards.includes(card.id)}
-                onSelect={(id) => {
+                onSelect={id => {
                   setSelectedCards(prev =>
-                    prev.includes(id)
-                      ? prev.filter(x => x !== id)
-                      : [...prev, id]
-                  );
+                    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+                  )
                 }}
-                onAction={() => {/* Handle action */}}
+                onAction={() => {
+                  /* Handle action */
+                }}
               />
             ))}
           </tbody>
         </table>
       </div>
     </div>
-  );
+  )
 }
 
 export default {
@@ -458,4 +461,4 @@ export default {
   PageHeader,
   SidePanel,
   CardsPageExample,
-};
+}

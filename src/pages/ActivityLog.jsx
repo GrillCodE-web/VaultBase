@@ -16,6 +16,7 @@ import { useLang } from '../hooks/useLang.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { STATUS_COLORS } from '../constants/colors.js'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 const ENTITY_COLORS = {
   card: { bg: STATUS_COLORS.infoBg, text: STATUS_COLORS.info, border: 'var(--color-info-bg)' },
@@ -113,7 +114,8 @@ export default function ActivityLog() {
       setEntries(res.items ?? [])
       setTotal(res.total ?? 0)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'ActivityLog.load')
+      toastErr(getErrorMessage(error))
     } finally {
       setLoading(false)
     }
@@ -133,7 +135,8 @@ export default function ActivityLog() {
       setPage(1)
       await load()
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'ActivityLog.handleClear')
+      toastErr(getErrorMessage(error))
     }
   }
 

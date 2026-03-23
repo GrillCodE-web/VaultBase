@@ -5,6 +5,7 @@ import { User, MapPin, Check, X, Shuffle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useToast } from '../../hooks/useToast'
 import { HEX_COLORS } from '../../constants/colors.js'
+import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
 export function ProfileModal({ onCreated, onClose }) {
   const { t } = useLang()
@@ -35,7 +36,8 @@ export function ProfileModal({ onCreated, onClose }) {
       await invoke('delete_profile_template', { id })
       setTemplates(prev => prev.filter(t => t.id !== id))
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'ProfileModal.handleDeleteTemplate')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -100,7 +102,8 @@ export function ProfileModal({ onCreated, onClose }) {
         toast('No free emails available', 'warn')
       }
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'ProfileModal.handleAutoEmail')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setEmailLoading(false)
     }
@@ -163,7 +166,8 @@ export function ProfileModal({ onCreated, onClose }) {
       onCreated(p)
       onClose()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'ProfileModal.handleSave')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }

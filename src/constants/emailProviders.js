@@ -61,7 +61,7 @@ export const SMTP_PROVIDERS = {
  */
 export function detectImapConfig(email) {
   const domain = email.split('@')[1]?.toLowerCase()
-  return domain ? IMAP_PROVIDERS[domain] ?? null : null
+  return domain ? (IMAP_PROVIDERS[domain] ?? null) : null
 }
 
 /**
@@ -71,5 +71,5 @@ export function detectImapConfig(email) {
  */
 export function detectSmtpConfig(email) {
   const domain = email.split('@')[1]?.toLowerCase()
-  return domain ? SMTP_PROVIDERS[domain] ?? null : null
+  return domain ? (SMTP_PROVIDERS[domain] ?? null) : null
 }

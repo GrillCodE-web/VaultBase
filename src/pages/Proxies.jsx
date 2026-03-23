@@ -25,6 +25,7 @@ import { EmptyState } from '../components/EmptyState.jsx'
 import { timeAgo } from '../utils/formatting'
 import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination'
 import { STATUS_COLORS, getDeliveryRateColor } from '../constants/colors'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 // ─── Helpers ──────────────────────────────────────────────────
 function TypeBadge({ type }) {
@@ -75,7 +76,10 @@ function UsageStatsModal({ onClose }) {
   useEffect(() => {
     invoke('get_proxy_usage_stats')
       .then(setStats)
-      .catch(e => toast(String(e), 'error'))
+      .catch(e => {
+        const error = handleError(e, 'Proxies.getStats')
+        toast(getErrorMessage(error), 'error')
+      })
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Intentional: only run on mount, toast is stable
@@ -223,7 +227,8 @@ function ProxyModal({ initial, onSave, onClose }) {
       await onSave({ ...form, port: parseInt(form.port, 10) || 80 })
       onClose()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'ProxyForm.handleSave')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -359,7 +364,8 @@ function ImportModal({ onDone, onClose }) {
       const r = await invoke('import_proxies', { raw })
       setResult(r)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'ImportModal.handleImport')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -482,7 +488,8 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
       onBound(shop)
       setOpen(false)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'BindShopModal.handleBind')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -497,7 +504,8 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
       onUnbound()
       setOpen(false)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'BindShopModal.handleUnbind')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -592,7 +600,8 @@ export default function ProxyList() {
           setPage(prev => Math.max(1, prev - 1))
         }
       } catch (e) {
-        toast(String(e), 'error')
+        const error = handleError(e, 'Proxies.load')
+        toast(getErrorMessage(error), 'error')
       } finally {
         setLoading(false)
       }
@@ -645,7 +654,8 @@ export default function ProxyList() {
       toast('Proxy deleted', 'success')
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Proxies.handleDelete')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -693,7 +703,8 @@ export default function ProxyList() {
       )
     } catch (e) {
       setTestResults(r => ({ ...r, [proxy.id]: false }))
-      toast(String(e), 'error')
+      const error = handleError(e, 'Proxies.handleTest')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setTestingId(null)
     }
@@ -710,7 +721,8 @@ export default function ProxyList() {
       )
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Proxies.handleCheckHealth')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setCheckingHealth(false)
     }

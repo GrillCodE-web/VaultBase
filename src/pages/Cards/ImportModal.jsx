@@ -5,6 +5,7 @@ import { useLang } from '../../hooks/useLang.jsx'
 import { useToast } from '../../hooks/useToast.jsx'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { normalizeExpiry } from '../../utils/formatting.js'
+import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
 const FIELD_OPTIONS = [
   'skip',
@@ -51,7 +52,8 @@ export function ImportModal({ onClose, onImported }) {
       setMapping([...data.detected_mapping])
       setStep(2)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'ImportModal.handlePreview')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -88,7 +90,8 @@ export function ImportModal({ onClose, onImported }) {
       setResult(res)
       onImported?.()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'ImportModal.handleImport')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }

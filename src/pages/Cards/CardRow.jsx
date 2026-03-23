@@ -11,6 +11,7 @@ import { getCardHealth } from '../../utils/cardHealth.js'
 import { CARD_STATUS_CSS } from '../../constants/status.js'
 import { ExpiryCell } from './ExpiryCell.jsx'
 import { NoteCell } from './NoteCell.jsx'
+import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
 export function CardRow({
   card,
@@ -436,10 +437,12 @@ export function CardRow({
                     toast(t('profile_created'), 'success')
                     onNavigate?.('profiles')
                   } catch (e) {
-                    toast(
-                      String(e) === 'card_already_in_use' ? t('card_already_in_use') : String(e),
-                      'error'
-                    )
+                    const error = handleError(e, 'CardRow.createProfile')
+                    const msg =
+                      error.details?.originalMessage === 'card_already_in_use'
+                        ? t('card_already_in_use')
+                        : getErrorMessage(error)
+                    toast(msg, 'error')
                   }
                 },
               },

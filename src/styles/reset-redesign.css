@@ -20,7 +20,12 @@ html {
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'Manrope',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
@@ -29,7 +34,12 @@ body {
 }
 
 /* ── Typography Reset ───────────────────────────────────── */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   margin: 0;
   font-weight: 700;
   line-height: 1.2;
@@ -37,12 +47,24 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: 0.01em;
 }
 
-h1 { font-size: 32px; }
-h2 { font-size: 26px; }
-h3 { font-size: 22px; }
-h4 { font-size: 18px; }
-h5 { font-size: 16px; }
-h6 { font-size: 14px; }
+h1 {
+  font-size: 32px;
+}
+h2 {
+  font-size: 26px;
+}
+h3 {
+  font-size: 22px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 14px;
+}
 
 p {
   margin: 0;
@@ -60,7 +82,8 @@ a:hover {
 }
 
 /* ── List Reset ─────────────────────────────────────────── */
-ul, ol {
+ul,
+ol {
   list-style: none;
   margin: 0;
   padding: 0;

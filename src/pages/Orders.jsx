@@ -324,7 +324,8 @@ function StatusMenu({ order, onUpdate, onClose }) {
         onUpdate()
         onClose()
       } catch (e) {
-        toast(String(e), 'error')
+        const error = handleError(e, 'OrderModal.handleUpdate')
+        toast(getErrorMessage(error), 'error')
       }
       return
     }
@@ -740,7 +741,8 @@ function CreateOrderModal({ onCreated, onClose }) {
       setShowSaveTemplate(false)
       setTemplateName('')
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Orders.handleSaveTemplate')
+      toast(getErrorMessage(error), 'error')
     }
   }
 

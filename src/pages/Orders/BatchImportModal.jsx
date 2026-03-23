@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { X, Upload } from 'lucide-react'
 import { useToast } from '../../hooks/useToast'
 import { STATUS_COLORS } from '../../constants/colors'
+import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
 export function BatchImportModal({ onCreated, onClose }) {
   const [parsedRows, setParsedRows] = useState([])
@@ -57,7 +58,8 @@ export function BatchImportModal({ onCreated, onClose }) {
       setResult(res)
       onCreated()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'BatchImportModal.handleCreate')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }

@@ -9,6 +9,7 @@ import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { STATUS_COLORS } from '../constants/colors.js'
 import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 // ─── IMAP link cell ───────────────────────────────────────────
 function ImapLinkCell({ entry, imapAccounts, onLink, onNavigate }) {
@@ -120,7 +121,8 @@ function EmailModal({ initial, onSave, onClose }) {
       await onSave(form)
       onClose()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'EmailModal.handleSave')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -262,7 +264,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
           setPage(prev => Math.max(1, prev - 1))
         }
       } catch (e) {
-        toast(String(e), 'error')
+        const error = handleError(e, 'Emails.load')
+        toast(getErrorMessage(error), 'error')
       } finally {
         setLoading(false)
       }
@@ -297,7 +300,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
       toast(entry.is_blocked ? t('email_unblocked') : t('email_blocked'), 'success')
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Emails.handleToggleBlock')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -307,7 +311,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
       toast(imapAccountId ? t('imap_linked') : t('email_imap_unlinked'), 'success')
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Emails.handleLinkImap')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -319,7 +324,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
       toast(t('email_deleted'), 'success')
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Emails.handleDelete')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -339,7 +345,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
       setSelected(new Set())
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Emails.handleBulkBlock')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -352,7 +359,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
       setSelected(new Set())
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Emails.handleBulkDelete')
+      toast(getErrorMessage(error), 'error')
     }
   }
 

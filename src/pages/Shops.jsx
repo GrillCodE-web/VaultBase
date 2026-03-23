@@ -11,6 +11,7 @@ import { ORDER_STATUS_COLORS } from '../constants/status.js'
 import { SHOP_FLAGS, getActiveShopFlags } from '../constants/shops.js'
 import { exportToCSV } from '../utils/csv.js'
 import { DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 // ─── ShopRiskBadge ────────────────────────────────────────────────────────
 
@@ -144,7 +145,8 @@ function ProductModal({ initial, onSave, onClose }) {
       await onSave(payload)
       onClose()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'ShopModal.handleSave')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -316,8 +318,12 @@ function ShopModal({ initial, onSave, onClose }) {
       await onSave(form)
       onClose()
     } catch (e) {
-      if (e.toString().includes('duplicate')) toast(t('shop_domain_exists'), 'error')
-      else toast(String(e), 'error')
+      const error = handleError(e, 'Shops.handleCreate')
+      if (error.details?.originalMessage?.includes('duplicate')) {
+        toast(t('shop_domain_exists'), 'error')
+      } else {
+        toast(getErrorMessage(error), 'error')
+      }
     } finally {
       setLoading(false)
     }
@@ -447,7 +453,8 @@ function ShopDetailPanel({ shopId, onNavigate }) {
       const d = await invoke('get_shop', { id: shopId })
       setDetail(d)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Shops.loadDetail')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -478,7 +485,8 @@ function ShopDetailPanel({ shopId, onNavigate }) {
       toast(t('product_deleted'), 'success')
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Shops.handleDeleteProduct')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -741,7 +749,8 @@ export default function ShopList({ onNavigate }) {
         setShops(r.items)
         setTotal(r.total)
       } catch (e) {
-        toast(String(e), 'error')
+        const error = handleError(e, 'Shops.load')
+        toast(getErrorMessage(error), 'error')
       } finally {
         setLoading(false)
       }
@@ -784,7 +793,8 @@ export default function ShopList({ onNavigate }) {
       if (expanded === shop.id) setExpanded(null)
       load()
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Shops.handleDelete')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -879,7 +889,8 @@ export default function ShopList({ onNavigate }) {
                 setSelected(new Set())
                 await load()
               } catch (e) {
-                toast(String(e), 'error')
+                const error = handleError(e, 'Shops.handleToggleFlag')
+                toast(getErrorMessage(error), 'error')
               }
             }}
           >

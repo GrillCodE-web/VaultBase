@@ -5,6 +5,7 @@ import { relaunch } from '@tauri-apps/plugin-process'
 import { RefreshCw, Package, CheckCircle, Receipt, XCircle, AlertTriangle, Pin } from 'lucide-react'
 import { useToast } from '../hooks/useToast.jsx'
 import { useLang } from '../hooks/useLang.jsx'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -224,7 +225,8 @@ export default function Updates() {
       setDownloadState('ready')
     } catch (e) {
       setDownloadState('idle')
-      toast(t('upd_download_failed') + ': ' + String(e), 'error')
+      const error = handleError(e, 'Updates.handleDownload')
+      toast(t('upd_download_failed') + ': ' + getErrorMessage(error), 'error')
     }
   }
 
@@ -240,7 +242,8 @@ export default function Updates() {
     } catch (e) {
       sessionStorage.removeItem(INSTALLED_VER_KEY)
       setDownloadState('ready')
-      toast(t('upd_install_failed') + ': ' + String(e), 'error')
+      const error = handleError(e, 'Updates.handleInstall')
+      toast(t('upd_install_failed') + ': ' + getErrorMessage(error), 'error')
     }
   }
 

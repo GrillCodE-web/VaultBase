@@ -31,6 +31,7 @@ import { useToast } from '../hooks/useToast'
 import { HEX_COLORS } from '../constants/colors.js'
 import { useConfirm } from '../hooks/useConfirm'
 import { detectImapConfig, detectSmtpConfig } from '../constants/emailProviders.js'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 function FolderIcon({ name, size = 13 }) {
   const n = (name ?? '').toLowerCase()
@@ -125,7 +126,8 @@ function AccountModal({ account, onSave, onClose }) {
       const msg = await invoke('test_imap_connection', { id: account.id })
       setTestResult({ ok: true, msg })
     } catch (e) {
-      setTestResult({ ok: false, msg: String(e) })
+      const error = handleError(e, 'Imap.handleTest')
+      setTestResult({ ok: false, msg: getErrorMessage(error) })
     } finally {
       setTesting(false)
     }
@@ -159,7 +161,8 @@ function AccountModal({ account, onSave, onClose }) {
       }
       onClose()
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'AccountModal.handleSave')
+      toastErr(getErrorMessage(error))
     } finally {
       setSaving(false)
     }
@@ -320,7 +323,8 @@ function SmtpModal({ onSave, onClose }) {
       await onSave(form)
       onClose()
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'SmtpModal.handleSave')
+      toastErr(getErrorMessage(error))
     } finally {
       setSaving(false)
     }
@@ -444,7 +448,8 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
       onSent?.()
       onClose()
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'ComposeModal.handleSend')
+      toastErr(getErrorMessage(error))
     } finally {
       setSending(false)
     }
@@ -1197,7 +1202,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
         return list[0] ?? null
       })
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.loadAccounts')
+      toastErr(getErrorMessage(error))
     }
   }, [toastErr])
 
@@ -1270,7 +1276,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
           invoke('refresh_folder_from_imap', { accountId, folder }).catch(() => {})
         }
       } catch (e) {
-        toastErr(String(e))
+        const error = handleError(e, 'Imap.loadMessages')
+        toastErr(getErrorMessage(error))
       } finally {
         setLoadingMsgs(false)
       }
@@ -1287,7 +1294,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
         setSentTotal(res.total ?? 0)
         setSentPage(page)
       } catch (e) {
-        toastErr(String(e))
+        const error = handleError(e, 'Imap.loadSentEmails')
+        toastErr(getErrorMessage(error))
       } finally {
         setLoadingSent(false)
       }
@@ -1439,7 +1447,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
         setChecking(false)
       }
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.handleCheckAll')
+      toastErr(getErrorMessage(error))
       setChecking(false)
     }
   }
@@ -1449,7 +1458,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
       const linked = await invoke('link_all_imap_accounts')
       toastOk(`Auto-linked ${linked} email(s) to IMAP accounts`)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.handleLinkAll')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -1469,7 +1479,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
       await invoke('toggle_imap_account', { id: acc.id, active: !acc.is_active })
       setAccounts(prev => prev.map(a => (a.id === acc.id ? { ...a, is_active: !a.is_active } : a)))
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.handleToggle')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -1483,7 +1494,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
       toastOk(t('msg_deleted'))
       await loadAccounts()
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.handleDelete')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -1501,7 +1513,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
       toastOk(t('msg_deleted'))
       await loadSmtp()
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.handleDeleteSmtp')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -1510,7 +1523,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
       const msg = await invoke('test_smtp_connection', { id })
       toastOk(msg)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.handleTestSmtp')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -1533,7 +1547,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
       setMessages(prev => prev.map(m => (m.id === msg.id ? { ...m, is_read: true } : m)))
       setSelectedMessage(prev => (prev?.id === msg.id ? { ...prev, is_read: true } : prev))
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Imap.handleMarkRead')
+      toastErr(getErrorMessage(error))
     }
   }
 

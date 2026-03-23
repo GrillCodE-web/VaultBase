@@ -11,6 +11,7 @@ import {
 import { getBinBadge } from '../../constants/cardTypes.js'
 import { CARD_STATUS_CSS } from '../../constants/status.js'
 import { CardField } from './CardField.jsx'
+import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
 export function CardSidePanel({
   card,
@@ -242,10 +243,12 @@ export function CardSidePanel({
                 onClose()
                 onNavigate?.('profiles')
               } catch (e) {
-                toast(
-                  String(e) === 'card_already_in_use' ? t('card_already_in_use') : String(e),
-                  'error'
-                )
+                const error = handleError(e, 'CardSidePanel.createProfile')
+                const msg =
+                  error.details?.originalMessage === 'card_already_in_use'
+                    ? t('card_already_in_use')
+                    : getErrorMessage(error)
+                toast(msg, 'error')
               }
             }}
           >

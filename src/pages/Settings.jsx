@@ -30,6 +30,7 @@ import { useTheme } from '../hooks/useTheme'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { LicenseSection } from '../components/LicenseSection'
 import { STATUS_COLORS } from '../constants/colors'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 export default function Settings() {
   const { t, lang, setLang } = useLang()
@@ -116,7 +117,8 @@ export default function Settings() {
     try {
       await invoke('set_config', { key: 'badge_notify_imap', value: val ? '1' : '0' })
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.toggleImapNotify')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -125,7 +127,8 @@ export default function Settings() {
     try {
       await invoke('set_config', { key: 'badge_notify_tracking', value: val ? '1' : '0' })
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.toggleTrackingNotify')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -135,7 +138,8 @@ export default function Settings() {
       await getCurrentWindow().setAlwaysOnTop(val)
       await invoke('set_config', { key: 'always_on_top', value: val ? '1' : '0' })
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.toggleAlwaysOnTop')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -144,7 +148,8 @@ export default function Settings() {
       await invoke('set_config', { key: 'autolock_timeout', value: val })
       setAutoLock(val)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.setAutoLockTimeout')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -152,7 +157,8 @@ export default function Settings() {
     try {
       await invoke('lock')
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.handleLock')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -181,7 +187,8 @@ export default function Settings() {
       toastOk(t('settings_bin_api_saved'))
       setTimeout(() => setBinApiSaved(false), 2000)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.saveBinApiKey')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -194,7 +201,8 @@ export default function Settings() {
       setLastBackup(now)
       toastOk(t('settings_backup_created') + ': ' + path)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.handleBackup')
+      toastErr(getErrorMessage(error))
     } finally {
       setExportingBackup(false)
     }
@@ -217,7 +225,8 @@ export default function Settings() {
       await invoke('import_backup', { path })
       toastOk(t('settings_backup_restored'))
     } catch (e) {
-      toastErr(t('settings_restore_failed') + ': ' + String(e))
+      const error = handleError(e, 'Settings.handleRestore')
+      toastErr(t('settings_restore_failed') + ': ' + getErrorMessage(error))
     } finally {
       setRestoring(false)
     }
@@ -233,7 +242,8 @@ export default function Settings() {
       setNewGroupName('')
       toastOk('Sync group created!')
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.handleCreateGroup')
+      toastErr(getErrorMessage(error))
     } finally {
       setSyncGroupLoading(false)
     }
@@ -249,7 +259,8 @@ export default function Settings() {
       setJoinCode('')
       toastOk('Joined sync group!')
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.handleJoinGroup')
+      toastErr(getErrorMessage(error))
     } finally {
       setSyncGroupLoading(false)
     }
@@ -261,7 +272,8 @@ export default function Settings() {
       const code = await invoke('sync_create_pair_code')
       setGeneratedCode(code)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.handleGenerateCode')
+      toastErr(getErrorMessage(error))
     } finally {
       setGeneratingCode(false)
     }
@@ -279,7 +291,8 @@ export default function Settings() {
       setGeneratedCode(null)
       toastOk('Left sync group')
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.handleLeaveGroup')
+      toastErr(getErrorMessage(error))
     }
   }
 
@@ -298,7 +311,8 @@ export default function Settings() {
       setPwForm({ current: '', next: '', confirm: '' })
       setChangingPw(false)
     } catch (e) {
-      toastErr(String(e))
+      const error = handleError(e, 'Settings.handleChangePassword')
+      toastErr(getErrorMessage(error))
     }
   }
 

@@ -8,6 +8,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Lock } from 'lucide-react'
 import { ORDER_STATUS_CSS } from './constants/status.js'
 import { HEX_COLORS } from './constants/colors.js'
+import { handleError, getErrorMessage } from './utils/errorHandler.js'
 import './index.css'
 
 // ─── Copy button ──────────────────────────────────────────────
@@ -186,7 +187,8 @@ function ProfileFloat() {
         // Ignore if no orders found
       }
     } catch (e) {
-      setError(String(e))
+      const error = handleError(e, 'Float.load')
+      setError(getErrorMessage(error))
     } finally {
       setLoading(false)
     }
@@ -683,7 +685,8 @@ function ProfileFloat() {
               toastOk('Order marked as delivered')
               await load(profileId)
             } catch (e) {
-              toastErr(String(e))
+              const error = handleError(e, 'Float.markDelivered')
+              toastErr(getErrorMessage(error))
             }
           }}
         >
@@ -707,7 +710,8 @@ function ProfileFloat() {
               toastOk('Order marked as declined')
               await load(profileId)
             } catch (e) {
-              toastErr(String(e))
+              const error = handleError(e, 'Float.markDeclined')
+              toastErr(getErrorMessage(error))
             }
           }}
         >

@@ -126,7 +126,8 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
       setPreview(p)
       setStep(2)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Profiles.handlePreview')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -139,7 +140,8 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
       setResult(r)
       setStep(3)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Profiles.handleImport')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -501,7 +503,8 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
       setDetail(d)
       setNotes(d.profile.notes || '')
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Profiles.loadDetail')
+      toast(getErrorMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -518,7 +521,8 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
       setEditNotes(false)
       toast('Notes saved', 'success')
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Profiles.handleSaveNotes')
+      toast(getErrorMessage(error), 'error')
     }
   }
 

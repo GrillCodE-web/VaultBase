@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DEFAULT_PAGE_SIZE } from '../utils/pagination.js'
 import { STATUS_COLORS, RISK_COLORS } from '../constants/colors'
+import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 // ─── Score badge ──────────────────────────────────────────────
 
@@ -72,7 +73,8 @@ function ItemsTab() {
         setTotal(r.total)
         setPages(r.pages)
       } catch (e) {
-        toast(String(e), 'error')
+        const error = handleError(e, 'Catalog.loadItems')
+        toast(getErrorMessage(error), 'error')
       } finally {
         setLoading(false)
       }
@@ -105,7 +107,8 @@ function ItemsTab() {
       await invoke('toggle_catalog_item_stop', { id: item.id, stop: !item.stop })
       setItems(prev => prev.map(i => (i.id === item.id ? { ...i, stop: !i.stop } : i)))
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Catalog.handleToggleStop')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -123,7 +126,8 @@ function ItemsTab() {
       setSelected(new Set())
       load(page, search)
     } catch (e) {
-      toast(String(e), 'error')
+      const error = handleError(e, 'Catalog.handleBulkDelete')
+      toast(getErrorMessage(error), 'error')
     }
   }
 
@@ -314,7 +318,8 @@ function ShopsTab() {
         setTotal(r.total)
         setPages(r.pages)
       } catch (e) {
-        toast(String(e), 'error')
+        const error = handleError(e, 'Catalog.loadShops')
+        toast(getErrorMessage(error), 'error')
       } finally {
         setLoading(false)
       }
