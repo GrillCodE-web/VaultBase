@@ -535,16 +535,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
         <tr>
           <td
             colSpan={99}
-            style={{
-              padding: '5px 10px',
-              background: 'var(--surface)',
-              color: 'var(--muted)',
-              fontSize: 10,
-              fontWeight: 700,
-              borderBottom: '1px solid var(--border)',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-            }}
+            className="bg-surface text-muted text-[10px] font-bold border-b uppercase tracking-wide"
+            style={{ padding: '5px 10px' }}
           >
             {bank} · {groupCards.length} {t('cards')} ·{' '}
             {groupCards.filter(c => c.status === 'free').length} {t('status_free')}
@@ -614,14 +606,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
               {total.toLocaleString()} {t('nav_cards')}
             </span>
             {freeTotal > 0 && (
-              <span
-                style={{
-                  marginLeft: 8,
-                  fontSize: 12,
-                  color: 'var(--color-success)',
-                  fontWeight: 400,
-                }}
-              >
+              <span className="text-[12px] text-green-t font-normal" style={{ marginLeft: 8 }}>
                 · {freeTotal.toLocaleString()} {t('status_free')}
               </span>
             )}
@@ -696,14 +681,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       {/* Expiring soon banner */}
       {activeTab === 'expiring' && (
         <div
+          className="text-[12px] text-yellow-t rounded-md mb-2"
           style={{
             padding: '8px 14px',
             background: 'var(--color-warning-bg)',
             border: '1px solid var(--color-warning-bg)',
-            borderRadius: 8,
-            marginBottom: 10,
-            color: 'var(--color-warning)',
-            fontSize: 12,
           }}
         >
           {t('cards_expiring_banner')}
@@ -713,23 +695,16 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       {/* Bulk action bar — fixed bottom */}
       {selected.size > 0 && (
         <div
+          className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100"
           style={{
-            position: 'fixed',
             bottom: 24,
             left: '50%',
             transform: 'translateX(-50%)',
             padding: '10px 18px',
-            background: 'var(--card)',
-            border: '1px solid var(--accent-border)',
-            borderRadius: 12,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
             gap: 10,
-            zIndex: 100,
           }}
         >
-          <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 12 }}>
+          <span className="text-accent font-semibold text-[12px]">
             {selected.size} {t('selected')}
           </span>
           <div className="flex gap-1 flex-wrap">
@@ -743,10 +718,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
               {t('cc_mark_dead')}
             </button>
             {enrichProgress ? (
-              <span
-                className="text-[12px] text-muted"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
+              <span className="text-[12px] text-muted inline-flex items-center gap-1\.5">
                 <RefreshCw size={12} className="spin" />
                 {enrichProgress.done} / {enrichProgress.total}
               </span>
@@ -771,14 +743,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           </div>
           <button
             onClick={() => clearSelection()}
-            style={{
-              marginLeft: 'auto',
-              background: 'none',
-              border: 'none',
-              color: 'var(--muted)',
-              cursor: 'pointer',
-              fontSize: 14,
-            }}
+            className="ml-auto bg-transparent border-none text-muted cursor-pointer text-[14px]"
           >
             ✕
           </button>
@@ -834,13 +799,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                 <tr>
                   {/* #48 — frozen checkbox column */}
                   <th
-                    style={{
-                      width: 36,
-                      background: 'var(--card)',
-                      position: 'sticky',
-                      left: 0,
-                      zIndex: 4,
-                    }}
+                    className="bg-card"
+                    style={{ width: 36, position: 'sticky', left: 0, zIndex: 4 }}
                   >
                     <input
                       type="checkbox"
@@ -877,12 +837,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                       <span className="flex items-center gap-1">
                         {c.id !== 'actions' && (
                           <span
-                            style={{
-                              color: 'var(--muted)',
-                              fontSize: 9,
-                              opacity: 0.5,
-                              lineHeight: 1,
-                            }}
+                            className="text-muted text-[9px]"
+                            style={{ opacity: 0.5, lineHeight: 1 }}
                           >
                             ⠿
                           </span>
@@ -915,10 +871,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             </button>
             {buildPageNumbers(page, totalPages).map((p, i) =>
               p === '…' ? (
-                <span
-                  key={i}
-                  style={{ padding: '0 4px', color: 'var(--muted)', lineHeight: '28px' }}
-                >
+                <span key={i} className="text-muted px-1" style={{ lineHeight: '28px' }}>
                   …
                 </span>
               ) : (

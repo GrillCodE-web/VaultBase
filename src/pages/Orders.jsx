@@ -45,7 +45,7 @@ function OrderTimeline({ status, updatedAt }) {
   const currentIdx = steps.indexOf(status)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-0">
         {steps.map((step, i) => {
           const isPast = i < currentIdx
@@ -70,40 +70,39 @@ function OrderTimeline({ status, updatedAt }) {
           return (
             <div
               key={step}
-              style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 0 }}
+              className="flex items-center"
+              style={{ flex: i < steps.length - 1 ? 1 : 0 }}
             >
-              <div className="flex flex-col items-center gap-1">
+              <div className="flex flex-col items-center gap-0\.5">
                 <div
+                  className="rounded-full shrink-0"
                   style={{
                     width: isCurrent ? 12 : 10,
                     height: isCurrent ? 12 : 10,
-                    borderRadius: '50%',
                     background: color,
                     boxShadow: isCurrent ? `0 0 0 3px ${glowColor}, 0 0 12px ${glowColor}` : 'none',
-                    flexShrink: 0,
                     transition: 'all 0.2s ease',
                   }}
                 />
                 <span
+                  className="text-[10px] whitespace-nowrap"
                   style={{
-                    fontSize: 10,
                     color: isFuture ? 'var(--muted)' : 'var(--text-2)',
-                    whiteSpace: 'nowrap',
                     fontWeight: isCurrent ? 600 : 400,
                   }}
                 >
                   {step}
                 </span>
                 {isCurrent && updatedAt && (
-                  <span style={{ fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                  <span className="text-[9px] text-muted whitespace-nowrap">
                     {updatedAt.slice(0, 10)}
                   </span>
                 )}
               </div>
               {i < steps.length - 1 && (
                 <div
+                  className="flex-1 rounded-sm"
                   style={{
-                    flex: 1,
                     height: 1.5,
                     background: isPast
                       ? 'linear-gradient(90deg, var(--green), var(--green))'
@@ -111,7 +110,6 @@ function OrderTimeline({ status, updatedAt }) {
                     margin: '0 6px',
                     marginBottom: 16,
                     minWidth: 40,
-                    borderRadius: 1,
                   }}
                 />
               )}
@@ -151,28 +149,15 @@ function RiskBlock({ result, loading }) {
 
   if (loading) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 12px',
-          borderRadius: 12,
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          fontSize: 12,
-          color: 'var(--muted)',
-        }}
-      >
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border text-[12px] text-muted">
         <div
+          className="rounded-full shrink-0"
           style={{
             width: 12,
             height: 12,
-            borderRadius: '50%',
             border: '1.5px solid var(--border-hi)',
             borderTopColor: 'var(--text-2)',
             animation: 'spin 0.7s linear infinite',
-            flexShrink: 0,
           }}
         />
         {t('risk_checking')}
@@ -225,40 +210,23 @@ function RiskBlock({ result, loading }) {
 
   return (
     <div
-      style={{
-        borderRadius: 12,
-        border: `1px solid ${c.borderColor}`,
-        background: c.bg,
-        overflow: 'hidden',
-      }}
+      className="rounded-lg overflow-hidden"
+      style={{ border: `1px solid ${c.borderColor}`, background: c.bg }}
     >
       <button
         onClick={() => result.warnings?.length && setOpen(o => !o)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          padding: '8px 12px',
-          fontSize: 12,
-          background: 'transparent',
-          border: 'none',
-          cursor: result.warnings?.length ? 'pointer' : 'default',
-          color: 'var(--text)',
-        }}
+        className="flex items-center justify-between w-full px-3 py-2 text-[12px] bg-transparent border-none text-text"
+        style={{ cursor: result.warnings?.length ? 'pointer' : 'default' }}
       >
         <div className="flex items-center gap-2">
           <IconComponent size={14} style={{ color: c.iconColor }} />
-          <span style={{ fontWeight: 500, color: c.textColor }}>{c.label}</span>
+          <span className="font-medium" style={{ color: c.textColor }}>
+            {c.label}
+          </span>
           {result.offline && (
             <span
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                color: `${STATUS_COLORS.warning}B3`,
-                fontSize: 11,
-              }}
+              className="flex items-center gap-1 text-[11px]"
+              style={{ color: `${STATUS_COLORS.warning}B3` }}
             >
               <Wifi size={11} /> {t('license_offline')}
             </span>
@@ -267,8 +235,8 @@ function RiskBlock({ result, loading }) {
         {result.warnings?.length > 0 && (
           <ChevronDown
             size={13}
+            className="text-muted"
             style={{
-              color: 'var(--muted)',
               transform: open ? 'rotate(180deg)' : 'none',
               transition: 'transform 0.2s',
             }}
@@ -280,24 +248,22 @@ function RiskBlock({ result, loading }) {
           {result.warnings.map((w, i) => (
             <div
               key={i}
+              className="flex items-start gap-2 px-3 py-2 text-[12px]"
               style={{
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 8,
-                fontSize: 12,
                 borderBottom: i < result.warnings.length - 1 ? '1px solid var(--border)' : 'none',
               }}
             >
               {w.severity === 'high' ? (
                 <AlertTriangle
                   size={11}
-                  style={{ color: STATUS_COLORS.error, marginTop: 2, flexShrink: 0 }}
+                  className="shrink-0 mt-0\.5"
+                  style={{ color: STATUS_COLORS.error }}
                 />
               ) : (
                 <AlertCircle
                   size={11}
-                  style={{ color: STATUS_COLORS.warning, marginTop: 2, flexShrink: 0 }}
+                  className="shrink-0 mt-0\.5"
+                  style={{ color: STATUS_COLORS.warning }}
                 />
               )}
               <span className="text-text-2">{w.message}</span>
@@ -431,16 +397,12 @@ function StatusMenu({ order, onUpdate, onClose }) {
   return (
     <>
       <div
+        className="absolute bg-card border rounded-lg overflow-hidden"
         style={{
-          position: 'absolute',
           right: 0,
           top: 32,
           zIndex: 30,
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 12,
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          overflow: 'hidden',
           width: 160,
         }}
       >
@@ -448,26 +410,13 @@ function StatusMenu({ order, onUpdate, onClose }) {
           <button
             key={s}
             onClick={() => handleStatus(s)}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '8px 12px',
-              fontSize: 12,
-              color: 'var(--text-2)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
+            className="w-full text-left px-3 py-2 text-[12px] text-text-2 bg-transparent border-none cursor-pointer flex items-center gap-2"
           >
             <span
+              className="rounded-full shrink-0"
               style={{
                 width: 6,
                 height: 6,
-                borderRadius: '50%',
-                flexShrink: 0,
                 backgroundColor: STATUS_DOT_COLOR[s] ?? 'var(--text-2)',
               }}
             />
@@ -562,12 +511,12 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
           </button>
         </div>
 
-        <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16, lineHeight: 1.5 }}>
-          Repeat order for <strong style={{ color: 'var(--text)' }}>{shopLabel}</strong>
+        <div className="text-[13px] text-text-2 mb-4" style={{ lineHeight: 1.5 }}>
+          Repeat order for <strong className="text-text">{shopLabel}</strong>
           {itemLabel !== '—' && (
             <>
               {' '}
-              — <span style={{ color: 'var(--muted)' }}>{itemLabel}</span>
+              — <span className="text-muted">{itemLabel}</span>
             </>
           )}
           ?
@@ -1154,9 +1103,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                               catalog
                             </span>
                           )}
-                          {s.domain && !s._fromCatalog && (
-                            <span style={{ fontFamily: 'monospace' }}>{s.domain}</span>
-                          )}
+                          {s.domain && !s._fromCatalog && <span className="mono">{s.domain}</span>}
                           {s.score > 0 && (
                             <span
                               style={{

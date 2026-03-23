@@ -73,28 +73,11 @@ function DropForm({ initial, onSave, onCancel }) {
   ]
 
   return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        borderRadius: 8,
-        border: '1px solid var(--border)',
-        padding: 16,
-        marginTop: 8,
-      }}
-    >
+    <div className="bg-surface rounded-md border p-4 mt-2">
       <div className="grid grid-cols-2 gap-3">
         {fields.map(([key, label, span]) => (
           <div key={key} style={span === 2 ? { gridColumn: '1 / -1' } : {}}>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: 'var(--muted)',
-                marginBottom: 4,
-              }}
-            >
+            <label className="block text-[10px] uppercase tracking-wide text-muted mb-1">
               {label}
             </label>
             <input value={form[key]} onChange={set(key)} className="form-input w-full box-border" />
