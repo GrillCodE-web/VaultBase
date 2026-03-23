@@ -1,28 +1,44 @@
-import { useState, useCallback, useRef, createContext, useContext } from "react";
-import { CheckCircle, XCircle, AlertTriangle, Info } from "lucide-react";
+import { useState, useCallback, useRef, createContext, useContext } from 'react'
+import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react'
 
-const ToastContext = createContext(null);
+const ToastContext = createContext(null)
 
-let _id = 0;
+let _id = 0
 
 const TOAST_STYLES = {
   success: {
-    bg: "var(--card)", border: "var(--border)", leftBorder: "#22c55e",
-    color: "#ffffff", iconColor: "#4ade80", Icon: CheckCircle,
+    bg: 'var(--card)',
+    border: 'var(--border)',
+    leftBorder: '#22c55e',
+    color: '#ffffff',
+    iconColor: '#4ade80',
+    Icon: CheckCircle,
   },
   error: {
-    bg: "var(--card)", border: "var(--border)", leftBorder: "#ef4444",
-    color: "#ffffff", iconColor: "#f87171", Icon: XCircle,
+    bg: 'var(--card)',
+    border: 'var(--border)',
+    leftBorder: '#ef4444',
+    color: '#ffffff',
+    iconColor: '#f87171',
+    Icon: XCircle,
   },
   warn: {
-    bg: "var(--card)", border: "var(--border)", leftBorder: "#eab308",
-    color: "#ffffff", iconColor: "#facc15", Icon: AlertTriangle,
+    bg: 'var(--card)',
+    border: 'var(--border)',
+    leftBorder: '#eab308',
+    color: '#ffffff',
+    iconColor: '#facc15',
+    Icon: AlertTriangle,
   },
   info: {
-    bg: "var(--card)", border: "var(--border)", leftBorder: "#3b82f6",
-    color: "#ffffff", iconColor: "#60a5fa", Icon: Info,
+    bg: 'var(--card)',
+    border: 'var(--border)',
+    leftBorder: '#3b82f6',
+    color: '#ffffff',
+    iconColor: '#60a5fa',
+    Icon: Info,
   },
-};
+}
 
 const KEYFRAME_CSS = `
 @keyframes toast-in {
@@ -30,49 +46,52 @@ const KEYFRAME_CSS = `
   to   { transform: translateX(0);    opacity: 1; }
 }
 @keyframes toast-progress { from{width:100%} to{width:0%} }
-`;
+`
 
 export function ToastProvider({ children }) {
-  const [toasts, setToasts]       = useState([]);
-  const [hoveredId, setHoveredId] = useState(null);
-  const timers = useRef({});
+  const [toasts, setToasts] = useState([])
+  const [hoveredId, setHoveredId] = useState(null)
+  const timers = useRef({})
 
-  const remove = useCallback((id) => {
-    clearTimeout(timers.current[id]);
-    delete timers.current[id];
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const remove = useCallback(id => {
+    clearTimeout(timers.current[id])
+    delete timers.current[id]
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
 
   const toast = useCallback(
     (msgOrObj, typeArg) => {
-      const message  = typeof msgOrObj === "string" ? msgOrObj : msgOrObj.message;
-      const type     = typeof msgOrObj === "string" ? (typeArg ?? "info") : (msgOrObj.type ?? "info");
-      const duration = typeof msgOrObj === "object" ? (msgOrObj.duration ?? 3500) : 3500;
-      const action   = typeof msgOrObj === "object" ? (msgOrObj.action ?? null) : null;
-      const id = ++_id;
-      setToasts((prev) => {
-        const next = [...prev, { id, message, type, duration, action }];
-        return next.length > 5 ? next.slice(next.length - 5) : next;
-      });
-      timers.current[id] = setTimeout(() => remove(id), duration);
+      const message = typeof msgOrObj === 'string' ? msgOrObj : msgOrObj.message
+      const type = typeof msgOrObj === 'string' ? (typeArg ?? 'info') : (msgOrObj.type ?? 'info')
+      const duration = typeof msgOrObj === 'object' ? (msgOrObj.duration ?? 3500) : 3500
+      const action = typeof msgOrObj === 'object' ? (msgOrObj.action ?? null) : null
+      const id = ++_id
+      setToasts(prev => {
+        const next = [...prev, { id, message, type, duration, action }]
+        return next.length > 5 ? next.slice(next.length - 5) : next
+      })
+      timers.current[id] = setTimeout(() => remove(id), duration)
     },
     [remove]
-  );
+  )
 
-  const success = useCallback((msg) => toast({ message: msg, type: "success" }), [toast]);
-  const error   = useCallback((msg) => toast({ message: msg, type: "error" }),   [toast]);
-  const warn    = useCallback((msg) => toast({ message: msg, type: "warn" }),    [toast]);
-  const info    = useCallback((msg) => toast({ message: msg, type: "info" }),    [toast]);
+  const success = useCallback(msg => toast({ message: msg, type: 'success' }), [toast])
+  const error = useCallback(msg => toast({ message: msg, type: 'error' }), [toast])
+  const warn = useCallback(msg => toast({ message: msg, type: 'warn' }), [toast])
+  const info = useCallback(msg => toast({ message: msg, type: 'info' }), [toast])
 
-  const handleMouseEnter = useCallback((t) => {
-    setHoveredId(t.id);
-    clearTimeout(timers.current[t.id]);
-  }, []);
+  const handleMouseEnter = useCallback(t => {
+    setHoveredId(t.id)
+    clearTimeout(timers.current[t.id])
+  }, [])
 
-  const handleMouseLeave = useCallback((t) => {
-    setHoveredId(null);
-    timers.current[t.id] = setTimeout(() => remove(t.id), t.duration * 0.4);
-  }, [remove]);
+  const handleMouseLeave = useCallback(
+    t => {
+      setHoveredId(null)
+      timers.current[t.id] = setTimeout(() => remove(t.id), t.duration * 0.4)
+    },
+    [remove]
+  )
 
   return (
     <ToastContext.Provider value={{ toast, success, error, warn, info }}>
@@ -82,52 +101,54 @@ export function ToastProvider({ children }) {
         role="region"
         aria-live="polite"
         aria-label="Notifications"
-        style={{
-          position: "fixed", bottom: "20px", right: "20px",
-          zIndex: 9999, display: "flex", flexDirection: "column-reverse",
-          gap: "8px", pointerEvents: "none",
-        }}
+        className="fixed bottom-5 right-5 flex flex-col-reverse gap-2 pointer-events-none"
+        style={{ zIndex: 9999 }}
       >
-        {toasts.map((t) => {
-          const s = TOAST_STYLES[t.type] ?? TOAST_STYLES.info;
-          const isHovered = hoveredId === t.id;
+        {toasts.map(t => {
+          const s = TOAST_STYLES[t.type] ?? TOAST_STYLES.info
+          const isHovered = hoveredId === t.id
           return (
             <div
               key={t.id}
-              onClick={() => { if (!t.action) remove(t.id); }}
+              onClick={() => {
+                if (!t.action) remove(t.id)
+              }}
               onMouseEnter={() => handleMouseEnter(t)}
               onMouseLeave={() => handleMouseLeave(t)}
+              className="flex items-center gap-2.5 rounded-xl text-sm font-medium pointer-events-auto relative overflow-hidden select-none transition-shadow"
               style={{
-                display: "flex", alignItems: "center", gap: "10px",
                 background: s.bg,
                 border: `1px solid ${s.border}`,
                 borderLeft: `3px solid ${s.leftBorder}`,
-                borderRadius: "10px", padding: "10px 14px",
-                fontSize: "13px", lineHeight: "1.4", fontWeight: 500,
-                color: s.color, minWidth: "220px", maxWidth: "400px",
-                cursor: t.action ? "default" : "pointer",
-                pointerEvents: "auto",
-                animation: "toast-in 220ms ease-out",
-                boxSizing: "border-box", position: "relative", overflow: "hidden",
+                padding: '10px 14px',
+                lineHeight: '1.4',
+                color: s.color,
+                minWidth: '220px',
+                maxWidth: '400px',
+                cursor: t.action ? 'default' : 'pointer',
+                animation: 'toast-in 220ms ease-out',
                 boxShadow: isHovered
                   ? `0 6px 24px rgba(0,0,0,0.7), 0 0 0 1px ${s.leftBorder}50`
                   : `0 4px 16px rgba(0,0,0,0.55), 0 0 0 1px ${s.border}`,
-                userSelect: "none", transition: "box-shadow 150ms",
               }}
             >
-              <span style={{ flexShrink: 0, color: s.iconColor, lineHeight: 1, display: "flex" }}>
+              <span className="shrink-0 flex" style={{ color: s.iconColor, lineHeight: 1 }}>
                 {s.Icon && <s.Icon size={16} />}
               </span>
               <span className="flex-1">{t.message}</span>
 
               {t.action && (
                 <span
-                  onClick={(e) => { e.stopPropagation(); t.action.onClick(); remove(t.id); }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    t.action.onClick()
+                    remove(t.id)
+                  }}
+                  className="text-xs font-bold shrink-0 px-2 py-0.5 rounded cursor-pointer transition-colors"
                   style={{
-                    color: "#60a5fa", cursor: "pointer", fontWeight: 700,
-                    fontSize: 12, flexShrink: 0, padding: "2px 8px",
-                    borderRadius: 4, border: "1px solid rgba(96,165,250,0.4)",
-                    marginLeft: 4, transition: "background 150ms",
+                    color: '#60a5fa',
+                    border: '1px solid rgba(96,165,250,0.4)',
+                    marginLeft: 4,
                   }}
                 >
                   {t.action.label}
@@ -136,28 +157,36 @@ export function ToastProvider({ children }) {
 
               {t.action && (
                 <span
-                  onClick={(e) => { e.stopPropagation(); remove(t.id); }}
-                  style={{ color: "var(--muted)", cursor: "pointer", fontSize: 13, marginLeft: 2, flexShrink: 0 }}
-                >✕</span>
+                  onClick={e => {
+                    e.stopPropagation()
+                    remove(t.id)
+                  }}
+                  className="text-sm cursor-pointer shrink-0 text-muted"
+                  style={{ marginLeft: 2 }}
+                >
+                  ✕
+                </span>
               )}
 
-              <div style={{
-                position: "absolute", bottom: 0, left: 0,
-                height: 2, background: s.leftBorder, borderRadius: "0 0 10px 10px",
-                animation: `toast-progress ${t.duration}ms linear forwards`,
-                animationPlayState: isHovered ? "paused" : "running",
-              }} />
+              <div
+                className="absolute bottom-0 left-0 h-0.5 rounded-b-xl"
+                style={{
+                  background: s.leftBorder,
+                  animation: `toast-progress ${t.duration}ms linear forwards`,
+                  animationPlayState: isHovered ? 'paused' : 'running',
+                }}
+              />
             </div>
-          );
+          )
         })}
       </div>
     </ToastContext.Provider>
-  );
+  )
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- Hook export pattern
 export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
-  return ctx;
+  const ctx = useContext(ToastContext)
+  if (!ctx) throw new Error('useToast must be used inside <ToastProvider>')
+  return ctx
 }
