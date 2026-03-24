@@ -27,7 +27,16 @@ const STRENGTH_META = [
 
 // ─── Password input with show/hide toggle ─────────────────────────────────
 
-function PasswordInput({ value, onChange, placeholder, onKeyDown, autoFocus, id }) {
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  onKeyDown,
+  autoFocus,
+  id,
+  'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedby,
+}) {
   const [show, setShow] = useState(false)
   return (
     <div className="relative">
@@ -41,12 +50,15 @@ function PasswordInput({ value, onChange, placeholder, onKeyDown, autoFocus, id 
         autoFocus={autoFocus}
         autoComplete="off"
         spellCheck={false}
+        aria-label={ariaLabel}
+        aria-describedby={ariaDescribedby}
         className="auth-input pr-11"
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setShow(v => !v)}
+        aria-label={show ? 'Hide password' : 'Show password'}
         className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-muted p-0"
       >
         {show ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -169,7 +181,9 @@ export default function Login({ onUnlocked }) {
         <div className="auth-card">
           {/* Password field */}
           <div className="form-group">
-            <label className="auth-label">{t('auth_password_label')}</label>
+            <label className="auth-label" htmlFor="password">
+              {t('auth_password_label')}
+            </label>
             <PasswordInput
               id="password"
               value={password}
@@ -180,12 +194,15 @@ export default function Login({ onUnlocked }) {
               placeholder="••••••••••••"
               onKeyDown={mode === 'unlock' ? handleKeyDown : undefined}
               autoFocus
+              aria-label={t('auth_password_label')}
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={mode === 'setup' && password ? 'password-strength' : undefined}
             />
           </div>
 
           {/* Strength bar (setup only) */}
           {mode === 'setup' && password.length > 0 && (
-            <div className="form-group">
+            <div className="form-group" id="password-strength" role="status" aria-live="polite">
               <div className="auth-strength-bar">
                 {[0, 1, 2, 3].map(i => {
                   const colors = [
@@ -238,7 +255,9 @@ export default function Login({ onUnlocked }) {
           {/* Confirm password (setup only) */}
           {mode === 'setup' && (
             <div className="form-group">
-              <label className="auth-label">{t('auth_confirm_label')}</label>
+              <label className="auth-label" htmlFor="confirm">
+                {t('auth_confirm_label')}
+              </label>
               <PasswordInput
                 id="confirm"
                 value={confirm}
@@ -248,12 +267,18 @@ export default function Login({ onUnlocked }) {
                 }}
                 placeholder="••••••••••••"
                 onKeyDown={handleKeyDown}
+                aria-label={t('auth_confirm_label')}
+                aria-invalid={error && password !== confirm ? 'true' : undefined}
               />
             </div>
           )}
 
           {/* Error */}
-          {error && <div className="auth-error">{error}</div>}
+          {error && (
+            <div className="auth-error" role="alert" aria-live="assertive">
+              {error}
+            </div>
+          )}
 
           {/* Submit */}
           <button
