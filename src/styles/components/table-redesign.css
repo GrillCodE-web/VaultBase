@@ -61,7 +61,9 @@
 
 /* ── Row Hover Effect ───────────────────────────────────── */
 .tbl tbody tr {
-  transition: all var(--t-fast);
+  transition:
+    background 0.1s ease-out,
+    border-left-color 0.1s ease-out;
   position: relative;
   border-left: 2px solid transparent;
 }
@@ -73,14 +75,13 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--gradient-accent);
+  background: var(--accent);
   opacity: 0;
-  transition: opacity var(--t-fast);
+  transition: opacity 0.1s ease-out;
 }
 
 .tbl tr:hover {
-  background: rgba(0, 217, 255, 0.06);
-  transform: translateX(2px);
+  background: rgba(0, 217, 255, 0.04);
 }
 
 .tbl tr:hover::before {
