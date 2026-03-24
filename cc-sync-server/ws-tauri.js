@@ -28,13 +28,39 @@ module.exports = function initWsTauri(wss, io) {
     ws.authenticated = false;
     ws.installationId = null;
     ws.groupId = null;
+    ws.messageCount = 0;
+    ws.lastMessageTime = Date.now();
 
     // Auth timeout — 10 seconds
     const authTimeout = setTimeout(() => {
       if (!ws.authenticated) ws.close(4001, 'auth_timeout');
     }, 10_000);
 
+    // FIX WS-RATELIMIT-01: Rate limiting per connection
+    const rateLimitInterval = setInterval(() => {
+      const now = Date.now();
+      if (now - ws.lastMessageTime > 1000) {
+        ws.messageCount = 0; // Reset counter every second
+      }
+      if (ws.messageCount > 50) {
+        ws.close(4002, 'rate_limit_exceeded');
+        clearInterval(rateLimitInterval);
+      }
+    }, 1000);
+
+    ws.on('close', () => clearInterval(rateLimitInterval));
+
     ws.on('message', (raw) => {
+      // FIX WS-RATELIMIT-02: Count messages for rate limiting
+      ws.messageCount++;
+      ws.lastMessageTime = Date.now();
+
+      // FIX WS-MAXPAYLOAD-02: Limit message size
+      if (raw.length > 1024 * 1024) { // 1MB
+        ws.close(4003, 'message_too_large');
+        return;
+      }
+
       let msg;
       try { msg = JSON.parse(raw.toString()); }
       catch { return; }
@@ -107,6 +133,11 @@ module.exports = function initWsTauri(wss, io) {
         if (!ws.groupId) { send(ws, { type: 'error', error: 'not_in_group' }); return; }
         const { cards } = msg;
         if (!Array.isArray(cards)) return;
+        // FIX WS-VALIDATION-03: Validate batch size
+        if (cards.length > 100) {
+          send(ws, { type: 'error', error: 'too_many_cards' });
+          return;
+        }
 
         const db = getDb();
         const stmt = db.prepare(`
@@ -122,14 +153,18 @@ module.exports = function initWsTauri(wss, io) {
 
         const updated = [];
         for (const card of cards) {
-          if (!card.card_hash || !card.status) continue;
+          // FIX WS-VALIDATION-04: Strict validation of card data
+          if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
+          if (!card.status || !['free', 'in_use', 'archive', 'declined', 'dead'].includes(card.status)) continue;
+          // Sanitize notes
+          const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
           const inW  = weight(card.status);
           const db2  = getDb();
           const existing = db2.prepare('SELECT status FROM sync_cards WHERE card_hash=? AND group_id=?').get(card.card_hash, ws.groupId);
           const curW = weight(existing?.status || 'free');
           stmt.run(
             card.card_hash, ws.groupId, card.encrypted_data || null,
-            card.status, card.notes || null, ws.installationId,
+            card.status, notes, ws.installationId,
             // CASE WHEN params (new_weight > cur_weight)
             inW, curW,
             inW, curW,

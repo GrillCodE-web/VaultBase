@@ -11,8 +11,15 @@ function logSocketEvent(type, data) {
 
 function initSocket(httpServer) {
   const io = new Server(httpServer, {
-    cors: { origin: '*', methods: ['GET', 'POST'] },
+    // FIX WS-CORS-01: Restrict CORS to known origins in production
+    cors: {
+      origin: process.env.WS_ALLOWED_ORIGINS?.split(',') || '*',
+      methods: ['GET', 'POST'],
+      credentials: true
+    },
     transports: ['websocket', 'polling'],
+    // FIX WS-MAXPAYLOAD-01: Limit message size to prevent DoS
+    maxHttpBufferSize: 1e6, // 1MB max
   });
 
   // Map: token → { socket_id, group_id, installation_id }
@@ -86,6 +93,11 @@ function initSocket(httpServer) {
       if (!socket.groupId) return;
       const { cards } = data || {};
       if (!Array.isArray(cards)) return;
+      // FIX WS-VALIDATION-01: Validate card data before processing
+      if (cards.length > 100) {
+        socket.emit('error', { message: 'too_many_cards' });
+        return;
+      }
 
       const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
       const stmt = db.prepare(`
@@ -101,8 +113,12 @@ function initSocket(httpServer) {
 
       const results = [];
       for (const card of cards) {
-        if (!card.card_hash || !card.status) continue;
-        stmt.run(card.card_hash, socket.groupId, card.encrypted_data || null, card.status, card.notes || null, socket.installationId);
+        // FIX WS-VALIDATION-02: Strict validation of card_hash and status
+        if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
+        if (!card.status || !['free', 'in_use', 'archive', 'declined', 'dead'].includes(card.status)) continue;
+        // Sanitize notes if present
+        const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
+        stmt.run(card.card_hash, socket.groupId, card.encrypted_data || null, card.status, notes, socket.installationId);
         results.push({ card_hash: card.card_hash, status: card.status });
       }
 

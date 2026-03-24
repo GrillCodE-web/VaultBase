@@ -95,8 +95,12 @@ fn ws_loop(app: AppHandle, db_path: String, running: Arc<AtomicBool>, creds: Sha
 
         match connect(WS_URL) {
             Ok((mut socket, _)) => {
+                // FIX WS-TOKEN-01: Sanitize token before sending (prevent injection)
+                let token_sanitized = token.chars()
+                    .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+                    .collect::<String>();
                 // Socket.io connect packet with auth token
-                let auth_msg = format!(r#"40{{"token":"{}"}}"#, token);
+                let auth_msg = format!(r#"40{{"token":"{}"}}"#, token_sanitized);
                 if socket.send(Message::Text(auth_msg)).is_err() {
                     std::thread::sleep(Duration::from_secs(RECONNECT_SECS));
                     continue;
@@ -208,6 +212,11 @@ fn handle_socketio_event(app: &AppHandle, db_path: &str, event_name: &str, data:
                 Some(c) => c.clone(),
                 None => return,
             };
+            // FIX WS-BATCH-01: Limit batch size to prevent DoS
+            if cards.len() > 100 {
+                eprintln!("[ws_sync] Ignoring batch with {} cards (max 100)", cards.len());
+                return;
+            }
             apply_card_updates(db_path, &cards);
 
             let event = if event_name == "full_data" { "sync:full_data" } else { "sync:card_update" };
@@ -313,9 +322,18 @@ fn apply_card_updates(db_path: &str, cards: &[serde_json::Value]) {
     let _ = conn.execute_batch("PRAGMA journal_mode=WAL;");
 
     for card in cards {
-        let hash   = match card["card_hash"].as_str() { Some(h) => h, None => continue };
-        let status = match card["status"].as_str()    { Some(s) => s, None => continue };
-        let notes  = card["notes"].as_str();
+        // FIX WS-VALIDATION-05: Validate card_hash format (must be hex, min 8 chars)
+        let hash   = match card["card_hash"].as_str() {
+            Some(h) if h.len() >= 8 && h.chars().all(|c| c.is_ascii_hexdigit()) => h,
+            _ => continue
+        };
+        // FIX WS-STATUS-01: Validate status is one of allowed values
+        let status = match card["status"].as_str() {
+            Some(s) if ["free", "in_use", "archive", "declined", "dead"].contains(&s) => s,
+            _ => continue
+        };
+        // FIX WS-NOTES-01: Limit notes length to prevent DoS
+        let notes  = card["notes"].as_str().and_then(|n| if n.len() <= 500 { Some(n) } else { None });
         let new_w  = status_weight(status);
 
         let existing = conn.query_row(

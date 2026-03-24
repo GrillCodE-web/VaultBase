@@ -19,7 +19,7 @@
     "test:run": "vitest run"
   },
   "lint-staged": {
-    "*.{js,jsx}": [
+    "src/**/*.{js,jsx}": [
       "eslint --fix",
       "prettier --write"
     ],
