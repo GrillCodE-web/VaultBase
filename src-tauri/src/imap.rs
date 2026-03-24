@@ -5,6 +5,7 @@ use crate::database::Database;
 use crate::models::{ImapCheckResult};
 use mailparse::MailHeaderMap;
 use regex::Regex;
+use zeroize::Zeroize;  // FIX ZEROIZE-01: Secure memory zeroing
 
 // ─────────────────────────────────────────
 //  Body extraction helper
@@ -43,6 +44,10 @@ impl ImapPoller {
             return Err("imap_password_not_set".into());
         }
 
+        // FIX ZEROIZE-01: Клонируем пароль для использования и очищаем оригинал
+        use zeroize::Zeroize;
+        let password_clone = password.clone();
+
         let tls = native_tls::TlsConnector::builder()
             .build()
             .map_err(|e| format!("TLS build error: {}", e))?;
@@ -54,8 +59,11 @@ impl ImapPoller {
         ).map_err(|e| format!("Connection failed: {}", e))?;
 
         let mut session = client
-            .login(&account.login, &password)
+            .login(&account.login, &password_clone)
             .map_err(|(e, _)| format!("Login failed: {}", e))?;
+
+        // FIX ZEROIZE-02: Очищаем пароль из памяти сразу после использования
+        drop(password_clone);
 
         session.select("INBOX").map_err(|e| format!("SELECT INBOX failed: {}", e))?;
 

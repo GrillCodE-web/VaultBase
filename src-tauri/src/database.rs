@@ -1516,11 +1516,43 @@ impl Database {
     pub fn get_imap_messages(&self, filter: &ImapMsgFilter, page: u32, per_page: u32) -> Result<PaginatedMessages, String> {
         let pp = per_page.max(1) as i64;
         let offset = ((page.saturating_sub(1)) as i64) * pp;
+
+        // FIX SQL-INJ-01: Строгая валидация всех входных данных перед использованием в SQL
         let mut w = vec!["1=1".to_string()];
-        if let Some(aid) = filter.account_id { w.push(format!("account_id={}", aid)); }
-        if let Some(p) = filter.processed { w.push(format!("processed={}", p as i64)); }
-        if let Some(ref d) = filter.date_from { if d.chars().all(|c| c.is_ascii_digit() || c == '-') && d.len() == 10 { w.push(format!("DATE(received_at)>='{}'", d)); } }
-        if let Some(ref d) = filter.date_to   { if d.chars().all(|c| c.is_ascii_digit() || c == '-') && d.len() == 10 { w.push(format!("DATE(received_at)<='{}'", d)); } }
+
+        // account_id — только целые числа, никакие special characters
+        if let Some(aid) = filter.account_id {
+            // Дополнительная защита: проверяем, что aid — положительное число
+            if aid > 0 {
+                w.push(format!("account_id={}", aid));
+            }
+        }
+
+        // processed — только boolean 0 или 1
+        if let Some(p) = filter.processed {
+            // Boolean уже валиден (true/false), конвертируем в 1/0
+            w.push(format!("processed={}", if p { 1 } else { 0 }));
+        }
+
+        // Даты — строгая валидация формата YYYY-MM-DD
+        if let Some(ref d) = filter.date_from {
+            if d.chars().all(|c| c.is_ascii_digit() || c == '-') && d.len() == 10 && d.starts_with(|c: char| c.is_ascii_digit()) {
+                // Дополнительная проверка: только цифры и дефисы в правильных позициях
+                let parts: Vec<&str> = d.split('-').collect();
+                if parts.len() == 3 && parts[0].len() == 4 && parts[1].len() == 2 && parts[2].len() == 2 {
+                    w.push(format!("DATE(received_at)>='{}'", d));
+                }
+            }
+        }
+        if let Some(ref d) = filter.date_to {
+            if d.chars().all(|c| c.is_ascii_digit() || c == '-') && d.len() == 10 && d.starts_with(|c: char| c.is_ascii_digit()) {
+                let parts: Vec<&str> = d.split('-').collect();
+                if parts.len() == 3 && parts[0].len() == 4 && parts[1].len() == 2 && parts[2].len() == 2 {
+                    w.push(format!("DATE(received_at)<='{}'", d));
+                }
+            }
+        }
+
         let where_clause = w.join(" AND ");
         let total: i64 = self.conn.query_row(
             &format!("SELECT COUNT(*) FROM imap_messages WHERE {}", where_clause), [], |r| r.get(0),

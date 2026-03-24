@@ -42,6 +42,7 @@ native-tls    = "0.2"
 mailparse     = "0.14"
 tungstenite   = { version = "0.23", features = ["native-tls"] }
 lettre        = { version = "0.11", features = ["native-tls", "smtp-transport", "builder"] }
+zeroize       = "1.7"  # FIX ZEROIZE-01: Secure memory zeroing for passwords
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

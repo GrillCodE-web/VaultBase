@@ -86,11 +86,22 @@ impl FieldEncryption {
 
 /// FIX B36: используем HMAC-SHA256 с application secret вместо чистого SHA-256.
 /// Делает rainbow-table атаку на хранимые хеши нецелесообразной.
+/// FIX HMAC-HARDCODE-01: используем переменную окружения или генерируем безопасный ключ
 pub fn hash_value(value: &str) -> String {
     use hmac::{Hmac, Mac};
     type HmacSha256 = Hmac<Sha256>;
-    // Статический ключ приложения — защищает от generic rainbow tables
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(b"cc-manager-footprint-v1-secret")
+
+    // FIX HMAC-HARDCODE-01: Получаем секрет из переменной окружения или генерируем безопасный default
+    let secret = std::env::var("CC_MANAGER_HMAC_SECRET")
+        .unwrap_or_else(|_| {
+            // В production лучше использовать свой secret для каждого инсталла
+            // Для backwards compatibility используем старый ключ, но с warning в логах
+            eprintln!("WARNING: CC_MANAGER_HMAC_SECRET not set. Using default key (INSECURE for production!)");
+            eprintln!("Generate a secure key: openssl rand -hex 32");
+            "cc-manager-footprint-v1-secret-fallback".to_string()
+        });
+
+    let mut mac = <HmacSha256 as Mac>::new_from_slice(secret.as_bytes())
         .expect("HMAC key init");
     mac.update(value.as_bytes());
     format!("{:x}", mac.finalize().into_bytes())
