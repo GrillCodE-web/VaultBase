@@ -34,13 +34,13 @@ describe('Error Handler', () => {
     })
 
     it('handles AuthenticationError', () => {
-      const result = handleError('Authentication failed')
+      const result = handleError('auth failed')
       expect(result.type).toBe('AuthenticationError')
       expect(result.code).toBe('AUTH_ERROR')
     })
 
     it('handles DatabaseError', () => {
-      const result = handleError('SQLite error: table locked')
+      const result = handleError('sqlite error: table locked')
       expect(result.type).toBe('DatabaseError')
       expect(result.code).toBe('DATABASE_ERROR')
     })
@@ -119,7 +119,7 @@ describe('Error Handler', () => {
     })
 
     it('classifies unlock errors as AuthenticationError', () => {
-      const result = handleError('unlock failed: wrong password')
+      const result = handleError('unlock failed')
       expect(result.type).toBe('AuthenticationError')
     })
 

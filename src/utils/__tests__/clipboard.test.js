@@ -23,12 +23,12 @@ describe('Clipboard Utilities', () => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('test text')
     })
 
-    it('calls error callback on failure', () => {
+    it('calls error callback on failure', async () => {
       const onSuccess = vi.fn()
       const onError = vi.fn()
       navigator.clipboard.writeText.mockRejectedValueOnce(new Error('Denied'))
 
-      copyToClipboard('test text', onSuccess, onError)
+      await copyToClipboard('test text', onSuccess, onError)
 
       expect(onError).toHaveBeenCalled()
     })
