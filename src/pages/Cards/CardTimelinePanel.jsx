@@ -9,24 +9,19 @@ export function CardTimelinePanel({ cardId, onClose }) {
       .then(setEvents)
       .catch(() => setEvents([]))
   }, [cardId])
+
+  const getDotClass = eventType => {
+    if (eventType === 'order') return 'order'
+    if (eventType.includes('card')) return 'card'
+    return 'default'
+  }
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Card timeline"
-      style={{
-        position: 'fixed',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: 340,
-        zIndex: 100,
-        background: 'var(--card)',
-        borderLeft: '1px solid var(--border)',
-        boxShadow: '-8px 0 32px rgba(0,0,0,0.3)',
-        overflow: 'auto',
-        padding: 20,
-      }}
+      className="timeline-panel-container"
     >
       <div className="flex items-center justify-between mb-4">
         <div className="font-semibold text-[13px]">Card Timeline</div>
@@ -39,40 +34,12 @@ export function CardTimelinePanel({ cardId, onClose }) {
       ) : events.length === 0 ? (
         <div className="text-muted text-[12px]">No history for this card yet.</div>
       ) : (
-        <div className="relative" style={{ paddingLeft: 20 }}>
-          <div
-            style={{
-              position: 'absolute',
-              left: 7,
-              top: 0,
-              bottom: 0,
-              width: 1,
-              background: 'var(--border)',
-            }}
-          />
+        <div className="timeline-panel">
           {events.map((ev, i) => (
-            <div key={i} className="relative mb-3" style={{ paddingLeft: 12 }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  left: -7,
-                  top: 4,
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background:
-                    ev.event_type === 'order'
-                      ? 'var(--blue)'
-                      : ev.event_type.includes('card')
-                        ? 'var(--accent)'
-                        : 'var(--border)',
-                  border: '1.5px solid var(--surface)',
-                }}
-              />
-              <div className="text-[11px] text-muted">
-                {ev.created_at.slice(0, 16).replace('T', ' ')}
-              </div>
-              <div className="text-[12px] mt-0.5">{ev.description}</div>
+            <div key={i} className="timeline-item">
+              <div className={`timeline-dot ${getDotClass(ev.event_type)}`} />
+              <div className="timeline-time">{ev.created_at.slice(0, 16).replace('T', ' ')}</div>
+              <div className="timeline-content">{ev.description}</div>
             </div>
           ))}
         </div>

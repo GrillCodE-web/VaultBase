@@ -551,13 +551,15 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                         <tr
                           style={{
                             opacity: entry.is_blocked ? 0.6 : 1,
-                            background: selected.has(entry.id) ? STATUS_COLORS.infoBg : undefined,
+                            background: selected.includes(entry.id)
+                              ? STATUS_COLORS.infoBg
+                              : undefined,
                           }}
                         >
                           <td onClick={e => e.stopPropagation()}>
                             <input
                               type="checkbox"
-                              checked={selected.has(entry.id)}
+                              checked={selected.includes(entry.id)}
                               onChange={() => toggleSelect(entry.id)}
                             />
                           </td>
@@ -641,13 +643,13 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                     key={entry.id}
                     style={{
                       opacity: entry.is_blocked ? 0.6 : 1,
-                      background: selected.has(entry.id) ? STATUS_COLORS.infoBg : undefined,
+                      background: selected.includes(entry.id) ? STATUS_COLORS.infoBg : undefined,
                     }}
                   >
                     <td onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={selected.has(entry.id)}
+                        checked={selected.includes(entry.id)}
                         onChange={() => toggleSelect(entry.id)}
                       />
                     </td>

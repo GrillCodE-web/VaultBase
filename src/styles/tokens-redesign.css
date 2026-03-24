@@ -214,3 +214,35 @@
   --noise-opacity: 0.008;
   --scanline-opacity: 0.01;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ACCESSIBILITY — REDUCED MOTION
+   ═══════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Preserve hover states for interaction feedback */
+  .btn:hover,
+  .btn:focus,
+  input:hover,
+  input:focus,
+  select:hover,
+  select:focus {
+    transition: none !important;
+  }
+
+  /* Keep essential animations for loading states */
+  .spinner,
+  .spinner-xs,
+  .spinner-sm {
+    animation: spin 1s linear infinite !important;
+  }
+}

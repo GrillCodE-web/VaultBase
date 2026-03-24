@@ -96,11 +96,8 @@ export default function Activate({ onActivated }) {
       <div className="auth-card max-w-[440px]">
         {/* Header */}
         <div className="auth-logo-wrap">
-          <div
-            className="auth-logo-icon border"
-            style={{ background: 'var(--color-info-bg)', borderColor: 'var(--color-info-bg)' }}
-          >
-            <ShieldCheck size={28} style={{ color: 'var(--blue)' }} />
+          <div className="auth-logo-icon activate border">
+            <ShieldCheck size={28} />
           </div>
           <h1 className="auth-title text-[18px]">{t('activate_title') || 'Activation Required'}</h1>
           <p className="auth-sub">
@@ -114,10 +111,7 @@ export default function Activate({ onActivated }) {
             {t('activate_your_code') || 'Your installation code:'}
           </p>
           <div className="flex items-center gap-3 mb-3">
-            <span
-              className="flex-1 text-center text-[18px] mono font-bold tracking-widest select-all"
-              style={{ color: 'var(--blue)' }}
-            >
+            <span className="flex-1 text-center text-[18px] mono font-bold tracking-widest select-all activation-code-display">
               {challengeCode || t('msg_loading')}
             </span>
             <button

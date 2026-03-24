@@ -129,6 +129,7 @@ function fmtDate(iso) {
 }
 
 // ─── Main float component ─────────────────────────────────────
+// eslint-disable-next-line react-refresh/only-export-components -- Float window entry point
 function ProfileFloat() {
   const { t } = useLang()
   const { success: toastOk, error: toastErr } = useToast()

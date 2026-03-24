@@ -498,6 +498,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // Virtual scrolling setup - only for non-grouped view
   const useVirtualCards = !groupByBank && cards.length > 200
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
   const rowVirtualizer = useVirtualizer({
     count: useVirtualCards ? cards.length : 0,
     getScrollElement: () => parentRef.current,

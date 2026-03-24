@@ -10,24 +10,7 @@ export function CardShopUsagePanel({ cardId, onClose }) {
       .catch(() => setShops([]))
   }, [cardId])
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Card shop usage"
-      style={{
-        position: 'fixed',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: 320,
-        zIndex: 100,
-        background: 'var(--card)',
-        borderLeft: '1px solid var(--border)',
-        boxShadow: '-8px 0 32px rgba(0,0,0,0.3)',
-        overflow: 'auto',
-        padding: 20,
-      }}
-    >
+    <div role="dialog" aria-modal="true" aria-label="Card shop usage" className="shop-usage-panel">
       <div className="flex items-center justify-between mb-4">
         <div className="font-semibold text-[13px]">Shops Used</div>
         <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Close">
@@ -41,18 +24,10 @@ export function CardShopUsagePanel({ cardId, onClose }) {
       ) : (
         <div className="flex flex-col gap-2">
           {shops.map(s => (
-            <div
-              key={s.shop_id}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 8,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div className="font-semibold text-[12px]">{s.shop_name}</div>
-              <div className="text-muted text-[11px]">{s.shop_domain}</div>
-              <div className="flex items-center gap-2 mt-1 text-[11px]">
+            <div key={s.shop_id} className="shop-usage-item">
+              <div className="shop-usage-name">{s.shop_name}</div>
+              <div className="shop-usage-domain">{s.shop_domain}</div>
+              <div className="shop-usage-meta">
                 <span>
                   {s.order_count} order{s.order_count !== 1 ? 's' : ''}
                 </span>

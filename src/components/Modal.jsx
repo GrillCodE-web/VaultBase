@@ -15,7 +15,17 @@ export function Modal({
   footer,
 }) {
   const modalRef = useRef(null)
+  const previouslyFocusedRef = useRef(null)
   useFocusTrap(modalRef, isOpen)
+
+  // Store focused element before modal opens and restore on close
+  useEffect(() => {
+    if (isOpen) {
+      previouslyFocusedRef.current = document.activeElement
+    } else {
+      previouslyFocusedRef.current?.focus()
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return

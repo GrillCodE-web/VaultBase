@@ -1344,7 +1344,6 @@ export default function OrderList({
     toggleSelectAll,
     clearSelection,
     fetchOrders,
-    updateOrder,
     deleteOrder,
     undoDelete,
     bulkUpdateStatus,
@@ -1364,6 +1363,7 @@ export default function OrderList({
 
   // Virtual scrolling setup
   const parentRef = useRef(null)
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
   const rowVirtualizer = useVirtualizer({
     count: orders.length,
     getScrollElement: () => parentRef.current,
@@ -1616,7 +1616,7 @@ export default function OrderList({
                     <OrderRow
                       key={o.id}
                       order={o}
-                      isSelected={selected.has(o.id)}
+                      isSelected={selected.includes(o.id)}
                       isDeleting={deletingIds.has(o.id)}
                       isExpanded={expandedId === o.id}
                       onToggleExpand={() => {

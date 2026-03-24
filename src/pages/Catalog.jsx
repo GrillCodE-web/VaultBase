@@ -113,8 +113,8 @@ function ItemsTab() {
   }
 
   const handleDeleteSelected = async () => {
-    if (selected.size === 0) return
-    const ok = await confirm(`Delete ${selected.size} item${selected.size > 1 ? 's' : ''}?`, {
+    if (selected.length === 0) return
+    const ok = await confirm(`Delete ${selected.length} item${selected.length > 1 ? 's' : ''}?`, {
       title: 'Delete Items',
       danger: true,
     })
@@ -133,13 +133,14 @@ function ItemsTab() {
 
   const toggleSelect = (id, checked) => {
     setSelected(prev => {
-      const next = new Set(prev)
-      checked ? next.add(id) : next.delete(id)
-      return next
+      if (checked) {
+        return [...prev, id]
+      }
+      return prev.filter(sid => sid !== id)
     })
   }
 
-  const allChecked = items.length > 0 && items.every(i => selected.has(i.id))
+  const allChecked = items.length > 0 && items.every(i => selected.includes(i.id))
 
   return (
     <div>
@@ -152,13 +153,13 @@ function ItemsTab() {
           placeholder="Search by name or ASIN…"
         />
         <span className="text-[12px] text-muted ml-1">{total} items</span>
-        {selected.size > 0 && (
+        {selected.length > 0 && (
           <button className="btn btn-r btn-sm" onClick={handleDeleteSelected}>
-            Delete {selected.size} selected
+            Delete {selected.length} selected
           </button>
         )}
-        {selected.size > 0 && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>
+        {selected.length > 0 && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelected([])}>
             Clear
           </button>
         )}
@@ -174,9 +175,7 @@ function ItemsTab() {
                   type="checkbox"
                   className="cb"
                   checked={allChecked}
-                  onChange={e =>
-                    setSelected(e.target.checked ? new Set(items.map(i => i.id)) : new Set())
-                  }
+                  onChange={e => setSelected(e.target.checked ? items.map(i => i.id) : [])}
                 />
               </th>
               <th>Name</th>

@@ -1,19 +1,6 @@
 export function ColumnPicker({ visible, onChange, _onClose, allColumns, t }) {
   return (
-    <div
-      style={{
-        position: 'absolute',
-        right: 0,
-        top: 38,
-        zIndex: 20,
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 10,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        padding: 10,
-        minWidth: 180,
-      }}
-    >
+    <div className="column-picker">
       <p className="ptitle mb-2 pl-1">{t('cc_columns')}</p>
       <button
         className="btn btn-ghost btn-sm w-full mb-2 text-[11px]"
@@ -39,19 +26,7 @@ export function ColumnPicker({ visible, onChange, _onClose, allColumns, t }) {
       {allColumns
         .filter(c => c.id !== 'actions')
         .map(col => (
-          <label
-            key={col.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '5px 8px',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontSize: 12,
-              color: 'var(--muted)',
-            }}
-          >
+          <label key={col.id} className="column-picker-label">
             <input
               type="checkbox"
               checked={visible.includes(col.id)}

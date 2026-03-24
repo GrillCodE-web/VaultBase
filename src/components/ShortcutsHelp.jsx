@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { X, Search, Keyboard } from 'lucide-react'
 import { getShortcutsByCategory, formatKeyForDisplay } from '../config/shortcuts'
 import { useLang } from '../hooks/useLang'
+import { escapeHtml } from '../utils/escape.js'
 
 // Visual keyboard key component
 function KeyboardKey({ keyName }) {
@@ -139,7 +140,9 @@ export default function ShortcutsHelp({ onClose }) {
         {/* Shortcuts list */}
         <div className="shortcuts-list">
           {Object.keys(filteredShortcuts).length === 0 ? (
-            <div className="shortcuts-empty">No shortcuts found for &quot;{searchQuery}&quot;</div>
+            <div className="shortcuts-empty">
+              No shortcuts found for &quot;{escapeHtml(searchQuery)}&quot;
+            </div>
           ) : (
             <div className="shortcuts-categories">
               {Object.entries(filteredShortcuts).map(([category, items]) => (

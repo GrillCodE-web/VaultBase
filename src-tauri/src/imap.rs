@@ -141,9 +141,33 @@ impl ImapPoller {
                 None
             };
 
+            // Extract shop domain from email
+            let shop_domain = from_email
+                .split('@')
+                .nth(1)
+                .map(|d| d.trim_start_matches("www."))
+                .filter(|d| !d.is_empty());
+
             // Update order in DB if possible
             if let (Some(onum), Some(act)) = (order_number.as_deref(), action) {
                 if let Ok(Some(oid)) = db.find_order_by_number(onum) {
+                    // AUTO-LINK SHOP: Find or create shop by domain, then link to order
+                    if let Some(domain) = shop_domain {
+                        match db.find_shop_by_domain(domain) {
+                            Ok(Some(shop_id)) => {
+                                // Shop exists — link order if not already linked
+                                let _ = db.link_order_to_shop_if_unlinked(oid, shop_id);
+                            }
+                            Ok(None) => {
+                                // Shop doesn't exist — create minimal shop and link
+                                if let Ok(shop_id) = db.create_shop_minimal(domain) {
+                                    let _ = db.link_order_to_shop_if_unlinked(oid, shop_id);
+                                }
+                            }
+                            Err(_) => { /* ignore DB errors */ }
+                        }
+                    }
+
                     if db.update_order_status_simple(oid, act, tracking.as_deref()).is_ok() {
                         orders_updated += 1; // FIX B65: явный счёт
                     }
@@ -152,8 +176,8 @@ impl ImapPoller {
                         &format!("Order #{} → {} (track: {})", onum, act, tracking.as_deref().unwrap_or("none")),
                         Some("imap"), None,
                     );
-                    } // end if let Ok(Some(oid))
-                }
+                } // end if let Ok(Some(oid))
+            }
 
             // FIX B66: processed=true только если action применено к реальному заказу
             let actually_processed = action.is_some() && order_number.is_some();

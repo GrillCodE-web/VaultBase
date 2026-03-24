@@ -72,8 +72,9 @@ describe('EmptyState', () => {
     const { container } = render(<EmptyState icon="✨" title="Test" />)
 
     const outerDiv = container.querySelector('div')
-    expect(outerDiv.style.display).toBe('flex')
-    expect(outerDiv.style.flexDirection).toBe('column')
-    expect(outerDiv.style.alignItems).toBe('center')
+    expect(outerDiv).toHaveClass('flex')
+    expect(outerDiv).toHaveClass('flex-col')
+    expect(outerDiv).toHaveClass('items-center')
+    expect(outerDiv).toHaveClass('justify-center')
   })
 })

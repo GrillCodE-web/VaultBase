@@ -132,3 +132,55 @@
   background: var(--gradient-accent);
   opacity: 0.15;
 }
+
+/* ── Card Field Row ─────────────────────────────────────── */
+.card-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-field-label {
+  font-size: 10px;
+  color: var(--muted);
+  min-width: 70px;
+}
+
+.card-field-value {
+  font-size: 11px;
+  color: var(--text);
+  flex: 1;
+  text-align: right;
+}
+
+.card-field-value.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Expiry Cell ────────────────────────────────────────── */
+.expiry-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.expiry-cell.expired {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.expiry-cell.critical {
+  color: var(--red);
+}
+
+.expiry-cell.soon {
+  color: var(--color-warning);
+}
+
+.expiry-cell.normal {
+  color: var(--muted);
+}

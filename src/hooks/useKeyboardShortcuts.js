@@ -108,9 +108,10 @@ export function useKeyboardShortcuts(shortcuts, options = {}) {
     window.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
-      const timer = sequenceRef.current.timer
-      if (timer) {
-        clearTimeout(timer)
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Safe: using snapshot from closure
+      const currentSequence = sequenceRef.current
+      if (currentSequence?.timer) {
+        clearTimeout(currentSequence.timer)
       }
     }
   }, [enabled, handleKeyDown])

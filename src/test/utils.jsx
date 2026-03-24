@@ -57,4 +57,5 @@ export function mockTauriInvoke(responses = {}) {
   })
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- Test utilities re-export
 export * from '@testing-library/react'

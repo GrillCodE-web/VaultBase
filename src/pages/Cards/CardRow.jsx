@@ -60,9 +60,9 @@ export function CardRow({
         setSideCardIdx(i)
       }}
       style={{
-        background: selected.has(card.id) ? 'var(--color-info-bg)' : undefined,
+        background: selected.includes(card.id) ? 'var(--color-info-bg)' : undefined,
         cursor: 'pointer',
-        borderLeft: selected.has(card.id)
+        borderLeft: selected.includes(card.id)
           ? '2px solid var(--blue)'
           : card.status === 'free'
             ? '2px solid var(--color-card-free)'
@@ -71,20 +71,24 @@ export function CardRow({
               : card.status === 'in_use'
                 ? '2px solid var(--color-card-in-use)'
                 : '2px solid transparent',
-        opacity: deletingIds.has(card.id) ? 0.3 : 1,
-        textDecoration: deletingIds.has(card.id) ? 'line-through' : 'none',
+        opacity: deletingIds.includes(card.id) ? 0.3 : 1,
+        textDecoration: deletingIds.includes(card.id) ? 'line-through' : 'none',
         transition: 'background 0.4s ease, border-color 0.4s ease, opacity 0.4s ease',
-        pointerEvents: deletingIds.has(card.id) ? 'none' : undefined,
+        pointerEvents: deletingIds.includes(card.id) ? 'none' : undefined,
       }}
     >
       {/* Checkbox */}
       <td onClick={e => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={selected.has(card.id)}
-          onChange={() => toggleSelect(card.id)}
-          className="accent-accent cursor-pointer"
-        />
+        <label className="sr-only">
+          Select card {displayNum}
+          <input
+            type="checkbox"
+            checked={selected.includes(card.id)}
+            onChange={() => toggleSelect(card.id)}
+            className="accent-accent cursor-pointer"
+            aria-label={`Select card ending in ${card.last4}`}
+          />
+        </label>
       </td>
 
       {/* Number — card number with network badge */}
@@ -387,15 +391,17 @@ export function CardRow({
             onClick={() => setShopUsageCardId(card.id)}
             className="btn btn-ghost btn-sm btn-compact"
             title="Shops used"
+            aria-label={`View shops used by card ending in ${card.last4}`}
           >
-            <Store size={12} />
+            <Store size={12} aria-hidden="true" />
           </button>
           <button
             onClick={() => setTimelineCardId(card.id)}
             className="btn btn-ghost btn-sm btn-compact"
             title="Timeline"
+            aria-label={`View timeline for card ending in ${card.last4}`}
           >
-            <Clock size={12} />
+            <Clock size={12} aria-hidden="true" />
           </button>
           <ActionsMenu
             items={[

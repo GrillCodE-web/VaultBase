@@ -138,6 +138,24 @@
   box-shadow: 0 0 32px rgba(0, 217, 255, 0.15);
 }
 
+/* ── Activate Page Specific ─────────────────────────────── */
+.auth-logo-icon.activate {
+  background: var(--color-info-bg);
+  border-color: var(--color-info-bg);
+}
+
+.auth-logo-icon.activate svg {
+  color: var(--blue);
+}
+
+.activation-code {
+  color: var(--blue);
+}
+
+.activation-code-display {
+  color: var(--blue);
+}
+
 .auth-logo-icon::after {
   content: '';
   position: absolute;

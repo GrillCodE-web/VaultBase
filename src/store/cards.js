@@ -23,8 +23,8 @@ export const useCardsStore = create((set, get) => ({
   filterMeta: { countries: [], banks: [], sources: [] },
   page: 1,
   perPage: 50,
-  selected: new Set(),
-  deletingIds: new Set(),
+  selected: [], // Use array instead of Set for localStorage compatibility
+  deletingIds: [], // Use array instead of Set for localStorage compatibility
   revealed: {},
   cache: {},
   lastFetch: null,
@@ -56,24 +56,21 @@ export const useCardsStore = create((set, get) => ({
 
   toggleSelect: id =>
     set(state => {
-      const newSelected = new Set(state.selected)
-      if (newSelected.has(id)) {
-        newSelected.delete(id)
-      } else {
-        newSelected.add(id)
+      const isSelected = state.selected.includes(id)
+      return {
+        selected: isSelected ? state.selected.filter(sid => sid !== id) : [...state.selected, id],
       }
-      return { selected: newSelected }
     }),
 
   toggleSelectAll: () =>
     set(state => {
-      if (state.selected.size === state.cards.length) {
-        return { selected: new Set() }
+      if (state.selected.length === state.cards.length) {
+        return { selected: [] }
       }
-      return { selected: new Set(state.cards.map(c => c.id)) }
+      return { selected: state.cards.map(c => c.id) }
     }),
 
-  clearSelection: () => set({ selected: new Set() }),
+  clearSelection: () => set({ selected: [] }),
 
   fetchCards: async (forceRefresh = false) => {
     const state = get()
@@ -139,14 +136,22 @@ export const useCardsStore = create((set, get) => ({
 
   autoRevealBatch: async cardList => {
     const state = get()
+    const failedIds = []
+
     for (const card of cardList) {
       if (state.revealed[card.id]) continue
       try {
         const data = await invoke('reveal_card', { id: card.id })
         set(s => ({ revealed: { ...s.revealed, [card.id]: data } }))
-      } catch {
-        // Card reveal failed, skip
+      } catch (error) {
+        failedIds.push(card.id)
+        console.error(`Failed to reveal card ${card.id}:`, error)
       }
+    }
+
+    // Notify user about partial failure
+    if (failedIds.length > 0) {
+      console.warn(`Failed to reveal ${failedIds.length} cards`)
     }
   },
 

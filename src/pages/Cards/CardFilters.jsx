@@ -103,16 +103,8 @@ export function CardFilters({
             setPage(1)
           }}
           placeholder={t('drop_field_state')}
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            borderRadius: 6,
-            padding: '5px 10px',
-            fontSize: 12,
-            outline: 'none',
-            width: 60,
-          }}
+          className="search-box"
+          style={{ width: 60 }}
         />
 
         <input
@@ -133,7 +125,6 @@ export function CardFilters({
             onChange={e => setSearchInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
             placeholder={t('btn_search') + '...'}
-            style={{ width: 200 }}
           />
           <button onClick={handleSearch} className="btn btn-b btn-sm">
             {t('btn_search')}
@@ -156,46 +147,22 @@ export function CardFilters({
       {(filter.bank_name || filter.country) && (
         <div className="flex gap-1.5 mb-2.5 flex-wrap">
           {filter.bank_name && (
-            <span
-              style={{
-                padding: '3px 10px',
-                borderRadius: 20,
-                background: 'var(--color-info-bg)',
-                border: '1px solid var(--color-info-bg)',
-                color: 'var(--color-info)',
-                fontSize: 11,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
+            <span className="quick-filter-pill">
               <Landmark size={11} /> {filter.bank_name}
               <button
                 onClick={() => setFilter(f => ({ ...f, bank_name: null }))}
-                className="bg-transparent border-none text-blue-t cursor-pointer p-0 text-[14px] leading-none"
+                className="quick-filter-remove"
               >
                 ×
               </button>
             </span>
           )}
           {filter.country && (
-            <span
-              style={{
-                padding: '3px 10px',
-                borderRadius: 20,
-                background: 'var(--color-info-bg)',
-                border: '1px solid var(--color-info-bg)',
-                color: 'var(--color-info)',
-                fontSize: 11,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
+            <span className="quick-filter-pill">
               {countryFlag(filter.country)} {filter.country}
               <button
                 onClick={() => setFilter(f => ({ ...f, country: null }))}
-                className="bg-transparent border-none text-blue-t cursor-pointer p-0 text-[14px] leading-none"
+                className="quick-filter-remove"
               >
                 ×
               </button>

@@ -985,7 +985,7 @@ export default function ShopList({ onNavigate }) {
                           <td onClick={e => e.stopPropagation()}>
                             <input
                               type="checkbox"
-                              checked={selected.has(shop.id)}
+                              checked={selected.includes(shop.id)}
                               onChange={e =>
                                 setSelected(prev => {
                                   const next = new Set(prev)
@@ -1140,7 +1140,7 @@ export default function ShopList({ onNavigate }) {
                       <td onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
-                          checked={selected.has(shop.id)}
+                          checked={selected.includes(shop.id)}
                           onChange={e =>
                             setSelected(prev => {
                               const next = new Set(prev)
@@ -1313,6 +1313,10 @@ export default function ShopList({ onNavigate }) {
 
 // ─── Export SmartSuggestions hook for use in Orders ───────────────────────
 
+/**
+ * Hook for smart shop/card suggestions
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- Shared hook for Orders page
 export function useSmartSuggestions(shopId, cardId) {
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(false)

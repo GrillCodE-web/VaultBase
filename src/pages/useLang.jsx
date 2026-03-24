@@ -27,6 +27,7 @@ export function LangProvider({ children }) {
   return <LangContext.Provider value={{ lang, setLang, t }}>{children}</LangContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- Hook export pattern
 export function useLang() {
   const ctx = useContext(LangContext)
   if (!ctx) throw new Error('useLang must be used inside <LangProvider>')

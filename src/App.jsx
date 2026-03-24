@@ -9,6 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { HEX_COLORS } from './constants/colors.js'
+import { escapeHtml } from './utils/escape.js'
 
 // Auth screens — loaded immediately (shown before app)
 import Login from './pages/Login'
@@ -210,7 +211,9 @@ function GlobalSearch({ onClose, onNavigate }) {
             ))}
           </div>
         ) : query.trim() && !loading ? (
-          <div className="search-empty">{t('search_no_results').replace('{q}', query)}</div>
+          <div className="search-empty">
+            {t('search_no_results').replace('{q}', escapeHtml(query))}
+          </div>
         ) : !query.trim() ? (
           <div className="search-empty text-[11px]">{t('app_type_to_search')}</div>
         ) : null}

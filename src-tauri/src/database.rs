@@ -3677,6 +3677,18 @@ impl Database {
         Ok(self.conn.last_insert_rowid())
     }
 
+    // ── Auto-link order to shop ───────────
+
+    /// Link an order to a shop if the order doesn't already have a shop_id.
+    /// Returns Ok(()) regardless of whether the update happened (idempotent).
+    pub fn link_order_to_shop_if_unlinked(&self, order_id: i64, shop_id: i64) -> Result<(), String> {
+        self.conn.execute(
+            "UPDATE orders SET shop_id=?1, updated_at=datetime('now') WHERE id=?2 AND shop_id IS NULL",
+            params![shop_id, order_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     // ── Profile email assignment ───────────
 
     /// Set or clear the email_id FK on a profile row.

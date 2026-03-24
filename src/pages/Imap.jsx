@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Inbox,
   Plus,
@@ -25,10 +26,10 @@ import {
   CornerUpLeft,
   Archive,
   Search,
+  Store,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
-import { HEX_COLORS } from '../constants/colors.js'
 import { useConfirm } from '../hooks/useConfirm'
 import { detectImapConfig, detectSmtpConfig } from '../constants/emailProviders.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
@@ -246,25 +247,16 @@ function AccountModal({ account, onSave, onClose }) {
         </div>
         {testResult && (
           <div
-            className="mt-3 p-[10px_12px] rounded-md text-[12px] flex items-center gap-2"
-            style={{
-              backgroundColor: testResult.ok ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
-              border: `1px solid ${testResult.ok ? 'var(--color-success-bg)' : 'var(--color-error-bg)'}`,
-              color: testResult.ok ? 'var(--color-success)' : 'var(--color-error)',
-            }}
+            className={`mt-3 p-[10px_12px] rounded-md text-[12px] flex items-center gap-2 ${
+              testResult.ok ? 'test-result-success' : 'test-result-error'
+            }`}
           >
             {testResult.ok ? <CheckCircle size={13} /> : <AlertCircle size={13} />}
             {testResult.msg}
           </div>
         )}
         {!isEdit && smtpDetected && (
-          <div
-            className="mt-3 p-[10px_12px] rounded-md"
-            style={{
-              background: 'var(--color-info-bg)',
-              border: '1px solid var(--color-info-bg)',
-            }}
-          >
+          <div className="mt-3 p-[10px_12px] rounded-md test-result-info">
             <label className="flex items-center gap-2 cursor-pointer text-[12px] font-semibold">
               <input
                 type="checkbox"
@@ -380,7 +372,7 @@ function SmtpModal({ onSave, onClose }) {
             </div>
           ))}
           <div className="flex gap-4 items-center text-[13px]">
-            <label className="flex items-center gap-1\.5 cursor-pointer">
+            <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.use_tls}
@@ -388,7 +380,7 @@ function SmtpModal({ onSave, onClose }) {
               />
               Use TLS (port 465)
             </label>
-            <label className="flex items-center gap-1\.5 cursor-pointer">
+            <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.use_starttls}
@@ -571,7 +563,7 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
           )}
           <div className="flex items-center justify-between flex-wrap gap-1">
             <span>{message.received_at ? new Date(message.received_at).toLocaleString() : ''}</span>
-            <div className="flex gap-1\.5 items-center">
+            <div className="flex gap-1.5 items-center">
               {message.action_taken && <ActionBadge action={message.action_taken} />}
               {message.extracted_order_number && (
                 <span className="text-[11px] text-blue-t">
@@ -584,7 +576,7 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
             </div>
           </div>
         </div>
-        <div className="flex gap-1\.5 mt-2">
+        <div className="flex gap-1.5 mt-2">
           {!message.is_read && (
             <button onClick={() => onMarkRead(message)} className="btn btn-b btn-sm">
               <CheckCircle size={12} /> Mark Read
@@ -643,26 +635,13 @@ function FolderRow({ acc, folder, s, selectedAccount, selectedFolder, onSelectFo
   return (
     <div
       onClick={() => onSelectFolder(acc, folder)}
-      className="p-[6px_10px] cursor-pointer flex items-center gap-1\.5 text-[12px] rounded-sm mx-1 my-[1px]"
-      style={{
-        background: isActive ? 'var(--color-info-bg)' : 'transparent',
-      }}
+      className={`folder-tree-item ${isActive ? 'active' : ''}`}
     >
-      <span className="text-muted flex">
+      <span className={`text-muted flex ${isActive ? 'active' : ''}`}>
         <FolderIcon name={folder} size={12} />
       </span>
       <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{folder}</span>
-      {unread > 0 && (
-        <span
-          className="text-[10px] rounded-full py-[1px] px-[5px]"
-          style={{
-            background: 'var(--color-error-bg)',
-            color: 'var(--color-error)',
-          }}
-        >
-          {unread}
-        </span>
-      )}
+      {unread > 0 && <span className="unread-badge">{unread}</span>}
     </div>
   )
 }
@@ -697,20 +676,13 @@ function FolderTree({
       {accounts.length > 1 && (
         <div
           onClick={() => onSelectFolder(ALL_INBOX, 'INBOX')}
-          className="p-[8px_10px] cursor-pointer flex items-center gap-1\.5 border-b"
-          style={{
-            background: selectedAccount?.id === -1 ? 'var(--color-info-bg)' : 'transparent',
-            borderLeft:
-              selectedAccount?.id === -1 ? '2px solid var(--blue)' : '2px solid transparent',
-          }}
+          className={`p-[8px_10px] cursor-pointer flex items-center gap-1.5 border-b folder-tree-item ${
+            selectedAccount?.id === -1 ? 'active' : ''
+          }`}
         >
           <Inbox size={13} className="shrink-0 text-blue" />
           <span className="text-[12px] flex-1 font-semibold">All Inboxes</span>
-          {allUnread > 0 && (
-            <span className="text-[10px] bg-red text-bg rounded-full py-[1px] px-[5px] shrink-0">
-              {allUnread}
-            </span>
-          )}
+          {allUnread > 0 && <span className="unread-badge">{allUnread}</span>}
         </div>
       )}
       {accounts.length === 0 && (
@@ -732,11 +704,9 @@ function FolderTree({
           <div key={acc.id}>
             <div
               onClick={() => onToggleExpand(acc)}
-              className="p-[8px_10px] cursor-pointer flex items-center gap-1\.5"
-              style={{
-                background: isSelected ? 'var(--color-info-bg)' : 'transparent',
-                borderLeft: isSelected ? '2px solid var(--blue)' : '2px solid transparent',
-              }}
+              className={`p-[8px_10px] cursor-pointer flex items-center gap-1.5 folder-tree-item ${
+                isSelected ? 'active' : ''
+              }`}
             >
               {expanded ? (
                 <ChevronDown size={13} className="text-muted shrink-0" />
@@ -745,17 +715,12 @@ function FolderTree({
               )}
               <Inbox
                 size={13}
-                className="shrink-0"
-                style={{ color: acc.is_active ? 'var(--blue)' : 'var(--muted)' }}
+                className={`shrink-0 folder-icon ${acc.is_active ? 'active' : 'inactive'}`}
               />
               <span className="text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                 {acc.label}
               </span>
-              {unread > 0 && (
-                <span className="text-[10px] bg-red text-bg rounded-full py-[1px] px-[5px] shrink-0">
-                  {unread}
-                </span>
-              )}
+              {unread > 0 && <span className="unread-badge">{unread}</span>}
             </div>
             {expanded && (
               <div className="pl-2">
@@ -817,6 +782,15 @@ function MessageList({
   const totalPages = Math.ceil(msgTotal / MSG_PAGE_SIZE)
   const searchRef = useRef(null)
   const debounceRef = useRef(null)
+  const parentRef = useRef(null)
+
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
+  const rowVirtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 65,
+    overscan: 5,
+  })
 
   const handleSearchChange = e => {
     const val = e.target.value
@@ -829,7 +803,7 @@ function MessageList({
 
   return (
     <div className="w-[300px] shrink-0 border-r flex flex-col overflow-y-auto">
-      <div className="p-[8px_12px] border-b bg-card flex items-center gap-1\.5">
+      <div className="p-[8px_12px] border-b bg-card flex items-center gap-1.5">
         <span className="text-[12px] font-semibold flex-1">{selectedFolder}</span>
         <span className="text-[11px] text-muted">{msgTotal} msgs</span>
         <button
@@ -843,7 +817,7 @@ function MessageList({
           <RefreshCw size={11} />
         </button>
       </div>
-      <div className="p-[6px_10px] border-b flex items-center gap-1\.5 bg-surface">
+      <div className="p-[6px_10px] border-b flex items-center gap-1.5 bg-surface">
         <Search size={12} className="text-muted shrink-0" />
         <input
           type="search"
@@ -867,53 +841,70 @@ function MessageList({
           <div className="text-[11px] mt-1 text-dim">Click Check Now to fetch</div>
         </div>
       ) : (
-        <div className="flex-1">
-          {messages.map(msg => (
-            <div
-              key={msg.id}
-              onClick={() => onSelectMessage(msg)}
-              onContextMenu={e => {
-                e.preventDefault()
-                onMsgContextMenu?.({ x: e.clientX, y: e.clientY, msg })
-              }}
-              className="p-[10px_12px] cursor-pointer border-b"
-              style={{
-                background: selectedMessage?.id === msg.id ? 'var(--color-info-bg)' : 'transparent',
-                borderLeft:
-                  selectedMessage?.id === msg.id
-                    ? '2px solid var(--blue)'
-                    : '2px solid transparent',
-              }}
-            >
-              <div className="flex justify-between items-start gap-1">
+        <div ref={parentRef} className="flex-1 overflow-auto">
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map(virtualRow => {
+              const msg = messages[virtualRow.index]
+              return (
                 <div
-                  className="text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-                  style={{ fontWeight: msg.is_read ? 400 : 600 }}
+                  key={msg.id}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  onClick={() => onSelectMessage(msg)}
+                  onContextMenu={e => {
+                    e.preventDefault()
+                    onMsgContextMenu?.({ x: e.clientX, y: e.clientY, msg })
+                  }}
+                  className={`message-list-item ${selectedMessage?.id === msg.id ? 'active' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
                 >
-                  {msg.from_email?.replace(/<.*>/, '').trim() || '(unknown)'}
-                </div>
-                <div className="text-[10px] text-muted shrink-0">
-                  {msg.received_at ? new Date(msg.received_at).toLocaleDateString() : ''}
-                </div>
-              </div>
-              <div
-                className="text-[12px] overflow-hidden text-ellipsis whitespace-nowrap mt-0\.5"
-                style={{ color: msg.is_read ? 'var(--muted)' : 'var(--text)' }}
-              >
-                {msg.subject || '(no subject)'}
-              </div>
-              {(msg.action_taken || msg.extracted_order_number) && (
-                <div className="flex gap-1 mt-[3px] flex-wrap">
-                  {msg.action_taken && <ActionBadge action={msg.action_taken} />}
-                  {msg.extracted_order_number && (
-                    <span className="text-[10px] text-blue-t">#{msg.extracted_order_number}</span>
+                  <div className="flex justify-between items-start gap-1">
+                    <div
+                      className={`text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
+                        msg.is_read ? 'message-subject-read' : 'message-subject-unread'
+                      }`}
+                    >
+                      {msg.from_email?.replace(/<.*>/, '').trim() || '(unknown)'}
+                    </div>
+                    <div className="text-[10px] text-muted shrink-0">
+                      {msg.received_at ? new Date(msg.received_at).toLocaleDateString() : ''}
+                    </div>
+                  </div>
+                  <div
+                    className={`text-[12px] overflow-hidden text-ellipsis whitespace-nowrap mt-0.5 ${
+                      msg.is_read ? 'message-subject-read' : 'message-subject-unread'
+                    }`}
+                  >
+                    {msg.subject || '(no subject)'}
+                  </div>
+                  {(msg.action_taken || msg.extracted_order_number) && (
+                    <div className="flex gap-1 mt-[3px] flex-wrap">
+                      {msg.action_taken && <ActionBadge action={msg.action_taken} />}
+                      {msg.extracted_order_number && (
+                        <span className="text-[10px] text-blue-t">
+                          #{msg.extracted_order_number}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          ))}
+              )
+            })}
+          </div>
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 p-3">
+            <div className="flex justify-center gap-2 p-3 border-t">
               <button
                 disabled={msgPage <= 1}
                 onClick={() =>
@@ -983,12 +974,9 @@ function AccountsPanel({
               <button
                 key={key}
                 onClick={() => setView(key)}
-                className="py-1\.5 px-\[14px] border-none bg-transparent cursor-pointer text-[12px]"
-                style={{
-                  color: view === key ? 'var(--blue)' : 'var(--muted)',
-                  borderBottom: view === key ? '2px solid var(--blue)' : '2px solid transparent',
-                  fontWeight: view === key ? 600 : 400,
-                }}
+                className={`py-1.5 px-[14px] border-none bg-transparent cursor-pointer text-[12px] ${
+                  view === key ? 'tab-active' : 'tab-inactive'
+                }`}
               >
                 {label}
               </button>
@@ -1142,6 +1130,152 @@ function AccountsPanel({
   )
 }
 
+// ─── Float Panel: Quick Add Shop/Service ─────────────────────────────────────
+function QuickAddFloatPanel({ email, shopName, onClose, onAdded }) {
+  const { toast } = useToast()
+  const [mode, setMode] = useState('shop') // 'shop' | 'service'
+  const [name, setName] = useState(shopName || '')
+  const [domain, setDomain] = useState('')
+  const [category, setCategory] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Auto-extract domain from email
+  useEffect(() => {
+    if (email) {
+      const match = email.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+      if (match) {
+        setDomain(match[1])
+        const extractedName = match[1]
+          .split('.')[0]
+          .replace(/[-_]/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase())
+        if (!name) setName(extractedName)
+      }
+    }
+  }, [email, name])
+
+  const handleSave = async () => {
+    if (!name || !domain) {
+      toast('Name and domain required')
+      return
+    }
+    setSaving(true)
+    try {
+      const input = {
+        name,
+        domain,
+        category: category || (mode === 'shop' ? 'E-commerce' : 'Service'),
+        is_new: true,
+      }
+      await invoke('add_shop', { input })
+      toast('Shop added successfully')
+      onAdded?.({ name, domain })
+      onClose()
+    } catch (e) {
+      toast(`Error: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed z-[9999] bg-card border border-border-hi rounded-lg shadow-lg p-4 w-[340px]"
+      style={{
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,217,255,0.1)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Store size={16} className="text-blue" />
+          <h3 className="text-[13px] font-semibold text-text">
+            Quick Add {mode === 'shop' ? 'Shop' : 'Service'}
+          </h3>
+        </div>
+        <button onClick={onClose} className="text-muted hover:text-text">
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="flex gap-1 mb-3">
+        <button
+          className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+            mode === 'shop'
+              ? 'bg-blue text-white border-blue'
+              : 'bg-surface text-muted border-border hover:border-blue'
+          }`}
+          onClick={() => setMode('shop')}
+        >
+          🛍️ Shop
+        </button>
+        <button
+          className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+            mode === 'service'
+              ? 'bg-blue text-white border-blue'
+              : 'bg-surface text-muted border-border hover:border-blue'
+          }`}
+          onClick={() => setMode('service')}
+        >
+          🔧 Service
+        </button>
+      </div>
+
+      <div className="space-y-2.5">
+        <div>
+          <label className="form-label text-[10px]">Name *</label>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="input text-[12px]"
+            placeholder="Shop name"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="form-label text-[10px]">Domain *</label>
+          <input
+            type="text"
+            value={domain}
+            onChange={e => setDomain(e.target.value)}
+            className="input text-[12px]"
+            placeholder="example.com"
+          />
+        </div>
+        <div>
+          <label className="form-label text-[10px]">Category (optional)</label>
+          <input
+            type="text"
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            className="input text-[12px]"
+            placeholder={
+              mode === 'shop' ? 'E-commerce, Fashion, Electronics...' : 'Email, Cloud, Analytics...'
+            }
+          />
+        </div>
+        <div className="pt-2 border-t border-border">
+          <div className="text-[10px] text-muted mb-1">Extracted from email:</div>
+          <div className="text-[11px] text-blue-t font-mono truncate">{email}</div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || !name || !domain}
+          className="btn btn-b btn-sm flex-1"
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function Imap({ onNavigate: _onNavigate }) {
   const { success: toastOk, error: toastErr } = useToast()
@@ -1179,6 +1313,9 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const [showAddSmtp, setShowAddSmtp] = useState(false)
   const [showCompose, setShowCompose] = useState(false)
   const [composeReply, setComposeReply] = useState(null)
+
+  // Float panels
+  const [quickAddPanel, setQuickAddPanel] = useState(null) // { x, y, email }
 
   // Sent view
   const [viewMode, setViewMode] = useState('inbox') // "inbox" | "sent"
@@ -1619,23 +1756,13 @@ export default function Imap({ onNavigate: _onNavigate }) {
           <div className="flex border rounded overflow-hidden">
             <button
               onClick={() => setViewMode('inbox')}
-              className="btn btn-sm border-none"
-              style={{
-                borderRadius: 0,
-                background: viewMode === 'inbox' ? 'var(--blue)' : 'transparent',
-                color: viewMode === 'inbox' ? HEX_COLORS.white : 'var(--muted)',
-              }}
+              className={`view-mode-btn ${viewMode === 'inbox' ? 'active' : ''}`}
             >
               <Inbox size={13} /> Inbox
             </button>
             <button
               onClick={() => setViewMode('sent')}
-              className="btn btn-sm border-none"
-              style={{
-                borderRadius: 0,
-                background: viewMode === 'sent' ? 'var(--blue)' : 'transparent',
-                color: viewMode === 'sent' ? HEX_COLORS.white : 'var(--muted)',
-              }}
+              className={`view-mode-btn ${viewMode === 'sent' ? 'active' : ''}`}
             >
               <Send size={13} /> Sent
             </button>
@@ -1781,15 +1908,36 @@ export default function Imap({ onNavigate: _onNavigate }) {
       {/* ── Context menu ── */}
       {contextMenu && (
         <div
-          className="fixed bg-card border rounded-md min-w-\[160px\] py-1 z-\[9999\]"
+          className="fixed bg-card border rounded-md min-w-[180px] py-1 z-[9999] shadow-lg"
           style={{
             top: contextMenu.y,
             left: contextMenu.x,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           }}
           onClick={e => e.stopPropagation()}
         >
+          <div className="px-3 py-1.5 border-b border-border mb-1">
+            <span className="text-[10px] text-muted uppercase tracking-wide">
+              {contextMenu.msg.from_email?.split('@')[1] || 'Unknown'}
+            </span>
+          </div>
           {[
+            {
+              label: 'Add as Shop/Service',
+              icon: <Store size={12} />,
+              action: () => {
+                setQuickAddPanel({
+                  x: contextMenu.x,
+                  y: contextMenu.y,
+                  email: contextMenu.msg.from_email,
+                  shopName:
+                    contextMenu.msg.from_email
+                      ?.split('@')[1]
+                      ?.split('.')[0]
+                      .replace(/[-_]/g, ' ') || '',
+                })
+                setContextMenu(null)
+              },
+            },
             {
               label: 'Mark as Read',
               icon: <CheckCircle size={12} />,
@@ -1818,14 +1966,37 @@ export default function Imap({ onNavigate: _onNavigate }) {
             <button
               key={label}
               onClick={action}
-              className="flex items-center gap-2 w-full py-2 px-\[14px\] border-none bg-transparent cursor-pointer text-[13px] text-text text-left"
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              className="flex items-center gap-2 w-full py-2 px-\[14px\] border-none bg-transparent cursor-pointer text-[13px] text-text text-left hover:bg-hover transition-colors"
             >
               {icon} {label}
             </button>
           ))}
         </div>
+      )}
+
+      {/* ── Quick Add Float Panel ── */}
+      {quickAddPanel && (
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setQuickAddPanel(null)} />
+          <div
+            style={{
+              position: 'fixed',
+              left: Math.min(quickAddPanel.x, window.innerWidth - 360),
+              top: Math.min(quickAddPanel.y, window.innerHeight - 400),
+              zIndex: 9999,
+            }}
+          >
+            <QuickAddFloatPanel
+              email={quickAddPanel.email}
+              shopName={quickAddPanel.shopName}
+              onClose={() => setQuickAddPanel(null)}
+              onAdded={() => {
+                toastOk('Shop added successfully')
+                setQuickAddPanel(null)
+              }}
+            />
+          </div>
+        </>
       )}
 
       {/* ── Modals ── */}

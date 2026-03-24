@@ -2,6 +2,138 @@
    IMAP PAGE — CYBER-FINANCIAL TERMINAL
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Folder Tree Item States ─────────────────────────────── */
+.folder-tree-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1.5px;
+  font-size: 12px;
+  border-radius: 2px;
+  margin: 1px;
+  transition: all 0.12s ease-out;
+}
+
+.folder-tree-item:hover {
+  background: var(--hover);
+}
+
+.folder-tree-item.active {
+  background: var(--color-info-bg);
+  border-left: 2px solid var(--blue);
+}
+
+.folder-tree-item .folder-icon {
+  color: var(--muted);
+}
+
+.folder-tree-item .folder-icon.active {
+  color: var(--blue);
+}
+
+.folder-tree-item .folder-icon.inactive {
+  color: var(--muted);
+}
+
+/* ── Unread Badge ───────────────────────────────────────── */
+.unread-badge {
+  font-size: 10px;
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  border-radius: 9999px;
+  padding: 1px 5px;
+  font-weight: 600;
+}
+
+/* ── Test Result Messages ───────────────────────────────── */
+.test-result-success {
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.test-result-error {
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.test-result-info {
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-bg);
+}
+
+/* ── Message List Item ──────────────────────────────────── */
+.message-list-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.12s ease-out;
+}
+
+.message-list-item:hover {
+  background: var(--hover);
+}
+
+.message-list-item.active {
+  background: var(--color-info-bg);
+  border-left: 2px solid var(--blue);
+}
+
+.message-list-item.unread {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.message-list-item.read {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.message-subject-unread {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.message-subject-read {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ── Tab Buttons ───────────────────────────────────────── */
+.tab-active {
+  color: var(--blue);
+  border-bottom: 2px solid var(--blue);
+  font-weight: 600;
+}
+
+.tab-inactive {
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  font-weight: 400;
+}
+
+/* ── View Mode Toggle Buttons ──────────────────────────── */
+.view-mode-btn {
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.view-mode-btn.active {
+  background: var(--blue);
+  color: #fff;
+}
+
+.view-mode-btn:first-child {
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+
+.view-mode-btn:last-child {
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
 /* ── IMAP Account Card ──────────────────────────────────── */
 .imap-account-card {
   background: var(--card);

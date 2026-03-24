@@ -501,3 +501,127 @@
   color: var(--text);
   margin-bottom: 2px;
 }
+
+/* ── Column Picker Dropdown ────────────────────────────── */
+.column-picker {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  z-index: 20;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  padding: 10px;
+  min-width: 180px;
+}
+
+.column-picker-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  transition: all var(--t-fast);
+}
+
+.column-picker-label:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* ── Timeline Panel Container ──────────────────────────── */
+.timeline-panel-container {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 340px;
+  z-index: 100;
+  background: var(--card);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
+  overflow: auto;
+  padding: 20px;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -7px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--surface);
+}
+
+.timeline-dot.order {
+  background: var(--blue);
+}
+
+.timeline-dot.card {
+  background: var(--accent);
+}
+
+.timeline-dot.default {
+  background: var(--border);
+}
+
+/* ── Shop Usage Panel ───────────────────────────────────── */
+.shop-usage-panel {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  z-index: 100;
+  background: var(--card);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
+  overflow: auto;
+  padding: 20px;
+}
+
+.shop-usage-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: all var(--t-fast);
+}
+
+.shop-usage-item:hover {
+  background: var(--card-hi);
+  border-color: var(--border-hi);
+}
+
+.shop-usage-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.shop-usage-domain {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.shop-usage-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+}
