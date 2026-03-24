@@ -55,14 +55,17 @@
   transform: none !important;
 }
 
+/* WCAG 2.1 AA: Minimum 44px touch target */
 .btn-sm {
-  padding: 5px 12px;
+  padding: 8px 12px;
   font-size: 12px;
+  min-height: 44px;
 }
 
 .btn-s {
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: 11px;
+  min-height: 44px;
 }
 
 /* ── Color Variants ─────────────────────────────────────── */
@@ -193,10 +196,10 @@
   stroke-width: 2;
 }
 
-/* ── Icon-Only Button ───────────────────────────────────── */
+/* ── Icon-Only Button (WCAG 2.1 AA: 44px minimum) ───────── */
 .btn-icon-only {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   display: inline-flex;
   align-items: center;

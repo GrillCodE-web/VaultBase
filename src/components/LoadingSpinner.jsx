@@ -1,9 +1,15 @@
 /**
  * LoadingSpinner - Animated loading indicator
+ * @param {Object} props
+ * @param {number} props.size - Spinner size in pixels
+ * @param {string} props.color - Spinner color
+ * @param {string} props.label - Accessible label for screen readers
  */
-export function LoadingSpinner({ size = 20, color = 'var(--accent)' }) {
+export function LoadingSpinner({ size = 20, color = 'var(--accent)', label = 'Loading content' }) {
   return (
     <div
+      role="status"
+      aria-label={label}
       className="spinner inline-block border-2 border-transparent rounded-full"
       style={{
         width: size,
@@ -20,13 +26,16 @@ export function LoadingSpinner({ size = 20, color = 'var(--accent)' }) {
 export function LoadingOverlay({ message = 'Loading...' }) {
   return (
     <div
-      className="fade-in fixed inset-0 flex flex-col items-center justify-center gap-4 z-9999"
+      role="alert"
+      aria-live="polite"
+      className="fade-in fixed inset-0 flex flex-col items-center justify-center gap-4"
       style={{
         background: 'rgba(13, 17, 23, 0.8)',
         backdropFilter: 'blur(4px)',
+        zIndex: 'var(--z-modal)',
       }}
     >
-      <LoadingSpinner size={32} />
+      <LoadingSpinner size={32} label={message} />
       {message && <div className="text-text-2 text-[14px]">{message}</div>}
     </div>
   )

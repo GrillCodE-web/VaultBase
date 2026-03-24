@@ -10,6 +10,7 @@ import { MoreHorizontal } from 'lucide-react'
  */
 export function ActionsMenu({ items = [], align = 'right' }) {
   const [open, setOpen] = useState(false)
+  const [focusedIndex, setFocusedIndex] = useState(-1)
   const ref = useRef(null)
   const btnRef = useRef(null)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -23,6 +24,36 @@ export function ActionsMenu({ items = [], align = 'right' }) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
+
+  // Keyboard navigation within menu
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = e => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setFocusedIndex(prev => Math.min(prev + 1, items.length - 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setFocusedIndex(prev => Math.max(prev - 1, 0))
+      } else if (e.key === 'Home') {
+        e.preventDefault()
+        setFocusedIndex(0)
+      } else if (e.key === 'End') {
+        e.preventDefault()
+        setFocusedIndex(items.length - 1)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, items.length])
+
+  // Focus the focused item
+  useEffect(() => {
+    if (focusedIndex >= 0 && ref.current) {
+      const items = ref.current.querySelectorAll('[role="menuitem"]')
+      items[focusedIndex]?.focus()
+    }
+  }, [focusedIndex])
 
   const toggle = e => {
     e.stopPropagation()
@@ -60,23 +91,25 @@ export function ActionsMenu({ items = [], align = 'right' }) {
       {open && (
         <div
           role="menu"
+          aria-orientation="vertical"
           className="fixed w-40 bg-card-hi border border-border-hi rounded-md overflow-hidden"
           style={{
             top: pos.top,
             left: pos.left,
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            zIndex: 9999,
+            zIndex: 'var(--z-dropdown)',
           }}
         >
           {items.map((item, i) => {
             if (item.divider) {
-              return <div key={i} role="separator" className="h-px bg-border my-[3px]" />
+              return <div key={`sep-${i}`} role="separator" className="h-px bg-border my-[3px]" />
             }
             const Icon = item.icon
             return (
               <button
                 key={i}
                 role="menuitem"
+                tabIndex={focusedIndex === i ? 0 : -1}
                 onClick={e => {
                   e.stopPropagation()
                   setOpen(false)
@@ -88,16 +121,18 @@ export function ActionsMenu({ items = [], align = 'right' }) {
                     btnRef.current?.focus()
                   }
                 }}
-                className={`w-full p-[7px_12px] border-none bg-transparent text-left cursor-pointer text-[12px] flex items-center gap-2 ${item.danger ? 'text-red-t' : 'text-text'}`}
+                className={`w-full p-[7px_12px] border-none bg-transparent text-left cursor-pointer text-[12px] flex items-center gap-2 ${item.danger ? 'text-red-t' : 'text-text'} ${focusedIndex === i ? 'bg-hover' : ''}`}
                 style={{
                   fontFamily: "'DM Sans', sans-serif",
                   transition: 'background var(--t-fast)',
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = 'var(--hover)'
+                  setFocusedIndex(i)
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.background = 'transparent'
+                  setFocusedIndex(-1)
                 }}
               >
                 {Icon && <Icon size={13} className="flex-shrink-0 opacity-80" />}
