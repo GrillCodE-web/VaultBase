@@ -75,10 +75,16 @@ function OrderTimeline({ status, updatedAt }) {
             >
               <div className="flex flex-col items-center gap-0\.5">
                 <div
-                  className="rounded-full shrink-0 transition-all duration-200"
+                  className={`rounded-full shrink-0 transition-all duration-200 timeline-status-dot ${
+                    isCurrent ? 'timeline-status-dot-current' : ''
+                  } ${
+                    isCurrent && status === 'delivered' ? 'timeline-status-dot-glow-green' : ''
+                  } ${
+                    isCurrent && (status === 'declined' || status === 'cancelled')
+                      ? 'timeline-status-dot-glow-red'
+                      : ''
+                  } ${isCurrent && status !== 'delivered' && status !== 'declined' && status !== 'cancelled' && status !== 'pending' ? 'timeline-status-dot-glow-blue' : ''}`}
                   style={{
-                    width: isCurrent ? 12 : 10,
-                    height: isCurrent ? 12 : 10,
                     background: color,
                     boxShadow: isCurrent ? `0 0 0 3px ${glowColor}, 0 0 12px ${glowColor}` : 'none',
                   }}
@@ -96,13 +102,9 @@ function OrderTimeline({ status, updatedAt }) {
               </div>
               {i < steps.length - 1 && (
                 <div
-                  className="flex-1 rounded-sm mx-1\.5 mb-4 min-w-\[40px\]"
-                  style={{
-                    height: 1.5,
-                    background: isPast
-                      ? 'linear-gradient(90deg, var(--green), var(--green))'
-                      : 'var(--border)',
-                  }}
+                  className={`flex-1 rounded-sm mx-1.5 mb-4 min-w-[40px] timeline-connector ${
+                    isPast ? 'timeline-connector-past' : 'timeline-connector-pending'
+                  }`}
                 />
               )}
             </div>
@@ -172,8 +174,13 @@ function RiskBlock({ result, loading }) {
 
   return (
     <div
-      className="rounded-lg overflow-hidden"
-      style={{ border: `1px solid ${c.borderColor}`, background: c.bg }}
+      className={`rounded-lg overflow-hidden risk-block ${
+        result.level === 'safe'
+          ? 'risk-block-safe'
+          : result.level === 'high_risk'
+            ? 'risk-block-high-risk'
+            : 'risk-block-warning'
+      }`}
     >
       <button
         onClick={() => result.warnings?.length && setOpen(o => !o)}
@@ -182,15 +189,29 @@ function RiskBlock({ result, loading }) {
         }`}
       >
         <div className="flex items-center gap-2">
-          <IconComponent size={14} style={{ color: c.iconColor }} />
-          <span className="font-medium" style={{ color: c.textColor }}>
+          <IconComponent
+            size={14}
+            className={`risk-icon ${
+              result.level === 'safe'
+                ? 'risk-icon-safe'
+                : result.level === 'high_risk'
+                  ? 'risk-icon-high-risk'
+                  : 'risk-icon-warning'
+            }`}
+          />
+          <span
+            className={`font-medium ${
+              result.level === 'safe'
+                ? 'risk-text-safe'
+                : result.level === 'high_risk'
+                  ? 'risk-text-high-risk'
+                  : 'risk-text-warning'
+            }`}
+          >
             {c.label}
           </span>
           {result.offline && (
-            <span
-              className="flex items-center gap-1 text-[11px]"
-              style={{ color: `${STATUS_COLORS.warning}B3` }}
-            >
+            <span className="flex items-center gap-1 text-[11px] risk-offline-text">
               <Wifi size={11} /> {t('license_offline')}
             </span>
           )}
@@ -212,17 +233,9 @@ function RiskBlock({ result, loading }) {
               }`}
             >
               {w.severity === 'high' ? (
-                <AlertTriangle
-                  size={11}
-                  className="shrink-0 mt-0\.5"
-                  style={{ color: STATUS_COLORS.error }}
-                />
+                <AlertTriangle size={11} className="shrink-0 mt-0.5 risk-icon-high-risk" />
               ) : (
-                <AlertCircle
-                  size={11}
-                  className="shrink-0 mt-0\.5"
-                  style={{ color: STATUS_COLORS.warning }}
-                />
+                <AlertCircle size={11} className="shrink-0 mt-0.5 risk-icon-warning" />
               )}
               <span className="text-text-2">{w.message}</span>
             </div>
@@ -362,10 +375,8 @@ function StatusMenu({ order, onUpdate, onClose }) {
             className="w-full text-left px-3 py-2 text-[12px] text-text-2 bg-transparent border-none cursor-pointer flex items-center gap-2"
           >
             <span
-              className="rounded-full shrink-0"
+              className="status-menu-dot rounded-full shrink-0"
               style={{
-                width: 6,
-                height: 6,
                 backgroundColor: ORDER_STATUS_DOT_COLORS[s] ?? 'var(--text-2)',
               }}
             />
@@ -878,10 +889,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                           <span className="font-mono">···{p.last4}</span>
                           <span>{p.bank_name || ''}</span>
                           <span
-                            style={{
-                              color:
-                                p.drop_count > 0 ? STATUS_COLORS.success : STATUS_COLORS.warning,
-                            }}
+                            className={p.drop_count > 0 ? 'drop-count-safe' : 'drop-count-warning'}
                           >
                             {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
                           </span>
@@ -945,12 +953,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                           {s._fromCatalog && <span className="badge-catalog">catalog</span>}
                           {s.domain && !s._fromCatalog && <span className="mono">{s.domain}</span>}
                           {s.score > 0 && (
-                            <span
-                              style={{
-                                color:
-                                  s.score >= 60 ? STATUS_COLORS.success : STATUS_COLORS.warning,
-                              }}
-                            >
+                            <span className={s.score >= 60 ? 'score-good' : 'score-warning'}>
                               ★{s.score}
                             </span>
                           )}
@@ -1241,10 +1244,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                   <button
                     onClick={() => removeItem(idx)}
                     disabled={items.length === 1}
-                    style={{
-                      cursor: items.length === 1 ? 'not-allowed' : 'pointer',
-                      opacity: items.length === 1 ? 0.3 : 1,
-                    }}
+                    className={items.length === 1 ? 'btn-opacity-disabled' : 'btn-opacity-normal'}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -1274,8 +1274,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                 <button
                   onClick={handleSaveTemplate}
                   disabled={!templateName.trim()}
-                  className="btn btn-b btn-sm"
-                  style={{ opacity: !templateName.trim() ? 0.4 : 1 }}
+                  className={`btn btn-b btn-sm ${!templateName.trim() ? 'btn-opacity-disabled' : 'btn-opacity-normal'}`}
                 >
                   Save
                 </button>
@@ -1305,11 +1304,11 @@ function CreateOrderModal({ onCreated, onClose }) {
           <button
             onClick={handleCreate}
             disabled={loading || !profileId || !shopId || !dropId}
-            className="btn btn-b btn-submit-full"
-            style={{
-              opacity: loading || !profileId || !shopId || !dropId ? 0.4 : 1,
-              cursor: loading || !profileId || !shopId || !dropId ? 'not-allowed' : 'pointer',
-            }}
+            className={`btn btn-b btn-submit-full ${
+              loading || !profileId || !shopId || !dropId
+                ? 'btn-opacity-disabled'
+                : 'btn-opacity-normal'
+            }`}
           >
             {loading ? t('msg_loading') : t('create_order') + ' →'}
           </button>
@@ -1606,7 +1605,7 @@ export default function OrderList({
                 {rowVirtualizer.getVirtualItems().length > 0 &&
                   rowVirtualizer.getVirtualItems()[0].start > 0 && (
                     <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                      <td colSpan={13} style={{ padding: 0, border: 0 }} />
+                      <td colSpan={13} className="virtual-scroll-spacer" />
                     </tr>
                   )}
                 {/* Render visible rows */}
@@ -1649,7 +1648,7 @@ export default function OrderList({
                       height: `${rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end || 0)}px`,
                     }}
                   >
-                    <td colSpan={13} style={{ padding: 0, border: 0 }} />
+                    <td colSpan={13} className="virtual-scroll-spacer" />
                   </tr>
                 )}
               </>
@@ -1672,16 +1671,7 @@ export default function OrderList({
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`btn btn-ghost btn-sm${page === p ? ' active' : ''}`}
-                  style={
-                    page === p
-                      ? {
-                          background: 'var(--accent)',
-                          color: 'var(--text)',
-                          borderColor: 'var(--accent)',
-                        }
-                      : {}
-                  }
+                  className={`btn btn-ghost btn-sm${page === p ? ' active pagination-btn-active' : ''}`}
                 >
                   {p}
                 </button>

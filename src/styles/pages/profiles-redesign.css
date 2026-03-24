@@ -455,3 +455,48 @@
   font-family: 'JetBrains Mono', monospace;
   margin-top: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   INLINE STYLE REPLACEMENTS
+   ═══════════════════════════════════════════════════════════ */
+
+/* DropForm preview table - skipped column styling */
+.preview-cell-skipped {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+/* DropForm - disabled button opacity */
+.btn-disabled-opacity {
+  opacity: 0.4;
+}
+
+/* Duplicate drops/profiles list items - border between items */
+.duplicate-list-item {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.duplicate-list-item:not(:first-child) {
+  border-top: 1px solid var(--border);
+}
+
+/* Order list items - border between items */
+.order-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.order-list-item:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Pagination - active page button */
+.pagination-btn-active {
+  background: var(--accent);
+  color: var(--text);
+}

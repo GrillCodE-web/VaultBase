@@ -251,11 +251,9 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
                         {row.map((cell, ci) => (
                           <td
                             key={ci}
-                            className="mono"
-                            style={{
-                              color: mapping[ci] === 'skip' ? 'var(--muted)' : 'var(--text)',
-                              opacity: mapping[ci] === 'skip' ? 0.5 : 1,
-                            }}
+                            className={
+                              mapping[ci] === 'skip' ? 'mono preview-cell-skipped' : 'mono'
+                            }
                           >
                             {cell || <span className="text-muted">—</span>}
                           </td>
@@ -371,13 +369,7 @@ function DuplicateDropsModal({ groups, onClose }) {
                   duplicates
                 </div>
                 {group.map((d, di) => (
-                  <div
-                    key={d.id}
-                    className="p-\[8px_16px\] flex items-center justify-between"
-                    style={{
-                      borderTop: di === 0 ? 'none' : '1px solid var(--border)',
-                    }}
-                  >
+                  <div key={d.id} className="duplicate-list-item">
                     <div>
                       <span className="text-[13px] text-text">{d.recipient_name}</span>
                       <span className="text-[11px] text-muted ml-2">
@@ -451,13 +443,7 @@ function DuplicateProfilesModal({ groups, onClose }) {
                   Card {group[0].bin}••••{group[0].last4} — {group.length} profiles
                 </div>
                 {group.map((p, pi) => (
-                  <div
-                    key={p.id}
-                    className="p-\[8px_16px\] flex items-center justify-between"
-                    style={{
-                      borderTop: pi === 0 ? 'none' : '1px solid var(--border)',
-                    }}
-                  >
+                  <div key={p.id} className="duplicate-list-item">
                     <span className="text-[12px] font-mono text-text">{shortId(p.id)}</span>
                     <span className="text-[11px] text-muted">
                       {p.drop_count} drops · {p.order_count} orders
@@ -844,13 +830,7 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
               </div>
             )}
             {orders.map((o, oi) => (
-              <div
-                key={o.id}
-                className="flex items-center justify-between py-2"
-                style={{
-                  borderBottom: oi < orders.length - 1 ? '1px solid var(--border)' : 'none',
-                }}
-              >
+              <div key={o.id} className="order-list-item">
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className={`st ${ORDER_STATUS_CSS[o.status] ?? 'st-archive'}`}>
@@ -1509,14 +1489,10 @@ export default function ProfileList({
                     setPage(p)
                     load(p, filter)
                   }}
-                  className={`btn btn-ghost btn-sm${page === p ? ' active' : ''}`}
-                  style={
+                  className={
                     page === p
-                      ? {
-                          background: 'var(--accent)',
-                          color: 'var(--text)',
-                        }
-                      : {}
+                      ? 'btn btn-ghost btn-sm active pagination-btn-active'
+                      : 'btn btn-ghost btn-sm'
                   }
                 >
                   {p}

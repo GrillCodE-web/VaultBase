@@ -405,3 +405,197 @@
     width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   EXTRACTED INLINE STYLES
+   Classes extracted from inline style attributes
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Timeline Status Dot ─────────────────────────────────── */
+.timeline-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.timeline-status-dot.current {
+  width: 12px;
+  height: 12px;
+}
+
+.timeline-status-dot.glow-green {
+  box-shadow:
+    0 0 0 3px rgba(34, 197, 94, 0.3),
+    0 0 12px rgba(34, 197, 94, 0.5);
+}
+
+.timeline-status-dot.glow-yellow {
+  box-shadow:
+    0 0 0 3px rgba(234, 179, 8, 0.3),
+    0 0 12px rgba(234, 179, 8, 0.5);
+}
+
+.timeline-status-dot.glow-red {
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.3),
+    0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.timeline-status-dot.glow-blue {
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.3),
+    0 0 12px rgba(59, 130, 246, 0.5);
+}
+
+/* ── Timeline Connector ─────────────────────────────────── */
+.timeline-connector {
+  height: 1.5px;
+  border-radius: 2px;
+  flex: 1;
+  margin: 0 6px;
+  min-width: 40px;
+}
+
+.timeline-connector.past {
+  background: linear-gradient(90deg, var(--green), var(--green));
+}
+
+.timeline-connector.pending {
+  background: var(--border);
+}
+
+/* ── Risk Block ─────────────────────────────────────────── */
+.risk-block {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid;
+}
+
+.risk-block-safe {
+  border-color: rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.risk-block-warning {
+  border-color: rgba(234, 179, 8, 0.2);
+  background: rgba(234, 179, 8, 0.05);
+}
+
+.risk-block-high-risk {
+  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.risk-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.risk-text-safe {
+  color: #22c55e;
+}
+
+.risk-text-warning {
+  color: #eab308;
+}
+
+.risk-text-high-risk {
+  color: #ef4444;
+}
+
+.risk-offline-text {
+  color: rgba(234, 179, 8, 0.7);
+}
+
+.risk-icon-safe {
+  color: #22c55e;
+}
+
+.risk-icon-warning {
+  color: #eab308;
+}
+
+.risk-icon-high-risk {
+  color: #ef4444;
+}
+
+/* ── Status Menu Dot ───────────────────────────────────── */
+.status-menu-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ── Drop Count / Score Text ───────────────────────────── */
+.drop-count-safe {
+  color: #22c55e;
+}
+
+.drop-count-warning {
+  color: #eab308;
+}
+
+.score-good {
+  color: #22c55e;
+}
+
+.score-warning {
+  color: #eab308;
+}
+
+/* ── Shop Flag Badge ───────────────────────────────────── */
+.shop-flag-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.shop-flag-blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.shop-flag-green {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.shop-flag-yellow {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+}
+
+.shop-flag-red {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.shop-flag-purple {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+/* ── Disabled Button States ────────────────────────────── */
+.btn-opacity-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-opacity-normal {
+  opacity: 1;
+}
+
+/* ── Virtual Scroll Spacer ─────────────────────────────── */
+.virtual-scroll-spacer {
+  padding: 0;
+  border: none;
+}
+
+/* ── Active Pagination Button ─────────────────────────── */
+.pagination-btn-active {
+  background: var(--accent);
+  color: var(--text);
+  border-color: var(--accent);
+}

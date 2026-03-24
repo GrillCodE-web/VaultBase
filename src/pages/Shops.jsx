@@ -66,7 +66,7 @@ function StatCard({ label, value, sub, accent }) {
   return (
     <div className="stat-card">
       <div className="stat-card-label">{label}</div>
-      <div className="stat-card-value" style={{ color: accent || 'var(--text)' }}>
+      <div className="stat-card-value" style={accent ? { color: accent } : undefined}>
         {value}
       </div>
       {sub && <div className="stat-card-sub">{sub}</div>}
@@ -845,24 +845,19 @@ export default function ShopList({ onNavigate }) {
         {shops.length > 0 && (
           <>
             {[
-              { label: 'shops', val: shops.length, color: STATUS_COLORS.info },
-              { label: 'orders', val: totOrders, color: 'var(--blue-t)' },
-              { label: 'delivered', val: totDelivered, color: STATUS_COLORS.success },
-              { label: 'declined', val: totDeclined, color: STATUS_COLORS.error },
-            ].map(({ label, val, color }) => (
-              <div
-                key={label}
-                className="flex items-center gap-\[7px\] rounded-md p-\[4px_12px\]"
-                style={{
-                  background: `${color}12`,
-                  border: `1px solid ${color}25`,
-                }}
-              >
-                <span
-                  className="w-\[5px\] h-\[5px\] rounded-full shrink-0 inline-block"
-                  style={{ background: color }}
-                />
-                <span className="text-[12px] font-medium" style={{ color }}>
+              { label: 'shops', val: shops.length, color: STATUS_COLORS.info, type: 'info' },
+              { label: 'orders', val: totOrders, color: 'var(--blue-t)', type: 'info' },
+              {
+                label: 'delivered',
+                val: totDelivered,
+                color: STATUS_COLORS.success,
+                type: 'success',
+              },
+              { label: 'declined', val: totDeclined, color: STATUS_COLORS.error, type: 'error' },
+            ].map(({ label, val, color, type }) => (
+              <div key={label} className="stat-bar-item">
+                <span className="stat-bar-dot" style={{ background: color }} />
+                <span className="stat-bar-value" style={{ color }}>
                   {val}
                 </span>
                 <span className="text-[11px] text-muted">{label}</span>
@@ -1277,12 +1272,7 @@ export default function ShopList({ onNavigate }) {
                   setPage(p)
                   load(p, search)
                 }}
-                className="btn btn-ghost btn-sm"
-                style={
-                  p === page
-                    ? { background: 'var(--accent)', color: 'var(--text)', border: 'none' }
-                    : undefined
-                }
+                className={p === page ? 'btn btn-page-active btn-sm' : 'btn btn-ghost btn-sm'}
               >
                 {p}
               </button>
