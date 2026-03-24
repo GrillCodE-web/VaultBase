@@ -576,16 +576,23 @@ impl Database {
     pub fn export_cards(&self, ids: &[i64], format: &str) -> Result<String, String> {
         let mut output = String::new();
         if format == "csv" {
-            output.push_str("card_number,expiry_date,cvv,holder_name,email,phone,billing_address,city,state,country,zip\n");
+            // FIX CRIT-02: Никогда не экспортируем CVV — только последние 4 цифры карты
+            output.push_str("card_number,expiry_date,holder_name,email,phone,billing_address,city,state,country,zip\n");
         }
 
         for &id in ids {
             let c = self.get_card_decrypted(id)?;
+            // FIX CRIT-02: Маскируем номер карты — показываем только последние 4 цифры
+            let masked_card = if c.card_number.len() > 4 {
+                format!("****{}", &c.card_number[c.card_number.len()-4..])
+            } else {
+                "****".to_string()
+            };
+            // FIX CRIT-02: CVV не экспортируется вообще
             let row = format!(
-                "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
-                c.card_number,
+                "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+                masked_card,
                 c.expiry_date,
-                c.cvv,
                 c.holder_name,
                 c.email.as_deref().unwrap_or(""),
                 c.phone.as_deref().unwrap_or(""),
