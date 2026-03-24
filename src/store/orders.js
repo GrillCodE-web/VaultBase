@@ -17,8 +17,8 @@ export const useOrdersStore = create((set, get) => ({
   },
   page: 1,
   perPage: 50,
-  selected: new Set(),
-  deletingIds: new Set(),
+  selected: [], // Use array instead of Set for localStorage compatibility
+  deletingIds: [], // Use array instead of Set for localStorage compatibility
   cache: {},
   lastFetch: null,
 
@@ -45,24 +45,21 @@ export const useOrdersStore = create((set, get) => ({
 
   toggleSelect: id =>
     set(state => {
-      const newSelected = new Set(state.selected)
-      if (newSelected.has(id)) {
-        newSelected.delete(id)
-      } else {
-        newSelected.add(id)
+      const isSelected = state.selected.includes(id)
+      return {
+        selected: isSelected ? state.selected.filter(sid => sid !== id) : [...state.selected, id],
       }
-      return { selected: newSelected }
     }),
 
   toggleSelectAll: () =>
     set(state => {
-      if (state.selected.size === state.orders.length) {
-        return { selected: new Set() }
+      if (state.selected.length === state.orders.length) {
+        return { selected: [] }
       }
-      return { selected: new Set(state.orders.map(o => o.id)) }
+      return { selected: state.orders.map(o => o.id) }
     }),
 
-  clearSelection: () => set({ selected: new Set() }),
+  clearSelection: () => set({ selected: [] }),
 
   fetchOrders: async (forceRefresh = false) => {
     const state = get()
@@ -137,7 +134,7 @@ export const useOrdersStore = create((set, get) => ({
   deleteOrder: async id => {
     // Mark as deleting
     set(state => ({
-      deletingIds: new Set([...state.deletingIds, id]),
+      deletingIds: [...state.deletingIds, id],
     }))
 
     try {
@@ -146,8 +143,8 @@ export const useOrdersStore = create((set, get) => ({
       // Remove from state
       set(state => ({
         orders: state.orders.filter(o => o.id !== id),
-        deletingIds: new Set([...state.deletingIds].filter(did => did !== id)),
-        selected: new Set([...state.selected].filter(sid => sid !== id)),
+        deletingIds: state.deletingIds.filter(did => did !== id),
+        selected: state.selected.filter(sid => sid !== id),
         cache: {}, // Invalidate cache
       }))
 
@@ -156,7 +153,7 @@ export const useOrdersStore = create((set, get) => ({
     } catch (error) {
       // Remove deleting flag on error
       set(state => ({
-        deletingIds: new Set([...state.deletingIds].filter(did => did !== id)),
+        deletingIds: state.deletingIds.filter(did => did !== id),
       }))
       throw error
     }
@@ -164,7 +161,7 @@ export const useOrdersStore = create((set, get) => ({
 
   undoDelete: id => {
     set(state => ({
-      deletingIds: new Set([...state.deletingIds].filter(did => did !== id)),
+      deletingIds: state.deletingIds.filter(did => did !== id),
     }))
   },
 
@@ -177,7 +174,7 @@ export const useOrdersStore = create((set, get) => ({
 
     try {
       await invoke('bulk_update_orders', { ids, status })
-      set({ selected: new Set(), cache: {} })
+      set({ selected: [], cache: {} })
     } catch (error) {
       // Rollback on error
       set({ orders: prevOrders })
@@ -191,7 +188,7 @@ export const useOrdersStore = create((set, get) => ({
     // Remove from state
     set(state => ({
       orders: state.orders.filter(o => !ids.includes(o.id)),
-      selected: new Set(),
+      selected: [],
       cache: {}, // Invalidate cache
     }))
 

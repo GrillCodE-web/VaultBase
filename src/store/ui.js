@@ -19,7 +19,7 @@ export const useUIStore = create(set => ({
   statusMenuId: null,
 
   // Flash animations
-  flashedIds: new Set(),
+  flashedIds: [], // Use array instead of Set for localStorage compatibility
 
   // Enrich progress
   enrichProgress: null,
@@ -42,15 +42,13 @@ export const useUIStore = create(set => ({
 
   addFlashedId: id =>
     set(state => ({
-      flashedIds: new Set([...state.flashedIds, id]),
+      flashedIds: [...state.flashedIds, id],
     })),
 
   removeFlashedId: id =>
-    set(state => {
-      const newSet = new Set(state.flashedIds)
-      newSet.delete(id)
-      return { flashedIds: newSet }
-    }),
+    set(state => ({
+      flashedIds: state.flashedIds.filter(fid => fid !== id),
+    })),
 
   setEnrichProgress: progress => set({ enrichProgress: progress }),
 }))
