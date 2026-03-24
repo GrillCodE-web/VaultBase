@@ -13,8 +13,10 @@ export function AnimatedButton({
   size = 'md',
   icon: Icon,
   className = '',
+  'aria-label': ariaLabel,
   ...props
 }) {
+  const isIconOnly = Icon && !children
   const [ripples, setRipples] = useState([])
   const buttonRef = useRef(null)
 
@@ -97,6 +99,9 @@ export function AnimatedButton({
       className={`${className}`}
       onClick={handleClick}
       disabled={disabled || loading}
+      type="button"
+      aria-label={isIconOnly ? ariaLabel : undefined}
+      aria-busy={loading}
       style={style}
       {...props}
     >

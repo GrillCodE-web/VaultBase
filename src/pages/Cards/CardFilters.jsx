@@ -17,7 +17,7 @@ export function CardFilters({
   return (
     <>
       {/* Filters row */}
-      <div className="filters">
+      <div className="filters" role="group" aria-label="Card filters">
         <select
           value={filter.status || ''}
           onChange={e => {
@@ -25,6 +25,7 @@ export function CardFilters({
             setPage(1)
           }}
           className="inline-select"
+          aria-label={t('cc_filter_status')}
         >
           <option value="">{t('cc_filter_status')}</option>
           <option value="free">{t('status_free')}</option>
@@ -40,6 +41,7 @@ export function CardFilters({
             setPage(1)
           }}
           className="inline-select"
+          aria-label={t('cc_filter_country')}
         >
           <option value="">{t('cc_filter_country')}</option>
           {filterMeta.countries.map(c => (
@@ -56,6 +58,7 @@ export function CardFilters({
             setPage(1)
           }}
           className="inline-select"
+          aria-label={t('cc_filter_bank')}
         >
           <option value="">{t('cc_filter_bank')}</option>
           {filterMeta.banks.map(b => (
@@ -72,6 +75,7 @@ export function CardFilters({
             setPage(1)
           }}
           className="inline-select"
+          aria-label={t('cc_filter_source')}
         >
           <option value="">{t('cc_filter_source')}</option>
           {filterMeta.sources.map(s => (
@@ -88,6 +92,7 @@ export function CardFilters({
             setPage(1)
           }}
           className="inline-select"
+          aria-label={t('cc_col_type')}
         >
           <option value="">{t('cc_col_type')}</option>
           <option value="visa">Visa</option>
@@ -105,6 +110,7 @@ export function CardFilters({
           placeholder={t('drop_field_state')}
           className="search-box"
           style={{ width: 60 }}
+          aria-label={t('drop_field_state')}
         />
 
         <input
@@ -116,6 +122,7 @@ export function CardFilters({
           placeholder="ZIP"
           title={t('cards_zip_filter_hint')}
           className="inline-select w-[70px]"
+          aria-label="ZIP prefix filter"
         />
 
         <div className="ml-auto flex items-center gap-1.5">
@@ -125,6 +132,7 @@ export function CardFilters({
             onChange={e => setSearchInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
             placeholder={t('btn_search') + '...'}
+            aria-label={t('btn_search')}
           />
           <button onClick={handleSearch} className="btn btn-b btn-sm">
             {t('btn_search')}
@@ -136,6 +144,7 @@ export function CardFilters({
             onClick={loadCards}
             className="btn btn-ghost btn-sm"
             title="Refresh (r)"
+            aria-label="Refresh cards"
             data-shortcut="refresh"
           >
             {loading ? '⟳' : '↺'}
@@ -152,6 +161,7 @@ export function CardFilters({
               <button
                 onClick={() => setFilter(f => ({ ...f, bank_name: null }))}
                 className="quick-filter-remove"
+                aria-label={`Remove ${filter.bank_name} filter`}
               >
                 ×
               </button>
@@ -163,6 +173,7 @@ export function CardFilters({
               <button
                 onClick={() => setFilter(f => ({ ...f, country: null }))}
                 className="quick-filter-remove"
+                aria-label={`Remove ${filter.country} filter`}
               >
                 ×
               </button>

@@ -41,6 +41,13 @@ export function ActionsMenu({ items = [], align = 'right' }) {
       <button
         ref={btnRef}
         onClick={toggle}
+        onKeyDown={e => {
+          if (open && e.key === 'ArrowDown') {
+            e.preventDefault()
+            const firstItem = ref.current?.querySelector('[role="menuitem"]')
+            firstItem?.focus()
+          }
+        }}
         className="btn btn-ghost btn-sm btn-icon-only w-[26px] h-[26px]"
         title="Actions"
         aria-label="Open actions menu"
@@ -52,6 +59,7 @@ export function ActionsMenu({ items = [], align = 'right' }) {
 
       {open && (
         <div
+          role="menu"
           className="fixed w-40 bg-card-hi border border-border-hi rounded-md overflow-hidden"
           style={{
             top: pos.top,
@@ -62,16 +70,23 @@ export function ActionsMenu({ items = [], align = 'right' }) {
         >
           {items.map((item, i) => {
             if (item.divider) {
-              return <div key={i} className="h-px bg-border my-[3px]" />
+              return <div key={i} role="separator" className="h-px bg-border my-[3px]" />
             }
             const Icon = item.icon
             return (
               <button
                 key={i}
+                role="menuitem"
                 onClick={e => {
                   e.stopPropagation()
                   setOpen(false)
                   item.onClick?.()
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') {
+                    setOpen(false)
+                    btnRef.current?.focus()
+                  }
                 }}
                 className={`w-full p-[7px_12px] border-none bg-transparent text-left cursor-pointer text-[12px] flex items-center gap-2 ${item.danger ? 'text-red-t' : 'text-text'}`}
                 style={{
