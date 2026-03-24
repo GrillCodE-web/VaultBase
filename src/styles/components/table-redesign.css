@@ -119,28 +119,7 @@
   color: var(--accent-text);
 }
 
-/* ── Panel Container ────────────────────────────────────── */
-.panel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 20px;
-  position: relative;
-  overflow: hidden;
-}
-
-.panel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--gradient-accent);
-  opacity: 0.15;
-}
-
-/* ── Panel Title ────────────────────────────────────────── */
+/* ── Panel Title (table-specific) ───────────────────────── */
 .ptitle {
   font-size: 14px;
   font-weight: 700;

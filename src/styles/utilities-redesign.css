@@ -637,10 +637,10 @@
   z-index: 50;
 }
 .z-100 {
-  z-index: 100;
+  z-index: var(--z-modal);
 }
-.z-9999 {
-  z-index: 9999;
+.z-tooltip {
+  z-index: var(--z-tooltip);
 }
 .z-\[3\] {
   z-index: 3;
@@ -1318,7 +1318,7 @@
 
 /* ── Additional Z-Index ─────────────────────────────────── */
 .z-\[9999\] {
-  z-index: 9999;
+  z-index: var(--z-tooltip);
 }
 
 /* ── Additional Min Width ───────────────────────────────── */
