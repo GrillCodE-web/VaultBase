@@ -111,15 +111,15 @@ describe('Modal Component (Accessibility)', () => {
   })
 
   describe('Size variants', () => {
-    it('applies correct maxWidth for each size', () => {
+    it('applies correct CSS variable for each size', () => {
       const sizes = {
-        sm: '420px',
-        md: '560px',
-        lg: '720px',
-        xl: '900px',
+        sm: 'var(--modal-sm)',
+        md: 'var(--modal-md)',
+        lg: 'var(--modal-lg)',
+        xl: 'var(--modal-xl)',
       }
 
-      Object.entries(sizes).forEach(([size, expectedWidth]) => {
+      Object.entries(sizes).forEach(([size, expectedVar]) => {
         const { container, unmount } = render(
           <Modal isOpen={true} onClose={vi.fn()} title="Test" size={size}>
             Content
@@ -127,7 +127,7 @@ describe('Modal Component (Accessibility)', () => {
         )
 
         const modal = container.querySelector('[role="dialog"]')
-        expect(modal.style.maxWidth).toBe(expectedWidth)
+        expect(modal.style.maxWidth).toBe(expectedVar)
         unmount()
       })
     })

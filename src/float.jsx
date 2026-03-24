@@ -23,12 +23,7 @@ function CopyBtn({ value }) {
     })
   }
   return (
-    <button
-      className="float-copy"
-      onClick={handleCopy}
-      title="Copy"
-      style={{ color: copied ? HEX_COLORS.greenLight : undefined }}
-    >
+    <button className={`float-copy${copied ? ' copied' : ''}`} onClick={handleCopy} title="Copy">
       {copied ? '✓' : '⎘'}
     </button>
   )
@@ -51,39 +46,13 @@ function Field({ label, value }) {
 function RiskBadge({ level }) {
   if (!level) return null
   const map = {
-    safe: {
-      color: HEX_COLORS.greenLight,
-      bg: 'rgba(34,197,94,0.12)',
-      border: 'rgba(34,197,94,0.25)',
-      label: 'Safe',
-      icon: '🟢',
-    },
-    warning: {
-      color: HEX_COLORS.yellowLight,
-      bg: 'rgba(234,179,8,0.12)',
-      border: 'rgba(234,179,8,0.25)',
-      label: 'Warning',
-      icon: '🟡',
-    },
-    high: {
-      color: HEX_COLORS.redLight,
-      bg: 'rgba(239,68,68,0.12)',
-      border: 'rgba(239,68,68,0.25)',
-      label: 'High Risk',
-      icon: '🔴',
-    },
+    safe: { className: 'risk-safe', label: 'Safe', icon: '🟢' },
+    warning: { className: 'risk-warning', label: 'Warning', icon: '🟡' },
+    high: { className: 'risk-high', label: 'High Risk', icon: '🔴' },
   }
   const cfg = map[level] ?? map.warning
   return (
-    <span
-      className="st rounded-full"
-      style={{
-        color: cfg.color,
-        background: cfg.bg,
-        border: `1px solid ${cfg.border}`,
-        padding: '2px 8px',
-      }}
-    >
+    <span className={`st rounded-full risk-badge ${cfg.className}`}>
       {cfg.icon} {cfg.label}
     </span>
   )
@@ -95,25 +64,25 @@ function CardHealth({ card, orderCount }) {
   if (!card) return null
 
   // Health logic: dead/blocked = burned, in_use with many orders = used, free/new = fresh
-  let label, color, icon
+  let label, className, icon
   if (card.status === 'dead' || card.status === 'blocked') {
     label = 'Burned'
-    color = HEX_COLORS.redLight
+    className = 'health-burned'
     icon = '🔴'
   } else if (orderCount >= 3 || card.status === 'in_use') {
     label = 'Used'
-    color = HEX_COLORS.yellowLight
+    className = 'health-used'
     icon = '🟡'
   } else {
     label = 'Fresh'
-    color = HEX_COLORS.greenLight
+    className = 'health-fresh'
     icon = '🟢'
   }
 
   return (
     <div className="flex items-center text-muted gap-5 text-[11px]">
-      <span style={{ color }}>{icon}</span>
-      <span style={{ color }}>{label}</span>
+      <span className={className}>{icon}</span>
+      <span className={className}>{label}</span>
       {orderCount > 0 && (
         <span className="text-muted">
           · {orderCount} order{orderCount !== 1 ? 's' : ''}
@@ -271,10 +240,7 @@ function ProfileFloat() {
   // ── States ─────────────────────────────────────────────────
   if (appLocked) {
     return (
-      <div
-        className="flex flex-col items-center justify-center h-screen text-muted gap-10"
-        style={{ background: 'rgba(11,15,22,0.82)' }}
-      >
+      <div className="float-state float-locked">
         <Lock size={28} className="text-muted" />
         <span className="text-[12px]">{t('auth_err_locked')}</span>
       </div>
@@ -283,10 +249,7 @@ function ProfileFloat() {
 
   if (!profileId) {
     return (
-      <div
-        className="flex items-center justify-center h-screen text-muted"
-        style={{ background: 'rgba(11,15,22,0.82)' }}
-      >
+      <div className="float-state float-waiting">
         <span className="text-[12px]">Waiting for profile…</span>
       </div>
     )
@@ -294,33 +257,16 @@ function ProfileFloat() {
 
   if (loading) {
     return (
-      <div
-        className="flex items-center justify-center h-screen"
-        style={{ background: 'rgba(11,15,22,0.82)' }}
-      >
-        <div
-          className="rounded-full"
-          style={{
-            width: 24,
-            height: 24,
-            border: '2px solid rgba(59,130,246,0.3)',
-            borderTopColor: 'var(--blue)',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
+      <div className="float-state float-loading">
+        <div className="float-spinner" />
       </div>
     )
   }
 
   if (error || !profile) {
     return (
-      <div
-        className="flex flex-col items-center justify-center h-screen gap-10"
-        style={{ background: 'rgba(11,15,22,0.82)' }}
-      >
-        <span className="text-[12px]" style={{ color: HEX_COLORS.redLight }}>
-          {error ?? 'Profile not found'}
-        </span>
+      <div className="float-state float-error">
+        <span className="float-error-text">{error ?? 'Profile not found'}</span>
         <button className="btn btn-ghost btn-sm" onClick={() => load(profileId)}>
           Retry
         </button>
@@ -329,37 +275,12 @@ function ProfileFloat() {
   }
 
   return (
-    <div
-      className="flex flex-col h-screen"
-      style={{
-        position: 'relative',
-        width: floatWidth,
-        background: 'rgba(11,15,22,0.82)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        color: 'var(--text)',
-      }}
-    >
+    <div className="float-window" style={{ width: floatWidth }}>
       {/* F5: Resize handle — left edge drag */}
-      <div
-        onMouseDown={handleResizeStart}
-        className="cursor-grab"
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 4,
-          zIndex: 10,
-          background: 'transparent',
-        }}
-      />
+      <div onMouseDown={handleResizeStart} className="float-resize-handle cursor-grab" />
 
       {/* ── Header ── */}
-      <div
-        className="p-[10px_14px]"
-        style={{ background: 'rgba(17,21,32,0.75)', borderBottom: '1px solid var(--border)' }}
-      >
+      <div className="float-header">
         <div className="flex items-center justify-between">
           <div>
             <span className="font-semibold text-[13px]">
@@ -376,15 +297,7 @@ function ProfileFloat() {
             )}
             <button
               onClick={() => getCurrentWindow().hide()}
-              className="flex items-center justify-center rounded-full cursor-pointer text-[9px]"
-              style={{
-                width: 14,
-                height: 14,
-                background: HEX_COLORS.red,
-                border: 'none',
-                color: 'rgba(0,0,0,0.6)',
-                fontWeight: 700,
-              }}
+              className="float-close-btn"
               title={t('btn_close')}
             >
               ×
@@ -396,10 +309,7 @@ function ProfileFloat() {
       </div>
 
       {/* ── Tabs ── */}
-      <div
-        className="p-[8px_12px]"
-        style={{ background: 'rgba(13,17,26,0.65)', borderBottom: '1px solid var(--border)' }}
-      >
+      <div className="float-tabs-bar">
         <div className="float-tabs">
           {[
             { key: 'card', label: t('section_card') },
@@ -485,8 +395,7 @@ function ProfileFloat() {
                 <Field key={label} label={label} value={value} />
               ))}
               <button
-                className="btn btn-b w-full justify-center"
-                style={{ marginTop: 8 }}
+                className="btn btn-b w-full justify-center mt-8"
                 onClick={() => {
                   const addr = [
                     drop.recipient_name,
@@ -527,7 +436,7 @@ function ProfileFloat() {
               </button>
             </div>
             {showQuickOrder && (
-              <div className="rounded mb-8 p-[8px]" style={{ background: 'var(--surface2)' }}>
+              <div className="float-quick-order rounded mb-8 p-[8px]">
                 <input
                   className="inp text-[11px] mb-[4px]"
                   placeholder="Shop URL..."
@@ -561,8 +470,7 @@ function ProfileFloat() {
                 />
                 <div className="text-muted text-[10px]">Press Enter to create</div>
                 <button
-                  className="text-muted cursor-pointer text-[10px]"
-                  style={{ background: 'none', border: 'none' }}
+                  className="float-cancel-btn text-muted cursor-pointer text-[10px]"
                   onClick={() => setShowQuickOrder(false)}
                 >
                   Cancel
@@ -579,14 +487,7 @@ function ProfileFloat() {
                     onClick={() =>
                       invoke('open_main_window_page', { page: 'orders' }).catch(() => {})
                     }
-                    className="flex flex-col cursor-pointer"
-                    style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      borderRadius: 8,
-                      padding: '8px 10px',
-                      border: '1px solid var(--border)',
-                      gap: 4,
-                    }}
+                    className="float-order-row flex flex-col cursor-pointer"
                   >
                     <div className="flex justify-between items-center">
                       <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium text-[12px]">
@@ -612,12 +513,7 @@ function ProfileFloat() {
                               toastErr(String(err))
                             }
                           }}
-                          className="text-[10px] rounded cursor-pointer p-[1px_4px]"
-                          style={{
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface2)',
-                            color: 'var(--text)',
-                          }}
+                          className="float-status-select text-[10px] rounded cursor-pointer p-[1px_4px]"
                           onClick={e => e.stopPropagation()}
                         >
                           {[
@@ -658,10 +554,7 @@ function ProfileFloat() {
       </div>
 
       {/* ── Footer actions ── */}
-      <div
-        className="flex gap-[8px] p-[10px_12px]"
-        style={{ borderTop: '1px solid var(--border)', background: 'rgba(17,21,32,0.75)' }}
-      >
+      <div className="float-footer">
         <button
           className="btn btn-ghost btn-sm text-[10px] p-[4px_8px]"
           onClick={() => invoke('open_main_window_page', { page: 'orders' }).catch(() => {})}
@@ -669,11 +562,7 @@ function ProfileFloat() {
           + Order
         </button>
         <button
-          className="btn btn-g flex-1 justify-center"
-          style={{
-            opacity: latestOrderId ? 1 : 0.35,
-            cursor: latestOrderId ? 'pointer' : 'not-allowed',
-          }}
+          className={`btn btn-g flex-1 justify-center${!latestOrderId ? ' btn-disabled' : ''}`}
           disabled={!latestOrderId}
           onClick={async () => {
             if (!latestOrderId) return
@@ -694,11 +583,7 @@ function ProfileFloat() {
           ✓ Delivered
         </button>
         <button
-          className="btn btn-r flex-1 justify-center"
-          style={{
-            opacity: latestOrderId ? 1 : 0.35,
-            cursor: latestOrderId ? 'pointer' : 'not-allowed',
-          }}
+          className={`btn btn-r flex-1 justify-center${!latestOrderId ? ' btn-disabled' : ''}`}
           disabled={!latestOrderId}
           onClick={async () => {
             if (!latestOrderId) return

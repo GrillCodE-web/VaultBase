@@ -63,6 +63,15 @@
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
+/* Focus-visible for keyboard navigation only */
+.input:focus-visible,
+.textarea:focus-visible,
+.select:focus-visible,
+.form-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .input::placeholder,
 .textarea::placeholder,
 .form-input::placeholder {

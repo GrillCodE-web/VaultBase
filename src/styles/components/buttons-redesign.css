@@ -49,6 +49,12 @@
   outline-offset: 2px;
 }
 
+/* Icon-only buttons need larger focus ring for visibility */
+.btn-icon-only:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;

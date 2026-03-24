@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
+import '../styles/components/modal-redesign.css'
 
 /**
  * Modal - Reusable modal component with animations
@@ -43,10 +44,10 @@ export function Modal({
   if (!isOpen) return null
 
   const sizes = {
-    sm: '420px',
-    md: '560px',
-    lg: '720px',
-    xl: '900px',
+    sm: 'var(--modal-sm)',
+    md: 'var(--modal-md)',
+    lg: 'var(--modal-lg)',
+    xl: 'var(--modal-xl)',
   }
 
   return (
@@ -86,18 +87,7 @@ export function Modal({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="bg-transparent border-none text-text-3 cursor-pointer p-1 flex items-center justify-center rounded-sm ml-auto"
-                style={{
-                  transition: 'all var(--t-fast)',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'var(--hover)'
-                  e.currentTarget.style.color = 'var(--text)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--text-3)'
-                }}
+                className="modal-close-btn bg-transparent border-none text-text-3 cursor-pointer p-1 flex items-center justify-center rounded-sm ml-auto"
               >
                 <X size={18} />
               </button>
