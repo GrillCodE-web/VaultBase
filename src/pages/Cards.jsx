@@ -4,6 +4,7 @@ import { Archive, Upload, RefreshCw, CreditCard, Zap } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang.jsx'
 import { useToast } from '../hooks/useToast.jsx'
+import { usePremiumToast } from '../hooks/usePremiumToast.js'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
@@ -70,8 +71,9 @@ const DEFAULT_COLS = [
 export default function Cards({ onNavigate, activeTab = 'list', openImport = false }) {
   const { t } = useLang()
   const ALL_COLUMNS = getAllColumns(t)
-  const { toast } = useToast()
+  const { toast } = useToast() // Backwards compatible — uses SmartToast internally
   const { confirm } = useConfirm()
+  const { successDelete, successExport, errorLoad, errorSave } = usePremiumToast()
 
   // ── Zustand Stores ─────────────────────────────────────────────────────
 
@@ -184,10 +186,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // Load cards when filters or page change
   useEffect(() => {
     fetchCards().catch(e => {
-      const error = handleError(e, 'Cards.fetchCards')
-      toast(getErrorMessage(error), 'error')
+      errorLoad('Cards')
     })
-  }, [fetchCards, toast])
+  }, [fetchCards, errorLoad])
 
   // Load filter metadata on mount
   useEffect(() => {
@@ -402,10 +403,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     if (!ok) return
     try {
       await bulkDelete([...selected])
-      toast(t('cards_bulk_deleted').replace('{n}', selected.length), 'success')
+      successDelete('Card', selected.length)
     } catch (e) {
       const error = handleError(e, 'Cards.handleBulkDelete')
-      toast(getErrorMessage(error), 'error')
+      errorSave('Card', getErrorMessage(error))
     }
   }
 
@@ -438,9 +439,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       a.href = URL.createObjectURL(blob)
       a.download = `cards_export.${format === 'csv' ? 'csv' : 'txt'}`
       a.click()
+      successExport('Cards')
     } catch (e) {
       const error = handleError(e, 'Cards.handleExport')
-      toast(getErrorMessage(error), 'error')
+      errorSave('Export', getErrorMessage(error))
     }
   }
 
