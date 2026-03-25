@@ -287,7 +287,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     {
       keys: ['e'],
       handler: () => {
-        if (selected.size > 0) {
+        if (selected.length > 0) {
           handleExport('txt')
         }
       },
@@ -360,14 +360,14 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const handleBulkStatus = async status => {
     if (status === 'dead') {
       const ok = await confirm(
-        t('cards_bulk_mark_dead').replace('{n}', selected.size),
+        t('cards_bulk_mark_dead').replace('{n}', selected.length),
         t('cc_mark_dead')
       )
       if (!ok) return
     }
     try {
       await bulkUpdateStatus([...selected], status)
-      toast(selected.size + ' ' + t('cards_bulk_moved') + ' ' + status, 'success')
+      toast(selected.length + ' ' + t('cards_bulk_moved') + ' ' + status, 'success')
     } catch (e) {
       const error = handleError(e, 'Cards.handleBulkStatus')
       toast(getErrorMessage(error), 'error')
@@ -395,11 +395,14 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   }
 
   const handleBulkDelete = async () => {
-    const ok = await confirm(t('cards_bulk_delete').replace('{n}', selected.size), t('btn_delete'))
+    const ok = await confirm(
+      t('cards_bulk_delete').replace('{n}', selected.length),
+      t('btn_delete')
+    )
     if (!ok) return
     try {
       await bulkDelete([...selected])
-      toast(t('cards_bulk_deleted').replace('{n}', selected.size), 'success')
+      toast(t('cards_bulk_deleted').replace('{n}', selected.length), 'success')
     } catch (e) {
       const error = handleError(e, 'Cards.handleBulkDelete')
       toast(getErrorMessage(error), 'error')
@@ -477,8 +480,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // ── Render helpers ─────────────────────────────────────────────────────
 
-  const allSelected = cards.length > 0 && selected.size === cards.length
-  const someSelected = selected.size > 0 && selected.size < cards.length
+  const allSelected = cards.length > 0 && selected.length === cards.length
+  const someSelected = selected.length > 0 && selected.length < cards.length
 
   // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
   const handleSetSideCard = useCallback(
@@ -766,14 +769,14 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       )}
 
       {/* Bulk action bar — fixed bottom */}
-      {selected.size > 0 && (
+      {selected.length > 0 && (
         <div
           className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100 bottom-6 left-1/2 -translate-x-1/2 py-2.5 px-4 gap-2.5"
           role="status"
           aria-live="polite"
         >
           <span className="text-accent font-semibold text-[12px]">
-            {selected.size} {t('selected')}
+            {selected.length} {t('selected')}
           </span>
           <div className="flex gap-1 flex-wrap">
             <button onClick={() => handleBulkStatus('free')} className="btn btn-g btn-sm">
