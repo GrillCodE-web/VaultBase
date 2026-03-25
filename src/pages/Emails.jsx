@@ -33,15 +33,17 @@ function ImapLinkCell({ entry, imapAccounts, onLink, onNavigate }) {
           onClick={() => onNavigate?.('imap')}
           title={t('email_tooltip_imap_linked')}
           className="btn btn-ghost btn-sm"
+          aria-label={t('email_tooltip_imap_linked') || 'View IMAP account'}
         >
-          <MailCheck size={13} />
+          <MailCheck size={13} aria-hidden="true" />
         </button>
         <button
           onClick={() => onLink(entry.id, null)}
           title={t('email_tooltip_unlink')}
           className="btn btn-ghost btn-sm"
+          aria-label={t('email_tooltip_unlink') || 'Unlink IMAP account'}
         >
-          <Unlink size={11} />
+          <Unlink size={11} aria-hidden="true" />
         </button>
       </div>
     )
@@ -53,8 +55,10 @@ function ImapLinkCell({ entry, imapAccounts, onLink, onNavigate }) {
         onClick={() => setOpen(o => !o)}
         title={t('email_tooltip_link')}
         className="btn btn-b btn-sm"
+        aria-label={t('email_tooltip_link') || 'Link to IMAP pool'}
+        aria-expanded={open}
       >
-        <Link2 size={11} />
+        <Link2 size={11} aria-hidden="true" />
         <span>{t('imap_link_to_pool').split(' ')[0]}</span>
       </button>
       {open && (
@@ -206,9 +210,10 @@ function EmailModal({ initial, onSave, onClose }) {
 function EmailShopsCell({ emailId }) {
   const [stats, setStats] = useState(null)
   useEffect(() => {
+    // FIX FE-H05: Log footprint stats errors instead of silently ignoring
     invoke('get_email_footprint_stats', { emailId })
       .then(setStats)
-      .catch(() => {})
+      .catch(e => console.error('[Emails] Failed to get footprint stats:', e))
   }, [emailId])
   if (!stats) return <span className="text-muted text-[11px]">—</span>
   return (
@@ -276,9 +281,10 @@ export default function EmailPool({ onNavigate, inTab = false }) {
 
   useEffect(() => {
     load()
+    // FIX FE-H05: Log IMAP accounts errors instead of silently ignoring
     invoke('get_imap_accounts')
       .then(setImapAccounts)
-      .catch(() => {})
+      .catch(e => console.error('[Emails] Failed to get IMAP accounts:', e))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Intentional: only run on mount
 
@@ -449,7 +455,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
                   <th className="bg-card w-9">
-                    <input type="checkbox" disabled />
+                    <input type="checkbox" disabled aria-label="Select all emails" />
                   </th>
                   <th className="bg-card">{t('col_email')}</th>
                   <th className="bg-card">{t('col_label')}</th>
@@ -479,7 +485,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
                   <th className="bg-card w-checkbox">
-                    <input type="checkbox" disabled />
+                    <input type="checkbox" disabled aria-label="Select all emails" />
                   </th>
                   <th className="bg-card">{t('col_email')}</th>
                   <th className="bg-card">{t('col_label')}</th>
@@ -511,15 +517,19 @@ export default function EmailPool({ onNavigate, inTab = false }) {
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
                   <th className="bg-card w-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={emails.length > 0 && selected.size === emails.length}
-                      onChange={e =>
-                        e.target.checked
-                          ? setSelected(new Set(emails.map(em => em.id)))
-                          : setSelected(new Set())
-                      }
-                    />
+                    <label className="sr-only">
+                      Select all emails
+                      <input
+                        type="checkbox"
+                        checked={emails.length > 0 && selected.size === emails.length}
+                        onChange={e =>
+                          e.target.checked
+                            ? setSelected(new Set(emails.map(em => em.id)))
+                            : setSelected(new Set())
+                        }
+                        aria-label="Select all emails"
+                      />
+                    </label>
                   </th>
                   <th className="bg-card">{t('col_email')}</th>
                   <th className="bg-card">{t('col_label')}</th>
@@ -557,11 +567,15 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                           }}
                         >
                           <td onClick={e => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={selected.includes(entry.id)}
-                              onChange={() => toggleSelect(entry.id)}
-                            />
+                            <label className="sr-only">
+                              Select email {entry.email}
+                              <input
+                                type="checkbox"
+                                checked={selected.includes(entry.id)}
+                                onChange={() => toggleSelect(entry.id)}
+                                aria-label={`Select email ${entry.email}`}
+                              />
+                            </label>
                           </td>
                           <td className="mono text-[11px]">{entry.email}</td>
                           <td className="text-muted">{entry.label || '—'}</td>
@@ -618,15 +632,19 @@ export default function EmailPool({ onNavigate, inTab = false }) {
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
                   <th className="bg-card" style={{ width: 36 }}>
-                    <input
-                      type="checkbox"
-                      checked={emails.length > 0 && selected.size === emails.length}
-                      onChange={e =>
-                        e.target.checked
-                          ? setSelected(new Set(emails.map(em => em.id)))
-                          : setSelected(new Set())
-                      }
-                    />
+                    <label className="sr-only">
+                      Select all emails
+                      <input
+                        type="checkbox"
+                        checked={emails.length > 0 && selected.size === emails.length}
+                        onChange={e =>
+                          e.target.checked
+                            ? setSelected(new Set(emails.map(em => em.id)))
+                            : setSelected(new Set())
+                        }
+                        aria-label="Select all emails"
+                      />
+                    </label>
                   </th>
                   <th className="bg-card">{t('col_email')}</th>
                   <th className="bg-card">{t('col_label')}</th>
@@ -647,11 +665,15 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                     }}
                   >
                     <td onClick={e => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(entry.id)}
-                        onChange={() => toggleSelect(entry.id)}
-                      />
+                      <label className="sr-only">
+                        Select email {entry.email}
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(entry.id)}
+                          onChange={() => toggleSelect(entry.id)}
+                          aria-label={`Select email ${entry.email}`}
+                        />
+                      </label>
                     </td>
                     <td className="mono text-[11px]">{entry.email}</td>
                     <td className="text-muted">{entry.label || '—'}</td>

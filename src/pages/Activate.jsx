@@ -31,9 +31,10 @@ export default function Activate({ onActivated }) {
     invoke('get_challenge_code')
       .then(setChallengeCode)
       .catch(() => setChallengeCode('????-????-????-????'))
+    // FIX FE-H05: Log installation ID errors instead of silently ignoring
     invoke('get_installation_id')
       .then(setInstallationId)
-      .catch(() => {})
+      .catch(e => console.error('[Activate] Failed to get installation ID:', e))
   }, [])
 
   const handleCopy = useCallback(() => {

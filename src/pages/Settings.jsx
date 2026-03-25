@@ -88,20 +88,23 @@ export default function Settings() {
       }),
       invoke('get_catalog_stats')
         .then(s => setCatalogStats(s))
-        .catch(() => {}),
+        .catch(e => console.error('[Settings] Failed to get catalog stats:', e)),
     ])
     // Network call deferred — doesn't block initial render
     invoke('sync_get_group_status')
       .then(s => {
         setSyncGroup(s.in_group ? s : false)
       })
-      .catch(() => setSyncGroup(false))
+      .catch(e => {
+        console.error('[Settings] Failed to get sync group status:', e)
+        setSyncGroup(false)
+      })
 
     // Listen for catalog sync and WS connection status
     const u1 = listen('catalog_synced', () => {
       invoke('get_catalog_stats')
         .then(s => setCatalogStats(s))
-        .catch(() => {})
+        .catch(e => console.error('[Settings] Failed to get catalog stats after sync:', e))
     })
     const u2 = listen('ws_sync:status', e => {
       setWsStatus(e.payload)

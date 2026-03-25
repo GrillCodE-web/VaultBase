@@ -4,6 +4,7 @@
 use crate::database::Database;
 use crate::models::{Footprint, RiskWarning, SyncResult};
 
+// ✅ SECURE: Only HTTPS via Cloudflare
 const SERVER_URL: &str = "https://api.eulivehub.com";
 
 /// FIX B02: три разных исхода вместо Vec<> где [] = два разных состояния
@@ -31,6 +32,7 @@ impl SyncClient {
         }
     }
 
+    /// PHASE 1: Footprint Sync V2 — отправляем footprints с order_status и installation_id_hash
     pub fn sync_footprints(db: &mut Database) -> Result<SyncResult, String> {
         let token = match db.get_config("license_token").map_err(|e| e.to_string())? {
             Some(t) if !t.is_empty() => {
@@ -48,16 +50,68 @@ impl SyncClient {
             return Ok(SyncResult { synced: 0, failed: 0, message: "nothing_to_sync".into(), server_reached: online });
         }
 
+        // PHASE 1: Получаем installation_id_hash один раз для всех footprints
+        let installation_id_hash = db.get_installation_id_hash();
+
         let expanded: Vec<serde_json::Value> = footprints.iter()
             .filter_map(|fp| fp.shop_domain.as_ref().map(|d| (fp, d.to_lowercase())))
             .flat_map(|(fp, domain)| {
                 let mut rows: Vec<serde_json::Value> = vec![];
-                if let Some(ref h) = fp.email_hash { rows.push(serde_json::json!({ "shop_domain": domain, "hash_type": "email", "hash_value": h })); }
-                if let Some(ref h) = fp.ip_hash    { rows.push(serde_json::json!({ "shop_domain": domain, "hash_type": "ip",    "hash_value": h })); }
-                if let Some(ref h) = fp.drop_hash  { rows.push(serde_json::json!({ "shop_domain": domain, "hash_type": "drop",  "hash_value": h })); }
-                if let Some(ref h) = fp.bin        { rows.push(serde_json::json!({ "shop_domain": domain, "hash_type": "bin",   "hash_value": h })); }
-                if let Some(ref h) = fp.phone_hash { rows.push(serde_json::json!({ "shop_domain": domain, "hash_type": "phone", "hash_value": h })); }
-                if let Some(ref h) = fp.name_hash  { rows.push(serde_json::json!({ "shop_domain": domain, "hash_type": "name",  "hash_value": h })); }
+                // V2: включаем order_status и installation_id_hash в каждый payload
+                if let Some(ref h) = fp.email_hash {
+                    rows.push(serde_json::json!({
+                        "shop_domain": domain,
+                        "hash_type": "email",
+                        "hash_value": h,
+                        "order_status": fp.order_status,
+                        "installation_id_hash": installation_id_hash
+                    }));
+                }
+                if let Some(ref h) = fp.ip_hash {
+                    rows.push(serde_json::json!({
+                        "shop_domain": domain,
+                        "hash_type": "ip",
+                        "hash_value": h,
+                        "order_status": fp.order_status,
+                        "installation_id_hash": installation_id_hash
+                    }));
+                }
+                if let Some(ref h) = fp.drop_hash {
+                    rows.push(serde_json::json!({
+                        "shop_domain": domain,
+                        "hash_type": "drop",
+                        "hash_value": h,
+                        "order_status": fp.order_status,
+                        "installation_id_hash": installation_id_hash
+                    }));
+                }
+                if let Some(ref h) = fp.bin {
+                    rows.push(serde_json::json!({
+                        "shop_domain": domain,
+                        "hash_type": "bin",
+                        "hash_value": h,
+                        "order_status": fp.order_status,
+                        "installation_id_hash": installation_id_hash
+                    }));
+                }
+                if let Some(ref h) = fp.phone_hash {
+                    rows.push(serde_json::json!({
+                        "shop_domain": domain,
+                        "hash_type": "phone",
+                        "hash_value": h,
+                        "order_status": fp.order_status,
+                        "installation_id_hash": installation_id_hash
+                    }));
+                }
+                if let Some(ref h) = fp.name_hash {
+                    rows.push(serde_json::json!({
+                        "shop_domain": domain,
+                        "hash_type": "name",
+                        "hash_value": h,
+                        "order_status": fp.order_status,
+                        "installation_id_hash": installation_id_hash
+                    }));
+                }
                 rows
             })
             .collect();
@@ -68,29 +122,72 @@ impl SyncClient {
         }
 
         let ids: Vec<i64> = footprints.iter().map(|f| f.id).collect();
-        let body = serde_json::json!({ "footprints": expanded });
+        // V2: добавляем version: "2.0" для обратной совместимости
+        let body = serde_json::json!({
+            "footprints": expanded,
+            "version": "2.0"
+        });
 
-        match ureq::post(&format!("{}/footprint", SERVER_URL))
-            .set("Authorization", &format!("Bearer {}", token))
-            .set("Content-Type", "application/json")
-            .send_string(&body.to_string())
-        {
-            Ok(_) => {
-                let _ = db.mark_footprints_synced_db(&ids);
-                let msg = format!("Synced {} footprints", ids.len());
-                let _ = db.log_event("sync.footprints_sent", &msg, Some("sync"), None);
-                Ok(SyncResult { synced: ids.len() as u32, failed: 0, message: msg, server_reached: true })
-            }
-            Err(ureq::Error::Status(_, _)) => {
-                Ok(SyncResult { synced: 0, failed: ids.len() as u32, message: "server_error".into(), server_reached: true })
-            }
-            Err(_) => {
-                Ok(SyncResult { synced: 0, failed: ids.len() as u32, message: "network_error".into(), server_reached: false })
+        // FIX P1-FOOTPRINT-RETRY-01: Retry с exponential backoff (как для карточек)
+        const MAX_RETRIES: u32 = 3;
+        const BASE_DELAY_MS: u64 = 500;
+
+        for attempt in 0..MAX_RETRIES {
+            match ureq::post(&format!("{}/footprint", SERVER_URL))
+                .set("Authorization", &format!("Bearer {}", token))
+                .set("Content-Type", "application/json")
+                .timeout(std::time::Duration::from_secs(10))
+                .send_string(&body.to_string())
+            {
+                Ok(_) => {
+                    // Success — mark as synced and log
+                    let _ = db.mark_footprints_synced_db(&ids);
+                    let msg = format!("Synced {} footprints", ids.len());
+                    let _ = db.log_event("sync.footprints_sent", &msg, Some("sync"), None);
+                    return Ok(SyncResult { synced: ids.len() as u32, failed: 0, message: msg, server_reached: true });
+                }
+                Err(ureq::Error::Status(code, _)) if code >= 500 => {
+                    // Server error — retry with backoff
+                    if attempt < MAX_RETRIES - 1 {
+                        let delay_ms = BASE_DELAY_MS * (1 << attempt); // 500ms, 1s, 2s
+                        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                        continue;
+                    }
+                    // All retries exhausted
+                    let error_msg = format!("Failed to sync {} footprints after {} attempts (server error)", ids.len(), MAX_RETRIES);
+                    let _ = db.log_event("sync.footprints_failed", &error_msg, Some("sync"), None);
+                    eprintln!("[sync] {}", error_msg);
+                    return Ok(SyncResult { synced: 0, failed: ids.len() as u32, message: "server_error_after_retry".into(), server_reached: true });
+                }
+                Err(ureq::Error::Status(code, _)) => {
+                    // Client error (4xx) — don't retry
+                    let error_msg = format!("Failed to sync footprints: client error {}", code);
+                    let _ = db.log_event("sync.footprints_failed", &error_msg, Some("sync"), None);
+                    eprintln!("[sync] {}", error_msg);
+                    return Ok(SyncResult { synced: 0, failed: ids.len() as u32, message: format!("client_error_{}", code), server_reached: true });
+                }
+                Err(_) => {
+                    // Network error — retry with backoff
+                    if attempt < MAX_RETRIES - 1 {
+                        let delay_ms = BASE_DELAY_MS * (1 << attempt);
+                        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                        continue;
+                    }
+                    // All retries exhausted
+                    let error_msg = format!("Failed to sync {} footprints after {} attempts (network error)", ids.len(), MAX_RETRIES);
+                    let _ = db.log_event("sync.footprints_failed", &error_msg, Some("sync"), None);
+                    eprintln!("[sync] {}", error_msg);
+                    return Ok(SyncResult { synced: 0, failed: ids.len() as u32, message: "network_error_after_retry".into(), server_reached: false });
+                }
             }
         }
+
+        // Should not reach here
+        Ok(SyncResult { synced: 0, failed: ids.len() as u32, message: "unknown_error".into(), server_reached: false })
     }
 
-    /// FIX B02: возвращает RiskCheckOutcome вместо Vec<> (различаем offline и clean)
+    /// PHASE 1: Footprint Sync V2 — провер风险 с поддержкой нового формата ответа сервера
+    /// Сервер возвращает расширенные данные: total_count, unique_users, status_breakdown, success_rate, risk_level, insight
     pub fn check_risk_detailed(db: &Database, profile_id: &str, shop_id: i64) -> RiskCheckOutcome {
         let token = match db.get_config("license_token").ok().flatten() {
             Some(t) if !t.is_empty() => match &db.encryption {
@@ -138,17 +235,52 @@ impl SyncClient {
                         let mut warnings = vec![];
                         for m in &matches {
                             let hash_type = m["hash_type"].as_str().unwrap_or("unknown");
-                            let count = m["count"].as_u64().unwrap_or(1);
-                            let severity = if count >= 3 { "high" } else { "warning" };
-                            let label = match hash_type {
-                                "email" => "Email", "ip" => "IP address",
-                                "drop"  => "Shipping address", "bin" => "BIN",
-                                "phone" => "Phone number", _ => hash_type,
+                            // V2: новый формат ответа — используем total_count, иначе fallback на count
+                            let total_count = m["total_count"].as_u64().unwrap_or_else(|| m["count"].as_u64().unwrap_or(1));
+                            let unique_users = m["unique_users"].as_u64().unwrap_or(0);
+                            let success_rate = m["success_rate"].as_f64().unwrap_or(0.0);
+                            let risk_level = m["risk_level"].as_str().unwrap_or("unknown");
+                            let insight = m["insight"].as_str().unwrap_or("");
+
+                            // Определяем severity на основе risk_level и success_rate
+                            let severity = match risk_level {
+                                "high" => "high",
+                                "medium" => "warning",
+                                "low" => "info",
+                                _ => {
+                                    // Fallback: определяем по count и success_rate
+                                    if total_count >= 3 || success_rate < 0.5 { "high" }
+                                    else if total_count >= 2 || success_rate < 0.7 { "warning" }
+                                    else { "info" }
+                                }
                             };
+
+                            let label = match hash_type {
+                                "email" => "Email",
+                                "ip" => "IP address",
+                                "drop" => "Shipping address",
+                                "bin" => "BIN",
+                                "phone" => "Phone number",
+                                _ => hash_type,
+                            };
+
+                            // Формируем расширенное сообщение с insight от сервера
+                            let message = if !insight.is_empty() {
+                                format!("{}: {}", label, insight)
+                            } else {
+                                // Fallback для старого формата ответа
+                                let unique_users_str = if unique_users > 0 {
+                                    format!(" ({} unique users)", unique_users)
+                                } else {
+                                    String::new()
+                                };
+                                format!("{} seen {} time(s){} at this shop globally", label, total_count, unique_users_str)
+                            };
+
                             warnings.push(RiskWarning {
                                 kind: format!("global_{}", hash_type),
                                 severity: severity.into(),
-                                message: format!("{} seen {} time(s) at this shop globally", label, count),
+                                message,
                                 related_order_id: None,
                                 related_order_status: None,
                             });
@@ -306,4 +438,165 @@ impl SyncGroupClient {
         db.set_config("sync_group_name", "").map_err(|e| e.to_string())?;
         Ok(())
     }
+
+    // ─────────────────────────────────────────
+    //  Push card updates to sync server with retry queue
+    // ─────────────────────────────────────────
+
+    /// FIX P1-RETRY-01: Push card updates with retry queue & exponential backoff
+    pub fn push_card_updates(
+        db: &Database,
+        updates: &[crate::models::CardSyncUpdate],
+    ) -> Result<PushResult, String> {
+        let token = match Self::get_token(db) {
+            Some(t) => t,
+            None => return Ok(PushResult {
+                synced: 0,
+                failed: updates.len() as u32,
+                message: "no_token".into(),
+                server_reached: false,
+            }),
+        };
+
+        // Check if in a group
+        let group_id = match db.get_config("sync_group_id").ok().flatten() {
+            Some(g) if !g.is_empty() => g,
+            _ => return Ok(PushResult {
+                synced: 0,
+                failed: updates.len() as u32,
+                message: "not_in_group".into(),
+                server_reached: false,
+            }),
+        };
+
+        // Build request body
+        let cards: Vec<serde_json::Value> = updates.iter().map(|u| {
+            serde_json::json!({
+                "card_hash": u.card_hash,
+                "status": u.status,
+                "notes": u.notes,
+                "encrypted_data": u.encrypted_data,
+            })
+        }).collect();
+
+        let body = serde_json::json!({ "cards": cards });
+
+        // Try to push with exponential backoff retry
+        const MAX_RETRIES: u32 = 3;
+        const BASE_DELAY_MS: u64 = 500;
+
+        for attempt in 0..MAX_RETRIES {
+            match ureq::post(&format!("{}/sync/cards", SERVER_URL))
+                .set("Authorization", &format!("Bearer {}", token))
+                .set("Content-Type", "application/json")
+                .timeout(std::time::Duration::from_secs(10))
+                .send_string(&body.to_string())
+            {
+                Ok(resp) => {
+                    if resp.status() == 200 {
+                        // Success — log and return
+                        let _ = db.log_event(
+                            "sync.cards_pushed",
+                            &format!("Pushed {} card updates to group {}", updates.len(), &group_id[..8]),
+                            Some("sync"),
+                            None,
+                        );
+                        return Ok(PushResult {
+                            synced: updates.len() as u32,
+                            failed: 0,
+                            message: format!("Synced {} cards", updates.len()),
+                            server_reached: true,
+                        });
+                    } else if resp.status() >= 500 {
+                        // Server error — retry with backoff
+                        if attempt < MAX_RETRIES - 1 {
+                            let delay_ms = BASE_DELAY_MS * (1 << attempt); // Exponential: 500ms, 1s, 2s
+                            std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                            continue;
+                        }
+                        // All retries exhausted
+                        let error_msg = format!("Failed to push {} cards after {} attempts (server error)", updates.len(), MAX_RETRIES);
+                        let _ = db.log_event(
+                            "sync.push_failed",
+                            &error_msg,
+                            Some("sync"),
+                            None,
+                        );
+                        eprintln!("[sync] {}", error_msg);
+                        return Ok(PushResult {
+                            synced: 0,
+                            failed: updates.len() as u32,
+                            message: "server_error_after_retry".into(),
+                            server_reached: true,
+                        });
+                    } else {
+                        // Client error (4xx) — don't retry
+                        return Ok(PushResult {
+                            synced: 0,
+                            failed: updates.len() as u32,
+                            message: format!("client_error_{}", resp.status()),
+                            server_reached: true,
+                        });
+                    }
+                }
+                Err(ureq::Error::Status(code, _)) if code >= 500 => {
+                    // Server error — retry with backoff
+                    if attempt < MAX_RETRIES - 1 {
+                        let delay_ms = BASE_DELAY_MS * (1 << attempt);
+                        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                        continue;
+                    }
+                    return Ok(PushResult {
+                        synced: 0,
+                        failed: updates.len() as u32,
+                        message: "server_error_after_retry".into(),
+                        server_reached: true,
+                    });
+                }
+                Err(_) => {
+                    // Network error — retry with backoff
+                    if attempt < MAX_RETRIES - 1 {
+                        let delay_ms = BASE_DELAY_MS * (1 << attempt);
+                        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                        continue;
+                    }
+                    // All retries exhausted
+                    let error_msg = format!("Network error pushing {} cards after {} attempts", updates.len(), MAX_RETRIES);
+                    let _ = db.log_event(
+                        "sync.push_failed",
+                        &error_msg,
+                        Some("sync"),
+                        None,
+                    );
+                    eprintln!("[sync] {}", error_msg);
+                    return Ok(PushResult {
+                        synced: 0,
+                        failed: updates.len() as u32,
+                        message: "network_error_after_retry".into(),
+                        server_reached: false,
+                    });
+                }
+            }
+        }
+
+        // Should not reach here, but just in case
+        Ok(PushResult {
+            synced: 0,
+            failed: updates.len() as u32,
+            message: "unknown_error".into(),
+            server_reached: false,
+        })
+    }
+}
+
+// ─────────────────────────────────────────
+//  Result types for push operations
+// ─────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct PushResult {
+    pub synced: u32,
+    pub failed: u32,
+    pub message: String,
+    pub server_reached: bool,
 }

@@ -66,8 +66,13 @@ router.get('/licenses', (req, res) => {
   const rows = getDb().prepare(
     'SELECT installation_id,label,challenge,token,is_active,created_at,last_seen FROM licenses ORDER BY created_at DESC'
   ).all();
-  cache.set('admin:licenses', rows, 10_000);
-  res.json(rows);
+  // Mask tokens for security - show only first 8 chars
+  const maskedRows = rows.map(r => ({
+    ...r,
+    token: r.token ? `${r.token.slice(0, 8)}...${r.token.slice(-8)}` : null
+  }));
+  cache.set('admin:licenses', maskedRows, 10_000);
+  res.json(maskedRows);
 });
 
 router.post('/licenses', (req, res) => {
@@ -136,13 +141,22 @@ router.get('/licenses/analytics', (req, res) => {
 });
 
 // GET /admin/api/licenses/export.csv
+// Security note: tokens are masked to prevent mass token theft
 router.get('/licenses/export.csv', (req, res) => {
   const rows = getDb().prepare(
     'SELECT installation_id,label,challenge,token,is_active,created_at,last_seen FROM licenses ORDER BY created_at DESC'
   ).all();
-  const header = 'installation_id,label,challenge,token,is_active,created_at,last_seen\n';
+  const header = 'installation_id,label,challenge,token_masked,is_active,created_at,last_seen\n';
   const csv = header + rows.map(r =>
-    [r.installation_id, r.label, r.challenge, r.token || '', r.is_active, r.created_at, r.last_seen || '']
+    [
+      r.installation_id,
+      r.label,
+      r.challenge,
+      r.token ? `${r.token.slice(0, 8)}...${r.token.slice(-8)}` : '', // Masked token
+      r.is_active,
+      r.created_at,
+      r.last_seen || ''
+    ]
       .map(v => `"${String(v || '').replace(/"/g, '""')}"`)
       .join(',')
   ).join('\n');
@@ -153,12 +167,16 @@ router.get('/licenses/export.csv', (req, res) => {
 
 // ── Invite Codes ──────────────────────────────────────────────────────────────
 
+// FIX: Use crypto.randomBytes for unpredictable invite codes
+const crypto = require('crypto');
+
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0,O,1,I confusion
+  const randomBytes = crypto.randomBytes(16);
   let code = '';
   for (let i = 0; i < 16; i++) {
     if (i > 0 && i % 4 === 0) code += '-';
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[randomBytes[i] % chars.length];
   }
   return code;
 }
@@ -407,6 +425,57 @@ router.get('/groups/stats', (req, res) => {
     });
     res.json({ groups: result, total: result.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Token Rotation ─────────────────────────────────────────────────────────────
+// FIX A-MED-06: Add token rotation endpoint for security
+router.post('/licenses/:id/rotate-token', (req, res) => {
+  try {
+    const db = getDb();
+    const licenseId = parseInt(req.params.id, 10);
+
+    // Get current license
+    const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licenseId);
+    if (!license) {
+      return res.status(404).json({ error: 'license_not_found' });
+    }
+
+    // Generate new secure token
+    const newToken = crypto.randomBytes(32).toString('hex');
+
+    // Update token
+    db.prepare('UPDATE licenses SET token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(newToken, licenseId);
+
+    // Log rotation
+    db.prepare(
+      "INSERT INTO audit_log (action, details, created_at) VALUES ('token_rotation', ?, CURRENT_TIMESTAMP)"
+    ).run(JSON.stringify({ license_id: licenseId, installation_id: license.installation_id }));
+
+    res.json({
+      success: true,
+      new_token: newToken,
+      message: 'Token rotated successfully. Old token is now invalid.'
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// FIX A-MED-06: Endpoint to enable/disable auto token rotation (90-day policy)
+router.post('/licenses/:id/set-auto-rotate', (req, res) => {
+  try {
+    const db = getDb();
+    const licenseId = parseInt(req.params.id, 10);
+    const { enabled } = req.body || {};
+
+    db.prepare('UPDATE licenses SET auto_rotate = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(enabled ? 1 : 0, licenseId);
+
+    res.json({ success: true, enabled });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;

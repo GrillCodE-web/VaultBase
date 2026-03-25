@@ -93,10 +93,18 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
             <div className="trk-sub">{item.carrier ?? 'Carrier'}</div>
           </div>
           <div className="trk-acts">
-            <button className="btn btn-g btn-sm" onClick={() => onApplyTrack?.(item)}>
+            <button
+              className="btn btn-g btn-sm"
+              onClick={() => onApplyTrack?.(item)}
+              aria-label={t('upd_apply_track')}
+            >
               ✓ {t('upd_apply_track')}
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => onIgnore?.(item)}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => onIgnore?.(item)}
+              aria-label={t('upd_ignore')}
+            >
               {t('upd_ignore')}
             </button>
           </div>
@@ -110,8 +118,12 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
             <button className="btn btn-o btn-sm btn-icon" aria-label={t('upd_rebid')}>
               <RefreshCw size={12} /> {t('upd_rebid')}
             </button>
-            <button className="btn btn-r btn-sm">💀 {t('upd_mark_dead')}</button>
-            <button className="btn btn-ghost btn-sm">{t('upd_keep')}</button>
+            <button className="btn btn-r btn-sm" aria-label={t('upd_mark_dead')}>
+              💀 {t('upd_mark_dead')}
+            </button>
+            <button className="btn btn-ghost btn-sm" aria-label={t('upd_keep')}>
+              {t('upd_keep')}
+            </button>
           </div>
         </div>
       )}
@@ -201,7 +213,10 @@ export default function Updates() {
 
         setUpdateAvailable(update)
       })
-      .catch(() => {}) // silently ignore — no internet, etc.
+      .catch(e => {
+        // FIX FE-H05: Log update check errors (but don't alert user - likely no internet)
+        console.error('[Updates] Failed to check for updates:', e)
+      }) // silently ignore — no internet, etc.
   }, [])
 
   // ── Download ───────────────────────────────────────────────

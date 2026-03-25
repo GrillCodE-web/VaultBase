@@ -61,13 +61,13 @@ export function ProfileModal({ onCreated, onClose }) {
       .finally(() => setCardsLoading(false))
     invoke('get_profile_templates')
       .then(setTemplates)
-      .catch(() => {})
+      .catch(e => console.error('[ProfileModal] Failed to get templates:', e))
     // Load available emails for the datalist
     invoke('get_available_emails', { limit: 50 })
       .then(emails => {
         setAvailableEmails(emails)
       })
-      .catch(() => {})
+      .catch(e => console.error('[ProfileModal] Failed to get available emails:', e))
   }, [])
 
   const filtered = freeCards.filter(c => {
@@ -152,7 +152,7 @@ export function ProfileModal({ onCreated, onClose }) {
           city: null,
           phonePrefix: null,
           source: null,
-        }).catch(() => {})
+        }).catch(e => console.error('[ProfileModal] Failed to save template:', e))
       }
       // Assign email to profile if one was selected/auto-assigned
       if (emailId) {

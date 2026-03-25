@@ -4,6 +4,8 @@
 use crate::database::Database;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use aes_gcm::aead::rand_core::RngCore;
+use aes_gcm::aead::OsRng;
 
 const ACTIVATE_URL: &str = "https://api.eulivehub.com/activate";
 const VERIFY_URL: &str = "https://api.eulivehub.com/verify";
@@ -62,21 +64,32 @@ pub fn get_or_create_installation_id(db: &Database) -> Result<String, String> {
 // Challenge code  A3F9-BE21-44DC-7720
 // ─────────────────────────────────────────────
 
+/// FIX CRY-05: Use full 32 hex characters (128 bits) instead of 16 (64 bits)
+/// FIX CRY-06: Add random component to prevent time-based prediction attacks
 pub fn format_as_challenge(installation_id: &str) -> String {
-    // FIX B37: добавляем timestamp (час дня) чтобы challenge менялся со временем,
-    // что не позволяет переиспользовать старый challenge. SHA-256 от id+epoch_hour.
+    // Use current time component (hour) for time-binding
     let epoch_hour = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() / 3600; // меняется каждый час
+        .as_secs() / 3600;
+
+    // FIX CRY-06: Add random nonce to prevent prediction attacks
+    // Even if attacker knows the time, they cannot predict the challenge
+    let mut random_bytes = [0u8; 8];
+    use aes_gcm::aead::rand_core::RngCore;
+    OsRng.fill_bytes(&mut random_bytes);
+
     let mut hasher = Sha256::new();
     hasher.update(installation_id.as_bytes());
     hasher.update(b"|");
     hasher.update(epoch_hour.to_string().as_bytes());
+    hasher.update(&random_bytes); // Add randomness to prevent prediction
     let result = hasher.finalize();
+
+    // FIX CRY-05: Use 32 hex characters (128 bits of entropy) instead of 16
     let hex: String = result.iter().map(|b| format!("{:02X}", b)).collect();
-    let raw = &hex[..16];
-    format!("{}-{}-{}-{}", &raw[0..4], &raw[4..8], &raw[8..12], &raw[12..16])
+    let raw = &hex[..32]; // Full 32 chars = 128 bits
+    format!("{}-{}-{}-{}", &raw[0..8], &raw[8..16], &raw[16..24], &raw[24..32])
 }
 
 // Convenience wrapper used by `get_challenge_code` command

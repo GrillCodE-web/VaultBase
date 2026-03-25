@@ -19,7 +19,7 @@
   --text: #f0f6fc;
   --text-2: #c9d1d9;
   --text-3: #8b949e;
-  --muted: #6e7681;
+  --muted: #8b949e;
   --dim: #484f58;
 
   /* ── Accent System (Cyan/Teal) ──────────────────────────── */
@@ -34,6 +34,7 @@
   /* ── Secondary Accent (Electric Purple) ─────────────────── */
   --purple: #a855f7;
   --purple-bright: #c084fc;
+  --purple-dark: #9333ea;
   --purple-dim: rgba(168, 85, 247, 0.08);
   --purple-border: rgba(168, 85, 247, 0.25);
   --purple-glow: rgba(168, 85, 247, 0.2);
@@ -112,6 +113,35 @@
   --color-expiry-warning: #facc15;
   --color-expiry-normal: #4ade80;
 
+  /* ── Dim Variants (rgba overlays) ───────────────────────── */
+  --red-dim: rgba(239, 68, 68, 0.12);
+  --green-dim: rgba(16, 185, 129, 0.12);
+  --blue-dim: rgba(59, 130, 246, 0.12);
+  --yellow-dim: rgba(245, 158, 11, 0.12);
+  --orange-dim: rgba(249, 115, 22, 0.12);
+
+  /* ── Border Variants (subtle borders) ───────────────────── */
+  --red-border: rgba(239, 68, 68, 0.25);
+  --green-border: rgba(16, 185, 129, 0.25);
+  --blue-border: rgba(59, 130, 246, 0.25);
+  --yellow-border: rgba(245, 158, 11, 0.25);
+  --orange-border: rgba(249, 115, 22, 0.25);
+
+  /* ── Overlay/Backdrop Variants ──────────────────────────── */
+  --overlay-dark: rgba(0, 0, 0, 0.65);
+  --overlay-darker: rgba(0, 0, 0, 0.85);
+  --overlay-darkest: rgba(0, 0, 0, 0.95);
+  --backdrop-blur: rgba(13, 17, 23, 0.8);
+  --backdrop-blur-strong: rgba(11, 15, 22, 0.82);
+
+  /* ── Glow Shadow Variants ───────────────────────────────── */
+  --shadow-glow-red: 0 0 16px rgba(239, 68, 68, 0.3);
+  --shadow-glow-green: 0 0 16px rgba(16, 185, 129, 0.3);
+  --shadow-glow-blue: 0 0 16px rgba(59, 130, 246, 0.3);
+  --shadow-glow-yellow: 0 0 16px rgba(245, 158, 11, 0.3);
+  --shadow-glow-orange: 0 0 16px rgba(249, 115, 22, 0.3);
+  --shadow-glow-purple: 0 0 16px rgba(168, 85, 247, 0.3);
+
   /* ── Hover & Interactive ────────────────────────────────── */
   --hover: rgba(255, 255, 255, 0.06);
   --surface-hi: #1f2429;
@@ -124,10 +154,14 @@
   --sp-4: 16px;
   --sp-5: 20px;
   --sp-6: 24px;
+  --sp-7: 28px;
   --sp-8: 32px;
+  --sp-9: 36px;
+  --sp-10: 40px;
+  --sp-12: 48px;
 
   /* ── Border Radius ──────────────────────────────────────── */
-  --r-xs: 3px;
+  --r-xs: 2px;
   --r-sm: 4px;
   --r-md: 8px;
   --r-lg: 12px;
@@ -174,11 +208,30 @@
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 24px rgba(0, 217, 255, 0.2);
 
+  /* ── Glassmorphism ─────────────────────────────────────── */
+  --glass-bg: rgba(22, 27, 34, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 12px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* ── Glow Effects ──────────────────────────────────────── */
+  --glow-sm: 0 0 8px rgba(0, 217, 255, 0.3);
+  --glow-md: 0 0 16px rgba(0, 217, 255, 0.4);
+  --glow-lg: 0 0 32px rgba(0, 217, 255, 0.5);
+  --glow-xl: 0 0 48px rgba(0, 217, 255, 0.6);
+
   /* ── Gradients ──────────────────────────────────────────── */
   --gradient-accent: linear-gradient(135deg, #00d9ff 0%, #14f195 100%);
   --gradient-purple: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
   --gradient-card: linear-gradient(145deg, #1c2128 0%, #161b22 100%);
   --gradient-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 100%);
+
+  /* ── Gradient Border ───────────────────────────────────── */
+  --gradient-border: linear-gradient(
+    135deg,
+    rgba(0, 217, 255, 0.5) 0%,
+    rgba(20, 241, 149, 0.5) 100%
+  );
 
   /* ── Noise Texture ──────────────────────────────────────── */
   --noise-opacity: 0.015;
@@ -267,4 +320,26 @@
   .spinner-sm {
     animation: spin 1s linear infinite !important;
   }
+}
+
+/* ────────────────────────────────────────────────────────────
+   ACCESSIBILITY — Screen Reader Only Utilities
+   ──────────────────────────────────────────────────────────── */
+
+/* Visually hidden but accessible to screen readers */
+.sr-only {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Screen reader only, visible on focus (for skip links) */
+.sr-only-focusable:focus {
+  position: static;
+  left: auto;
+  width: auto;
+  height: auto;
+  overflow: visible;
 }

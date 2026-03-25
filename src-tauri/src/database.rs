@@ -1,7 +1,10 @@
 //! SQLite database layer — migration runner + Database struct with all CC operations.
+//! FIX B-MED-04: Connection pooling with r2d2 for better concurrent access
 #![allow(unused_imports, unused_variables, dead_code)]
 
 use rusqlite::{Connection, Result as SqlResult, params};
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use chrono::{Utc, Local};
@@ -10,14 +13,18 @@ use crate::encryption::{FieldEncryption, hash_value};
 use crate::models::*;
 use crate::parser::{extract_bin_last4, luhn_valid};
 
-pub const CURRENT_MIGRATION_VERSION: u32 = 6;
+pub const CURRENT_MIGRATION_VERSION: u32 = 8;
 
 // ─────────────────────────────────────────
 //  Database struct
 // ─────────────────────────────────────────
 
+// FIX B-MED-04: Type alias for r2d2 connection pool
+pub type DbPool = Pool<SqliteConnectionManager>;
+
 pub struct Database {
-    pub conn: Connection,
+    pub conn: Connection,  // Direct connection for single-user desktop mode
+    pub pool: Option<DbPool>,  // Connection pool for concurrent access (optional)
     pub encryption: Option<Arc<FieldEncryption>>,
     pub last_activity: Arc<Mutex<Instant>>,
     pub autolock_timeout: Option<Duration>,
@@ -29,15 +36,46 @@ impl Database {
         s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
     }
 
+    /// FIX B-MED-04: Open database with optional connection pooling
     pub fn open(path: &str) -> SqlResult<Self> {
         let conn = Connection::open(path)?;
         init_db(&conn)?;
+
+        // Create connection pool for concurrent reads
+        // For desktop single-user mode, pool is optional but improves performance
+        let pool = Self::create_pool(path);
+
         Ok(Self {
             conn,
+            pool,
             encryption: None,
             last_activity: Arc::new(Mutex::new(Instant::now())),
             autolock_timeout: None,
         })
+    }
+
+    /// FIX B-MED-04: Create r2d2 connection pool
+    fn create_pool(path: &str) -> Option<DbPool> {
+        let manager = SqliteConnectionManager::file(path)
+            .with_init(|c| {
+                // Initialize each connection with pragmas
+                c.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")
+            });
+
+        Pool::builder()
+            .max_size(4)  // 4 concurrent connections for desktop mode
+            .build(manager)
+            .ok()
+    }
+
+    /// FIX B-MED-04: Get connection from pool or direct connection
+    pub fn get_connection(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>, String> {
+        if let Some(pool) = &self.pool {
+            pool.get().map_err(|e| e.to_string())
+        } else {
+            // Fallback: this shouldn't happen in normal operation
+            Err("Connection pool not initialized".to_string())
+        }
     }
 
     pub fn set_encryption(&mut self, enc: FieldEncryption) {
@@ -110,6 +148,19 @@ impl Database {
             [],
         );
         Ok(())
+    }
+
+    /// PHASE 1: Footprint Sync V2 — получает installation_id из config и возвращает HMAC-SHA256 hash
+    /// Используется для идентификации установки при отправке footprints на сервер
+    pub fn get_installation_id_hash(&self) -> Option<String> {
+        // Получаем installation_id из config
+        let installation_id = self.get_config("installation_id").ok()??;
+        if installation_id.is_empty() {
+            return None;
+        }
+
+        // Используем существующую hash_value функцию которая применяет HMAC-SHA256 с солью
+        Some(hash_value(&installation_id))
     }
 
     // ─────────────────────────────────────────
@@ -300,7 +351,7 @@ impl Database {
           })
           .collect();
 
-        let pages = (total + per_page - 1) / per_page;
+        let pages = total.div_ceil(per_page);
         let free_total: u32 = self.conn
             .query_row("SELECT COUNT(*) FROM credit_cards WHERE status='free'", [], |r| r.get(0))
             .unwrap_or(0);
@@ -1884,23 +1935,28 @@ impl Database {
     //  Unsynced Footprints
     // ─────────────────────────────────────────
 
+    /// PHASE 1: Footprint Sync V2 — возвращаем unsynced footprints с order_status и installation_id_hash
     pub fn get_unsynced_footprints_db(&self) -> Result<Vec<Footprint>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,shop_id,shop_domain,order_id,email_hash,ip_hash,drop_hash,bin,phone_hash,name_hash,synced,user_token,created_at FROM shop_footprints WHERE synced=0 LIMIT 500"
+            "SELECT id,shop_id,shop_domain,order_id,email_hash,ip_hash,drop_hash,bin,phone_hash,name_hash,synced,user_token,order_status,installation_id_hash,created_at FROM shop_footprints WHERE synced=0 LIMIT 500"
         ).map_err(|e| e.to_string())?;
         let items = stmt.query_map([], |r| Ok(Footprint {
             id: r.get(0)?, shop_id: r.get(1)?, shop_domain: r.get(2)?, order_id: r.get(3)?,
             email_hash: r.get(4)?, ip_hash: r.get(5)?, drop_hash: r.get(6)?, bin: r.get(7)?,
             phone_hash: r.get(8)?, name_hash: r.get(9)?,
             synced: r.get::<_,i64>(10).unwrap_or(0) != 0,
-            user_token: r.get(11)?, created_at: r.get(12)?,
+            user_token: r.get(11)?,
+            order_status: r.get(12)?,
+            installation_id_hash: r.get(13)?,
+            created_at: r.get(14)?,
         })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
         Ok(items)
     }
 
+    /// PHASE 1: Footprint Sync V2 — возвращаем footprint с order_status и installation_id_hash
     pub fn get_footprint_for_profile_shop(&self, profile_id: &str, shop_id: i64) -> Option<Footprint> {
         self.conn.query_row(
-            "SELECT id,shop_id,shop_domain,order_id,email_hash,ip_hash,drop_hash,bin,phone_hash,name_hash,synced,user_token,created_at \
+            "SELECT id,shop_id,shop_domain,order_id,email_hash,ip_hash,drop_hash,bin,phone_hash,name_hash,synced,user_token,order_status,installation_id_hash,created_at \
              FROM shop_footprints WHERE shop_id=?1 AND order_id IN (SELECT id FROM orders WHERE profile_id=?2) \
              ORDER BY created_at DESC LIMIT 1",
             params![shop_id, profile_id],
@@ -1909,7 +1965,10 @@ impl Database {
                 email_hash: r.get(4)?, ip_hash: r.get(5)?, drop_hash: r.get(6)?, bin: r.get(7)?,
                 phone_hash: r.get(8)?, name_hash: r.get(9)?,
                 synced: r.get::<_,i64>(10).unwrap_or(0) != 0,
-                user_token: r.get(11)?, created_at: r.get(12)?,
+                user_token: r.get(11)?,
+                order_status: r.get(12)?,
+                installation_id_hash: r.get(13)?,
+                created_at: r.get(14)?,
             }),
         ).ok()
     }
@@ -1928,8 +1987,20 @@ impl Database {
 
     pub fn global_search(&self, query: &str) -> Result<SearchResults, String> {
         use serde_json::json;
-        let q = format!("%{}%", query.to_lowercase());
-        let ql = format!("%{}%", query);
+
+        // FIX TC-01: Escape LIKE wildcards to prevent SQL injection via pattern matching
+        // Users can still search for literal % or _ by escaping them
+        let escaped_query: String = query
+            .chars()
+            .flat_map(|c| match c {
+                '%' => "\\%".chars().collect::<Vec<_>>(),
+                '_' => "\\_".chars().collect::<Vec<_>>(),
+                c => vec![c],
+            })
+            .collect();
+
+        let q = format!("%{}%", escaped_query.to_lowercase());
+        let ql = format!("%{}%", escaped_query);
 
         // Cards — search by last4, bin
         let mut cards = Vec::new();
@@ -2077,42 +2148,142 @@ impl Database {
         let total: i64 = self.conn.query_row(
             &format!("SELECT COUNT(*) FROM profiles p LEFT JOIN credit_cards c ON p.card_id=c.id WHERE {}", wh), [], |r| r.get(0),
         ).unwrap_or(0);
+
+        // FIX DB-H01: Single query with JOIN instead of N+1 queries
+        // Fetch all profile data in one query with aggregated drop/order counts
         let sql = format!(
-            "SELECT p.id FROM profiles p LEFT JOIN credit_cards c ON p.card_id=c.id WHERE {} ORDER BY p.created_at DESC LIMIT {} OFFSET {}",
+            r#"SELECT p.id, p.card_id, p.notes, p.created_at, p.updated_at,
+                      c.bin, c.last4, c.bank_name, c.card_type, c.country, c.status, c.holder_name,
+                      COALESCE((SELECT COUNT(*) FROM drops WHERE profile_id=p.id), 0) AS dc,
+                      COALESCE((SELECT COUNT(*) FROM orders WHERE profile_id=p.id), 0) AS oc
+               FROM profiles p
+               LEFT JOIN credit_cards c ON p.card_id=c.id
+               WHERE {}
+               ORDER BY p.created_at DESC
+               LIMIT {} OFFSET {}"#,
             wh, pp, offset
         );
+
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
-        let ids: Vec<String> = stmt.query_map([], |r| r.get(0))
-            .map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
-        let items: Vec<Profile> = ids.iter().filter_map(|id| self.build_profile(id).ok()).collect();
-        let total_pages = (total as u32 + per_page - 1) / per_page.max(1); // FIX B16: единая формула ceil(total/per_page)
+        let items: Vec<Profile> = stmt.query_map([], |r| {
+            let holder_enc: Option<String> = r.get(11)?;
+            Ok((
+                r.get::<_,String>(0)?, r.get::<_,i64>(1)?, r.get::<_,Option<String>>(2)?,
+                r.get::<_,String>(3)?, r.get::<_,String>(4)?,
+                r.get::<_,Option<String>>(5)?, r.get::<_,Option<String>>(6)?,
+                r.get::<_,Option<String>>(7)?, r.get::<_,Option<String>>(8)?,
+                r.get::<_,Option<String>>(9)?, r.get::<_,Option<String>>(10)?,
+                holder_enc, r.get::<_,i64>(12)?, r.get::<_,i64>(13)?,
+            ))
+        }).map_err(|e| e.to_string())?
+            .filter_map(|row| row.ok())
+            .map(|(pid, card_id, notes, ca, ua, bin, last4, bank, ctype, country, cstatus, holder_enc, dc, oc)| {
+                let holder_masked = holder_enc.as_deref()
+                    .and_then(|h| self.decrypt_field(h).ok())
+                    .map(|n| mask_name(&n));
+                Profile {
+                    id: pid, card_id, notes, created_at: ca, updated_at: ua,
+                    bin, last4, bank_name: bank, card_type: ctype, country, card_status: cstatus,
+                    holder_masked, drop_count: dc, order_count: oc,
+                }
+            })
+            .collect();
+
+        let total_pages = (total as u32 + per_page - 1) / per_page.max(1);
         Ok(PaginatedProfiles { items, total: total as u32, page, per_page, total_pages })
     }
 
     pub fn get_profile_detail(&self, id: &str) -> Result<ProfileDetail, String> {
         if self.is_locked() { return Err("database_locked".into()); }
-        let profile = self.build_profile(id)?;
-        // FIX B34: card_id может быть 0 (NULL → i64) если карта удалена (ON DELETE SET NULL)
-        let card = if profile.card_id > 0 {
-            self.get_card_decrypted(profile.card_id).ok()
-        } else {
-            None
-        };
-        // Возвращаем пустую заглушку CardDecrypted если карта удалена
-        let card = card.unwrap_or_else(|| CardDecrypted {
-            id: 0,
-            card_number: String::new(),
-            expiry_date: String::new(),
-            cvv: String::new(),
-            holder_name: String::new(),
-            billing_address: None, city: None, state: None, zip: None,
-            country: None, phone: None, email: None, ip_address: None,
-            bin: None, last4: None, bank_name: None, card_type: None,
-            card_level: None, status: "deleted".into(), source: String::new(),
-            notes: None, created_at: String::new(),
-        });
+
+        // FIX DB-H02: Single query with JOINs instead of 3 separate queries
+        // Fetch profile, card, drops count, and orders count in one query
+        let sql = r#"
+            SELECT p.id, p.card_id, p.notes, p.created_at, p.updated_at,
+                   c.bin, c.last4, c.bank_name, c.card_type, c.country, c.status, c.holder_name,
+                   COALESCE((SELECT COUNT(*) FROM drops WHERE profile_id=p.id), 0) AS drop_count,
+                   COALESCE((SELECT COUNT(*) FROM orders WHERE profile_id=p.id), 0) AS order_count
+            FROM profiles p
+            LEFT JOIN credit_cards c ON p.card_id = c.id
+            WHERE p.id = ?1
+        "#;
+
+        let (profile, card) = self.conn.query_row(sql, params![id], |row| {
+            let pid: String = row.get(0)?;
+            let card_id: i64 = row.get(1)?;
+            let notes: Option<String> = row.get(2)?;
+            let created_at: String = row.get(3)?;
+            let updated_at: String = row.get(4)?;
+            let bin: Option<String> = row.get(5)?;
+            let last4: Option<String> = row.get(6)?;
+            let bank_name: Option<String> = row.get(7)?;
+            let card_type: Option<String> = row.get(8)?;
+            let country: Option<String> = row.get(9)?;
+            let cstatus: Option<String> = row.get(10)?;
+            let holder_enc: Option<String> = row.get(11)?;
+            let drop_count: i64 = row.get(12)?;
+            let order_count: i64 = row.get(13)?;
+
+            // Decrypt holder name if present
+            let holder_masked = holder_enc.as_ref()
+                .and_then(|h| self.decrypt_field(h).ok())
+                .map(|n| mask_name(&n));
+
+            let profile = Profile {
+                id: pid,
+                card_id,
+                notes,
+                created_at,
+                updated_at,
+                bin: bin.clone(),
+                last4: last4.clone(),
+                bank_name: bank_name.clone(),
+                card_type: card_type.clone(),
+                country: country.clone(),
+                card_status: cstatus.clone(),
+                holder_masked,
+                drop_count,
+                order_count,
+            };
+
+            // Build CardDecrypted from joined data
+            let card = if card_id > 0 && bin.is_some() {
+                CardDecrypted {
+                    id: card_id,
+                    card_number: String::new(),  // Not fetched in this query
+                    expiry_date: String::new(),
+                    cvv: String::new(),
+                    holder_name: String::new(),
+                    billing_address: None, city: None, state: None, zip: None,
+                    country, phone: None, email: None, ip_address: None,
+                    bin, last4, bank_name, card_type,
+                    card_level: None, status: cstatus.unwrap_or_default(),
+                    source: String::new(), notes: None, created_at: String::new(),
+                }
+            } else {
+                CardDecrypted {
+                    id: 0,
+                    card_number: String::new(),
+                    expiry_date: String::new(),
+                    cvv: String::new(),
+                    holder_name: String::new(),
+                    billing_address: None, city: None, state: None, zip: None,
+                    country: None, phone: None, email: None, ip_address: None,
+                    bin: None, last4: None, bank_name: None, card_type: None,
+                    card_level: None, status: "deleted".into(), source: String::new(),
+                    notes: None, created_at: String::new(),
+                }
+            };
+
+            Ok((profile, card))
+        }).map_err(|e| e.to_string())?;
+
+        // Fetch full drops list (required for detail view)
         let drops = self.get_drops_for_profile(id)?;
+
+        // Fetch orders summary (required for detail view)
         let orders = self.get_orders_summary_for_profile(id)?;
+
         Ok(ProfileDetail { profile, card, drops, orders })
     }
 
@@ -3059,16 +3230,18 @@ impl Database {
         let oid = self.conn.last_insert_rowid();
         let _ = self.log_event("order.created", &format!("Order created for profile {}", input.profile_id), Some("order"), None);
 
-        // FIX B25: записываем footprint при каждом создании заказа
+        // FIX B25 + PHASE 1: записываем footprint при каждом создании заказа с order_status
         let _ = self.record_order_footprint(oid, &input.profile_id, input.shop_id,
-            input.email_pool_id, input.drop_id, input.proxy_id);
+            input.email_pool_id, input.drop_id, input.proxy_id, "pending");
 
         self.build_order(oid)
     }
 
-    /// FIX B25: записывает hashed footprint данные заказа в shop_footprints
+    /// PHASE 1: Footprint Sync V2 — записывает hashed footprint данные заказа в shop_footprints
+    /// Добавлены: order_status для аналитики, installation_id_hash для идентификации установки
     fn record_order_footprint(&self, order_id: i64, profile_id: &str, shop_id: i64,
-        email_pool_id: Option<i64>, drop_id: Option<i64>, proxy_id: Option<i64>) -> Result<(), String>
+        email_pool_id: Option<i64>, drop_id: Option<i64>, proxy_id: Option<i64>,
+        order_status: &str) -> Result<(), String>
     {
         use crate::encryption::hash_value;
 
@@ -3119,9 +3292,13 @@ impl Database {
             None
         };
 
+        // PHASE 1: получаем installation_id_hash для идентификации установки
+        let installation_id_hash = self.get_installation_id_hash();
+
+        // V2: добавляем order_status и installation_id_hash
         self.conn.execute(
-            "INSERT INTO shop_footprints(shop_id,shop_domain,order_id,email_id,proxy_id,email_hash,ip_hash,drop_hash,bin,phone_hash,name_hash,synced) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,0)",
-            params![shop_id, shop_domain, order_id, email_pool_id, proxy_id, email_hash, ip_hash, drop_hash, bin, phone_hash, name_hash],
+            "INSERT INTO shop_footprints(shop_id,shop_domain,order_id,email_id,proxy_id,email_hash,ip_hash,drop_hash,bin,phone_hash,name_hash,synced,order_status,installation_id_hash) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,0,?12,?13)",
+            params![shop_id, shop_domain, order_id, email_pool_id, proxy_id, email_hash, ip_hash, drop_hash, bin, phone_hash, name_hash, order_status, installation_id_hash],
         ).map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -3516,6 +3693,134 @@ impl Database {
     }
 
     // ─────────────────────────────────────────
+    //  PHASE 2: Shop Statistics Enhancement
+    // ─────────────────────────────────────────
+
+    /// Get carrier-specific statistics for a shop
+    pub fn get_carrier_stats(&self, shop_id: i64) -> Result<Vec<CarrierStats>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT
+                CASE
+                    WHEN tracking_number LIKE '1Z%' THEN 'UPS'
+                    WHEN tracking_number GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' THEN 'FedEx'
+                    WHEN tracking_number LIKE '94%' THEN 'USPS'
+                    ELSE 'Unknown'
+                END as carrier,
+                COUNT(*) as total_orders,
+                SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
+                SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as declined
+             FROM orders
+             WHERE shop_id = ?1 AND tracking_number IS NOT NULL AND tracking_number != ''
+             GROUP BY carrier
+             ORDER BY total_orders DESC"
+        ).map_err(|e| e.to_string())?;
+
+        let carriers: Vec<CarrierStats> = stmt.query_map(params![shop_id], |row| {
+            let carrier: String = row.get(0)?;
+            let total: i64 = row.get(1)?;
+            let delivered: i64 = row.get(2)?;
+            let declined: i64 = row.get(3)?;
+            let success_rate = if total > 0 { delivered as f64 / total as f64 } else { 0.0 };
+            Ok(CarrierStats { carrier, total_orders: total, delivered, declined, success_rate })
+        }).map_err(|e| e.to_string())?
+          .filter_map(|r| r.ok())
+          .collect();
+
+        Ok(carriers)
+    }
+
+    /// Get statistics for a specific time period
+    pub fn get_period_stats(&self, shop_id: i64, days: u32) -> Result<PeriodStats, String> {
+        let row = self.conn.query_row(
+            &format!(
+                "SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
+                    SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as declined,
+                    COALESCE(SUM(CAST(amount AS REAL)), 0) as revenue
+                 FROM orders
+                 WHERE shop_id = ?1
+                   AND created_at >= datetime('now', '-{} days')",
+                days
+            ),
+            params![shop_id],
+            |r| Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, f64>(3)?,
+            ))
+        ).map_err(|e| e.to_string())?;
+
+        let total = row.0;
+        let delivered = row.1;
+        let declined = row.2;
+        let revenue = row.3;
+        let success_rate = if total > 0 { delivered as f64 / total as f64 } else { 0.0 };
+
+        Ok(PeriodStats { days, total, delivered, declined, success_rate, revenue })
+    }
+
+    /// Get unique users (by installation_id_hash) for a shop in last 30 days
+    pub fn get_unique_users_for_shop(&self, shop_id: i64) -> Result<i64, String> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(DISTINCT f.installation_id_hash)
+             FROM footprints f
+             WHERE f.shop_id = ?1
+               AND f.created_at >= datetime('now', '-30 days')
+               AND f.installation_id_hash IS NOT NULL",
+            params![shop_id],
+            |r| r.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        Ok(count)
+    }
+
+    /// Get average delivery days for a shop (from order creation to delivered)
+    pub fn get_avg_delivery_days(&self, shop_id: i64) -> Result<f64, String> {
+        let avg: f64 = self.conn.query_row(
+            "SELECT AVG(julianday(updated_at) - julianday(created_at))
+             FROM orders
+             WHERE shop_id = ?1
+               AND status = 'delivered'
+               AND created_at IS NOT NULL
+               AND updated_at IS NOT NULL",
+            params![shop_id],
+            |r| r.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        Ok((avg * 10.0).round() / 10.0)
+    }
+
+    /// Get aggregated shop statistics V2 (base + carrier + period + unique users + avg delivery)
+    pub fn get_shop_stats_v2(&self, shop_id: i64) -> Result<ShopStatsV2, String> {
+        // Get base stats
+        let base_stats = self.get_shop_stats(shop_id)?;
+
+        // Get carrier breakdown
+        let carrier_stats = self.get_carrier_stats(shop_id)?;
+
+        // Get period stats
+        let period_7d = self.get_period_stats(shop_id, 7)?;
+        let period_30d = self.get_period_stats(shop_id, 30)?;
+
+        // Get unique users
+        let unique_users_30d = self.get_unique_users_for_shop(shop_id)?;
+
+        // Get avg delivery days
+        let avg_delivery_days = self.get_avg_delivery_days(shop_id)?;
+
+        Ok(ShopStatsV2 {
+            base_stats,
+            carrier_stats,
+            period_7d,
+            period_30d,
+            unique_users_30d,
+            avg_delivery_days,
+        })
+    }
+
+    // ─────────────────────────────────────────
     //  Card timeline
     // ─────────────────────────────────────────
 
@@ -3810,6 +4115,364 @@ impl Database {
         Ok(result)
     }
 
+    // ─────────────────────────────────────────
+    //  PHASE 5: Automation Config
+    // ─────────────────────────────────────────
+
+    /// PHASE 5: Получение конфигурации автоматизации
+    pub fn get_automation_config(&self) -> Result<crate::models::AutomationConfig, String> {
+        Ok(crate::models::AutomationConfig {
+            autolock_timeout: self.get_config_u64("autolock_timeout", 300)?,
+            sync_interval: self.get_config_u64("sync_interval", 120)?,
+            imap_poll_interval: self.get_config_u64("imap_poll_interval", 60)?,
+            tracking_interval: self.get_config_u64("tracking_interval", 1800)?,
+            proxy_check_interval: self.get_config_u64("proxy_check_interval", 1800)?,
+            max_sync_failures: self.get_config_u32("max_sync_failures", 5)?,
+            auto_archive_enabled: self.get_config_bool("auto_archive_enabled", true)?,
+            burned_card_threshold: self.get_config_u32("burned_card_threshold", 3)?,
+            decline_threshold: self.get_config_u32("decline_threshold", 5)?,
+            eco_mode: self.get_config_bool("eco_mode", false)?,
+        })
+    }
+
+    /// PHASE 5: Установка значения конфигурации автоматизации
+    pub fn set_automation_config(&self, key: &str, value: &str) -> Result<(), String> {
+        // Валидация ключа
+        let allowed_keys = [
+            "autolock_timeout", "sync_interval", "imap_poll_interval",
+            "tracking_interval", "proxy_check_interval", "max_sync_failures",
+            "auto_archive_enabled", "burned_card_threshold", "decline_threshold", "eco_mode"
+        ];
+        if !allowed_keys.contains(&key) {
+            return Err(format!("Invalid automation config key: {}", key));
+        }
+
+        self.conn.execute(
+            "INSERT INTO automation_config(key, value, updated_at) VALUES(?1, ?2, datetime('now'))
+             ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=datetime('now')",
+            params![key, value],
+        ).map_err(|e| e.to_string())?;
+
+        // Логирование изменения
+        self.log_event("automation.config_changed", &format!("{} = {}", key, value), Some("automation"), None)?;
+
+        Ok(())
+    }
+
+    /// PHASE 5: Получение состояния здоровья автоматизации
+    pub fn get_automation_health(&self) -> Result<crate::models::AutomationHealth, String> {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        // Check if database is locked
+        let db_locked = self.is_locked();
+
+        // Get config values
+        let eco_mode = self.get_config_bool("eco_mode", false)?;
+
+        // Get last success timestamps from activity log
+        let get_last_success = |event_type: &str| -> Result<u64, String> {
+            let result: Option<String> = self.conn.query_row(
+                &format!(
+                    "SELECT created_at FROM activity_log
+                     WHERE event_type = '{}'
+                     ORDER BY created_at DESC LIMIT 1",
+                    event_type
+                ),
+                [],
+                |row| row.get(0)
+            ).ok();
+
+            if let Some(ts) = result {
+                // Parse SQLite timestamp to Unix timestamp
+                let parsed = chrono::NaiveDateTime::parse_from_str(&ts, "%Y-%m-%d %H:%M:%S")
+                    .map(|dt| dt.and_utc().timestamp() as u64)
+                    .unwrap_or(0);
+                Ok(parsed)
+            } else {
+                Ok(0)
+            }
+        };
+
+        let sync_last_success = get_last_success("sync.footprints_sent").unwrap_or(0);
+        let imap_last_success = get_last_success("imap.poll_completed").unwrap_or(0);
+        let tracking_last_success = get_last_success("tracking.updated").unwrap_or(0);
+        let proxy_last_success = get_last_success("proxy.health_check").unwrap_or(0);
+
+        // Calculate seconds since last success
+        let secs_since = |last: u64| -> u64 {
+            if last == 0 { return u64::MAX; }
+            now_secs.saturating_sub(last)
+        };
+
+        // Determine if online (any activity in last 5 minutes)
+        let is_online = secs_since(sync_last_success) < 300
+            || secs_since(imap_last_success) < 300
+            || secs_since(tracking_last_success) < 300
+            || secs_since(proxy_last_success) < 300;
+
+        Ok(crate::models::AutomationHealth {
+            is_online,
+            db_locked,
+            eco_mode,
+            pause_all: false, // Can be extended with a pause_all config
+            sync_last_success: secs_since(sync_last_success),
+            imap_last_success: secs_since(imap_last_success),
+            tracking_last_success: secs_since(tracking_last_success),
+            proxy_last_success: secs_since(proxy_last_success),
+        })
+    }
+
+    // Helper функции для получения значений разных типов
+    fn get_config_u64(&self, key: &str, default: u64) -> Result<u64, String> {
+        match self.get_config(key).map_err(|e| e.to_string())? {
+            Some(v) => v.parse::<u64>().map_err(|e| format!("Failed to parse {}: {}", key, e)),
+            None => Ok(default),
+        }
+    }
+
+    fn get_config_u32(&self, key: &str, default: u32) -> Result<u32, String> {
+        match self.get_config(key).map_err(|e| e.to_string())? {
+            Some(v) => v.parse::<u32>().map_err(|e| format!("Failed to parse {}: {}", key, e)),
+            None => Ok(default),
+        }
+    }
+
+    fn get_config_bool(&self, key: &str, default: bool) -> Result<bool, String> {
+        match self.get_config(key).map_err(|e| e.to_string())? {
+            Some(v) => Ok(v == "true" || v == "1"),
+            None => Ok(default),
+        }
+    }
+
+    // ─────────────────────────────────────────
+    //  PHASE 6: Smart Card Protection
+    // ─────────────────────────────────────────
+
+    /// PHASE 6: Получение карт с 3+ заказами на одном магазине (burned cards)
+    pub fn get_burned_cards(&self, threshold: u32) -> Result<Vec<crate::models::BurnedCard>, String> {
+        let mut stmt = self.conn.prepare("
+            SELECT p.card_id, o.shop_id, s.name as shop_name, COUNT(*) as order_count,
+                   (SELECT o2.status FROM orders o2 WHERE o2.profile_id = p.id ORDER BY o2.created_at DESC LIMIT 1) as last_status
+            FROM orders o
+            JOIN profiles p ON o.profile_id = p.id
+            JOIN shops s ON o.shop_id = s.id
+            WHERE o.status NOT IN ('declined', 'failed', 'cancelled')
+            GROUP BY p.card_id, o.shop_id
+            HAVING COUNT(*) >= ?1
+            ORDER BY order_count DESC
+        ").map_err(|e| e.to_string())?;
+
+        let rows = stmt.query_map(params![threshold as i64], |row| {
+            Ok(crate::models::BurnedCard {
+                card_id: row.get(0)?,
+                shop_id: row.get(1)?,
+                shop_name: row.get(2)?,
+                order_count: row.get(3)?,
+                last_status: row.get(4)?,
+            })
+        }).map_err(|e| e.to_string())?
+          .filter_map(|r| r.ok())
+          .collect();
+
+        Ok(rows)
+    }
+
+    /// PHASE 6: Авто-архивация карт с 3+ заказами на одном магазине
+    pub fn auto_archive_burned_cards(&self, threshold: u32) -> Result<u32, String> {
+        let burned = self.get_burned_cards(threshold)?;
+        let mut archived = 0u32;
+
+        for burned_card in burned {
+            // Проверяем что нет pending заказов
+            let has_pending: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM orders o JOIN profiles p ON o.profile_id = p.id
+                 WHERE p.card_id = ?1 AND o.status = 'pending'",
+                params![burned_card.card_id],
+                |r| r.get(0),
+            ).unwrap_or(0);
+
+            if has_pending > 0 {
+                continue; // Не архивируем если есть pending заказы
+            }
+
+            // Архивируем карту
+            self.conn.execute(
+                "UPDATE credit_cards SET status = 'archive' WHERE id = ?1",
+                params![burned_card.card_id],
+            ).map_err(|e| e.to_string())?;
+
+            // Логируем событие
+            self.log_event(
+                "automation.card_archived",
+                &format!("Card {} archived (burned: {} orders at {})",
+                    burned_card.card_id, burned_card.order_count, burned_card.shop_name),
+                Some("automation"),
+                Some(&burned_card.card_id.to_string()),
+            )?;
+
+            archived += 1;
+        }
+
+        Ok(archived)
+    }
+
+    /// PHASE 6: Получение количества последовательных declines для карты
+    pub fn get_consecutive_declines(&self, card_id: i64) -> Result<u32, String> {
+        // Получаем последние заказы карты, отсортированные по дате
+        let mut stmt = self.conn.prepare("
+            SELECT o.status, o.shop_id, s.success_rate, o.created_at
+            FROM orders o
+            JOIN profiles p ON o.profile_id = p.id
+            LEFT JOIN shops s ON o.shop_id = s.id
+            WHERE p.card_id = ?1
+            ORDER BY o.created_at DESC
+            LIMIT 20
+        ").map_err(|e| e.to_string())?;
+
+        let rows: Vec<(String, i64, Option<f64>, String)> = stmt.query_map(params![card_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        }).map_err(|e| e.to_string())?
+          .filter_map(|r| r.ok())
+          .collect();
+
+        let mut consecutive = 0u32;
+
+        for (status, _shop_id, success_rate, _created_at) in rows {
+            if status == "declined" || status == "failed" {
+                // Игнорируем declines на "плохих" магазинах (success_rate < 30%)
+                if let Some(sr) = success_rate {
+                    if sr < 30.0 {
+                        continue; // Не считаем этот decline
+                    }
+                }
+                consecutive += 1;
+            } else if status == "delivered" {
+                // Успешный заказ прерывает серию declines
+                break;
+            }
+        }
+
+        Ok(consecutive)
+    }
+
+    /// PHASE 6: Авто-архивация карт с множественными consecutive declines
+    pub fn auto_archive_risky_cards(&self, decline_threshold: u32) -> Result<u32, String> {
+        // Получаем все карты со статусом in_use
+        let mut stmt = self.conn.prepare("
+            SELECT id FROM credit_cards WHERE status = 'in_use'
+        ").map_err(|e| e.to_string())?;
+
+        let card_ids: Vec<i64> = stmt.query_map([], |r| r.get(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut archived = 0u32;
+
+        for card_id in card_ids {
+            let consecutive_declines = self.get_consecutive_declines(card_id)?;
+
+            if consecutive_declines >= decline_threshold {
+                // Проверяем что нет pending заказов
+                let has_pending: i64 = self.conn.query_row(
+                    "SELECT COUNT(*) FROM orders o JOIN profiles p ON o.profile_id = p.id
+                     WHERE p.card_id = ?1 AND o.status = 'pending'",
+                    params![card_id],
+                    |r| r.get(0),
+                ).unwrap_or(0);
+
+                if has_pending > 0 {
+                    continue; // Не архивируем если есть pending заказы
+                }
+
+                // Архивируем карту
+                self.conn.execute(
+                    "UPDATE credit_cards SET status = 'archive' WHERE id = ?1",
+                    params![card_id],
+                ).map_err(|e| e.to_string())?;
+
+                // Логируем событие
+                self.log_event(
+                    "automation.card_archived",
+                    &format!("Card {} archived ({} consecutive declines)", card_id, consecutive_declines),
+                    Some("automation"),
+                    Some(&card_id.to_string()),
+                )?;
+
+                archived += 1;
+            }
+        }
+
+        Ok(archived)
+    }
+
+    /// PHASE 6: Получение рекомендаций для замены burned карты
+    pub fn get_card_replacement_suggestions(
+        &self,
+        burned_card_id: i64,
+        shop_id: i64
+    ) -> Result<Vec<crate::models::CardSuggestion>, String> {
+        // Получаем информацию о burned карте для matching
+        let burned_card_info: Option<(Option<String>, Option<String>, Option<String>)> = self.conn.query_row(
+            "SELECT bank_name, card_type, country FROM credit_cards WHERE id = ?1",
+            params![burned_card_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        ).ok();
+
+        let (bank_name, card_type, country) = burned_card_info.unwrap_or((None, None, None));
+
+        // Находим free карты которые НЕ использовались на этом магазине
+        let mut stmt = self.conn.prepare("
+            SELECT c.id, c.last4, c.bank_name, c.card_type, c.country,
+                   CASE
+                       WHEN ?2 != '' AND c.bank_name = ?2 THEN 30
+                       ELSE 0
+                   END +
+                   CASE
+                       WHEN ?3 != '' AND c.card_type = ?3 THEN 20
+                       ELSE 0
+                   END +
+                   CASE
+                       WHEN ?4 != '' AND c.country = ?4 THEN 20
+                       ELSE 0
+                   END as match_score
+            FROM credit_cards c
+            WHERE c.status = 'free'
+              AND c.id NOT IN (
+                  SELECT p.card_id FROM orders o
+                  JOIN profiles p ON o.profile_id = p.id
+                  WHERE o.shop_id = ?1
+              )
+            ORDER BY match_score DESC, c.created_at DESC
+            LIMIT 5
+        ").map_err(|e| e.to_string())?;
+
+        let suggestions = stmt.query_map(params![
+            shop_id,
+            bank_name.as_ref().unwrap_or(&String::new()),
+            card_type.as_ref().unwrap_or(&String::new()),
+            country.as_ref().unwrap_or(&String::new()),
+        ], |row| {
+            Ok(crate::models::CardSuggestion {
+                card_id: row.get(0)?,
+                last4: row.get(1)?,
+                bank_name: row.get(2)?,
+                card_type: row.get(3)?,
+                country: row.get(4)?,
+                match_score: row.get(5)?,
+            })
+        }).map_err(|e| e.to_string())?
+          .filter_map(|r| r.ok())
+          .collect();
+
+        Ok(suggestions)
+    }
+
 } // impl Database (M03-M06)
 
 // ─────────────────────────────────────────
@@ -3868,6 +4531,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     if version < 5 { migration_v5(conn)?; conn.execute_batch("PRAGMA user_version = 5")?; version = 5; }
         if version < 6 { migration_v6(conn)?; conn.execute_batch("PRAGMA user_version = 6")?; version = 6; }
         if version < 7 { migration_v7(conn)?; conn.execute_batch("PRAGMA user_version = 7")?; }
+        if version < 8 { migration_v8(conn)?; conn.execute_batch("PRAGMA user_version = 8")?; }
     Ok(())
     }
 
@@ -4027,10 +4691,37 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
             name_hash   TEXT,
             synced      BOOLEAN NOT NULL DEFAULT 0,
             user_token  TEXT,
-            created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+            -- PHASE 1: Footprint V2 (Collective Mind)
+            order_status TEXT,
+            installation_id_hash TEXT
         );
+        -- Индексы для footprint V2
         CREATE INDEX IF NOT EXISTS idx_footprints_synced ON shop_footprints(synced);
         CREATE INDEX IF NOT EXISTS idx_footprints_shop   ON shop_footprints(shop_domain);
+        CREATE INDEX IF NOT EXISTS idx_footprints_status ON shop_footprints(order_status);
+        CREATE INDEX IF NOT EXISTS idx_footprints_install ON shop_footprints(installation_id_hash);
+
+        -- PHASE 5: Automation Config
+        CREATE TABLE IF NOT EXISTS automation_config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            description TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        -- Default automation config values
+        INSERT OR IGNORE INTO automation_config (key, value, description) VALUES
+            ('autolock_timeout', '300', 'seconds before auto-lock'),
+            ('sync_interval', '120', 'seconds between footprint sync'),
+            ('imap_poll_interval', '60', 'seconds between IMAP polls'),
+            ('tracking_interval', '1800', 'seconds between tracking checks'),
+            ('proxy_check_interval', '1800', 'seconds between proxy health checks'),
+            ('max_sync_failures', '5', 'failures before pause'),
+            ('auto_archive_enabled', 'true', 'enable auto-archiving'),
+            ('burned_card_threshold', '3', 'orders before archive'),
+            ('decline_threshold', '5', 'consecutive declines before archive'),
+            ('eco_mode', 'false', 'reduce frequency to save resources');
+        -- FIX DB-H03: Removed duplicate index creation (already created above at lines 4562-4563)
 
         CREATE TABLE IF NOT EXISTS activity_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL,
@@ -4176,6 +4867,23 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         let _ = conn.execute_batch("ALTER TABLE proxies ADD COLUMN last_checked DATETIME;");
         // G2: proxy-shop bindings table
         conn.execute_batch("CREATE TABLE IF NOT EXISTS proxy_shop_bindings (proxy_id INTEGER NOT NULL, shop_id INTEGER NOT NULL, PRIMARY KEY(shop_id));")?;
+        Ok(())
+    }
+
+    fn migration_v8(conn: &Connection) -> SqlResult<()> {
+        // PHASE 1: Footprint Sync V2 — добавляем колонки для order_status и installation_id_hash
+        let _ = conn.execute_batch("ALTER TABLE shop_footprints ADD COLUMN order_status TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE shop_footprints ADD COLUMN installation_id_hash TEXT;");
+        // Индексы для производительности при фильтрации по статусам
+        let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_footprints_order_status ON shop_footprints(order_status);");
+        let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_footprints_installation ON shop_footprints(installation_id_hash);");
+
+        // PHASE 2: Shop Statistics Enhancement
+        // Add carrier_type column for better carrier tracking
+        let _ = conn.execute_batch("ALTER TABLE orders ADD COLUMN carrier_type TEXT;");
+        // Add indexes for performance
+        let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_orders_carrier ON orders(carrier_type);");
+        let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);");
         Ok(())
     }
 

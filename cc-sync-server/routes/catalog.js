@@ -21,36 +21,64 @@ const requireSecret = (req, res, next) => {
   next();
 };
 
+// FIX API-03: Add X-Content-Type-Options header to prevent MIME sniffing XSS
 router.get('/items', (req, res) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   const db = getCatalogDb(true);
   if (!db) return res.json({ items: [], total: 0, note: 'catalog.db not found on server' });
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const per_page = Math.min(100, parseInt(req.query.per_page) || 50);
-    const search = (req.query.search || '').replace(/[%_]/g, '\\$&');
     const offset = (page - 1) * per_page;
-    const where = search ? `WHERE name LIKE '%${search}%' ESCAPE '\\'` : '';
-    const total = db.prepare(`SELECT COUNT(*) as c FROM catalog_items ${where}`).get()?.c ?? 0;
-    const items = db.prepare(`SELECT id, name, asin, price, pct, category, stop FROM catalog_items ${where} ORDER BY name LIMIT ? OFFSET ?`).all(per_page, offset);
+
+    // Parameterized query to prevent SQL injection
+    const search = req.query.search || '';
+    let items, total;
+
+    if (search) {
+      // Escape LIKE wildcards and use parameterized query
+      const escapedSearch = search.replace(/[%_]/g, '\\$&');
+      const likePattern = `%${escapedSearch}%`;
+      total = db.prepare('SELECT COUNT(*) as c FROM catalog_items WHERE name LIKE ? ESCAPE \'\\\'').get(likePattern)?.c ?? 0;
+      items = db.prepare('SELECT id, name, asin, price, pct, category, stop FROM catalog_items WHERE name LIKE ? ESCAPE \'\\\' ORDER BY name LIMIT ? OFFSET ?').all(likePattern, per_page, offset);
+    } else {
+      total = db.prepare('SELECT COUNT(*) as c FROM catalog_items').get()?.c ?? 0;
+      items = db.prepare('SELECT id, name, asin, price, pct, category, stop FROM catalog_items ORDER BY name LIMIT ? OFFSET ?').all(per_page, offset);
+    }
+
     db.close();
     res.json({ items, total, page, per_page, pages: Math.ceil(total / per_page) });
-  } catch(e) { try { db.close(); } catch {} res.json({ items: [], total: 0, error: e.message }); }
+  } catch(e) { try { db.close(); } catch {} res.status(500).json({ items: [], total: 0, error: e.message }); }
 });
 
+// FIX API-03: Add X-Content-Type-Options header to prevent MIME sniffing XSS
 router.get('/shops', (req, res) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   const db = getCatalogDb(true);
   if (!db) return res.json({ shops: [], total: 0, note: 'catalog.db not found on server' });
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const per_page = Math.min(100, parseInt(req.query.per_page) || 50);
-    const search = (req.query.search || '').replace(/[%_]/g, '\\$&');
     const offset = (page - 1) * per_page;
-    const where = search ? `WHERE domain LIKE '%${search}%' ESCAPE '\\'` : '';
-    const total = db.prepare(`SELECT COUNT(*) as c FROM catalog_shops ${where}`).get()?.c ?? 0;
-    const shops = db.prepare(`SELECT id, domain, category, score, ship_us, fraud_level FROM catalog_shops ${where} ORDER BY domain LIMIT ? OFFSET ?`).all(per_page, offset);
+
+    // Parameterized query to prevent SQL injection
+    const search = req.query.search || '';
+    let items, total;
+
+    if (search) {
+      // Escape LIKE wildcards and use parameterized query
+      const escapedSearch = search.replace(/[%_]/g, '\\$&');
+      const likePattern = `%${escapedSearch}%`;
+      total = db.prepare('SELECT COUNT(*) as c FROM catalog_shops WHERE domain LIKE ? ESCAPE \'\\\'').get(likePattern)?.c ?? 0;
+      items = db.prepare('SELECT id, domain, category, score, ship_us, fraud_level FROM catalog_shops WHERE domain LIKE ? ESCAPE \'\\\' ORDER BY domain LIMIT ? OFFSET ?').all(likePattern, per_page, offset);
+    } else {
+      total = db.prepare('SELECT COUNT(*) as c FROM catalog_shops').get()?.c ?? 0;
+      items = db.prepare('SELECT id, domain, category, score, ship_us, fraud_level FROM catalog_shops ORDER BY domain LIMIT ? OFFSET ?').all(per_page, offset);
+    }
+
     db.close();
-    res.json({ shops, total, page, per_page, pages: Math.ceil(total / per_page) });
-  } catch(e) { try { db.close(); } catch {} res.json({ items: [], total: 0, error: e.message }); }
+    res.json({ items, total, page, per_page, pages: Math.ceil(total / per_page) });
+  } catch(e) { try { db.close(); } catch {} res.status(500).json({ items: [], total: 0, error: e.message }); }
 });
 
 // POST /api/catalog/items — add or update a catalog item (authenticated)

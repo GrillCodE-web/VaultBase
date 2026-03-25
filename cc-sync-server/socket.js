@@ -11,9 +11,11 @@ function logSocketEvent(type, data) {
 
 function initSocket(httpServer) {
   const io = new Server(httpServer, {
-    // FIX WS-CORS-01: Restrict CORS to known origins in production
+    // FIX API-11: Restrict CORS to known origins - default to localhost for dev, require env var in prod
     cors: {
-      origin: process.env.WS_ALLOWED_ORIGINS?.split(',') || '*',
+      origin: process.env.NODE_ENV === 'production'
+        ? (process.env.WS_ALLOWED_ORIGINS?.split(',') || [])
+        : ['http://localhost:5173', 'http://localhost:1420'],
       methods: ['GET', 'POST'],
       credentials: true
     },

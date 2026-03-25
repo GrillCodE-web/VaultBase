@@ -517,6 +517,7 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
         className="btn btn-ghost btn-sm"
         onClick={() => setOpen(o => !o)}
         title="Bind to Shop"
+        aria-label="Bind to Shop"
       >
         <Store size={12} />
       </button>
@@ -949,6 +950,7 @@ export default function ProxyList() {
                                   testingId === proxy.id || testResults[proxy.id] === 'testing'
                                 }
                                 title={t('btn_test')}
+                                aria-label={t('btn_test')}
                               >
                                 {testingId === proxy.id || testResults[proxy.id] === 'testing' ? (
                                   <Loader2 size={12} className="animate-spin" />
@@ -979,12 +981,14 @@ export default function ProxyList() {
                               <button
                                 className="btn btn-ghost btn-sm"
                                 onClick={() => setModal(proxy)}
+                                aria-label={t('btn_edit')}
                               >
                                 Edit
                               </button>
                               <button
                                 className="btn btn-r btn-sm"
                                 onClick={() => handleDelete(proxy)}
+                                aria-label={t('btn_delete')}
                               >
                                 {t('btn_delete')}
                               </button>
@@ -1049,6 +1053,7 @@ export default function ProxyList() {
                             onClick={() => handleTestProxy(proxy)}
                             disabled={testingId === proxy.id || testResults[proxy.id] === 'testing'}
                             title={t('btn_test')}
+                            aria-label={t('btn_test')}
                           >
                             {testingId === proxy.id || testResults[proxy.id] === 'testing' ? (
                               <Loader2 size={12} className="animate-spin" />
@@ -1076,10 +1081,18 @@ export default function ProxyList() {
                               })
                             }
                           />
-                          <button className="btn btn-ghost btn-sm" onClick={() => setModal(proxy)}>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setModal(proxy)}
+                            aria-label={t('btn_edit')}
+                          >
                             Edit
                           </button>
-                          <button className="btn btn-r btn-sm" onClick={() => handleDelete(proxy)}>
+                          <button
+                            className="btn btn-r btn-sm"
+                            onClick={() => handleDelete(proxy)}
+                            aria-label={t('btn_delete')}
+                          >
                             {t('btn_delete')}
                           </button>
                         </div>

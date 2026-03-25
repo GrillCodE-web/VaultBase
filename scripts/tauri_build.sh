@@ -130,7 +130,23 @@ echo "✓ Ключ найден: $KEY_FILE"
 # ── Шаг 5: экспортируем ключ ─────────────────────────────────
 export TAURI_SIGNING_PRIVATE_KEY
 TAURI_SIGNING_PRIVATE_KEY=$(cat "$KEY_FILE")
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+
+# BD-H04: Require password for signing key (security requirement)
+if [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+  echo "⚠️  WARNING: TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set!"
+  echo "  This is a security risk — anyone with access to the key can sign malicious updates."
+  echo "  Set the environment variable with a strong password (20+ characters)."
+  echo ""
+  echo "  Continue without password protection? (NOT RECOMMENDED) [y/n]: "
+  read -r SKIP_PASSWORD
+  if [ "$SKIP_PASSWORD" != "y" ]; then
+    echo "  Aborted. Set TAURI_SIGNING_PRIVATE_KEY_PASSWORD and re-run."
+    exit 1
+  fi
+  export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+else
+  echo "✓ Password protection enabled"
+fi
 
 echo "✓ Ключ загружен ($(echo "$TAURI_SIGNING_PRIVATE_KEY" | wc -c | tr -d ' ') байт)"
 

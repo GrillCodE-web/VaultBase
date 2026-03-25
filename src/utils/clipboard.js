@@ -17,5 +17,12 @@ export function copyToClipboard(text, onSuccess, onError) {
  * @param {string} text - Text to copy
  */
 export function copyText(text) {
-  navigator.clipboard.writeText(text).catch(() => {})
+  // FIX FE-H05: Log clipboard errors in development
+  navigator.clipboard.writeText(text).catch(e => {
+    // Check for development environment (Vite defines import.meta.env)
+    const isDev = import.meta?.env?.DEV
+    if (isDev) {
+      console.error('[clipboard] Failed to copy:', e)
+    }
+  })
 }

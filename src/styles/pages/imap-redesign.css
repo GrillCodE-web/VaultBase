@@ -12,7 +12,7 @@
   font-size: 12px;
   border-radius: 2px;
   margin: 1px;
-  transition: all 0.12s ease-out;
+  transition: all var(--t-fast);
 }
 
 .folder-tree-item:hover {
@@ -34,6 +34,10 @@
 
 .folder-tree-item .folder-icon.inactive {
   color: var(--muted);
+}
+
+.folder-tree-item-active {
+  transition: all var(--t-fast);
 }
 
 /* ── Unread Badge ───────────────────────────────────────── */
@@ -69,7 +73,7 @@
   padding: 10px 12px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
-  transition: all 0.12s ease-out;
+  transition: all var(--t-fast) ease-out;
 }
 
 .message-list-item:hover {

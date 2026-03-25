@@ -10,7 +10,10 @@ const router = express.Router();
  * formatted as XXXX-XXXX-XXXX-XXXX
  */
 function deriveActivationKey(installation_id, challenge) {
-  const secret = process.env.SERVER_SECRET || 'CHANGE_ME';
+  const secret = process.env.SERVER_SECRET;
+  if (!secret) {
+    throw new Error('SERVER_SECRET environment variable is not set. This is a critical security requirement.');
+  }
   const raw = crypto
     .createHmac('sha256', secret)
     .update(installation_id + challenge)

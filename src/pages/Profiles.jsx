@@ -368,7 +368,7 @@ function DuplicateDropsModal({ groups, onClose }) {
                   {group[0].address}, {group[0].city}, {group[0].country} — {group.length}{' '}
                   duplicates
                 </div>
-                {group.map((d, di) => (
+                {group.map(d => (
                   <div key={d.id} className="duplicate-list-item">
                     <div>
                       <span className="text-[13px] text-text">{d.recipient_name}</span>
@@ -442,7 +442,7 @@ function DuplicateProfilesModal({ groups, onClose }) {
                 <div className="bg-warning p-\[8px_16px\] text-[12px] text-[var(--orange)] font-medium border-b-[var(--color-warning-bg)]">
                   Card {group[0].bin}••••{group[0].last4} — {group.length} profiles
                 </div>
-                {group.map((p, pi) => (
+                {group.map(p => (
                   <div key={p.id} className="duplicate-list-item">
                     <span className="text-[12px] font-mono text-text">{shortId(p.id)}</span>
                     <span className="text-[11px] text-muted">
@@ -829,7 +829,7 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                 No orders yet
               </div>
             )}
-            {orders.map((o, oi) => (
+            {orders.map(o => (
               <div key={o.id} className="order-list-item">
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
@@ -1030,18 +1030,16 @@ export default function ProfileList({
   const { t } = useLang()
 
   // Virtual scrolling setup
+  // ★ Insight: overscan увеличен до 20, estimateSize вынесен из useCallback
   const rowVirtualizer = useVirtualizer({
     count: profiles.length,
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: useCallback(
-      index => {
-        // Base row height + expanded detail panel if open
-        const profile = profiles[index]
-        return expanded === profile?.id ? 450 : 50
-      },
-      [profiles, expanded]
-    ),
-    overscan: 5,
+    estimateSize: index => {
+      // Base row height + expanded detail panel if open
+      const profile = profiles[index]
+      return expanded === profile?.id ? 450 : 50
+    },
+    overscan: 20, // Увеличено с 5 до 20
   })
 
   const load = useCallback(
@@ -1071,6 +1069,16 @@ export default function ProfileList({
   useEffect(() => {
     load()
   }, [load])
+
+  // FIX FE-H02: Cleanup hover timer on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) {
+        clearTimeout(hoverTimer.current)
+        hoverTimer.current = null
+      }
+    }
+  }, [])
 
   // #20 debounce search
   useEffect(() => {
@@ -1125,7 +1133,11 @@ export default function ProfileList({
       } else if (e.key === 'Enter' && selectedIdx !== null) {
         e.preventDefault()
         const p = profiles[selectedIdx]
-        if (p) invoke('open_float_window', { profileId: p.id }).catch(() => {})
+        if (p) {
+          invoke('open_float_window', { profileId: p.id }).catch(e =>
+            console.error('[Profiles] Failed to open float window:', e)
+          )
+        }
       } else if (e.key === 'Escape') {
         setSelectedIdx(null)
       }

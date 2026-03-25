@@ -127,7 +127,8 @@ describe('Modal Component (Accessibility)', () => {
         )
 
         const modal = container.querySelector('[role="dialog"]')
-        expect(modal.style.maxWidth).toBe(expectedVar)
+        // Check that the CSS variable is set via custom property
+        expect(modal.style.getPropertyValue('--modal-size')).toBe(expectedVar)
         unmount()
       })
     })

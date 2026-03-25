@@ -81,6 +81,11 @@ a:hover {
   text-decoration: underline;
 }
 
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ── List Reset ─────────────────────────────────────────── */
 ul,
 ol {

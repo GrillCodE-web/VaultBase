@@ -18,9 +18,10 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 function ShopRiskBadge({ shopId }) {
   const [risk, setRisk] = useState(null)
   useEffect(() => {
+    // FIX FE-H05: Log shop risk score errors instead of silently ignoring
     invoke('get_shop_risk_score', { shopId })
       .then(setRisk)
-      .catch(() => {})
+      .catch(e => console.error('[Shops] Failed to get shop risk score:', e))
   }, [shopId])
   if (!risk) return <span className="text-muted">—</span>
   const riskConfig = getRiskColor(risk.risk_level)
@@ -629,12 +630,14 @@ function ShopDetailPanel({ shopId, onNavigate }) {
                           <button
                             onClick={() => setProductModal(p)}
                             className="btn btn-ghost btn-sm"
+                            aria-label={t('btn_edit')}
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(p)}
                             className="btn btn-r btn-sm"
+                            aria-label={t('btn_delete')}
                           >
                             Del
                           </button>
@@ -760,6 +763,7 @@ export default function ShopList({ onNavigate }) {
 
   useEffect(() => {
     load()
+    // FIX FE-H05: Log shop win/loss errors instead of silently ignoring
     invoke('get_shop_win_loss')
       .then(rows => {
         const m = {}
@@ -768,7 +772,7 @@ export default function ShopList({ onNavigate }) {
         })
         setWinLossMap(m)
       })
-      .catch(() => {})
+      .catch(e => console.error('[Shops] Failed to get shop win/loss:', e))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Intentional: only run on mount, load is stable
 
@@ -854,7 +858,7 @@ export default function ShopList({ onNavigate }) {
                 type: 'success',
               },
               { label: 'declined', val: totDeclined, color: STATUS_COLORS.error, type: 'error' },
-            ].map(({ label, val, color, type }) => (
+            ].map(({ label, val, color }) => (
               <div key={label} className="stat-bar-item">
                 <span className="stat-bar-dot" style={{ background: color }} />
                 <span className="stat-bar-value" style={{ color }}>
@@ -1060,12 +1064,14 @@ export default function ShopList({ onNavigate }) {
                               <button
                                 onClick={() => setModal(shop)}
                                 className="btn btn-ghost btn-sm"
+                                aria-label={t('btn_edit')}
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => handleDelete(shop)}
                                 className="btn btn-r btn-sm"
+                                aria-label={t('btn_delete')}
                               >
                                 Del
                               </button>
@@ -1218,10 +1224,18 @@ export default function ShopList({ onNavigate }) {
                           >
                             <ExternalLink size={12} />
                           </button>
-                          <button onClick={() => setModal(shop)} className="btn btn-ghost btn-sm">
+                          <button
+                            onClick={() => setModal(shop)}
+                            className="btn btn-ghost btn-sm"
+                            aria-label={t('btn_edit')}
+                          >
                             Edit
                           </button>
-                          <button onClick={() => handleDelete(shop)} className="btn btn-r btn-sm">
+                          <button
+                            onClick={() => handleDelete(shop)}
+                            className="btn btn-r btn-sm"
+                            aria-label={t('btn_delete')}
+                          >
                             Del
                           </button>
                         </div>

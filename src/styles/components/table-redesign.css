@@ -77,7 +77,7 @@
   width: 2px;
   background: var(--accent);
   opacity: 0;
-  transition: opacity 0.1s ease-out;
+  transition: opacity var(--t-fast);
 }
 
 .tbl tr:hover {
@@ -103,6 +103,16 @@
   display: flex;
   gap: 4px;
   align-items: center;
+}
+
+/* ── Slide-in Quick Actions ─────────────────────────────── */
+.row-actions-slide {
+  transform: translateX(100%);
+  transition: transform var(--t-fast);
+}
+
+.tbl tbody tr:hover .row-actions-slide {
+  transform: translateX(0);
 }
 
 /* ── Sortable Headers ───────────────────────────────────── */
@@ -212,10 +222,65 @@
 
 .skeleton-cell {
   height: 16px;
-  background: linear-gradient(90deg, var(--inset) 0%, var(--card-hi) 50%, var(--inset) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--inset) 0%,
+    var(--card-hi) 20%,
+    var(--surface-hi) 50%,
+    var(--card-hi) 80%,
+    var(--inset) 100%
+  );
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
   border-radius: var(--r-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Enhanced shimmer with accent glow */
+.skeleton-cell::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 217, 255, 0.08) 50%, transparent 100%);
+  animation: shimmer-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes shimmer-glow {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 200%;
+  }
+}
+
+/* Skeleton variants for different content types */
+.skeleton-cell.circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.skeleton-cell.wide {
+  height: 20px;
+  width: 100%;
+}
+
+.skeleton-cell.short {
+  width: 60px;
 }
 
 /* ── Pagination ─────────────────────────────────────────── */
@@ -239,8 +304,8 @@
 }
 
 .pagination-btn {
-  width: 32px;
-  height: 32px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -297,4 +362,51 @@
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE TABLE STACK PATTERN
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .tbl-mobile-stack tbody {
+    display: block;
+  }
+
+  .tbl-mobile-stack tr {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+  }
+
+  .tbl-mobile-stack td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--text-3);
+    display: block;
+    margin-bottom: 4px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOUCH-FRIENDLY TARGETS
+   For devices with coarse pointer (mobile/tablet)
+   ═══════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  .btn,
+  .icon-btn,
+  input,
+  select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .tbl td,
+  .tbl th {
+    padding: 14px 12px;
+  }
 }

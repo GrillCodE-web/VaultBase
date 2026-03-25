@@ -18,9 +18,10 @@ export function LicenseSection() {
     invoke('get_license_status')
       .then(s => setStatus(s))
       .catch(() => setStatus('offline'))
+    // FIX FE-H05: Log installation ID errors instead of silently ignoring
     invoke('get_installation_id')
       .then(setInstallId)
-      .catch(() => {})
+      .catch(e => console.error('[LicenseSection] Failed to get installation ID:', e))
   }
 
   useEffect(loadStatus, [])

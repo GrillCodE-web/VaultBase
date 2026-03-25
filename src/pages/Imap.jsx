@@ -582,13 +582,18 @@ function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
               <CheckCircle size={12} /> Mark Read
             </button>
           )}
-          <button onClick={() => onReply(message)} className="btn btn-ghost btn-sm">
+          <button
+            onClick={() => onReply(message)}
+            className="btn btn-ghost btn-sm"
+            aria-label="Reply to message"
+          >
             <CornerUpLeft size={12} /> Reply
           </button>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => onArchive(message)}
             title="Archive"
+            aria-label="Archive message"
           >
             <Archive size={12} /> Archive
           </button>
@@ -1041,6 +1046,9 @@ function AccountsPanel({
                                 onClick={() => onToggleImap(acc)}
                                 className="btn btn-ghost btn-sm"
                                 title={acc.is_active ? 'Pause' : 'Resume'}
+                                aria-label={
+                                  acc.is_active ? 'Pause IMAP account' : 'Resume IMAP account'
+                                }
                               >
                                 {acc.is_active ? (
                                   <ToggleRight size={15} className="text-accent-color" />
@@ -1054,12 +1062,14 @@ function AccountsPanel({
                                   onClose()
                                 }}
                                 className="btn btn-ghost btn-sm"
+                                aria-label={t('btn_edit')}
                               >
                                 {t('btn_edit')}
                               </button>
                               <button
                                 onClick={() => onDeleteImap(acc)}
                                 className="btn btn-r btn-sm"
+                                aria-label={t('btn_delete')}
                               >
                                 {t('btn_delete')}
                               </button>
@@ -1109,10 +1119,18 @@ function AccountsPanel({
                         </td>
                         <td>
                           <div className="tbl-actions">
-                            <button onClick={() => onTestSmtp(c.id)} className="btn btn-b btn-sm">
+                            <button
+                              onClick={() => onTestSmtp(c.id)}
+                              className="btn btn-b btn-sm"
+                              aria-label={t('btn_test')}
+                            >
                               {t('btn_test')}
                             </button>
-                            <button onClick={() => onDeleteSmtp(c.id)} className="btn btn-r btn-sm">
+                            <button
+                              onClick={() => onDeleteSmtp(c.id)}
+                              className="btn btn-r btn-sm"
+                              aria-label={t('btn_delete')}
+                            >
                               {t('btn_delete')}
                             </button>
                           </div>
@@ -1410,7 +1428,9 @@ export default function Imap({ onNavigate: _onNavigate }) {
         setMsgPage(page)
         // Trigger background IMAP refresh (fire-and-forget; result via imap_messages_refreshed event)
         if (!search && page === 1) {
-          invoke('refresh_folder_from_imap', { accountId, folder }).catch(() => {})
+          invoke('refresh_folder_from_imap', { accountId, folder }).catch(e =>
+            console.warn('[Imap] Background refresh failed:', e)
+          )
         }
       } catch (e) {
         const error = handleError(e, 'Imap.loadMessages')
@@ -1531,7 +1551,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
                   setMessages(res.items ?? [])
                   setMsgTotal(res.total ?? 0)
                 })
-                .catch(() => {})
+                .catch(e => console.warn('[Imap] Failed to reload unified inbox:', e))
             } else if (prev.id === account_id) {
               invoke('get_folder_messages', {
                 accountId: account_id,
@@ -1543,7 +1563,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
                   setMessages(res.items ?? [])
                   setMsgTotal(res.total ?? 0)
                 })
-                .catch(() => {})
+                .catch(e => console.warn('[Imap] Failed to reload folder messages:', e))
             }
             return prev
           })

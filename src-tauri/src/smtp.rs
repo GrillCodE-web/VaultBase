@@ -8,6 +8,27 @@ use lettre::{
     message::header::ContentType,
     transport::smtp::authentication::Credentials,
 };
+use zeroize::Zeroize;
+
+/// FIX TC-H02: Wrapper struct that zeroizes password on drop
+struct SecurePassword(String);
+
+impl SecurePassword {
+    fn new(password: String) -> Self {
+        Self(password)
+    }
+
+    fn get(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Drop for SecurePassword {
+    fn drop(&mut self) {
+        // Zeroize password when struct goes out of scope
+        self.0.zeroize();
+    }
+}
 
 pub struct EmailSender;
 
@@ -25,7 +46,9 @@ impl EmailSender {
             .into_iter()
             .find(|c| c.id == config_id)
             .ok_or_else(|| "smtp_config_not_found".to_string())?;
-        let password = db.get_smtp_config_password(config_id)?;
+
+        // FIX TC-H02: Use SecurePassword wrapper to ensure zeroize on drop
+        let password = SecurePassword::new(db.get_smtp_config_password(config_id)?);
 
         let from_addr = format!("{} <{}>", cfg.label, cfg.login);
         let email = Message::builder()
@@ -36,7 +59,7 @@ impl EmailSender {
             .body(body.to_string())
             .map_err(|e| e.to_string())?;
 
-        let creds = Credentials::new(cfg.login.clone(), password);
+        let creds = Credentials::new(cfg.login.clone(), password.get().to_string());
 
         let transport = if cfg.use_tls {
             SmtpTransport::relay(&cfg.host)
@@ -53,6 +76,8 @@ impl EmailSender {
         };
 
         transport.send(&email).map_err(|e| e.to_string())?;
+
+        // Password is automatically zeroized when `password` goes out of scope
 
         db.log_sent_email(
             Some(config_id), Some(&cfg.login), to,
@@ -77,7 +102,11 @@ impl EmailSender {
                 .credentials(creds)
                 .build()
         };
-        transport.test_connection().map_err(|e| e.to_string())?;
-        Ok(format!("Connected to {}:{}", host, port))
+        let result = transport.test_connection().map_err(|e| e.to_string());
+
+        // Note: Cannot zeroize `password` here as it's a &str reference
+        // Caller is responsible for zeroizing the original String
+
+        result.map(|_| format!("Connected to {}:{}", host, port))
     }
 }

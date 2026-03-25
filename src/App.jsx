@@ -104,10 +104,37 @@ function GlobalSearch({ onClose, onNavigate }) {
   const [loading, setLoading] = useState(false)
   const inputRef = useRef(null)
   const timerRef = useRef(null)
+  const firstFocusRef = useRef(null)
+  const lastFocusRef = useRef(null)
   const { t } = useLang()
 
+  // Focus trap for modal
   useEffect(() => {
     inputRef.current?.focus()
+
+    const handleTabKey = e => {
+      if (e.key !== 'Tab') return
+
+      // eslint-disable-next-line no-unused-vars -- Used for focus management reference
+      const focusableElements = [inputRef.current, lastFocusRef.current].filter(Boolean)
+
+      if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstFocusRef.current) {
+          e.preventDefault()
+          lastFocusRef.current?.focus()
+        }
+      } else {
+        // Tab
+        if (document.activeElement === lastFocusRef.current) {
+          e.preventDefault()
+          firstFocusRef.current?.focus()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleTabKey)
+    return () => document.removeEventListener('keydown', handleTabKey)
   }, [])
 
   useEffect(() => {
@@ -158,7 +185,7 @@ function GlobalSearch({ onClose, onNavigate }) {
       <div className="search-box-wrap" onClick={e => e.stopPropagation()}>
         {/* Input */}
         <div className="search-input-row">
-          <Search size={16} className="text-muted icon-no-shrink" />
+          <Search size={16} className="text-muted icon-no-shrink" aria-hidden="true" />
           <input
             ref={inputRef}
             value={query}
@@ -170,11 +197,12 @@ function GlobalSearch({ onClose, onNavigate }) {
           />
           {loading && <div className="spinner-sm" />}
           <button
+            ref={firstFocusRef}
             onClick={onClose}
             className="bg-transparent border-none cursor-pointer p-0"
             aria-label="Close search"
           >
-            <X size={15} className="text-muted" />
+            <X size={15} className="text-muted" aria-hidden="true" />
           </button>
         </div>
 
@@ -223,7 +251,17 @@ function GlobalSearch({ onClose, onNavigate }) {
           <span className="search-footer-text">
             {total > 0 ? t('search_result_count').replace('{n}', total) : ''}
           </span>
-          <span className="search-footer-text ml-auto">{t('shortcut_close')}</span>
+          <span
+            ref={lastFocusRef}
+            tabIndex={0}
+            role="button"
+            onClick={onClose}
+            onKeyDown={e => e.key === 'Enter' && onClose()}
+            className="search-footer-text ml-auto cursor-pointer"
+            aria-label="Close search"
+          >
+            {t('shortcut_close')}
+          </span>
         </div>
       </div>
     </div>
@@ -270,6 +308,18 @@ function RevokedScreen() {
 function MainShell({ offlineMode, setOfflineMode }) {
   const { t, lang, setLang } = useLang()
   const { toast, info: toastInfo } = useToast()
+
+  // FIX P2-STATUS-01: WS sync connection status
+  const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting, group_id? }
+
+  React.useEffect(() => {
+    const unlisten = listen('ws_sync:status', e => {
+      setWsStatus(e.payload)
+    })
+    return () => {
+      unlisten.then(u => u())
+    }
+  }, [])
 
   const TOPBAR_TABS = {
     cards: [
@@ -359,7 +409,10 @@ function MainShell({ offlineMode, setOfflineMode }) {
         .then(r => {
           if (r.total === 0) setShowOnboarding(true)
         })
-        .catch(() => {})
+        .catch(e => {
+          // FIX FE-H05: Log error instead of silently ignoring
+          console.error('[App] Failed to check cards for onboarding:', e)
+        })
     }
   }, [])
 
@@ -367,6 +420,9 @@ function MainShell({ offlineMode, setOfflineMode }) {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('cc_theme', theme)
   }, [theme])
+
+  // Live region announcement for IMAP updates
+  const [imapAnnouncement, setImapAnnouncement] = useState('')
 
   // L: IMAP toast when new messages arrive
   useEffect(() => {
@@ -376,7 +432,10 @@ function MainShell({ offlineMode, setOfflineMode }) {
         const prev = prevImapRef.current
         const next = b.unread_imap ?? 0
         if (next > prev) {
-          toastInfo(`${next - prev} new IMAP message${next - prev > 1 ? 's' : ''}`)
+          const count = next - prev
+          const msg = `${count} new IMAP message${count > 1 ? 's' : ''}`
+          toastInfo(msg)
+          setImapAnnouncement(msg)
         }
         prevImapRef.current = next
         setBadges(b)
@@ -389,22 +448,52 @@ function MainShell({ offlineMode, setOfflineMode }) {
   }, [])
 
   // J: Server online/offline events
+  // FIX FE-03: Properly handle Promise.all cleanup with error handling
   useEffect(() => {
-    const unlisten = Promise.all([
-      listen('server_online', () => {
-        setOfflineMode(false)
-        toast('Connection restored', 'success')
-      }),
-      listen('server_offline', () => {
-        setOfflineMode(true)
-        toast('Connection lost — Sync, Risk check, BIN lookup unavailable', 'error')
-      }),
-    ])
+    let unlistenFns = []
+    let isMounted = true
+
+    const setupListeners = async () => {
+      try {
+        const [unlisten1, unlisten2] = await Promise.all([
+          listen('server_online', () => {
+            if (isMounted) {
+              setOfflineMode(false)
+              toast('Connection restored', 'success')
+            }
+          }),
+          listen('server_offline', () => {
+            if (isMounted) {
+              setOfflineMode(true)
+              toast('Connection lost — Sync, Risk check, BIN lookup unavailable', 'error')
+            }
+          }),
+        ])
+        if (isMounted) {
+          unlistenFns = [unlisten1, unlisten2]
+        }
+      } catch (error) {
+        console.error('[App] Failed to setup server event listeners:', error)
+      }
+    }
+
+    setupListeners()
+
     return () => {
-      unlisten.then(fns => fns.forEach(fn => fn()))
+      isMounted = false
+      unlistenFns.forEach(fn => {
+        if (typeof fn === 'function') {
+          try {
+            fn()
+          } catch (e) {
+            console.error('[App] Error cleaning up event listener:', e)
+          }
+        }
+      })
+      unlistenFns = []
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setOfflineMode])
+  }, [])
 
   // Global keyboard shortcuts using new system
   const keyboardShortcuts = [
@@ -584,30 +673,85 @@ function MainShell({ offlineMode, setOfflineMode }) {
 
   return (
     <div className="app-container">
-      <a
-        href="#main-content"
-        style={{
-          position: 'absolute',
-          left: '-9999px',
-          zIndex: 999,
-          padding: '8px 16px',
-          background: 'var(--accent)',
-          color: 'white',
-          textDecoration: 'none',
-          borderRadius: '4px',
-          fontSize: '14px',
-          fontWeight: 500,
-        }}
-        onFocus={e => {
-          e.target.style.left = '16px'
-          e.target.style.top = '16px'
-        }}
-        onBlur={e => {
-          e.target.style.left = '-9999px'
-        }}
-      >
-        Skip to main content
-      </a>
+      {/* Live regions for screen reader announcements */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {imapAnnouncement}
+      </div>
+
+      {/* Skip links for keyboard users */}
+      <div className="sr-only-focusable" style={{ zIndex: 10000 }}>
+        <a
+          href="#sidebar-nav"
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            padding: '8px 16px',
+            background: 'var(--accent)',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}
+          onFocus={e => {
+            e.target.style.left = '16px'
+            e.target.style.top = '16px'
+          }}
+          onBlur={e => {
+            e.target.style.left = '-9999px'
+          }}
+        >
+          Skip to navigation
+        </a>
+        <a
+          href="#search-button"
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            marginLeft: '8px',
+            padding: '8px 16px',
+            background: 'var(--accent)',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}
+          onFocus={e => {
+            e.target.style.left = '16px'
+            e.target.style.top = '50px'
+          }}
+          onBlur={e => {
+            e.target.style.left = '-9999px'
+          }}
+        >
+          Skip to search
+        </a>
+        <a
+          href="#main-content"
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            marginLeft: '8px',
+            padding: '8px 16px',
+            background: 'var(--accent)',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}
+          onFocus={e => {
+            e.target.style.left = '16px'
+            e.target.style.top = '90px'
+          }}
+          onBlur={e => {
+            e.target.style.left = '-9999px'
+          }}
+        >
+          Skip to main content
+        </a>
+      </div>
       {showOnboarding && (
         <div className="onboarding-overlay">
           <Suspense
@@ -637,7 +781,11 @@ function MainShell({ offlineMode, setOfflineMode }) {
       {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
 
       {/* ── Sidebar ── */}
-      <div className={`sidebar${sidebarExpanded ? ' expanded' : ''}`}>
+      <nav
+        id="sidebar-nav"
+        className={`sidebar${sidebarExpanded ? ' expanded' : ''}`}
+        aria-label="Main navigation"
+      >
         <div className="sidebar-logo">
           CC
           {sidebarExpanded && <span className="sidebar-logo-text">Manager</span>}
@@ -687,10 +835,19 @@ function MainShell({ offlineMode, setOfflineMode }) {
                   }
                 }}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 <span className="sbi-tip">{label}</span>
                 <span className="sbi-label">{label}</span>
-                {count > 0 && (
+                {badgeKey && (
+                  <span
+                    className={`sbi-badge${badgeColor ? ` ${badgeColor}` : ''}`}
+                    aria-live="polite"
+                    aria-label={`${count} ${label} updates`}
+                  >
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
+                {!badgeKey && count > 0 && (
                   <span className={`sbi-badge${badgeColor ? ` ${badgeColor}` : ''}`}>
                     {count > 99 ? '99+' : count}
                   </span>
@@ -704,8 +861,13 @@ function MainShell({ offlineMode, setOfflineMode }) {
         <div className="sidebar-spacer" />
 
         {/* Search */}
-        <button className="sbi" onClick={() => setSearchOpen(true)}>
-          <Search size={16} />
+        <button
+          id="search-button"
+          className="sbi"
+          onClick={() => setSearchOpen(true)}
+          aria-label={t('app_search_placeholder') || 'Search'}
+        >
+          <Search size={16} aria-hidden="true" />
           <span className="sbi-tip">Search ⌘K</span>
           <span className="sbi-label">Search</span>
         </button>
@@ -714,22 +876,27 @@ function MainShell({ offlineMode, setOfflineMode }) {
         <button
           className={`sbi${page === 'settings' ? ' active' : ''}`}
           onClick={() => handlePageChange('settings')}
+          aria-label={t('nav_settings') || 'Settings'}
         >
-          <SettingsIcon size={16} />
+          <SettingsIcon size={16} aria-hidden="true" />
           <span className="sbi-tip">{t('nav_settings')}</span>
           <span className="sbi-label">{t('nav_settings')}</span>
         </button>
 
         {/* Lock */}
-        <button className="sbi" onClick={handleLock}>
-          <Lock size={16} />
+        <button className="sbi" onClick={handleLock} aria-label={t('sidebar_lock') || 'Lock'}>
+          <Lock size={16} aria-hidden="true" />
           <span className="sbi-tip">{t('sidebar_lock') || 'Lock'}</span>
           <span className="sbi-label">{t('sidebar_lock') || 'Lock'}</span>
         </button>
 
         {/* Lang */}
-        <button className="sbi" onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}>
-          <Globe size={16} />
+        <button
+          className="sbi"
+          onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
+          aria-label={`Language: ${lang.toUpperCase()}`}
+        >
+          <Globe size={16} aria-hidden="true" />
           <span className="sbi-tip">Language: {lang.toUpperCase()}</span>
           <span className="sbi-label">Lang: {lang.toUpperCase()}</span>
         </button>
@@ -739,8 +906,13 @@ function MainShell({ offlineMode, setOfflineMode }) {
           className="sbi"
           onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === 'dark' ? (
+            <Sun size={16} aria-hidden="true" />
+          ) : (
+            <Moon size={16} aria-hidden="true" />
+          )}
           <span className="sbi-tip">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           <span className="sbi-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
         </button>
@@ -758,8 +930,13 @@ function MainShell({ offlineMode, setOfflineMode }) {
             }
           }}
           title={sidebarExpanded ? t('sidebar_collapse') : t('sidebar_expand')}
+          aria-label={sidebarExpanded ? t('sidebar_collapse') : t('sidebar_expand')}
         >
-          {sidebarExpanded ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          {sidebarExpanded ? (
+            <ChevronLeft size={14} aria-hidden="true" />
+          ) : (
+            <ChevronRight size={14} aria-hidden="true" />
+          )}
           <span className="sbi-tip">
             {sidebarExpanded ? t('sidebar_collapse') : t('sidebar_expand')}
           </span>
@@ -772,7 +949,28 @@ function MainShell({ offlineMode, setOfflineMode }) {
             ⚠ Off
           </div>
         )}
-      </div>
+
+        {/* FIX P2-STATUS-02: WS Sync status badge */}
+        {wsStatus && (
+          <div
+            className={`sync-pill ${wsStatus.connected ? 'connected' : wsStatus.connecting ? 'connecting' : 'disconnected'}`}
+            title={
+              wsStatus.connected
+                ? `Sync connected (${wsStatus.group_id?.slice?.(0, 8) || 'group'})`
+                : wsStatus.connecting
+                  ? 'Connecting to sync...'
+                  : 'Sync disconnected'
+            }
+          >
+            {wsStatus.connected ? '🟢' : wsStatus.connecting ? '🟡' : '🔴'}
+            {sidebarExpanded && (
+              <span className="sync-pill-label">
+                {wsStatus.connected ? 'Sync' : wsStatus.connecting ? 'Sync...' : 'Offline'}
+              </span>
+            )}
+          </div>
+        )}
+      </nav>
 
       {/* ── Main ── */}
       <div className="main-content-wrapper">

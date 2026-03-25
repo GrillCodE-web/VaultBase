@@ -150,6 +150,30 @@ function migrate(db) {
       PRAGMA user_version = 5;
     `);
   }
+
+  // FIX A-MED-06: Add auto_rotate column for token rotation policy
+  if (ver < 6) {
+    db.exec(`
+      ALTER TABLE licenses ADD COLUMN auto_rotate INTEGER DEFAULT 0;
+      ALTER TABLE licenses ADD COLUMN token_rotated_at DATETIME;
+      PRAGMA user_version = 6;
+    `);
+  }
+
+  // FIX A-MED-06: Add audit_log table for token rotation tracking
+  if (ver < 7) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        action      TEXT NOT NULL,
+        details     TEXT,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+      CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
+      PRAGMA user_version = 7;
+    `);
+  }
 }
 
 module.exports = { getDb };

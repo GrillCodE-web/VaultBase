@@ -1,10 +1,19 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { visualizer } from "rollup-plugin-visualizer";
 
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [
+    react(),
+    visualizer({
+      filename: 'dist/stats.html',
+      open: false,
+      gzipSize: true,
+      brotliSize: true,
+    }),
+  ],
   clearScreen: false,
   server: {
     port: 5173,
@@ -24,6 +33,17 @@ export default defineConfig(async () => ({
         float: "float.html",
       },
       external: ["@tauri-apps/plugin-dialog"],
+      output: {
+        // ★ Insight: Code splitting для уменьшения initial bundle size
+        // vendor — React и другие библиотеки
+        // charts — Recharts для дашборда
+        // ui — Lucide иконки и TanStack Virtual
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          charts: ['recharts'],
+          ui: ['@tanstack/react-virtual'],
+        },
+      },
     },
   },
 }));

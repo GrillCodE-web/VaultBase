@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { Archive, Upload, RefreshCw, CreditCard, Zap } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -136,6 +136,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // Real-time sync flash animation timers
   const flashTimers = useRef({})
+  // FIX FE-H01: Track delete timers for cleanup on unmount
+  const deleteTimers = useRef({})
 
   // Local UI state (column visibility and order - localStorage preferences)
   const [visibleCols, setVisibleCols] = useState(() => {
@@ -213,6 +215,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       handleSyncUpdate(updates)
 
       // Flash updated cards
+      // Note: cards is in dependency array so callback always has fresh data
       updates.forEach(upd => {
         const card = cards.find(c => c.id === upd.id)
         if (card) {
@@ -227,7 +230,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       .then(u => {
         unlistenUpdate = u
       })
-      .catch(() => {})
+      .catch(e => {
+        // FIX FE-H05: Log sync listener errors instead of silently ignoring
+        console.error('[Cards] Failed to register sync:card_update listener:', e)
+      })
 
     listen('sync:full_data', () => {
       // Full sync received — reload current page
@@ -236,13 +242,19 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       .then(u => {
         unlistenFull = u
       })
-      .catch(() => {})
+      .catch(e => {
+        // FIX FE-H05: Log sync listener errors instead of silently ignoring
+        console.error('[Cards] Failed to register sync:full_data listener:', e)
+      })
 
     return () => {
       unlistenUpdate?.()
       unlistenFull?.()
       // Clear all timers on cleanup
       Object.values(timers).forEach(clearTimeout)
+      // FIX FE-H01: Also clear delete timers on unmount
+      Object.values(deleteTimers.current).forEach(clearTimeout)
+      deleteTimers.current = {}
     }
   }, [cards, handleSyncUpdate, handleFullSync, addFlashedId, removeFlashedId])
 
@@ -288,51 +300,62 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // ── Actions ────────────────────────────────────────────────────────────
 
-  const handleStatusChange = async (id, status) => {
-    if (status === 'dead') {
-      const ok = await confirm(t('cc_confirm_dead'), { danger: true })
-      if (!ok) return
-    }
-    try {
-      await updateCard(id, { status })
-      toast(t('card_marked_as') + ' ' + status, 'success')
-    } catch (e) {
-      const error = handleError(e, 'Cards.handleStatusChange')
-      toast(getErrorMessage(error), 'error')
-    }
-  }
-
-  const handleDelete = async id => {
-    // Soft delete immediately, show Undo toast (no confirm dialog)
-    let undone = false
-    toast({
-      message: t('msg_deleted'),
-      type: 'info',
-      duration: 5000,
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          undone = true
-          undoDelete(id)
-        },
-      },
-    })
-
-    setTimeout(async () => {
-      if (undone) return
-      try {
-        await deleteCard(id)
-      } catch (e) {
-        const error = handleError(e, 'Cards.handleDelete')
-        const msg = error.details?.originalMessage || error.message
-        if (msg.includes('in_use') || msg.includes('card_in_use')) {
-          toast(t('card_cannot_delete_linked'), 'error')
-        } else {
-          toast(getErrorMessage(error), 'error')
-        }
+  // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
+  const handleStatusChange = useCallback(
+    async (id, status) => {
+      if (status === 'dead') {
+        const ok = await confirm(t('cc_confirm_dead'), { danger: true })
+        if (!ok) return
       }
-    }, 5000)
-  }
+      try {
+        await updateCard(id, { status })
+        toast(t('card_marked_as') + ' ' + status, 'success')
+      } catch (e) {
+        const error = handleError(e, 'Cards.handleStatusChange')
+        toast(getErrorMessage(error), 'error')
+      }
+    },
+    [t, confirm, updateCard, toast]
+  )
+
+  // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
+  const handleDelete = useCallback(
+    async id => {
+      // Soft delete immediately, show Undo toast (no confirm dialog)
+      let undone = false
+      toast({
+        message: t('msg_deleted'),
+        type: 'info',
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            undone = true
+            undoDelete(id)
+          },
+        },
+      })
+
+      // FIX FE-H01: Track delete timer for cleanup on unmount
+      const timerId = setTimeout(async () => {
+        if (undone) return
+        try {
+          await deleteCard(id)
+        } catch (e) {
+          const error = handleError(e, 'Cards.handleDelete')
+          const msg = error.details?.originalMessage || error.message
+          if (msg.includes('in_use') || msg.includes('card_in_use')) {
+            toast(t('card_cannot_delete_linked'), 'error')
+          } else {
+            toast(getErrorMessage(error), 'error')
+          }
+        }
+      }, 5000)
+
+      deleteTimers.current[id] = timerId
+    },
+    [t, toast, undoDelete, deleteCard]
+  )
 
   const handleBulkStatus = async status => {
     if (status === 'dead') {
@@ -418,37 +441,56 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     }
   }
 
-  const handleEditNote = async (id, notes) => {
-    try {
-      await updateCardNotes(id, notes)
-    } catch (e) {
-      const error = handleError(e, 'Cards.handleEditNote')
-      toast(getErrorMessage(error), 'error')
-    }
-  }
+  // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
+  const handleEditNote = useCallback(
+    async (id, notes) => {
+      try {
+        await updateCardNotes(id, notes)
+      } catch (e) {
+        const error = handleError(e, 'Cards.handleEditNote')
+        toast(getErrorMessage(error), 'error')
+      }
+    },
+    [updateCardNotes, toast]
+  )
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     setFilters({ search: searchInput || null })
-  }
+  }, [searchInput, setFilters])
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     resetFilters()
     setSearchInput('')
-  }
+  }, [resetFilters])
 
-  const handleCopyToast = text => {
-    copyToClipboard(
-      text,
-      () => toast(t('copied'), 'success'),
-      () => toast(t('copy_failed'), 'error')
-    )
-  }
+  // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
+  const handleCopyToast = useCallback(
+    text => {
+      copyToClipboard(
+        text,
+        () => toast(t('copied'), 'success'),
+        () => toast(t('copy_failed'), 'error')
+      )
+    },
+    [t, toast]
+  )
 
   // ── Render helpers ─────────────────────────────────────────────────────
 
   const allSelected = cards.length > 0 && selected.size === cards.length
   const someSelected = selected.size > 0 && selected.size < cards.length
 
+  // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
+  const handleSetSideCard = useCallback(
+    c => {
+      const idx = cards.indexOf(c)
+      setSideCard(c, idx)
+    },
+    [cards, setSideCard]
+  )
+
+  // renderCard — функция для map(), не требует useCallback
+  // CardRow уже мемоизирован, так что inline вызов OK
   const renderCard = card => (
     <CardRow
       key={card.id}
@@ -461,10 +503,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       statusMenuId={statusMenuId}
       visibleCols={visibleCols}
       toggleSelect={toggleSelect}
-      setSideCard={c => {
-        const idx = cards.indexOf(c)
-        setSideCard(c, idx)
-      }}
+      setSideCard={handleSetSideCard}
       setSideCardIdx={() => {}}
       setStatusMenuId={setStatusMenuId}
       handleStatusChange={handleStatusChange}
@@ -496,14 +535,16 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   )
 
   // Virtual scrolling setup - only for non-grouped view
-  const useVirtualCards = !groupByBank && cards.length > 200
+  // ★ Insight: Порог 50 карт вместо 200 — виртуализация включается раньше
+  // overscan 20 вместо 5 — предотвращает белые полосы при быстрой прокрутке
+  const useVirtualCards = !groupByBank && cards.length > 50
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
   const rowVirtualizer = useVirtualizer({
     count: useVirtualCards ? cards.length : 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 38,
-    overscan: 5,
+    overscan: 20, // Увеличено с 5 до 20 для плавной прокрутки
     enabled: useVirtualCards,
   })
 
@@ -630,11 +671,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
         <div>
           <div className="ph-title">
             CC{' '}
-            <span className="text-muted text-[14px] font-normal">
+            <span className="text-muted text-[14px] font-normal" aria-live="polite">
               {total.toLocaleString()} {t('nav_cards')}
             </span>
             {freeTotal > 0 && (
-              <span className="text-[12px] text-green-t font-normal ml-2">
+              <span className="text-[12px] text-green-t font-normal ml-2" aria-live="polite">
                 · {freeTotal.toLocaleString()} {t('status_free')}
               </span>
             )}
@@ -654,7 +695,12 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             {t('cc_group_by_bank')}
           </button>
           <div className="relative">
-            <button onClick={() => setShowColPicker(v => !v)} className="btn btn-ghost btn-sm">
+            <button
+              onClick={() => setShowColPicker(v => !v)}
+              className="btn btn-ghost btn-sm"
+              aria-label={t('cc_columns') || 'Select visible columns'}
+              aria-expanded={showColPicker}
+            >
               {t('cc_columns')}
             </button>
             {showColPicker && (
@@ -682,8 +728,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
               onClick={handleArchiveDead}
               className="btn btn-ghost btn-sm"
               title="Archive all dead cards on this page"
+              aria-label={`${t('cc_archive_dead') || 'Archive dead cards'} - ${t('cc_archive_dead') || 'Archive dead cards'}`}
             >
-              <Archive size={12} /> {t('cc_archive_dead')}
+              <Archive size={12} aria-hidden="true" /> {t('cc_archive_dead')}
             </button>
             <button
               onClick={() => setShowImport(true)}
@@ -720,7 +767,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
       {/* Bulk action bar — fixed bottom */}
       {selected.size > 0 && (
-        <div className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100 bottom-6 left-1/2 -translate-x-1/2 py-2.5 px-4 gap-2.5">
+        <div
+          className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100 bottom-6 left-1/2 -translate-x-1/2 py-2.5 px-4 gap-2.5"
+          role="status"
+          aria-live="polite"
+        >
           <span className="text-accent font-semibold text-[12px]">
             {selected.size} {t('selected')}
           </span>

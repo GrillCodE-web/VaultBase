@@ -76,12 +76,13 @@ impl ImapPoller {
             return Ok((0, 0));
         }
 
-        // FIX B10: ограничиваем до 50 UID за одну сессию — защита от OOM
+        // FIX B-MED-06: Увеличен лимит с 50 до 200 UID за одну сессию
+        // 200 писем ≈ 1-2 секунды обработки, не перегружает память
         // FIX B57: фильтруем UID которые уже есть в БД — не качаем повторно
         let uid_strings: Vec<String> = all_uids.iter().map(|u| u.to_string()).collect();
         let new_uids: Vec<String> = uid_strings.into_iter()
             .filter(|u| !db.imap_uid_exists(account_id, u))
-            .take(50)
+            .take(200)  // Increased from 50 to 200 for better throughput
             .collect();
 
         if new_uids.is_empty() {

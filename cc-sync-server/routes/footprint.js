@@ -5,10 +5,22 @@ const { requireToken } = require('../middleware');
 
 const router = express.Router();
 
-// 100 requests per minute per token
+// FIX API-H06: Stricter rate limiting for footprint endpoints
+// 100 requests per minute for general endpoints
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
+  keyGenerator: (req) => req.userToken || req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'rate_limit_exceeded' },
+});
+
+// FIX API-H06: Much stricter limit for /check endpoint to prevent enumeration attacks
+// Only 10 requests per minute for cross-user footprint lookup
+const checkLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
   keyGenerator: (req) => req.userToken || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
@@ -57,11 +69,17 @@ router.post('/', requireToken, limiter, (req, res) => {
 });
 
 // POST /check — cross-user footprint lookup for a shop
-router.post('/check', requireToken, limiter, (req, res) => {
+// FIX API-H06: Added stricter rate limit and limited response to prevent enumeration
+router.post('/check', requireToken, checkLimiter, (req, res) => {
   const { shop_domain, hashes } = req.body || {};
 
   if (!shop_domain || !Array.isArray(hashes) || hashes.length === 0) {
     return res.status(400).json({ error: 'missing_fields' });
+  }
+
+  // FIX API-H06: Limit number of hashes per request to prevent bulk enumeration
+  if (hashes.length > 20) {
+    return res.status(400).json({ error: 'too_many_hashes' });
   }
 
   const db = getDb();
@@ -88,8 +106,9 @@ router.post('/check', requireToken, limiter, (req, res) => {
       count = row ? row.cnt : 0;
     }
 
+    // FIX API-H06: Only return boolean match, not count (prevents data enumeration)
     if (count > 0) {
-      matches.push({ hash_type, count });
+      matches.push({ hash_type, match: true });
     }
   }
 

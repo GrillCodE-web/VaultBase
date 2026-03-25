@@ -31,10 +31,14 @@ function generateGroupKey() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+// FIX API-H04: Use crypto.randomBytes instead of Math.random for unpredictable pair codes
 function generatePairCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const randomBytes = crypto.randomBytes(6);
   let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) {
+    code += chars[randomBytes[i] % chars.length];
+  }
   return code;
 }
 

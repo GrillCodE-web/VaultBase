@@ -6,7 +6,100 @@
 .card-row {
   position: relative;
   transition: all var(--t-fast);
-  border-left: 2px solid transparent;
+  border-left: 3px solid transparent;
+  background-clip: padding-box;
+  cursor: pointer;
+}
+
+/* Premium hover effects - glow shadow, scale lift, animated border */
+.card-row:hover {
+  box-shadow:
+    0 0 0 1px var(--border-hi),
+    0 4px 24px rgba(0, 217, 255, 0.08),
+    0 8px 48px rgba(0, 217, 255, 0.04);
+  transform: translateY(-1px) scale(1.005);
+}
+
+/* Animated gradient border for free cards */
+.card-row-free::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    var(--color-success) 0%,
+    var(--green-bright, #22c55e) 50%,
+    var(--color-success) 100%
+  );
+  background-size: 100% 200%;
+  animation: gradient-flow 3s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+.card-row-free:hover::before {
+  animation-duration: 1.5s;
+  opacity: 1;
+}
+
+@keyframes gradient-flow {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 0% 150%;
+  }
+}
+
+/* Animated gradient border for in-use cards */
+.card-row-in-use::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    var(--color-info) 0%,
+    var(--blue-t) 50%,
+    var(--color-info) 100%
+  );
+  background-size: 100% 200%;
+  animation: gradient-flow 3s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+.card-row-in-use:hover::before {
+  animation-duration: 1.5s;
+  opacity: 1;
+}
+
+/* Animated gradient border for dead cards */
+.card-row-dead::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    var(--color-error) 0%,
+    var(--red-t) 50%,
+    var(--color-error) 100%
+  );
+  background-size: 100% 200%;
+  animation: gradient-flow 3s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+.card-row-dead:hover::before {
+  animation-duration: 1.5s;
+  opacity: 1;
 }
 
 .card-row::before {
@@ -25,12 +118,49 @@
   opacity: 1;
 }
 
-.card-row.selected {
-  background: rgba(0, 217, 255, 0.04);
+/* Selected state */
+.card-row-selected {
+  background: var(--color-info-bg);
+  border-left-color: var(--blue);
 }
 
-.card-row.selected::before {
+.card-row-selected::before {
   opacity: 1;
+}
+
+/* Status-based border colors */
+.card-row-free {
+  border-left-color: var(--color-card-free);
+}
+
+.card-row-in-use {
+  border-left-color: var(--color-card-in-use);
+}
+
+.card-row-dead {
+  border-left-color: var(--color-card-dead);
+}
+
+/* Deleting state */
+.card-row-deleting {
+  opacity: 0.3;
+  text-decoration: line-through;
+  pointer-events: none;
+}
+
+/* Row flash animation */
+.row-flash {
+  animation: row-flash-animation 0.6s ease;
+}
+
+@keyframes row-flash-animation {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: var(--accent-dim);
+  }
 }
 
 /* ── Card Number Display ────────────────────────────────── */
@@ -42,7 +172,7 @@
   color: var(--text);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .card-number-masked {
@@ -58,21 +188,90 @@
 .bin-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  padding: 3px var(--sp-2);
   border-radius: 4px;
   font-size: 10px;
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: 0.08em;
   border: 1px solid;
+  transition: all var(--t-fast);
+}
+
+.bin-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 217, 255, 0.15);
+}
+
+/* ── Card Network Badge (Glassmorphism) ────────────────── */
+.card-network-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 4px var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.05em;
+  transition: all var(--t-fast);
+  /* Glassmorphism base */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card-network-badge.visa {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: var(--color-visa);
+}
+
+.card-network-badge.mastercard {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  color: var(--color-mastercard);
+}
+
+.card-network-badge.amex {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: var(--color-amex);
+}
+
+.card-network-badge.discover {
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  color: var(--color-discover);
+}
+
+.card-network-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-network-badge.visa:hover {
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25);
+}
+
+.card-network-badge.mastercard:hover {
+  box-shadow: 0 4px 16px rgba(234, 179, 8, 0.25);
+}
+
+.card-network-badge.amex:hover {
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.25);
+}
+
+.card-network-badge.discover:hover {
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.25);
 }
 
 /* ── Card Health Indicator ──────────────────────────────── */
 .card-health {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 10px;
   border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 700;
@@ -118,7 +317,7 @@
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 .card-expiry.valid {
@@ -144,14 +343,14 @@
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 4px;
+  margin-top: var(--sp-1);
   background: var(--card-hi);
   border: 1px solid var(--border-hi);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-lg);
   min-width: 200px;
-  z-index: 100;
-  animation: modal-in 0.15s ease;
+  z-index: var(--z-dropdown);
+  animation: dropdown-fade-in var(--t-fast) ease;
   overflow: hidden;
 }
 
@@ -188,7 +387,7 @@
 .card-action-item {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--sp-4);
   padding: 10px 14px;
   background: transparent;
   border: none;
@@ -230,15 +429,15 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 20px;
-  margin-bottom: 16px;
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-4);
 }
 
 .shop-usage-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
+  padding: var(--sp-3) 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -263,7 +462,7 @@
 /* ── Card Timeline ──────────────────────────────────────── */
 .card-timeline {
   position: relative;
-  padding-left: 24px;
+  padding-left: var(--sp-6);
 }
 
 .card-timeline::before {
@@ -279,7 +478,7 @@
 
 .timeline-event {
   position: relative;
-  padding-bottom: 16px;
+  padding-bottom: var(--sp-4);
 }
 
 .timeline-event:last-child {
@@ -313,7 +512,7 @@
   font-size: 11px;
   color: var(--muted);
   font-family: 'JetBrains Mono', monospace;
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-1);
 }
 
 .timeline-event-content {
@@ -338,12 +537,12 @@
 .bulk-actions-bar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);
   border-radius: var(--r-lg);
-  margin-bottom: 16px;
+  margin-bottom: var(--sp-4);
   animation: slide-in-right 0.3s ease;
   box-shadow: 0 4px 16px var(--accent-glow);
 }
@@ -356,7 +555,7 @@
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .bulk-actions-count {
@@ -367,7 +566,7 @@
 
 .bulk-actions-buttons {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   margin-left: auto;
 }
 
@@ -375,7 +574,7 @@
 .import-zone {
   border: 2px dashed var(--border);
   border-radius: var(--r-lg);
-  padding: 40px 20px;
+  padding: 40px var(--sp-5);
   text-align: center;
   background: var(--inset);
   transition: all var(--t-fast);
@@ -396,7 +595,7 @@
 .import-icon {
   width: 64px;
   height: 64px;
-  margin: 0 auto 16px;
+  margin: 0 auto var(--sp-4);
   border-radius: var(--r-lg);
   background: var(--card);
   border: 1px solid var(--border);
@@ -410,7 +609,7 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-2);
   font-family: 'Rajdhani', sans-serif;
 }
 
@@ -421,7 +620,7 @@
 }
 
 .import-formats {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
   font-size: 11px;
   color: var(--muted);
   font-family: 'JetBrains Mono', monospace;
@@ -431,14 +630,14 @@
 .card-details-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
 }
 
 .card-detail-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .card-detail-label {
@@ -467,8 +666,8 @@
 
 /* ── Copy Button ────────────────────────────────────────── */
 .copy-btn {
-  width: 24px;
-  height: 24px;
+  width: var(--sp-6);
+  height: var(--sp-6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -493,12 +692,60 @@
   animation: copy-blink 0.5s ease;
 }
 
+/* ── Copy Feedback Animation ────────────────────────────── */
+.cell-copied {
+  animation: cell-copy-flash 0.4s ease;
+}
+
+@keyframes cell-copy-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(16, 185, 129, 0.15);
+  }
+}
+
+/* Enhanced field copy feedback with flash and glow */
+.field-copy-feedback {
+  animation: field-copied-flash 0.6s ease;
+}
+
+@keyframes field-copied-flash {
+  0% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(34, 197, 94, 0.15);
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Copy button success state with ring */
+.copy-btn.copied {
+  animation: copy-success-pulse 0.5s ease;
+}
+
+@keyframes copy-success-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 /* ── Column Selector ────────────────────────────────────── */
 .column-selector {
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 4px;
+  margin-top: var(--sp-1);
   background: var(--card-hi);
   border: 1px solid var(--border-hi);
   border-radius: var(--r-md);
@@ -506,15 +753,15 @@
   min-width: 220px;
   max-height: 400px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: var(--z-modal);
   animation: modal-in 0.15s ease;
-  padding: 8px 0;
+  padding: var(--sp-2) 0;
 }
 
 .column-option {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--sp-4);
   padding: 10px 14px;
   cursor: pointer;
   transition: all var(--t-fast);
@@ -557,12 +804,12 @@
 
 /* ── Group By Selector ──────────────────────────────────── */
 .group-header {
-  padding: 12px 0;
-  margin-bottom: 8px;
+  padding: var(--sp-3) 0;
+  margin-bottom: var(--sp-2);
   border-bottom: 2px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--sp-4);
   cursor: pointer;
   transition: all var(--t-fast);
 }
@@ -572,8 +819,8 @@
 }
 
 .group-icon {
-  width: 32px;
-  height: 32px;
+  width: var(--sp-8);
+  height: var(--sp-8);
   border-radius: var(--r-sm);
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);

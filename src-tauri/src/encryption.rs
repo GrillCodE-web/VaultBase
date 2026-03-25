@@ -8,28 +8,39 @@ use aes_gcm::{
 use aes_gcm::aead::rand_core::RngCore;
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use sha2::{Digest, Sha256, Sha512};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // ─────────────────────────────────────────
 //  FieldEncryption
 // ─────────────────────────────────────────
 
-#[derive(Clone)]
+/// FIX CRY-02: Added ZeroizeOnDrop to ensure encryption keys are wiped from memory on drop
+#[derive(Clone, ZeroizeOnDrop)]
 pub struct FieldEncryption {
     key: [u8; 32],
 }
 
 impl FieldEncryption {
-    /// FIX B04: PBKDF2-SHA256 (100 000 итераций) вместо одного прохода SHA-256.
-    /// Делает brute-force атаку на дамп БД в ~100 000 раз дороже.
+    /// FIX CRY-01: PBKDF2-SHA256 with 600,000 iterations (OWASP recommendation for 2026).
+    /// Makes brute-force attacks on database dumps computationally prohibitive.
+    /// FIX CRY-03: Password bytes are zeroed after key derivation
     pub fn new(password: &str, salt: &[u8]) -> Self {
         let mut key = [0u8; 32];
-        // PBKDF2 с HMAC-SHA256, 100_000 итераций
+
+        // Convert password to bytes for zeroing after use
+        let mut password_bytes = password.as_bytes().to_vec();
+
+        // PBKDF2 с HMAC-SHA256, 600_000 итераций (OWASP 2026 recommendation)
         pbkdf2::pbkdf2_hmac::<sha2::Sha256>(
-            password.as_bytes(),
+            &password_bytes,
             salt,
-            100_000,
+            600_000,
             &mut key,
         );
+
+        // Zero out password bytes after key derivation
+        password_bytes.zeroize();
+
         Self { key }
     }
 
@@ -86,19 +97,36 @@ impl FieldEncryption {
 
 /// FIX B36: используем HMAC-SHA256 с application secret вместо чистого SHA-256.
 /// Делает rainbow-table атаку на хранимые хеши нецелесообразной.
-/// FIX HMAC-HARDCODE-01: используем переменную окружения или генерируем безопасный ключ
+/// FIX CRY-04/MED-03: Secure HMAC secret handling with no weak fallbacks
 pub fn hash_value(value: &str) -> String {
     use hmac::{Hmac, Mac};
+    use sha2::Sha256;
     type HmacSha256 = Hmac<Sha256>;
 
-    // FIX HMAC-HARDCODE-01: Получаем секрет из переменной окружения или генерируем безопасный default
+    // FIX CRY-04/MED-03: Get secret from environment variable
+    // NO fallback to installation_id — each installation must have unique secret
     let secret = std::env::var("CC_MANAGER_HMAC_SECRET")
         .unwrap_or_else(|_| {
-            // В production лучше использовать свой secret для каждого инсталла
-            // Для backwards compatibility используем старый ключ, но с warning в логах
-            eprintln!("WARNING: CC_MANAGER_HMAC_SECRET not set. Using default key (INSECURE for production!)");
-            eprintln!("Generate a secure key: openssl rand -hex 32");
-            "cc-manager-footprint-v1-secret-fallback".to_string()
+            // In production, panic to force proper configuration
+            if !cfg!(debug_assertions) {
+                panic!(
+                    "CRITICAL: CC_MANAGER_HMAC_SECRET environment variable is not set. \
+                     This is a critical security requirement for production deployments. \
+                     Generate with: openssl rand -hex 32"
+                );
+            }
+
+            // In development only: generate a random key for this session
+            // This prevents rainbow tables while allowing dev without manual setup
+            eprintln!("[dev] CC_MANAGER_HMAC_SECRET not set. Generating random session key.");
+            eprintln!("[dev] Add CC_MANAGER_HMAC_SECRET=$(openssl rand -hex 32) to .env for persistence.");
+
+            // Generate 32 random bytes for this session only
+            use rand::RngCore;
+            let mut key = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut key);
+            let hash = Sha256::new_with_prefix(key);
+            format!("{:x}", hash.finalize())
         });
 
     let mut mac = <HmacSha256 as Mac>::new_from_slice(secret.as_bytes())

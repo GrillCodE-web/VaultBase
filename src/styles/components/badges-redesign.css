@@ -18,47 +18,170 @@
   white-space: nowrap;
 }
 
-/* ── Badge Color Variants ───────────────────────────────── */
-.badge-success {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
+/* ═══════════════════════════════════════════════════════════
+   CONSOLIDATED BADGE VARIANTS — 3 CORE TYPES
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── .badge-primary — Primary actions/info (success, error, warning, info) ── */
+.badge-primary {
+  background: var(--green-dim);
+  border-color: var(--green-border);
   color: var(--green-t);
 }
 
-.badge-error {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
+.badge-primary[data-type='error'] {
+  background: var(--red-dim);
+  border-color: var(--red-border);
   color: var(--red-t);
 }
 
-.badge-warning {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
+.badge-primary[data-type='warning'] {
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
   color: var(--yellow-t);
 }
 
-.badge-info {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.3);
+.badge-primary[data-type='info'] {
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
   color: var(--blue-t);
 }
 
-.badge-accent {
-  background: var(--accent-dim);
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-}
-
-.badge-purple {
-  background: var(--purple-dim);
-  border-color: var(--purple-border);
-  color: var(--purple-bright);
-}
-
+/* Legacy aliases for backward compatibility */
+.badge-success,
+.badge-error,
+.badge-warning,
+.badge-info,
+.badge-accent,
+.badge-purple,
 .badge-neutral {
-  background: rgba(139, 148, 158, 0.12);
-  border-color: rgba(139, 148, 158, 0.3);
-  color: var(--text-3);
+  /* Deprecated: use .badge-primary with data-type or .badge-status instead */
+}
+
+/* ── .badge-status — Status indicators (free, dead, in_use, pending) ── */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  border: 1px solid;
+}
+
+/* Shape indicators for accessibility (status not by color alone) */
+.badge-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+/* Circle for free/available */
+.badge-status[data-status='free']::before {
+  border-radius: 50%;
+  border: 2px solid var(--green-t);
+}
+
+.badge-status[data-status='free'] {
+  background: var(--green-dim);
+  border-color: var(--green-border);
+  color: var(--green-t);
+}
+
+/* Square for in-use */
+.badge-status[data-status='in_use']::before {
+  border-radius: 2px;
+  border: 2px solid var(--yellow-t);
+}
+
+.badge-status[data-status='in_use'] {
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
+  color: var(--yellow-t);
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* Diamond for dead/error */
+.badge-status[data-status='dead']::before {
+  border-radius: 2px;
+  border: 2px solid var(--red-t);
+  transform: rotate(45deg);
+}
+
+.badge-status[data-status='dead'] {
+  background: var(--red-dim);
+  border-color: var(--red-border);
+  color: var(--red-t);
+}
+
+/* Dashed circle for pending */
+.badge-status[data-status='pending']::before {
+  border-radius: 50%;
+  border: 2px dashed var(--blue-t);
+}
+
+.badge-status[data-status='pending'] {
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
+  color: var(--blue-t);
+}
+
+/* Legacy aliases for .status-badge */
+.status-badge,
+.status-badge.free,
+.status-badge.in-use,
+.status-badge.dead,
+.status-badge.pending {
+  /* Deprecated: use .badge-status with data-status instead */
+}
+
+/* ── .badge-network — Card networks (visa, mastercard, amex, discover) ── */
+.badge-network {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.08em;
+  border: 1px solid;
+}
+
+.badge-network[data-network='visa'] {
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
+  color: var(--blue-t);
+}
+
+.badge-network[data-network='mastercard'] {
+  background: var(--red-dim);
+  border-color: var(--red-border);
+  color: var(--red-t);
+}
+
+.badge-network[data-network='amex'] {
+  background: var(--green-dim);
+  border-color: var(--green-border);
+  color: var(--green-t);
+}
+
+.badge-network[data-network='discover'] {
+  background: var(--orange-dim);
+  border-color: var(--orange-border);
+  color: var(--orange-t);
+}
+
+/* Legacy aliases for .network-badge */
+.network-badge,
+.network-badge.visa,
+.network-badge.mastercard,
+.network-badge.amex,
+.network-badge.discover {
+  /* Deprecated: use .badge-network with data-network instead */
 }
 
 /* ── Badge with Glow Effect ─────────────────────────────── */
@@ -121,28 +244,61 @@
   border: 1px solid;
 }
 
+/* Shape indicators for accessibility (status not by color alone) */
+.status-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+/* Circle for free/available */
+.status-badge.free::before {
+  border-radius: 50%;
+  border: 2px solid var(--green-t);
+}
+
 .status-badge.free {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.25);
+  background: var(--green-dim);
+  border-color: var(--green-border);
   color: var(--green-t);
 }
 
+/* Square for in-use */
+.status-badge.in-use::before {
+  border-radius: 2px;
+  border: 2px solid var(--yellow-t);
+}
+
 .status-badge.in-use {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.25);
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
   color: var(--yellow-t);
   animation: statusPulse 2s ease-in-out infinite;
 }
 
+/* Diamond for dead/error */
+.status-badge.dead::before {
+  border-radius: 2px;
+  border: 2px solid var(--red-t);
+  transform: rotate(45deg);
+}
+
 .status-badge.dead {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.25);
+  background: var(--red-dim);
+  border-color: var(--red-border);
   color: var(--red-t);
 }
 
+/* Dashed circle for pending */
+.status-badge.pending::before {
+  border-radius: 50%;
+  border: 2px dashed var(--blue-t);
+}
+
 .status-badge.pending {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.25);
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
   color: var(--blue-t);
 }
 
@@ -160,26 +316,26 @@
 }
 
 .network-badge.visa {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
   color: var(--blue-t);
 }
 
 .network-badge.mastercard {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--red-dim);
+  border-color: var(--red-border);
   color: var(--red-t);
 }
 
 .network-badge.amex {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--green-dim);
+  border-color: var(--green-border);
   color: var(--green-t);
 }
 
 .network-badge.discover {
-  background: rgba(249, 115, 22, 0.12);
-  border-color: rgba(249, 115, 22, 0.3);
+  background: var(--orange-dim);
+  border-color: var(--orange-border);
   color: var(--orange-t);
 }
 
@@ -198,21 +354,48 @@
   border: 1px solid;
 }
 
+/* Shape indicators for accessibility (risk level not by color alone) */
+.risk-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+}
+
+/* Circle for low risk */
+.risk-badge.low::before {
+  border-radius: 50%;
+  border: 2px solid var(--green-t);
+}
+
 .risk-badge.low {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--green-dim);
+  border-color: var(--green-border);
   color: var(--green-t);
 }
 
+/* Square for medium risk */
+.risk-badge.medium::before {
+  border-radius: 2px;
+  border: 2px solid var(--yellow-t);
+}
+
 .risk-badge.medium {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.3);
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
   color: var(--yellow-t);
 }
 
+/* Diamond for high risk */
+.risk-badge.high::before {
+  border-radius: 2px;
+  border: 2px solid var(--red-t);
+  transform: rotate(45deg);
+}
+
 .risk-badge.high {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--red-dim);
+  border-color: var(--red-border);
   color: var(--red-t);
 }
 
@@ -286,6 +469,11 @@
   color: var(--red-t);
 }
 
+.tag-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ── Progress Badge ─────────────────────────────────────── */
 .progress-badge {
   display: inline-flex;
@@ -324,8 +512,8 @@
   gap: 8px;
   padding: 4px 10px;
   border-radius: 12px;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--red-dim);
+  border: 1px solid var(--red-border);
   color: var(--red-t);
   font-size: 11px;
   font-weight: 700;
@@ -350,8 +538,8 @@
   gap: 4px;
   padding: 3px 8px;
   border-radius: var(--r-sm);
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: var(--green-dim);
+  border: 1px solid var(--green-border);
   color: var(--green-t);
   font-size: 11px;
   font-weight: 700;
@@ -372,15 +560,15 @@
 }
 
 .expiry-badge.critical {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--red-dim);
+  border-color: var(--red-border);
   color: var(--red-t);
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
 .expiry-badge.soon {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
   color: var(--yellow-t);
 }
 
@@ -426,9 +614,9 @@
 }
 
 .pill-badge.success {
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--green-dim);
   color: var(--green-t);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid var(--green-border);
 }
 
 /* ── Tiny Badge (for flags/chips) ───────────────────────── */

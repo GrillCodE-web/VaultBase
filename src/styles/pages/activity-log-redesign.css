@@ -36,19 +36,19 @@
 
 /* ── Entity Type Colors ─────────────────────────────────── */
 .log-entry.entity-card::before {
-  background: linear-gradient(180deg, #60a5fa, #3b82f6);
+  background: linear-gradient(180deg, var(--blue-t), var(--blue));
 }
 
 .log-entry.entity-order::before {
-  background: linear-gradient(180deg, #4ade80, #22c55e);
+  background: linear-gradient(180deg, var(--color-success), var(--green));
 }
 
 .log-entry.entity-profile::before {
-  background: linear-gradient(180deg, #fb923c, #f97316);
+  background: linear-gradient(180deg, var(--orange-t), var(--orange));
 }
 
 .log-entry.entity-imap::before {
-  background: linear-gradient(180deg, #facc15, #eab308);
+  background: linear-gradient(180deg, var(--color-warning), var(--yellow));
 }
 
 .log-entry.entity-sync::before {
@@ -56,7 +56,7 @@
 }
 
 .log-entry.entity-license::before {
-  background: linear-gradient(180deg, #a855f7, #9333ea);
+  background: linear-gradient(180deg, var(--purple), var(--purple-dark));
 }
 
 .log-entry.entity-system::before {

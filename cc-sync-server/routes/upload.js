@@ -9,15 +9,61 @@ const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, '../public
 fs.mkdirSync(RELEASES_DIR, { recursive: true });
 
 const FILE_TYPES = ['updater', 'installer-dmg', 'installer-app'];
+const ALLOWED_EXTENSIONS = ['.dmg', '.tar.gz', '.zip'];
+const MAX_FILE_SIZE = 600 * 1024 * 1024; // 600MB
+
+/**
+ * Sanitize filename to prevent path traversal attacks
+ * Removes directory components and dangerous characters
+ */
+function sanitizeFilename(filename) {
+  // Remove any path components (prevent ../../etc/passwd attacks)
+  let base = path.basename(filename);
+  // Remove dangerous characters
+  base = base.replace(/[^a-zA-Z0-9._-]/g, '_');
+  // Ensure it doesn't start with a dot (hidden files)
+  if (base.startsWith('.')) base = '_' + base;
+  return base || 'upload.bin';
+}
+
+/**
+ * Validate file extension against allowed list
+ */
+function validateExtension(filename) {
+  const ext = filename.endsWith('.tar.gz') ? '.tar.gz' : path.extname(filename).toLowerCase();
+  return ALLOWED_EXTENSIONS.includes(ext);
+}
 
 router.post('/', requireBasicAuth, (req, res) => {
   const ct = req.headers['content-type'] || '';
   if (!ct.includes('multipart/form-data')) return res.status(400).json({ error: 'multipart required' });
   const boundary = ct.split('boundary=')[1];
   if (!boundary) return res.status(400).json({ error: 'no boundary' });
-  const chunks = []; let total = 0;
-  req.on('data', c => { total += c.length; if (total < 600*1024*1024) chunks.push(c); });
+
+  // Enforce size limit BEFORE reading data (prevent DoS)
+  const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+  if (contentLength > MAX_FILE_SIZE) {
+    return res.status(413).json({ error: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB` });
+  }
+
+  const chunks = [];
+  let total = 0;
+  let aborted = false;
+
+  req.on('data', c => {
+    total += c.length;
+    if (total > MAX_FILE_SIZE) {
+      aborted = true;
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
+
   req.on('end', () => {
+    if (aborted) {
+      return res.status(413).json({ error: 'Request too large' });
+    }
     try {
       const body = Buffer.concat(chunks);
       const parsed = parseMultipart(body, boundary);
@@ -26,16 +72,34 @@ router.post('/', requireBasicAuth, (req, res) => {
       const platform  = (parsed.fields.platform  || 'darwin-aarch64').trim();
       const signature = (parsed.fields.signature || '').trim();
       const publish   = parsed.fields.publish === '1';
-      const file_type = FILE_TYPES.includes(parsed.fields.file_type)
-        ? parsed.fields.file_type : 'updater';
+
+      // Validate file_type BEFORE processing
+      const rawFileType = parsed.fields.file_type || 'updater';
+      if (!FILE_TYPES.includes(rawFileType)) {
+        return res.status(400).json({ error: `Invalid file_type. Allowed: ${FILE_TYPES.join(', ')}` });
+      }
+      const file_type = rawFileType;
 
       if (!version) return res.status(400).json({ error: 'version required' });
       if (!parsed.file) return res.status(400).json({ error: 'file required' });
 
-      const orig = parsed.file.filename || 'release.dmg';
+      // Sanitize filename to prevent path traversal
+      const orig = sanitizeFilename(parsed.file.filename || 'release.dmg');
+
+      // Validate file extension
+      if (!validateExtension(orig)) {
+        return res.status(400).json({ error: `Invalid file extension. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}` });
+      }
+
       const ext  = orig.endsWith('.tar.gz') ? '.tar.gz' : path.extname(orig) || '.dmg';
-      const filename = `cc-manager-${version}-${platform.replace(/[^a-z0-9-_]/gi,'_')}-${file_type}${ext}`;
-      fs.writeFileSync(path.join(RELEASES_DIR, filename), parsed.file.data);
+      const safeFilename = `cc-manager-${version}-${platform.replace(/[^a-z0-9-_]/gi,'_')}-${file_type}${ext}`;
+
+      // Final safety check: ensure filename doesn't contain path separators
+      if (safeFilename.includes('/') || safeFilename.includes('..')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+      }
+
+      fs.writeFileSync(path.join(RELEASES_DIR, safeFilename), parsed.file.data);
 
       const base = process.env.BASE_URL || 'https://api.eulivehub.com';
       const download_url = `${base}/releases/${filename}`;

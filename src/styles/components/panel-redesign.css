@@ -255,30 +255,72 @@
   left: 0;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
-  z-index: 900;
+  z-index: var(--z-toast);
   animation: overlay-fade 0.2s ease;
 }
 
-.side-panel {
+.side-panel-container {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   width: 100%;
   max-width: 480px;
+  z-index: var(--z-toast);
+  transform: translateX(100%);
+  transition: transform var(--t-mid) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.side-panel-container.animate-in {
+  transform: translateX(0);
+}
+
+.side-panel-container::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gradient-accent);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.side-panel-container.animate-in::before {
+  opacity: 1;
+}
+
+.side-panel {
   background: var(--card);
   border-left: 1px solid var(--border-hi);
   box-shadow: var(--shadow-lg);
-  z-index: 901;
-  animation: side-panel-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: 100%;
 }
 
 @media (max-width: 768px) {
   .side-panel {
     max-width: 100%;
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    border-left: none;
+    border-top: 1px solid var(--border-hi);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    animation: side-panel-in-mobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@keyframes side-panel-in-mobile {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
   }
 }
 
@@ -507,11 +549,11 @@
   position: absolute;
   right: 0;
   top: 38px;
-  z-index: 20;
+  z-index: var(--z-dropdown);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   padding: 10px;
   min-width: 180px;
 }
@@ -540,7 +582,7 @@
   top: 0;
   bottom: 0;
   width: 340px;
-  z-index: 100;
+  z-index: var(--z-modal);
   background: var(--card);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
@@ -586,7 +628,7 @@
   top: 0;
   bottom: 0;
   width: 320px;
-  z-index: 100;
+  z-index: var(--z-modal);
   background: var(--card);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);

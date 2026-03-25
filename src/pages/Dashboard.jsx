@@ -17,7 +17,6 @@ import { formatCurrency, formatNumber } from '../utils/formatting'
 import {
   CHART_COLORS,
   HEATMAP_COLORS,
-  getHeatmapColor,
   getDeliveryRateColor,
   getExpiryColor,
 } from '../constants/colors'
@@ -107,6 +106,13 @@ function RevenueChart({ data }) {
 
 // ─── Heatmap ─────────────────────────────────────────────────
 
+function getHeatmapClass(rate) {
+  if (rate < 0) return 'heatmap-cell-no-data'
+  if (rate < 20) return 'heatmap-cell-low'
+  if (rate < 50) return 'heatmap-cell-medium'
+  return 'heatmap-cell-high'
+}
+
 function Heatmap({ data, onCellClick }) {
   if (!data || data.length === 0) {
     return (
@@ -125,7 +131,7 @@ function Heatmap({ data, onCellClick }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="tbl border-separate border-spacing-0.5">
+      <table className="heatmap-table">
         <thead>
           <tr>
             <th className="text-left text-muted font-medium text-[10px] pb-1 pr-2">
@@ -145,10 +151,7 @@ function Heatmap({ data, onCellClick }) {
         <tbody>
           {banks.map(bank => (
             <tr key={bank}>
-              <td
-                className="text-text-2 text-[10px] font-medium overflow-hidden text-ellipsis whitespace-nowrap py-0.5 pr-3"
-                title={bank}
-              >
+              <td className="bank-label" title={bank}>
                 {bank.length > 18 ? bank.slice(0, 18) + '…' : bank}
               </td>
               {shops.map(shop => {
@@ -159,13 +162,7 @@ function Heatmap({ data, onCellClick }) {
                   <td
                     key={shop}
                     onClick={() => cell && onCellClick && onCellClick(bank, shop)}
-                    className="text-[10px] text-center rounded-sm p-1 min-w-[72px]"
-                    style={{
-                      backgroundColor: getHeatmapColor(rate),
-                      color: rate < 0 ? 'var(--muted)' : 'var(--text)',
-                      cursor: cell ? 'pointer' : 'default',
-                      fontWeight: cell ? 500 : 400,
-                    }}
+                    className={`heatmap-cell ${getHeatmapClass(rate)}`}
                     title={
                       cell
                         ? `${bank} × ${shop}: ${cell.total} orders, ${cell.success_rate.toFixed(1)}% success`
@@ -481,7 +478,10 @@ export default function Dashboard({ onNavigate }) {
   const toggleSection = useCallback(id => {
     setCollapsed(prev => {
       const next = { ...prev, [id]: !prev[id] }
-      invoke('set_config', { key: `dash_collapsed_${id}`, value: String(next[id]) }).catch(() => {})
+      // FIX FE-H05: Log config errors instead of silently ignoring
+      invoke('set_config', { key: `dash_collapsed_${id}`, value: String(next[id]) }).catch(e => {
+        console.error('[Dashboard] Failed to save collapsed state:', e)
+      })
       return next
     })
   }, [])
@@ -603,8 +603,11 @@ export default function Dashboard({ onNavigate }) {
       <div className="ph">
         <div>
           <div className="ph-title">
-            <span className="live-dot" />
+            <span className="live-dot" aria-hidden="true" />
             Dashboard
+            <span className="sr-only" aria-live="polite" aria-atomic="true">
+              Dashboard stats auto-refresh every 30 seconds
+            </span>
           </div>
           <div className="ph-sub">{t('dashboard_auto_refresh')}</div>
         </div>

@@ -161,14 +161,14 @@
   left: 0;
   top: 100%;
   margin-top: 6px;
-  z-index: 40;
+  z-index: var(--z-sticky);
   min-width: 200px;
   background: var(--card);
   border: 1px solid var(--border-hi);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: dropdown-in 0.2s ease;
+  animation: dropdown-in var(--t-mid) ease;
 }
 
 @keyframes dropdown-in {

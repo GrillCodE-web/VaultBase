@@ -2,11 +2,16 @@
 # ──────────────────────────────────────────────────────────
 #  CC Manager — Upload changed files via sshpass+scp
 #  macOS M1 compatible
+#
+#  Required environment variables:
+#    VPS_IP: VPS IP address
+#    VPS_USER: SSH username (default: root)
+#    VPS_PASS: SSH password
 # ──────────────────────────────────────────────────────────
 
-VPS_IP="159.198.47.15"
-VPS_USER="root"
-VPS_PASS="sUI9qkKVq5O10tH1p8"
+VPS_IP="${VPS_IP:?VPS_IP environment variable required}"
+VPS_USER="${VPS_USER:-root}"
+VPS_PASS="${VPS_PASS:?VPS_PASS environment variable required}"
 REMOTE="$VPS_USER@$VPS_IP"
 REMOTE_DIR="/opt/cc-manager-server"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,8 +26,8 @@ if ! command -v sshpass >/dev/null 2>&1; then
   err "sshpass not found. Install with: brew install hudochenkov/sshpass/sshpass"
 fi
 
-SCP="sshpass -p '$VPS_PASS' scp -o StrictHostKeyChecking=no"
-SSH="sshpass -p '$VPS_PASS' ssh -o StrictHostKeyChecking=no $REMOTE"
+SCP="sshpass -p '$VPS_PASS' scp -o StrictHostKeyChecking=accept-new -o UpdateHostKeys=yes"
+SSH="sshpass -p '$VPS_PASS' ssh -o StrictHostKeyChecking=accept-new -o UpdateHostKeys=yes $REMOTE"
 
 echo ""
 echo -e "${B}${C}╔══════════════════════════════════════════════════╗${NC}"

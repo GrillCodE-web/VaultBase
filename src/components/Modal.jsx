@@ -52,11 +52,7 @@ export function Modal({
 
   return (
     <div
-      className="overlay-enter fixed inset-0 z-50 flex items-center justify-center p-5"
-      style={{
-        background: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(4px)',
-      }}
+      className="modal-overlay overlay-enter"
       onClick={e => {
         if (e.target === e.currentTarget) {
           onClose()
@@ -68,12 +64,8 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
-        className="modal-enter bg-card border border-border rounded-lg w-full flex flex-col"
-        style={{
-          maxWidth: sizes[size],
-          maxHeight: 'calc(100vh - 40px)',
-          boxShadow: 'var(--shadow-lg)',
-        }}
+        className="modal modal-enter"
+        style={{ '--modal-size': sizes[size] }}
       >
         {/* Header */}
         {(title || showCloseButton) && (

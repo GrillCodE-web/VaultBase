@@ -22,6 +22,8 @@ tauri-plugin-dialog  = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 rusqlite      = { version = "0.31", features = ["bundled"] }
+r2d2          = "0.8"
+r2d2_sqlite   = "0.24"
 serde         = { version = "1", features = ["derive"] }
 serde_json    = "1"
 aes-gcm       = "0.10"
@@ -42,7 +44,8 @@ native-tls    = "0.2"
 mailparse     = "0.14"
 tungstenite   = { version = "0.23", features = ["native-tls"] }
 lettre        = { version = "0.11", features = ["native-tls", "smtp-transport", "builder"] }
-zeroize       = "1.7"  # FIX ZEROIZE-01: Secure memory zeroing for passwords
+zeroize       = { version = "1.7", features = ["derive"] }  # FIX ZEROIZE-01: Secure memory zeroing for passwords
+urlencoding   = "2.1"  # For USPS API URL encoding
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

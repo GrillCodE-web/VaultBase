@@ -85,24 +85,29 @@ export function ActionsMenu({ items = [], align = 'right' }) {
         aria-expanded={open}
         aria-haspopup="true"
       >
-        <MoreHorizontal size={14} />
+        <MoreHorizontal size={16} className="icon-md" />
       </button>
 
       {open && (
         <div
           role="menu"
           aria-orientation="vertical"
-          className="fixed w-40 bg-card-hi border border-border-hi rounded-md overflow-hidden"
+          className="actions-dropdown fixed w-40 bg-card-hi border border-border-hi rounded-md overflow-hidden"
           style={{
             top: pos.top,
             left: pos.left,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
             zIndex: 'var(--z-dropdown)',
           }}
         >
           {items.map((item, i) => {
             if (item.divider) {
-              return <div key={`sep-${i}`} role="separator" className="h-px bg-border my-[3px]" />
+              return (
+                <div
+                  key={`sep-${i}`}
+                  role="separator"
+                  className="actions-divider h-px bg-border my-[3px]"
+                />
+              )
             }
             const Icon = item.icon
             return (
@@ -121,21 +126,9 @@ export function ActionsMenu({ items = [], align = 'right' }) {
                     btnRef.current?.focus()
                   }
                 }}
-                className={`w-full p-[7px_12px] border-none bg-transparent text-left cursor-pointer text-[12px] flex items-center gap-2 ${item.danger ? 'text-red-t' : 'text-text'} ${focusedIndex === i ? 'bg-hover' : ''}`}
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  transition: 'background var(--t-fast)',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'var(--hover)'
-                  setFocusedIndex(i)
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'transparent'
-                  setFocusedIndex(-1)
-                }}
+                className={`actions-menu-item w-full p-[7px_12px] border-none bg-transparent text-left cursor-pointer text-[12px] flex items-center gap-2 ${item.danger ? 'text-red-t' : 'text-text'} ${focusedIndex === i ? 'bg-hover' : ''}`}
               >
-                {Icon && <Icon size={13} className="flex-shrink-0 opacity-80" />}
+                {Icon && <Icon size={14} className="icon-sm flex-shrink-0 opacity-80" />}
                 {item.label}
               </button>
             )

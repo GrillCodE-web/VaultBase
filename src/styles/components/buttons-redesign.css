@@ -4,7 +4,7 @@
 
 /* ── Base Button ────────────────────────────────────────── */
 .btn {
-  padding: 8px 16px;
+  padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-md);
   font-size: 13px;
   font-weight: 600;
@@ -15,7 +15,7 @@
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   position: relative;
   overflow: hidden;
   letter-spacing: 0.02em;
@@ -61,29 +61,34 @@
   transform: none !important;
 }
 
-/* WCAG 2.1 AA: Minimum 44px touch target */
+/* WCAG 2.1 AA: Minimum 44px touch target
+   Calculation: padding-top + padding-bottom + font-size + borders = min-height
+   btn-sm: 8px + 8px + 12px + 2px(borders) = 30px -> use min-height for 44px target
+   btn-s: 6px + 6px + 11px + 2px(borders) = 25px -> use min-height for 44px target
+   Note: min-height ensures 44px touch target even with compact padding
+*/
 .btn-sm {
-  padding: 8px 12px;
+  padding: 10px var(--sp-3);
   font-size: 12px;
   min-height: 44px;
 }
 
 .btn-s {
-  padding: 6px 10px;
+  padding: 10px 12px;
   font-size: 11px;
   min-height: 44px;
 }
 
 /* ── Color Variants ─────────────────────────────────────── */
 .btn-b {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
   color: var(--blue-t);
 }
 
 .btn-b:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.35);
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
 }
 
 .btn-active {
@@ -93,47 +98,47 @@
 }
 
 .btn-g {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--green-dim);
+  border-color: var(--green-border);
   color: var(--green-t);
 }
 
 .btn-g:hover {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.35);
+  background: var(--green-dim);
+  border-color: var(--green-border);
 }
 
 .btn-r {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--red-dim);
+  border-color: var(--red-border);
   color: var(--red-t);
 }
 
 .btn-r:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.35);
+  background: var(--red-dim);
+  border-color: var(--red-border);
 }
 
 .btn-y {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
   color: var(--yellow-t);
 }
 
 .btn-y:hover {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.35);
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
 }
 
 .btn-o {
-  background: rgba(249, 115, 22, 0.12);
-  border-color: rgba(249, 115, 22, 0.3);
+  background: var(--orange-dim);
+  border-color: var(--orange-border);
   color: var(--orange-t);
 }
 
 .btn-o:hover {
-  background: rgba(249, 115, 22, 0.15);
-  border-color: rgba(249, 115, 22, 0.35);
+  background: var(--orange-dim);
+  border-color: var(--orange-border);
 }
 
 .btn-p {
@@ -143,8 +148,8 @@
 }
 
 .btn-p:hover {
-  background: rgba(168, 85, 247, 0.12);
-  border-color: rgba(168, 85, 247, 0.35);
+  background: var(--purple-dim);
+  border-color: var(--purple-border);
 }
 
 .btn-ghost {
@@ -159,33 +164,56 @@
   color: var(--text);
 }
 
-/* ── Accent Button (Primary CTA) ────────────────────────── */
+/* ── Accent Button (Primary CTA) — Consolidated with btn-primary ────────────────────────── */
 .btn-accent {
-  background: var(--accent-dim);
-  border-color: var(--accent-border);
-  color: var(--accent-text);
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
   position: relative;
+  overflow: hidden;
 }
 
-.btn-accent::after {
+.btn-accent::before {
   content: '';
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  border-radius: var(--r-md);
-  background: var(--gradient-accent);
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
   opacity: 0;
   transition: opacity var(--t-fast);
 }
 
-.btn-accent:hover::after {
-  opacity: 0.12;
+.btn-accent:hover {
+  background: var(--accent-hover);
 }
 
-.btn-accent:hover {
-  border-color: var(--accent);
+.btn-accent:hover::before {
+  opacity: 1;
+}
+
+.btn-accent:active {
+  box-shadow: 0 1px 4px rgba(0, 217, 255, 0.15);
+}
+
+.btn-accent:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-accent:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ── Icon Buttons ───────────────────────────────────────── */
@@ -234,26 +262,26 @@
 }
 
 .btn-icon-only.btn-b {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: var(--blue-dim);
+  border-color: var(--blue-border);
   color: var(--blue-t);
 }
 
 .btn-icon-only.btn-g {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--green-dim);
+  border-color: var(--green-border);
   color: var(--green-t);
 }
 
 .btn-icon-only.btn-r {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--red-dim);
+  border-color: var(--red-border);
   color: var(--red-t);
 }
 
 .btn-icon-only.btn-y {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
+  background: var(--yellow-dim);
+  border-color: var(--yellow-border);
   color: var(--yellow-t);
 }
 
@@ -274,7 +302,9 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 7px;
+  padding: 14px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--r-sm);
   color: var(--muted);
   transition: all var(--t-fast);
@@ -339,8 +369,8 @@
 .rebid-btn {
   padding: 5px 11px;
   border-radius: var(--r-sm);
-  background: rgba(249, 115, 22, 0.12);
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  background: var(--orange-dim);
+  border: 1px solid var(--orange-border);
   color: var(--orange-t);
   font-size: 11px;
   font-weight: 600;
@@ -352,8 +382,13 @@
 }
 
 .rebid-btn:hover {
-  background: rgba(249, 115, 22, 0.15);
-  border-color: rgba(249, 115, 22, 0.35);
+  background: var(--orange-dim);
+  border-color: var(--orange-border);
+}
+
+.rebid-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ── Primary Button ─────────────────────────────────────── */
@@ -370,7 +405,7 @@
   transition: all var(--t-fast);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   position: relative;
   overflow: hidden;
 }
@@ -381,7 +416,7 @@
   inset: 0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
   opacity: 0;
-  transition: opacity 0.15s ease-out;
+  transition: opacity var(--t-fast) ease-out;
 }
 
 .btn-primary:hover {
@@ -417,7 +452,7 @@
   transition: all var(--t-fast);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   position: relative;
   overflow: hidden;
 }
@@ -428,7 +463,7 @@
   inset: 0;
   background: var(--hover);
   opacity: 0;
-  transition: opacity 0.15s ease-out;
+  transition: opacity var(--t-fast) ease-out;
 }
 
 .btn-secondary:hover {
@@ -463,7 +498,7 @@
   transition: all var(--t-fast);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   position: relative;
   overflow: hidden;
 }
@@ -474,7 +509,7 @@
   inset: 0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 100%);
   opacity: 0;
-  transition: opacity 0.15s ease-out;
+  transition: opacity var(--t-fast) ease-out;
 }
 
 .btn-danger:hover {
@@ -503,8 +538,8 @@
 .btn-loading::after {
   content: '';
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: var(--sp-4);
+  height: var(--sp-4);
   top: 50%;
   left: 50%;
   margin-left: -8px;
@@ -514,4 +549,13 @@
   border-top-color: transparent;
   animation: spin 0.6s linear infinite;
   color: var(--text) !important;
+}
+
+/* ── Hover Transform Effects ───────────────────────────── */
+.btn-press:active {
+  transform: scale(0.98);
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
 }

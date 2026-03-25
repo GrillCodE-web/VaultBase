@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react'
 import { HEX_COLORS } from '../constants/colors.js'
 
@@ -93,6 +93,16 @@ export function ToastProvider({ children }) {
     },
     [remove]
   )
+
+  // FIX FE-H02: Cleanup all timers on provider unmount
+  useEffect(() => {
+    return () => {
+      Object.values(timers.current).forEach(timerId => {
+        clearTimeout(timerId)
+      })
+      timers.current = {}
+    }
+  }, [])
 
   return (
     <ToastContext.Provider value={{ toast, success, error, warn, info }}>

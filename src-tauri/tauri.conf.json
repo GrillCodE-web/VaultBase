@@ -36,7 +36,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' https://api.eulivehub.com https://api.iinapi.com https://api.17track.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'"
+      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' https://api.eulivehub.com https://api.iinapi.com https://api.17track.net; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     }
   },
   "bundle": {

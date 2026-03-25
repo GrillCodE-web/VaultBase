@@ -333,7 +333,7 @@ pub struct Shop {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct ShopStats {
     pub total: i64,
     pub pending: i64,
@@ -345,6 +345,39 @@ pub struct ShopStats {
     pub success_rate: f64,
     pub decline_rate: f64,
     pub avg_order_value: f64,
+}
+
+// ─────────────────────────────────────────
+//  PHASE 2: Shop Statistics Enhancement
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CarrierStats {
+    pub carrier: String,
+    pub total_orders: i64,
+    pub delivered: i64,
+    pub declined: i64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PeriodStats {
+    pub days: u32,
+    pub total: i64,
+    pub delivered: i64,
+    pub declined: i64,
+    pub success_rate: f64,
+    pub revenue: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ShopStatsV2 {
+    pub base_stats: ShopStats,
+    pub carrier_stats: Vec<CarrierStats>,
+    pub period_7d: PeriodStats,
+    pub period_30d: PeriodStats,
+    pub unique_users_30d: i64,
+    pub avg_delivery_days: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -643,6 +676,7 @@ pub struct PaginatedMessages {
 //  Footprints + Activity Log
 // ─────────────────────────────────────────
 
+/// Footprint — данные для синхронизации с сервером (PHASE 1: Footprint Sync V2)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Footprint {
     pub id: i64,
@@ -657,6 +691,10 @@ pub struct Footprint {
     pub name_hash: Option<String>,
     pub synced: bool,
     pub user_token: Option<String>,
+    /// V2: статус заказа для аналитики
+    pub order_status: Option<String>,
+    /// V2: хеш installation_id для идентификации установки
+    pub installation_id_hash: Option<String>,
     pub created_at: String,
 }
 
@@ -790,6 +828,29 @@ pub struct CardShopUsage {
     pub order_count: i64,
     pub last_order_date: Option<String>,
     pub last_status: Option<String>,
+}
+
+// ─────────────────────────────────────────
+//  PHASE 6: Smart Card Protection
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BurnedCard {
+    pub card_id: i64,
+    pub shop_id: i64,
+    pub shop_name: String,
+    pub order_count: u32,
+    pub last_status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CardSuggestion {
+    pub card_id: i64,
+    pub last4: String,
+    pub bank_name: Option<String>,
+    pub card_type: Option<String>,
+    pub country: Option<String>,
+    pub match_score: f64, // 0-100
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1041,6 +1102,36 @@ pub struct PaginatedCatalogItems {
     pub pages: u32,
 }
 
+// ─────────────────────────────────────────
+//  PHASE 5: Automation Coordination
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AutomationConfig {
+    pub autolock_timeout: u64,
+    pub sync_interval: u64,
+    pub imap_poll_interval: u64,
+    pub tracking_interval: u64,
+    pub proxy_check_interval: u64,
+    pub max_sync_failures: u32,
+    pub auto_archive_enabled: bool,
+    pub burned_card_threshold: u32,
+    pub decline_threshold: u32,
+    pub eco_mode: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AutomationHealth {
+    pub is_online: bool,
+    pub db_locked: bool,
+    pub eco_mode: bool,
+    pub pause_all: bool,
+    pub sync_last_success: u64,
+    pub imap_last_success: u64,
+    pub tracking_last_success: u64,
+    pub proxy_last_success: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PaginatedCatalogShops {
     pub items: Vec<CatalogShop>,
@@ -1048,4 +1139,39 @@ pub struct PaginatedCatalogShops {
     pub page: u32,
     pub per_page: u32,
     pub pages: u32,
+}
+
+// ─────────────────────────────────────────
+//  Sync Push Models
+// ─────────────────────────────────────────
+
+/// FIX P1-RETRY-02: Модель для отправки обновлений карт на sync сервер
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CardSyncUpdate {
+    pub card_hash: String,
+    pub status: String,
+    pub notes: Option<String>,
+    pub encrypted_data: Option<String>,
+}
+
+// ─────────────────────────────────────────
+//  Tracking (PHASE 3: Direct Carrier API)
+// ─────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TrackingStatus {
+    pub status: String,        // delivered, in_transit, exception, etc.
+    pub status_detail: String, // human readable
+    pub carrier: String,
+    pub tracking_number: String,
+    pub estimated_delivery: Option<String>,
+    pub events: Vec<TrackingEvent>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TrackingEvent {
+    pub timestamp: String,
+    pub status: String,
+    pub location: Option<String>,
+    pub description: String,
 }

@@ -92,7 +92,7 @@
     var(--shadow-lg),
     0 0 60px rgba(0, 217, 255, 0.1);
   position: relative;
-  z-index: 1;
+  z-index: var(--z-modal);
   animation: modal-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -444,7 +444,7 @@
   height: 4px;
   border-radius: 2px;
   background: var(--border);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--t-slow) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Password Requirements ──────────────────────────────── */

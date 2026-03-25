@@ -1,3 +1,4 @@
+/* global AbortController */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom/client'
 import { invoke } from '@tauri-apps/api/core'
@@ -7,7 +8,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Lock } from 'lucide-react'
 import { ORDER_STATUS_CSS } from './constants/status.js'
-import { HEX_COLORS } from './constants/colors.js'
+// HEX_COLORS imported but not used - reserved for future color picker feature
 import { handleError, getErrorMessage } from './utils/errorHandler.js'
 import './index.css'
 
@@ -121,7 +122,8 @@ function ProfileFloat() {
   })
 
   // ── Load profile data ──────────────────────────────────────
-  const load = useCallback(async id => {
+  // FIX FE-01: Added AbortController to prevent race conditions and state updates after unmount
+  const load = useCallback(async (id, abortSignal) => {
     if (!id) return
     setLoading(true)
     setError(null)
@@ -133,6 +135,7 @@ function ProfileFloat() {
     autoCopiedRef.current = false
     try {
       const detail = await invoke('get_profile', { id: String(id) })
+      if (abortSignal?.aborted) return
       setProfile(detail.profile)
       setCard(detail.card)
       if (detail.drops?.length > 0) {
@@ -142,7 +145,7 @@ function ProfileFloat() {
       // Load latest order id (for quick status change)
       try {
         const order = await invoke('get_latest_order_by_profile', { profileId: String(id) })
-        if (order) setLatestOrderId(order.id)
+        if (!abortSignal?.aborted && order) setLatestOrderId(order.id)
       } catch {
         // Ignore if no orders found
       }
@@ -152,15 +155,17 @@ function ProfileFloat() {
           profileId: String(id),
           limit: 5,
         })
-        setRecentOrders(orders ?? [])
+        if (!abortSignal?.aborted) setRecentOrders(orders ?? [])
       } catch {
         // Ignore if no orders found
       }
     } catch (e) {
-      const error = handleError(e, 'Float.load')
-      setError(getErrorMessage(error))
+      if (!abortSignal?.aborted) {
+        const error = handleError(e, 'Float.load')
+        setError(getErrorMessage(error))
+      }
     } finally {
-      setLoading(false)
+      if (!abortSignal?.aborted) setLoading(false)
     }
   }, [])
 
@@ -181,8 +186,13 @@ function ProfileFloat() {
   }, [])
 
   // ── Reload whenever profileId changes ──────────────────────
+  // FIX FE-01: Added AbortController to cancel pending requests on unmount or id change
   useEffect(() => {
-    if (profileId) load(profileId)
+    const abortController = new AbortController()
+    if (profileId) load(profileId, abortController.signal)
+    return () => {
+      abortController.abort() // Cancel pending requests on cleanup
+    }
   }, [profileId, load])
 
   // ── App lock listener ──────────────────────────────────────
@@ -226,7 +236,10 @@ function ProfileFloat() {
         .filter(Boolean)
         .join(', ')
       if (addr) {
-        navigator.clipboard.writeText(addr).catch(() => {})
+        // FIX FE-H05: Log clipboard errors instead of silently ignoring
+        navigator.clipboard.writeText(addr).catch(e => {
+          console.error('[float] Failed to copy billing address:', e)
+        })
         toastOk('Billing address copied')
         autoCopiedRef.current = true
       }
@@ -542,7 +555,9 @@ function ProfileFloat() {
                 <button
                   className="btn btn-ghost btn-sm justify-center mt-4"
                   onClick={() =>
-                    invoke('open_main_window_page', { page: 'orders' }).catch(() => {})
+                    invoke('open_main_window_page', { page: 'orders' }).catch(e => {
+                      console.error('[float] Failed to open main window:', e)
+                    })
                   }
                 >
                   View all orders →
@@ -557,7 +572,11 @@ function ProfileFloat() {
       <div className="float-footer">
         <button
           className="btn btn-ghost btn-sm text-[10px] p-[4px_8px]"
-          onClick={() => invoke('open_main_window_page', { page: 'orders' }).catch(() => {})}
+          onClick={() =>
+            invoke('open_main_window_page', { page: 'orders' }).catch(e => {
+              console.error('[float] Failed to open main window:', e)
+            })
+          }
         >
           + Order
         </button>

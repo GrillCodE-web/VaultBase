@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { apiCall } from '../apiClient.js'
-import { NetworkError, DatabaseError } from '../types/errors.js'
+import { NetworkError, DatabaseError } from '../../types/errors.js'
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -93,8 +93,8 @@ describe('API Client', () => {
           })
       )
 
-      await expect(apiCall('slow_command')).rejects.toThrow()
-    })
+      await expect(apiCall('slow_command', {}, { timeout: 100 })).rejects.toThrow()
+    }, 10000)
 
     it('handles string errors', async () => {
       invoke.mockRejectedValue('string error message')

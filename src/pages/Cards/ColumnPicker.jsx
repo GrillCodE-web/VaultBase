@@ -1,6 +1,10 @@
 export function ColumnPicker({ visible, onChange, _onClose, allColumns, t }) {
   return (
-    <div className="column-picker">
+    <div
+      className="column-picker"
+      role="group"
+      aria-label={t('cc_columns') || 'Select visible columns'}
+    >
       <p className="ptitle mb-2 pl-1">{t('cc_columns')}</p>
       <button
         className="btn btn-ghost btn-sm w-full mb-2 text-[11px]"
@@ -20,6 +24,7 @@ export function ColumnPicker({ visible, onChange, _onClose, allColumns, t }) {
             'actions',
           ])
         }
+        aria-label={t('cards_carder_view') || 'Reset to default view'}
       >
         {t('cards_carder_view')}
       </button>
@@ -35,6 +40,7 @@ export function ColumnPicker({ visible, onChange, _onClose, allColumns, t }) {
                 else onChange(visible.filter(v => v !== col.id))
               }}
               className="accent-accent"
+              aria-label={`Show ${t(col.label)} column`}
             />
             {t(col.label)}
           </label>

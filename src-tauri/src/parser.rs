@@ -273,9 +273,10 @@ fn classify_column(samples: &[&str]) -> String {
     }
 
     // cvv: 3-4 digits only (проверяем ПОСЛЕ zip)
+    // FIX B-MED-02: Поддержка 4-значных CVV для American Express
     let cvv_hits = non_empty.iter().filter(|s| {
         let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
-        d.len() == 3 && *s == &d  // CVV строго 3 цифры; 4-значные — AmEx CVV редки
+        (d.len() == 3 || d.len() == 4) && *s == &d  // CVV 3-4 цифры (AmEx)
     }).count();
     if cvv_hits > n * 2 / 3 { return "cvv".into(); }
     // AmEx 4-digit CVV — только если не похоже на zip

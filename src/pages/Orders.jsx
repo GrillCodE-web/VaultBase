@@ -1361,20 +1361,14 @@ export default function OrderList({
   const debouncedSearch = useDebounce(searchInput, 300)
 
   // Virtual scrolling setup
+  // ★ Insight: overscan увеличен до 20 для плавной прокрутки без белых полос
   const parentRef = useRef(null)
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
   const rowVirtualizer = useVirtualizer({
     count: orders.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: useCallback(
-      index => {
-        // Estimate size based on whether row is expanded
-        // Base row: ~60px, Expanded timeline adds ~120px
-        return expandedId === orders[index]?.id ? 180 : 60
-      },
-      [orders, expandedId]
-    ),
-    overscan: 10,
+    estimateSize: index => (expandedId === orders[index]?.id ? 180 : 60),
+    overscan: 20, // Увеличено с 10 до 20
   })
 
   // Recalculate sizes when expandedId changes
@@ -1397,9 +1391,10 @@ export default function OrderList({
       const error = handleError(e, 'Orders.fetchOrders')
       toast(getErrorMessage(error), 'error')
     })
+    // FIX FE-H05: Log shop fetch errors instead of silently ignoring
     invoke('get_shops', { page: 1, perPage: 200, search: '' })
       .then(r => setShopOptions(r.items ?? []))
-      .catch(() => {})
+      .catch(e => console.error('[Orders] Failed to fetch shops:', e))
   }, [fetchOrders, toast])
 
   // Handle activeTab changes (status filter)
