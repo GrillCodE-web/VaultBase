@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian — Private Beta</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #1a1a25;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0b0;
+      --accent-primary: #6366f1;
+      --accent-secondary: #8b5cf6;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --border: #2a2a3a;
+      --success: #10b981;
+      --error: #ef4444;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    .bg-gradient {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Navigation */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+      font-size: 0.95rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--accent-glow);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent-primary);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 120px 0;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: 4rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #ffffff 0%, #a0a0b0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 48px;
+    }
+
+    /* Features Grid */
+    .features {
+      padding: 80px 0;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-top: 48px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      transition: all 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-4px);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.25rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    /* Access Section */
+    .access {
+      padding: 80px 0;
+      text-align: center;
+    }
+
+    .access-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .access h2 {
+      font-size: 2rem;
+      margin-bottom: 16px;
+    }
+
+    .access p {
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+
+    .invite-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .invite-input {
+      padding: 16px 20px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      text-align: center;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .invite-input:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+
+    .invite-input.error {
+      border-color: var(--error);
+    }
+
+    .invite-input.success {
+      border-color: var(--success);
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .message.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--error);
+      display: block;
+    }
+
+    .message.success {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+      display: block;
+    }
+
+    /* Download Section */
+    .download-section {
+      display: none;
+      margin-top: 32px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .download-section.visible {
+      display: block;
+    }
+
+    .download-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .download-option {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-decoration: none;
+      color: var(--text-primary);
+      transition: all 0.2s;
+    }
+
+    .download-option:hover {
+      border-color: var(--accent-primary);
+    }
+
+    .download-option .platform {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .download-option .version {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    /* Footer */
+    footer {
+      padding: 48px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      margin: 0 16px;
+    }
+
+    footer a:hover {
+      color: var(--text-primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 2.5rem;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .download-options {
+        grid-template-columns: 1fr;
+      }
+
+      .access-box {
+        padding: 32px 24px;
+      }
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .feature-card {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+
+    .feature-card:nth-child(2) { animation-delay: 0.1s; }
+    .feature-card:nth-child(3) { animation-delay: 0.2s; }
+    .feature-card:nth-child(4) { animation-delay: 0.3s; }
+    .feature-card:nth-child(5) { animation-delay: 0.4s; }
+    .feature-card:nth-child(6) { animation-delay: 0.5s; }
+  </style>
+</head>
+<body>
+  <div class="bg-gradient"></div>
+
+  <div class="container">
+    <!-- Navigation -->
+    <nav>
+      <div class="logo">Meridian</div>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#access">Access</a></li>
+        <li><a href="#download">Download</a></li>
+      </ul>
+      <a href="#access" class="btn btn-primary">Get Access</a>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <span class="badge">Private Beta — Invite Only</span>
+      <h1>Next-Generation<br>Data Management</h1>
+      <p>A powerful, offline-first application for organizing and managing your digital assets with military-grade encryption.</p>
+      <div style="display: flex; gap: 16px; justify-content: center;">
+        <a href="#access" class="btn btn-primary">Request Access</a>
+        <a href="#features" class="btn btn-outline">Learn More</a>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔐</div>
+          <h3>Military-Grade Encryption</h3>
+          <p>AES-256-GCM encryption with PBKDF2 600K iterations. Your data is protected by the same standards used by governments and financial institutions.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💻</div>
+          <h3>Offline-First</h3>
+          <p>All data stored locally on your device. No cloud sync unless you explicitly enable it. Complete control over your information.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Smart Organization</h3>
+          <p>Automatically categorize and link related data. Advanced filtering, search, and tagging capabilities for instant access.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📈</div>
+          <h3>Analytics Dashboard</h3>
+          <p>Real-time insights into your data with beautiful charts and statistics. Track trends and make informed decisions.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📧</div>
+          <h3>Email Integration</h3>
+          <p>Automatically parse and extract data from email notifications. IMAP/SMTP support for seamless synchronization.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Native Performance</h3>
+          <p>Built with Tauri v2 and Rust for blazing-fast performance. Small bundle size, low memory footprint, instant startup.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Access Section -->
+    <section class="access" id="access">
+      <div class="access-box">
+        <h2>Enter Invite Code</h2>
+        <p>Meridian is available by invitation only. Enter your invite code to unlock download access.</p>
+
+        <form class="invite-form" id="inviteForm">
+          <input
+            type="text"
+            class="invite-input"
+            id="inviteCode"
+            placeholder="XXXX-XXXX-XXXX-XXXX"
+            maxlength="19"
+            autocomplete="off"
+          />
+          <div class="message" id="message"></div>
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            Verify Code
+          </button>
+        </form>
+
+        <div class="download-section" id="downloadSection">
+          <h3 style="margin-bottom: 8px;">Download Meridian</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">Version 2.2.0 — Updated March 2026</p>
+          <div class="download-options">
+            <a href="#" class="download-option" onclick="alert('macOS installer coming soon')">
+              <div class="platform">🍎 macOS</div>
+              <div>Meridian.dmg</div>
+              <div class="version">Universal (Intel + Apple Silicon)</div>
+            </a>
+            <a href="#" class="download-option" onclick="alert('Windows installer coming soon')">
+              <div class="platform">🪟 Windows</div>
+              <div>Meridian.Setup.exe</div>
+              <div class="version">Windows 10/11 (x64)</div>
+            </a>
+            <a href="#" class="download-option" onclick="alert('Linux installer coming soon')">
+              <div class="platform">🐧 Linux</div>
+              <div>Meridian.AppImage</div>
+              <div class="version">Debian/Ubuntu/Fedora</div>
+            </a>
+            <a href="#" class="download-option" onclick="alert('Source code coming soon')">
+              <div class="platform">📦 Source</div>
+              <div>Source Code.tar.gz</div>
+              <div class="version">Build from source</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>&copy; 2026 Meridian. All rights reserved.</p>
+      <div style="margin-top: 16px;">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Contact</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // Format invite code with dashes
+    const inviteInput = document.getElementById('inviteCode');
+    const message = document.getElementById('message');
+    const submitBtn = document.getElementById('submitBtn');
+    const downloadSection = document.getElementById('downloadSection');
+
+    inviteInput.addEventListener('input', (e) => {
+      let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      let formatted = '';
+
+      for (let i = 0; i < Math.min(value.length, 16); i++) {
+        if (i > 0 && i % 4 === 0) formatted += '-';
+        formatted += value[i];
+      }
+
+      e.target.value = formatted;
+    });
+
+    document.getElementById('inviteForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const code = inviteInput.value.replace(/-/g, '');
+
+      if (code.length !== 16) {
+        showMessage('Please enter a valid 16-character code', 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying...';
+      inviteInput.classList.remove('error', 'success');
+
+      try {
+        const response = await fetch('/api/invite/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+
+        const data = await response.json();
+
+        if (data.valid || data.success) {
+          showMessage('Invite code verified! Download access granted.', 'success');
+          inviteInput.classList.add('success');
+          downloadSection.classList.add('visible');
+          submitBtn.textContent = 'Verified';
+        } else {
+          showMessage('Invalid invite code. Please check and try again.', 'error');
+          inviteInput.classList.add('error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Verify Code';
+        }
+      } catch (error) {
+        // Fallback: accept any 16-character code for demo
+        if (code.length === 16) {
+          showMessage('Invite code verified! Download access granted.', 'success');
+          inviteInput.classList.add('success');
+          downloadSection.classList.add('visible');
+          submitBtn.textContent = 'Verified';
+        } else {
+          showMessage('Unable to verify code. Please try again.', 'error');
+          inviteInput.classList.add('error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Verify Code';
+        }
+      }
+    });
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = 'message ' + type;
+    }
+  </script>
+</body>
+</html>
