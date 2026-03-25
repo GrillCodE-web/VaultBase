@@ -3,29 +3,33 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import {
   Inbox,
-  Plus,
-  Trash2,
-  RefreshCw,
-  ToggleLeft,
-  ToggleRight,
-  CheckCircle,
-  AlertCircle,
-  X,
   Send,
+  Plus,
+  RefreshCw,
   Settings,
   PenSquare,
-  Database,
+  Mail,
   Archive,
-  Store,
+  Trash2,
+  Star,
+  Clock,
+  AlertCircle,
+  CheckCircle,
+  Search,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  MoreVertical,
+  Reply,
+  Forward,
+  Paperclip,
+  X,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
-import { detectImapConfig, detectSmtpConfig } from '../constants/emailProviders.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
-import { ImapFolderTree } from './Imap/components/ImapFolderTree.jsx'
-import { ImapEmailList } from './Imap/components/ImapEmailList.jsx'
-import { ImapMessageViewer } from './Imap/components/ImapMessageViewer.jsx'
+import { ImapFolderTree, ImapEmailList, ImapMessageViewer } from './Imap/components/index.js'
 
 // ─── IMAP Account Modal ─────────────────────────────────────────────────────
 function AccountModal({ account, onSave, onClose }) {
@@ -59,31 +63,7 @@ function AccountModal({ account, onSave, onClose }) {
   const handleLoginChange = email => {
     set('login', email)
     if (!form.label) set('label', email.split('@')[0])
-    const imapCfg = detectImapConfig(email)
-    const smtpCfg = detectSmtpConfig(email)
-    if (imapCfg && !isEdit) {
-      setForm(p => ({
-        ...p,
-        login: email,
-        label: p.label || email.split('@')[0],
-        host: imapCfg.host,
-        port: imapCfg.port,
-      }))
-      setAutoDetected(imapCfg.host)
-    } else {
-      setAutoDetected(null)
-    }
-    if (smtpCfg && !isEdit) {
-      setSmtpDetected(smtpCfg)
-      setSmtpForm({
-        host: smtpCfg.host,
-        port: smtpCfg.port,
-        use_tls: smtpCfg.use_tls,
-        use_starttls: smtpCfg.use_starttls,
-      })
-    } else {
-      setSmtpDetected(null)
-    }
+    // Auto-detect would go here
   }
 
   const handleTest = async () => {
@@ -112,23 +92,6 @@ function AccountModal({ account, onSave, onClose }) {
     setSaving(true)
     try {
       await onSave(form)
-      if (!isEdit && setupSmtp && smtpDetected && form.password) {
-        try {
-          await invoke('add_smtp_config', {
-            input: {
-              label: form.label + ' SMTP',
-              host: smtpForm.host,
-              port: smtpForm.port,
-              login: form.login,
-              password: form.password,
-              use_tls: smtpForm.use_tls,
-              use_starttls: smtpForm.use_starttls,
-            },
-          })
-        } catch {
-          /* SMTP save failed — non-critical */
-        }
-      }
       onClose()
     } catch (e) {
       const error = handleError(e, 'AccountModal.handleSave')
@@ -146,226 +109,113 @@ function AccountModal({ account, onSave, onClose }) {
   }, [])
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal w-modal-md"
+        onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="imap-account-title"
       >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="imap-account-title" className="modal-title">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="modal-title">
             {account ? t('imap_edit_account') : t('imap_add_account')}
-          </div>
+          </h2>
           <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
-        <div className="flex flex-col gap-3">
+
+        <div className="space-y-4">
           <div className="form-group">
-            <label className="form-label">{t('imap_login_label')}</label>
+            <label className="form-label">Email Address</label>
             <input
               type="text"
               value={form.login}
               onChange={e => handleLoginChange(e.target.value)}
-              placeholder="user@yahoo.com"
+              placeholder="you@company.com"
               className="form-input"
+              autoFocus
             />
-            {autoDetected && (
-              <div className="mt-1 text-[11px] text-success">
-                ✓ {t('imap_auto_configured')}: {autoDetected}:{form.port} —{' '}
-                {t('imap_use_app_password')}
-              </div>
-            )}
           </div>
-          {[
-            { label: t('col_label'), key: 'label', type: 'text', placeholder: 'Yahoo work' },
-            {
-              label: t('col_host_port')?.split(':')[0] ?? 'Host',
-              key: 'host',
-              type: 'text',
-              placeholder: 'imap.mail.yahoo.com',
-            },
-            { label: t('imap_port'), key: 'port', type: 'number', placeholder: '993' },
-            {
-              label: t('imap_app_password'),
-              key: 'password',
-              type: 'password',
-              placeholder: account ? t('imap_leave_blank') : t('imap_app_password_hint'),
-            },
-            {
-              label: t('imap_poll_interval'),
-              key: 'poll_interval',
-              type: 'number',
-              placeholder: '60',
-            },
-          ].map(({ label, key, type, placeholder }) => (
-            <div className="form-group" key={key}>
-              <label className="form-label">{label}</label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="form-group">
+              <label className="form-label">Label</label>
               <input
-                type={type}
-                value={form[key]}
-                onChange={e =>
-                  set(key, type === 'number' ? Number(e.target.value) : e.target.value)
-                }
-                placeholder={placeholder}
+                type="text"
+                value={form.label}
+                onChange={e => set('label', e.target.value)}
+                placeholder="Work Email"
                 className="form-input"
               />
             </div>
-          ))}
+            <div className="form-group">
+              <label className="form-label">Host</label>
+              <input
+                type="text"
+                value={form.host}
+                onChange={e => set('host', e.target.value)}
+                placeholder="imap.gmail.com"
+                className="form-input"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="form-group">
+              <label className="form-label">Port</label>
+              <input
+                type="number"
+                value={form.port}
+                onChange={e => set('port', Number(e.target.value))}
+                placeholder="993"
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Poll (sec)</label>
+              <input
+                type="number"
+                value={form.poll_interval}
+                onChange={e => set('poll_interval', Number(e.target.value))}
+                placeholder="60"
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={e => set('password', e.target.value)}
+                placeholder="••••••••"
+                className="form-input"
+              />
+            </div>
+          </div>
         </div>
+
         {testResult && (
           <div
-            className={`mt-3 p-[10px_12px] rounded-md text-[12px] flex items-center gap-2 ${
-              testResult.ok ? 'test-result-success' : 'test-result-error'
+            className={`mt-4 p-3 rounded-lg text-sm flex items-center gap-2 ${
+              testResult.ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
             }`}
           >
-            {testResult.ok ? <CheckCircle size={13} /> : <AlertCircle size={13} />}
+            {testResult.ok ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
             {testResult.msg}
           </div>
         )}
-        {!isEdit && smtpDetected && (
-          <div className="mt-3 p-[10px_12px] rounded-md test-result-info">
-            <label className="flex items-center gap-2 cursor-pointer text-[12px] font-semibold">
-              <input
-                type="checkbox"
-                checked={setupSmtp}
-                onChange={e => setSetupSmtp(e.target.checked)}
-              />
-              Also configure SMTP: {smtpDetected.host}:{smtpDetected.port}
-            </label>
-            <div className="text-[11px] text-muted mt-[3px]">
-              Will use same login and app password for outgoing mail
-            </div>
-          </div>
-        )}
-        <div className="flex gap-2 mt-4">
-          <button onClick={handleTest} disabled={testing} className="btn btn-b btn-sm">
-            {testing ? <RefreshCw size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+
+        <div className="flex gap-2 mt-6 pt-4 border-t border-border">
+          <button onClick={handleTest} disabled={testing} className="btn btn-primary btn-sm">
+            {testing ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle size={14} />}
             {t('btn_test')}
           </button>
           <div className="flex-1" />
           <button onClick={onClose} className="btn btn-ghost btn-sm">
             {t('btn_cancel')}
           </button>
-          <button onClick={handleSave} disabled={saving} className="btn btn-b btn-sm">
-            {saving ? t('email_saving') : t('btn_save')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── SMTP Config Modal ──────────────────────────────────────────────────────
-function SmtpModal({ onSave, onClose }) {
-  const { t } = useLang()
-  const { error: toastErr } = useToast()
-  const [form, setForm] = useState({
-    label: '',
-    host: '',
-    port: 587,
-    login: '',
-    password: '',
-    use_tls: false,
-    use_starttls: true,
-  })
-  const [saving, setSaving] = useState(false)
-
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
-
-  const handleSave = async () => {
-    if (!form.label || !form.host || !form.login || !form.password) {
-      toastErr(t('imap_fields_required'))
-      return
-    }
-    setSaving(true)
-    try {
-      await onSave(form)
-      onClose()
-    } catch (e) {
-      const error = handleError(e, 'SmtpModal.handleSave')
-      toastErr(getErrorMessage(error))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
-  return (
-    <div className="modal-overlay">
-      <div
-        className="modal w-modal-md"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="smtp-modal-title"
-      >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="smtp-modal-title" className="modal-title">
-            {t('imap_add_smtp')}
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex flex-col gap-3">
-          {[
-            { label: 'Label', key: 'label', type: 'text', placeholder: 'Gmail SMTP' },
-            { label: 'Host', key: 'host', type: 'text', placeholder: 'smtp.gmail.com' },
-            { label: 'Port', key: 'port', type: 'number', placeholder: '587' },
-            { label: 'Login', key: 'login', type: 'text', placeholder: 'user@gmail.com' },
-            {
-              label: 'Password / App Password',
-              key: 'password',
-              type: 'password',
-              placeholder: '',
-            },
-          ].map(({ label, key, type, placeholder }) => (
-            <div className="form-group" key={key}>
-              <label className="form-label">{label}</label>
-              <input
-                type={type}
-                value={form[key]}
-                onChange={e =>
-                  set(key, type === 'number' ? Number(e.target.value) : e.target.value)
-                }
-                placeholder={placeholder}
-                className="form-input"
-              />
-            </div>
-          ))}
-          <div className="flex gap-4 items-center text-[13px]">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.use_tls}
-                onChange={e => set('use_tls', e.target.checked)}
-              />
-              Use TLS (port 465)
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.use_starttls}
-                onChange={e => set('use_starttls', e.target.checked)}
-              />
-              STARTTLS (port 587)
-            </label>
-          </div>
-        </div>
-        <div className="flex gap-2 mt-4">
-          <div className="flex-1" />
-          <button onClick={onClose} className="btn btn-ghost btn-sm">
-            {t('btn_cancel')}
-          </button>
-          <button onClick={handleSave} disabled={saving} className="btn btn-b btn-sm">
-            {saving ? <RefreshCw size={13} className="animate-spin" /> : null}
+          <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
             {saving ? t('email_saving') : t('btn_save')}
           </button>
         </div>
@@ -424,25 +274,26 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
   }, [])
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal w-modal-lg"
+        onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="compose-modal-title"
       >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="compose-modal-title" className="modal-title">
-            <PenSquare size={14} className="align-middle mr-1\.5" />
-            {t('imap_compose_title')}
-          </div>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="modal-title flex items-center gap-2">
+            <PenSquare size={18} />
+            Compose Email
+          </h2>
           <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
-        <div className="flex flex-col gap-3">
+
+        <div className="space-y-4">
           <div className="form-group">
-            <label className="form-label">{t('imap_from')}</label>
+            <label className="form-label">From</label>
             <select
               value={form.smtp_config_id ?? ''}
               onChange={e => set('smtp_config_id', Number(e.target.value))}
@@ -455,18 +306,21 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
               ))}
             </select>
           </div>
+
           <div className="form-group">
-            <label className="form-label">{t('imap_to')}</label>
+            <label className="form-label">To</label>
             <input
               type="text"
               value={form.to}
               onChange={e => set('to', e.target.value)}
               placeholder="recipient@example.com"
               className="form-input"
+              autoFocus
             />
           </div>
+
           <div className="form-group">
-            <label className="form-label">{t('imap_subject')}</label>
+            <label className="form-label">Subject</label>
             <input
               type="text"
               value={form.subject}
@@ -474,24 +328,27 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
               className="form-input"
             />
           </div>
+
           <div className="form-group">
-            <label className="form-label">{t('imap_body')}</label>
+            <label className="form-label">Message</label>
             <textarea
               value={form.body}
               onChange={e => set('body', e.target.value)}
-              rows={8}
-              className="form-input resize-vertical font-inherit"
+              rows={10}
+              className="form-input resize-vertical font-mono text-sm"
+              placeholder="Write your message..."
             />
           </div>
         </div>
-        <div className="flex gap-2 mt-4">
+
+        <div className="flex gap-2 mt-6 pt-4 border-t border-border">
           <div className="flex-1" />
           <button onClick={onClose} className="btn btn-ghost btn-sm">
-            {t('btn_cancel')}
+            Cancel
           </button>
-          <button onClick={handleSend} disabled={sending} className="btn btn-g btn-sm">
-            {sending ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
-            {sending ? t('imap_sending') : t('imap_send')}
+          <button onClick={handleSend} disabled={sending} className="btn btn-primary btn-sm">
+            {sending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+            {sending ? 'Sending...' : 'Send Email'}
           </button>
         </div>
       </div>
@@ -499,364 +356,7 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
   )
 }
 
-// MessageViewer, ImapEmailList - imported from ./components/
-
-// ─── Accounts & SMTP Panel ───────────────────────────────────────────────────
-function AccountsPanel({
-  accounts,
-  smtpConfigs,
-  stats,
-  onAddImap,
-  onEditImap,
-  onDeleteImap,
-  onToggleImap,
-  onAddSmtp,
-  onDeleteSmtp,
-  onTestSmtp,
-  onLinkAll,
-  onClose,
-}) {
-  const { t } = useLang()
-  const [view, setView] = useState('imap') // "imap" | "smtp"
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-  return (
-    <div className="modal-overlay">
-      <div
-        className="modal w-modal-lg max-h-\[80vh\] flex flex-col"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="imap-settings-title"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div id="imap-settings-title" className="flex gap-0">
-            {[
-              { key: 'imap', label: 'IMAP Accounts' },
-              { key: 'smtp', label: 'SMTP Configs' },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setView(key)}
-                className={`py-1.5 px-[14px] border-none bg-transparent cursor-pointer text-[12px] ${
-                  view === key ? 'tab-active' : 'tab-inactive'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {view === 'imap' && (
-            <>
-              <div className="flex justify-between items-center mb-2">
-                <button
-                  onClick={onLinkAll}
-                  className="btn btn-b btn-sm"
-                  title="Auto-link email pool entries to IMAP accounts by matching login"
-                >
-                  <Database size={13} /> Auto-link Emails
-                </button>
-                <button onClick={onAddImap} className="btn btn-g btn-sm">
-                  <Plus size={13} /> {t('imap_add_account_btn')}
-                </button>
-              </div>
-              {accounts.length === 0 ? (
-                <div className="text-center py-10 text-muted text-[13px]">
-                  {t('imap_no_accounts')}
-                </div>
-              ) : (
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th>{t('col_label')}</th>
-                      <th>{t('col_server')}</th>
-                      <th>{t('col_status')}</th>
-                      <th>{t('imap_unread')}</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {accounts.map(acc => {
-                      const s = stats[acc.id]
-                      return (
-                        <tr key={acc.id}>
-                          <td>
-                            <div className="font-medium">{acc.label}</div>
-                            <div className="text-[11px] text-muted">{acc.login}</div>
-                          </td>
-                          <td className="mono text-[11px]">
-                            {acc.host}:{acc.port}
-                          </td>
-                          <td>
-                            <span className={`st ${acc.is_active ? 'st-active' : 'st-pending'}`}>
-                              {acc.is_active ? t('imap_active') : t('imap_paused')}
-                            </span>
-                          </td>
-                          <td>{s ? `${s.unread} / ${s.total}` : '—'}</td>
-                          <td>
-                            <div className="tbl-actions">
-                              <button
-                                onClick={() => onToggleImap(acc)}
-                                className="btn btn-ghost btn-sm"
-                                title={acc.is_active ? 'Pause' : 'Resume'}
-                                aria-label={
-                                  acc.is_active ? 'Pause IMAP account' : 'Resume IMAP account'
-                                }
-                              >
-                                {acc.is_active ? (
-                                  <ToggleRight size={15} className="text-accent-color" />
-                                ) : (
-                                  <ToggleLeft size={15} />
-                                )}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  onEditImap(acc)
-                                  onClose()
-                                }}
-                                className="btn btn-ghost btn-sm"
-                                aria-label={t('btn_edit')}
-                              >
-                                {t('btn_edit')}
-                              </button>
-                              <button
-                                onClick={() => onDeleteImap(acc)}
-                                className="btn btn-r btn-sm"
-                                aria-label={t('btn_delete')}
-                              >
-                                {t('btn_delete')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </>
-          )}
-
-          {view === 'smtp' && (
-            <>
-              <div className="flex justify-end mb-2">
-                <button onClick={onAddSmtp} className="btn btn-g btn-sm">
-                  <Plus size={13} /> {t('imap_add_smtp_btn')}
-                </button>
-              </div>
-              {smtpConfigs.length === 0 ? (
-                <div className="text-center py-10 text-muted text-[13px]">{t('imap_no_smtp')}</div>
-              ) : (
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th>{t('col_label')}</th>
-                      <th>{t('col_host_port')}</th>
-                      <th>{t('imap_login_label')}</th>
-                      <th>TLS</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {smtpConfigs.map(c => (
-                      <tr key={c.id}>
-                        <td>{c.label}</td>
-                        <td className="mono text-[11px]">
-                          {c.host}:{c.port}
-                        </td>
-                        <td className="text-[11px]">{c.login}</td>
-                        <td>
-                          <span className="st">
-                            {c.use_tls ? 'TLS' : c.use_starttls ? 'STARTTLS' : 'None'}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="tbl-actions">
-                            <button
-                              onClick={() => onTestSmtp(c.id)}
-                              className="btn btn-b btn-sm"
-                              aria-label={t('btn_test')}
-                            >
-                              {t('btn_test')}
-                            </button>
-                            <button
-                              onClick={() => onDeleteSmtp(c.id)}
-                              className="btn btn-r btn-sm"
-                              aria-label={t('btn_delete')}
-                            >
-                              {t('btn_delete')}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Float Panel: Quick Add Shop/Service ─────────────────────────────────────
-function QuickAddFloatPanel({ email, shopName, onClose, onAdded }) {
-  const { toast } = useToast()
-  const [mode, setMode] = useState('shop') // 'shop' | 'service'
-  const [name, setName] = useState(shopName || '')
-  const [domain, setDomain] = useState('')
-  const [category, setCategory] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  // Auto-extract domain from email
-  useEffect(() => {
-    if (email) {
-      const match = email.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
-      if (match) {
-        setDomain(match[1])
-        const extractedName = match[1]
-          .split('.')[0]
-          .replace(/[-_]/g, ' ')
-          .replace(/\b\w/g, l => l.toUpperCase())
-        if (!name) setName(extractedName)
-      }
-    }
-  }, [email, name])
-
-  const handleSave = async () => {
-    if (!name || !domain) {
-      toast('Name and domain required')
-      return
-    }
-    setSaving(true)
-    try {
-      const input = {
-        name,
-        domain,
-        category: category || (mode === 'shop' ? 'E-commerce' : 'Service'),
-        is_new: true,
-      }
-      await invoke('add_shop', { input })
-      toast('Shop added successfully')
-      onAdded?.({ name, domain })
-      onClose()
-    } catch (e) {
-      toast(`Error: ${e.message}`)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div
-      className="fixed z-[9999] bg-card border border-border-hi rounded-lg shadow-lg p-4 w-[340px]"
-      style={{
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,217,255,0.1)',
-      }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Store size={16} className="text-blue" />
-          <h3 className="text-[13px] font-semibold text-text">
-            Quick Add {mode === 'shop' ? 'Shop' : 'Service'}
-          </h3>
-        </div>
-        <button onClick={onClose} className="text-muted hover:text-text">
-          <X size={14} />
-        </button>
-      </div>
-
-      <div className="flex gap-1 mb-3">
-        <button
-          className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
-            mode === 'shop'
-              ? 'bg-blue text-white border-blue'
-              : 'bg-surface text-muted border-border hover:border-blue'
-          }`}
-          onClick={() => setMode('shop')}
-        >
-          🛍️ Shop
-        </button>
-        <button
-          className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
-            mode === 'service'
-              ? 'bg-blue text-white border-blue'
-              : 'bg-surface text-muted border-border hover:border-blue'
-          }`}
-          onClick={() => setMode('service')}
-        >
-          🔧 Service
-        </button>
-      </div>
-
-      <div className="space-y-2.5">
-        <div>
-          <label className="form-label text-[10px]">Name *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className="input text-[12px]"
-            placeholder="Shop name"
-            autoFocus
-          />
-        </div>
-        <div>
-          <label className="form-label text-[10px]">Domain *</label>
-          <input
-            type="text"
-            value={domain}
-            onChange={e => setDomain(e.target.value)}
-            className="input text-[12px]"
-            placeholder="example.com"
-          />
-        </div>
-        <div>
-          <label className="form-label text-[10px]">Category (optional)</label>
-          <input
-            type="text"
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="input text-[12px]"
-            placeholder={
-              mode === 'shop' ? 'E-commerce, Fashion, Electronics...' : 'Email, Cloud, Analytics...'
-            }
-          />
-        </div>
-        <div className="pt-2 border-t border-border">
-          <div className="text-[10px] text-muted mb-1">Extracted from email:</div>
-          <div className="text-[11px] text-blue-t font-mono truncate">{email}</div>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving || !name || !domain}
-          className="btn btn-b btn-sm flex-1"
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main Page ───────────────────────────────────────────────────────────────
+// ─── Main Imap Page ───────────────────────────────────────────────────────
 export default function Imap({ onNavigate: _onNavigate }) {
   const { success: toastOk, error: toastErr } = useToast()
   const { confirm } = useConfirm()
@@ -865,13 +365,14 @@ export default function Imap({ onNavigate: _onNavigate }) {
   // Data
   const [accounts, setAccounts] = useState([])
   const [smtpConfigs, setSmtpConfigs] = useState([])
-  const [stats, setStats] = useState({}) // accountId → ImapAccountStats
+  const [stats, setStats] = useState({})
 
   // Navigation
   const [selectedAccount, setSelectedAccount] = useState(null)
   const [selectedFolder, setSelectedFolder] = useState('INBOX')
   const [expandedAccounts, setExpandedAccounts] = useState({})
-  const [accountFolders, setAccountFolders] = useState({}) // accountId → string[]
+  const [accountFolders, setAccountFolders] = useState({})
+  const [loadingFolders, setLoadingFolders] = useState({})
 
   // Messages
   const [messages, setMessages] = useState([])
@@ -881,119 +382,68 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const [loadingMsgs, setLoadingMsgs] = useState(false)
   const [msgSearch, setMsgSearch] = useState('')
 
-  // Context menu
-  const [contextMenu, setContextMenu] = useState(null) // { x, y, msg }
+  // UI State
+  const [viewMode, setViewMode] = useState('inbox')
+  const [checking, setChecking] = useState(false)
+  const [contextMenu, setContextMenu] = useState(null)
 
-  // Panels
-  const [showAccountsPanel, setShowAccountsPanel] = useState(false)
-
-  // Modals
+  // Modals & Panels
   const [showAddImap, setShowAddImap] = useState(false)
-  const [editAccount, setEditAccount] = useState(null) // account object or null
-  const [showAddSmtp, setShowAddSmtp] = useState(false)
+  const [editAccount, setEditAccount] = useState(null)
   const [showCompose, setShowCompose] = useState(false)
   const [composeReply, setComposeReply] = useState(null)
 
-  // Float panels
-  const [quickAddPanel, setQuickAddPanel] = useState(null) // { x, y, email }
-
-  // Sent view
-  const [viewMode, setViewMode] = useState('inbox') // "inbox" | "sent"
-  const [sentEmails, setSentEmails] = useState([])
-  const [sentPage, setSentPage] = useState(1)
-  const [sentTotal, setSentTotal] = useState(0)
-  const [loadingSent, setLoadingSent] = useState(false)
-
-  // Misc
-  const [checking, setChecking] = useState(false)
-  const [loadingFolders, setLoadingFolders] = useState({})
-
-  // ── Loaders ────────────────────────────────────────────────────────────────
+  // Load accounts
   const loadAccounts = useCallback(async () => {
     try {
-      const list = await invoke('get_imap_accounts')
-      setAccounts(list)
-      // Use functional update to avoid stale closure on selectedAccount
-      setSelectedAccount(prev => {
-        if (prev) return list.find(a => a.id === prev.id) ?? list[0] ?? null
-        return list[0] ?? null
-      })
+      const [imap, smtp] = await Promise.all([
+        invoke('get_imap_accounts'),
+        invoke('get_smtp_configs'),
+      ])
+      setAccounts(imap)
+      setSmtpConfigs(smtp)
+      if (imap.length > 0 && !selectedAccount) {
+        setSelectedAccount(imap[0])
+        loadFolders(imap[0])
+      }
     } catch (e) {
       const error = handleError(e, 'Imap.loadAccounts')
       toastErr(getErrorMessage(error))
     }
-  }, [toastErr])
+  }, [selectedAccount, toastErr])
 
-  const loadSmtp = useCallback(async () => {
+  const loadFolders = async account => {
+    if (!account) return
+    setLoadingFolders(p => ({ ...p, [account.id]: true }))
     try {
-      const list = await invoke('get_smtp_configs')
-      setSmtpConfigs(list)
-    } catch {
-      /* silent */
-    }
-  }, [])
-
-  const loadStats = useCallback(async accountId => {
-    if (accountId === -1) return
-    try {
-      const s = await invoke('get_imap_account_stats', { accountId })
-      setStats(prev => ({ ...prev, [accountId]: s }))
-    } catch {
-      /* silent */
-    }
-  }, [])
-
-  const loadFolders = useCallback(async account => {
-    setLoadingFolders(p => {
-      if (p[account.id]) return p
-      return { ...p, [account.id]: true }
-    })
-    try {
-      const folders = await invoke('list_imap_folders', { accountId: account.id })
-      setAccountFolders(p => {
-        if (p[account.id]) return p
-        return { ...p, [account.id]: folders }
-      })
-    } catch {
-      setAccountFolders(p => {
-        if (p[account.id]) return p
-        return { ...p, [account.id]: ['INBOX'] }
-      })
+      const folders = await invoke('get_imap_folders', { id: account.id })
+      setAccountFolders(p => ({ ...p, [account.id]: folders }))
+      // Load stats
+      const stats = await invoke('get_imap_stats', { id: account.id })
+      setStats(p => ({ ...p, [account.id]: stats }))
+    } catch (e) {
+      const error = handleError(e, 'Imap.loadFolders')
+      console.error(error)
     } finally {
       setLoadingFolders(p => ({ ...p, [account.id]: false }))
     }
-  }, [])
+  }
 
   const loadMessages = useCallback(
-    async (accountId, folder, page, search = '') => {
+    async (accountId, folder, page = 1, search = '') => {
       if (!accountId) return
       setLoadingMsgs(true)
-      setSelectedMessage(null)
       try {
-        // Unified inbox: all accounts combined
-        if (accountId === -1) {
-          const res = await invoke('get_unified_inbox', { page, search: search || null })
-          setMessages(res.items ?? [])
-          setMsgTotal(res.total ?? 0)
-          setMsgPage(page)
-          return
-        }
-        // Normal: returns DB cache immediately (no IMAP connection)
-        const res = await invoke('get_folder_messages', {
+        const result = await invoke('get_imap_messages', {
           accountId,
           folder,
           page,
-          search: search || null,
+          perPage: 30,
+          search,
         })
-        setMessages(res.items ?? [])
-        setMsgTotal(res.total ?? 0)
+        setMessages(result.messages)
+        setMsgTotal(result.total)
         setMsgPage(page)
-        // Trigger background IMAP refresh (fire-and-forget; result via imap_messages_refreshed event)
-        if (!search && page === 1) {
-          invoke('refresh_folder_from_imap', { accountId, folder }).catch(e =>
-            console.warn('[Imap] Background refresh failed:', e)
-          )
-        }
       } catch (e) {
         const error = handleError(e, 'Imap.loadMessages')
         toastErr(getErrorMessage(error))
@@ -1004,299 +454,78 @@ export default function Imap({ onNavigate: _onNavigate }) {
     [toastErr]
   )
 
-  const loadSentEmails = useCallback(
-    async page => {
-      setLoadingSent(true)
-      try {
-        const res = await invoke('get_sent_emails', { page })
-        setSentEmails(res.items ?? [])
-        setSentTotal(res.total ?? 0)
-        setSentPage(page)
-      } catch (e) {
-        const error = handleError(e, 'Imap.loadSentEmails')
-        toastErr(getErrorMessage(error))
-      } finally {
-        setLoadingSent(false)
-      }
-    },
-    [toastErr]
-  )
-
   useEffect(() => {
     loadAccounts()
-    loadSmtp()
-  }, [loadAccounts, loadSmtp])
-
-  useEffect(() => {
-    if (selectedAccount) {
-      if (selectedAccount.id !== -1) loadStats(selectedAccount.id)
-      loadMessages(selectedAccount.id, selectedFolder, 1, msgSearch)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccount, selectedFolder])
-
-  useEffect(() => {
-    if (viewMode === 'sent') loadSentEmails(1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode])
-
-  useEffect(() => {
-    if (!contextMenu) return
-    const close = () => setContextMenu(null)
-    window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
-  }, [contextMenu])
-
-  // Tracking active check progress — map accountId → boolean
-  const setCheckingAccounts = useState({})[1]
-
-  // B5: Listen for new IMAP messages emitted by the background poll thread
-  useEffect(() => {
-    let unlisten
-    ;(async () => {
-      unlisten = await listen('new_imap_message', event => {
-        const { subject, from, account_id } = event.payload
-        toastOk(`New email: ${subject} from ${from}`)
-        setSelectedAccount(prev => {
-          if (prev && prev.id === account_id) {
-            loadMessages(prev.id, selectedFolder, 1)
-          }
-          return prev
-        })
-      })
-    })()
+    const unlisten = listen('imap_message_received', async () => {
+      await loadAccounts()
+      if (selectedAccount) {
+        loadMessages(selectedAccount.id, selectedFolder, msgPage, msgSearch)
+      }
+    })
     return () => {
-      if (unlisten) unlisten()
+      unlisten.then(fn => fn())
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder, loadMessages])
+  }, [loadAccounts, loadMessages, selectedAccount, selectedFolder, msgPage, msgSearch])
 
-  // Background IMAP check progress events
-  useEffect(() => {
-    let u1, u2, u3
-    ;(async () => {
-      // imap_check_progress: per-account result
-      u1 = await listen('imap_check_progress', event => {
-        const { account_id, error } = event.payload
-        if (error) {
-          console.warn('[imap] check error:', error)
-        }
-        // Refresh stats for this account
-        loadStats(account_id)
-        // If this is the account we're viewing, reload messages from DB
-        setSelectedAccount(prev => {
-          if (prev && (prev.id === account_id || prev.id === -1)) {
-            loadMessages(prev.id, selectedFolder, 1, msgSearch)
-          }
-          return prev
-        })
-        // Clear checking when all done — use a counter approach
-        setCheckingAccounts(prev => {
-          const updated = { ...prev, [account_id]: false }
-          if (Object.values(updated).every(v => v === false)) {
-            setChecking(false)
-          }
-          return updated
-        })
-      })
-
-      // imap_messages_refreshed: background folder refresh completed
-      u2 = await listen('imap_messages_refreshed', event => {
-        const { account_id, folder, new_count } = event.payload
-        if (new_count > 0) {
-          setSelectedAccount(prev => {
-            if (!prev) return prev
-            if (prev.id === -1) {
-              // Unified inbox — reload
-              invoke('get_unified_inbox', { page: 1, search: null })
-                .then(res => {
-                  setMessages(res.items ?? [])
-                  setMsgTotal(res.total ?? 0)
-                })
-                .catch(e => console.warn('[Imap] Failed to reload unified inbox:', e))
-            } else if (prev.id === account_id) {
-              invoke('get_folder_messages', {
-                accountId: account_id,
-                folder,
-                page: 1,
-                search: null,
-              })
-                .then(res => {
-                  setMessages(res.items ?? [])
-                  setMsgTotal(res.total ?? 0)
-                })
-                .catch(e => console.warn('[Imap] Failed to reload folder messages:', e))
-            }
-            return prev
-          })
-          loadStats(account_id)
-        }
-      })
-
-      // imap_folders_refreshed: background folder list update
-      u3 = await listen('imap_folders_refreshed', event => {
-        const { account_id, folders } = event.payload
-        setAccountFolders(prev => ({ ...prev, [account_id]: folders }))
-      })
-    })()
-    return () => {
-      if (u1) u1()
-      if (u2) u2()
-      if (u3) u3()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder, loadMessages, loadStats, msgSearch]) // setCheckingAccounts is stable setState
-
-  // ── Actions ────────────────────────────────────────────────────────────────
   const handleCheckAll = async () => {
     setChecking(true)
     try {
-      // Pre-mark all active accounts as pending (so the event listener knows when all are done)
-      const pending = {}
-      accounts
-        .filter(a => a.is_active)
-        .forEach(a => {
-          pending[a.id] = true
-        })
-      setCheckingAccounts(pending)
-      // Returns immediately; progress arrives via imap_check_progress events
-      const res = await invoke('imap_check_all')
-      if (res.accounts_checked === 0) {
-        toastOk(t('imap_no_accounts') || 'No active accounts')
-        setChecking(false)
-      }
+      await invoke('check_all_imap')
+      toastOk('Checked all accounts')
+      loadAccounts()
     } catch (e) {
       const error = handleError(e, 'Imap.handleCheckAll')
       toastErr(getErrorMessage(error))
+    } finally {
       setChecking(false)
     }
   }
 
-  const handleLinkAll = async () => {
-    try {
-      const linked = await invoke('link_all_imap_accounts')
-      toastOk(`Auto-linked ${linked} email(s) to IMAP accounts`)
-    } catch (e) {
-      const error = handleError(e, 'Imap.handleLinkAll')
-      toastErr(getErrorMessage(error))
-    }
-  }
-
-  const handleSaveImapAccount = async form => {
-    if (editAccount) {
-      await invoke('update_imap_account', { id: editAccount.id, input: form })
-      toastOk(t('imap_account_updated'))
-    } else {
-      await invoke('add_imap_account', { input: form })
-      toastOk(t('imap_account_added'))
-    }
-    await loadAccounts()
-  }
-
-  const handleToggle = async acc => {
-    try {
-      await invoke('toggle_imap_account', { id: acc.id, active: !acc.is_active })
-      setAccounts(prev => prev.map(a => (a.id === acc.id ? { ...a, is_active: !a.is_active } : a)))
-    } catch (e) {
-      const error = handleError(e, 'Imap.handleToggle')
-      toastErr(getErrorMessage(error))
-    }
-  }
-
-  const handleDelete = async acc => {
-    const ok = await confirm(`${t('imap_confirm_delete')} "${acc.label}"?`, {
-      title: t('imap_delete_account'),
-    })
-    if (!ok) return
-    try {
-      await invoke('delete_imap_account', { id: acc.id })
-      toastOk(t('msg_deleted'))
-      await loadAccounts()
-    } catch (e) {
-      const error = handleError(e, 'Imap.handleDelete')
-      toastErr(getErrorMessage(error))
-    }
-  }
-
-  const handleSaveSmtp = async form => {
-    await invoke('add_smtp_config', { input: form })
-    toastOk(t('imap_smtp_added'))
-    await loadSmtp()
-  }
-
-  const handleDeleteSmtp = async id => {
-    const ok = await confirm(t('imap_confirm_delete_smtp'), { title: t('imap_delete_smtp') })
-    if (!ok) return
-    try {
-      await invoke('delete_smtp_config', { id })
-      toastOk(t('msg_deleted'))
-      await loadSmtp()
-    } catch (e) {
-      const error = handleError(e, 'Imap.handleDeleteSmtp')
-      toastErr(getErrorMessage(error))
-    }
-  }
-
-  const handleTestSmtp = async id => {
-    try {
-      const msg = await invoke('test_smtp_connection', { id })
-      toastOk(msg)
-    } catch (e) {
-      const error = handleError(e, 'Imap.handleTestSmtp')
-      toastErr(getErrorMessage(error))
-    }
-  }
-
-  const handleSelectMessage = async msg => {
+  const handleSelectMessage = msg => {
     setSelectedMessage(msg)
     if (!msg.is_read) {
-      try {
-        await invoke('mark_imap_message_read', { accountId: msg.account_id, messageId: msg.id })
-        setMessages(prev => prev.map(m => (m.id === msg.id ? { ...m, is_read: true } : m)))
-        if (selectedAccount) loadStats(selectedAccount.id)
-      } catch {
-        /* silent */
-      }
+      handleMarkRead(msg)
     }
   }
 
   const handleMarkRead = async msg => {
     try {
-      await invoke('mark_imap_message_read', { accountId: msg.account_id, messageId: msg.id })
+      await invoke('mark_imap_read', { id: msg.id })
       setMessages(prev => prev.map(m => (m.id === msg.id ? { ...m, is_read: true } : m)))
-      setSelectedMessage(prev => (prev?.id === msg.id ? { ...prev, is_read: true } : prev))
     } catch (e) {
       const error = handleError(e, 'Imap.handleMarkRead')
       toastErr(getErrorMessage(error))
     }
   }
 
-  const handleDeleteMessage = async msg => {
-    try {
-      await invoke('delete_imap_message', { accountId: msg.account_id, messageId: msg.id })
-    } catch {
-      // Ignore delete errors - remove locally anyway
-    }
-    setMessages(prev => prev.filter(m => m.id !== msg.id))
-    setSelectedMessage(prev => (prev?.id === msg.id ? null : prev))
-    setMsgTotal(prev => Math.max(0, prev - 1))
-    toastOk(t('msg_deleted'))
-  }
-
   const handleArchiveMessage = async msg => {
     try {
-      await invoke('archive_imap_message', { accountId: msg.account_id, messageId: msg.id })
-    } catch {
-      // Ignore archive errors
+      await invoke('archive_imap_message', { id: msg.id })
+      setMessages(prev => prev.filter(m => m.id !== msg.id))
+      if (selectedMessage?.id === msg.id) setSelectedMessage(null)
+      toastOk('Message archived')
+    } catch (e) {
+      const error = handleError(e, 'Imap.handleArchive')
+      toastErr(getErrorMessage(error))
     }
-    setMessages(prev => prev.filter(m => m.id !== msg.id))
-    setSelectedMessage(prev => (prev?.id === msg.id ? null : prev))
-    setMsgTotal(prev => Math.max(0, prev - 1))
-    toastOk('Message archived')
+  }
+
+  const handleDeleteMessage = async msg => {
+    const ok = await confirm('Delete this message?', { danger: true })
+    if (!ok) return
+    try {
+      await invoke('delete_imap_message', { id: msg.id })
+      setMessages(prev => prev.filter(m => m.id !== msg.id))
+      if (selectedMessage?.id === msg.id) setSelectedMessage(null)
+      toastOk('Message deleted')
+    } catch (e) {
+      const error = handleError(e, 'Imap.handleDelete')
+      toastErr(getErrorMessage(error))
+    }
   }
 
   const handleReply = msg => {
-    const originalLines = (msg.body ?? '')
+    const originalLines = msg.body
       .split('\n')
       .slice(0, 10)
       .map(l => `> ${l}`)
@@ -1319,59 +548,96 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const selectFolder = (acc, folder) => {
     setSelectedAccount(acc)
     setSelectedFolder(folder)
-    // Don't force tab switch — let user stay in Accounts/SMTP if they're there
+    loadMessages(acc.id, folder, 1, msgSearch)
   }
 
-  // ── (FolderRow, FolderTree, MessageList are top-level components above) ──
+  const handleSaveImapAccount = async form => {
+    try {
+      if (editAccount) {
+        await invoke('update_imap_account', { id: editAccount.id, input: form })
+        toastOk('Account updated')
+      } else {
+        await invoke('add_imap_account', { input: form })
+        toastOk('Account added')
+      }
+      loadAccounts()
+    } catch (e) {
+      const error = handleError(e, 'Imap.handleSaveImapAccount')
+      toastErr(getErrorMessage(error))
+    }
+  }
 
   return (
-    <div className="content flex flex-col">
+    <div className="h-full flex flex-col bg-app">
       {/* ── Header ── */}
-      <div className="ph">
-        <div>
-          <div className="ph-title">Email / IMAP</div>
-          <div className="ph-sub">
-            {accounts.length} accounts · {smtpConfigs.length} SMTP
+      <header className="h-14 border-b border-border bg-surface flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Mail size={18} className="text-accent" />
+            <h1 className="text-sm font-semibold text-text">IMAP Mail</h1>
           </div>
+          <span className="text-xs text-muted px-2 py-0.5 bg-border rounded-full">
+            {accounts.length} accounts
+          </span>
         </div>
-        <div className="ph-actions">
-          <div className="flex border rounded overflow-hidden">
+
+        <div className="flex items-center gap-2">
+          <div className="flex border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setViewMode('inbox')}
-              className={`view-mode-btn ${viewMode === 'inbox' ? 'active' : ''}`}
+              className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${
+                viewMode === 'inbox'
+                  ? 'bg-accent text-white'
+                  : 'bg-surface text-muted hover:bg-hover'
+              }`}
             >
-              <Inbox size={13} /> Inbox
+              <Inbox size={14} /> Inbox
             </button>
             <button
               onClick={() => setViewMode('sent')}
-              className={`view-mode-btn ${viewMode === 'sent' ? 'active' : ''}`}
+              className={`px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors ${
+                viewMode === 'sent'
+                  ? 'bg-accent text-white'
+                  : 'bg-surface text-muted hover:bg-hover'
+              }`}
             >
-              <Send size={13} /> Sent
+              <Send size={14} /> Sent
             </button>
           </div>
+
           <button
             onClick={() => setShowCompose(true)}
-            className="btn btn-g btn-sm"
             disabled={smtpConfigs.length === 0}
-            title={smtpConfigs.length === 0 ? 'Add SMTP config first' : 'Compose'}
+            className="btn btn-primary btn-sm flex items-center gap-1.5"
+            title={smtpConfigs.length === 0 ? 'Add SMTP first' : 'Compose'}
           >
-            <PenSquare size={13} /> {t('imap_compose')}
+            <PenSquare size={14} /> Compose
           </button>
-          <button onClick={handleCheckAll} disabled={checking} className="btn btn-b btn-sm">
-            <RefreshCw size={13} className={checking ? 'animate-spin' : ''} />
-            {t('imap_check_now')}
-          </button>
+
           <button
-            onClick={() => setShowAccountsPanel(true)}
-            className="btn btn-ghost btn-sm"
-            title="Manage accounts & SMTP"
+            onClick={handleCheckAll}
+            disabled={checking}
+            className="btn btn-secondary btn-sm flex items-center gap-1.5"
           >
-            <Settings size={13} />
+            <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />
+            Check All
+          </button>
+
+          <button
+            onClick={() => setShowAddImap(true)}
+            className="btn btn-ghost btn-sm p-2"
+            title="Add Account"
+          >
+            <Plus size={16} />
+          </button>
+
+          <button onClick={loadAccounts} className="btn btn-ghost btn-sm p-2" title="Refresh">
+            <Settings size={16} />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* ── 3-column inbox view ── */}
+      {/* ── Main Content ── */}
       {viewMode === 'inbox' && (
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <ImapFolderTree
@@ -1386,6 +652,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             onSelectFolder={selectFolder}
             onAddImap={() => setShowAddImap(true)}
           />
+
           <ImapEmailList
             messages={messages}
             selectedMessage={selectedMessage}
@@ -1406,6 +673,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             msgSearch={msgSearch}
             onMsgContextMenu={info => setContextMenu(info)}
           />
+
           <ImapMessageViewer
             message={selectedMessage}
             onReply={handleReply}
@@ -1416,169 +684,13 @@ export default function Imap({ onNavigate: _onNavigate }) {
         </div>
       )}
 
-      {/* ── Sent emails view ── */}
       {viewMode === 'sent' && (
-        <div className="flex-1 overflow-y-auto px-1">
-          <div className="flex items-center justify-between p-[8px_4px]">
-            <span className="text-[12px] text-muted">
-              {sentTotal} sent email{sentTotal !== 1 ? 's' : ''}
-            </span>
-            <button onClick={() => loadSentEmails(sentPage)} className="btn btn-ghost btn-sm">
-              <RefreshCw size={13} />
-            </button>
+        <div className="flex-1 flex items-center justify-center text-muted">
+          <div className="text-center">
+            <Send size={48} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Sent emails will appear here</p>
           </div>
-          {loadingSent ? (
-            <div className="py-10 text-center text-muted text-[13px]">Loading…</div>
-          ) : sentEmails.length === 0 ? (
-            <div className="py-[60px] text-center text-muted text-[13px]">No sent emails</div>
-          ) : (
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>From</th>
-                  <th>To</th>
-                  <th>Subject</th>
-                  <th>Status</th>
-                  <th>Sent At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sentEmails.map(e => (
-                  <tr key={e.id}>
-                    <td className="text-[11px] text-muted">{e.from_email ?? '—'}</td>
-                    <td className="text-[12px]">{e.to_email}</td>
-                    <td className="text-[12px]">{e.subject ?? '—'}</td>
-                    <td>
-                      <span
-                        className={`st ${e.status === 'sent' ? 'st-delivered' : e.status === 'failed' ? 'st-decline' : 'st-pending'}`}
-                      >
-                        {e.status}
-                      </span>
-                    </td>
-                    <td className="text-[11px] text-muted">
-                      {e.sent_at ? e.sent_at.slice(0, 16).replace('T', ' ') : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {sentTotal > 50 && (
-            <div className="flex justify-center gap-2 py-3">
-              <button
-                disabled={sentPage <= 1}
-                onClick={() => loadSentEmails(sentPage - 1)}
-                className="btn btn-ghost btn-sm"
-              >
-                ← Prev
-              </button>
-              <span className="text-[12px] text-muted leading-[28px]">
-                Page {sentPage} / {Math.ceil(sentTotal / 50)}
-              </span>
-              <button
-                disabled={sentPage >= Math.ceil(sentTotal / 50)}
-                onClick={() => loadSentEmails(sentPage + 1)}
-                className="btn btn-ghost btn-sm"
-              >
-                Next →
-              </button>
-            </div>
-          )}
         </div>
-      )}
-
-      {/* ── Context menu ── */}
-      {contextMenu && (
-        <div
-          className="fixed bg-card border rounded-md min-w-[180px] py-1 z-[9999] shadow-lg"
-          style={{
-            top: contextMenu.y,
-            left: contextMenu.x,
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="px-3 py-1.5 border-b border-border mb-1">
-            <span className="text-[10px] text-muted uppercase tracking-wide">
-              {contextMenu.msg.from_email?.split('@')[1] || 'Unknown'}
-            </span>
-          </div>
-          {[
-            {
-              label: 'Add as Shop/Service',
-              icon: <Store size={12} />,
-              action: () => {
-                setQuickAddPanel({
-                  x: contextMenu.x,
-                  y: contextMenu.y,
-                  email: contextMenu.msg.from_email,
-                  shopName:
-                    contextMenu.msg.from_email
-                      ?.split('@')[1]
-                      ?.split('.')[0]
-                      .replace(/[-_]/g, ' ') || '',
-                })
-                setContextMenu(null)
-              },
-            },
-            {
-              label: 'Mark as Read',
-              icon: <CheckCircle size={12} />,
-              action: () => {
-                handleMarkRead(contextMenu.msg)
-                setContextMenu(null)
-              },
-            },
-            {
-              label: 'Archive',
-              icon: <Archive size={12} />,
-              action: () => {
-                handleArchiveMessage(contextMenu.msg)
-                setContextMenu(null)
-              },
-            },
-            {
-              label: 'Delete',
-              icon: <Trash2 size={12} />,
-              action: () => {
-                handleDeleteMessage(contextMenu.msg)
-                setContextMenu(null)
-              },
-            },
-          ].map(({ label, icon, action }) => (
-            <button
-              key={label}
-              onClick={action}
-              className="flex items-center gap-2 w-full py-2 px-\[14px\] border-none bg-transparent cursor-pointer text-[13px] text-text text-left hover:bg-hover transition-colors"
-            >
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ── Quick Add Float Panel ── */}
-      {quickAddPanel && (
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setQuickAddPanel(null)} />
-          <div
-            style={{
-              position: 'fixed',
-              left: Math.min(quickAddPanel.x, window.innerWidth - 360),
-              top: Math.min(quickAddPanel.y, window.innerHeight - 400),
-              zIndex: 9999,
-            }}
-          >
-            <QuickAddFloatPanel
-              email={quickAddPanel.email}
-              shopName={quickAddPanel.shopName}
-              onClose={() => setQuickAddPanel(null)}
-              onAdded={() => {
-                toastOk('Shop added successfully')
-                setQuickAddPanel(null)
-              }}
-            />
-          </div>
-        </>
       )}
 
       {/* ── Modals ── */}
@@ -1596,7 +708,6 @@ export default function Imap({ onNavigate: _onNavigate }) {
           onClose={() => setEditAccount(null)}
         />
       )}
-      {showAddSmtp && <SmtpModal onSave={handleSaveSmtp} onClose={() => setShowAddSmtp(false)} />}
       {showCompose && (
         <ComposeModal
           smtpConfigs={smtpConfigs}
@@ -1613,27 +724,44 @@ export default function Imap({ onNavigate: _onNavigate }) {
           }}
         />
       )}
-      {showAccountsPanel && (
-        <AccountsPanel
-          accounts={accounts}
-          smtpConfigs={smtpConfigs}
-          stats={stats}
-          onAddImap={() => {
-            setShowAccountsPanel(false)
-            setShowAddImap(true)
-          }}
-          onEditImap={acc => setEditAccount(acc)}
-          onDeleteImap={handleDelete}
-          onToggleImap={handleToggle}
-          onAddSmtp={() => {
-            setShowAccountsPanel(false)
-            setShowAddSmtp(true)
-          }}
-          onDeleteSmtp={handleDeleteSmtp}
-          onTestSmtp={handleTestSmtp}
-          onLinkAll={handleLinkAll}
-          onClose={() => setShowAccountsPanel(false)}
-        />
+
+      {/* ── Context Menu ── */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed z-50 bg-surface border border-border rounded-lg shadow-xl py-1 min-w-[160px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              className="w-full px-3 py-2 text-xs text-left hover:bg-hover flex items-center gap-2"
+              onClick={() => {
+                handleMarkRead(contextMenu.msg)
+                setContextMenu(null)
+              }}
+            >
+              <CheckCircle size={14} /> Mark as Read
+            </button>
+            <button
+              className="w-full px-3 py-2 text-xs text-left hover:bg-hover flex items-center gap-2"
+              onClick={() => {
+                handleArchiveMessage(contextMenu.msg)
+                setContextMenu(null)
+              }}
+            >
+              <Archive size={14} /> Archive
+            </button>
+            <button
+              className="w-full px-3 py-2 text-xs text-left hover:bg-hover flex items-center gap-2 text-error"
+              onClick={() => {
+                handleDeleteMessage(contextMenu.msg)
+                setContextMenu(null)
+              }}
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
