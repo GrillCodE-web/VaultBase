@@ -113,8 +113,8 @@ function ItemsTab() {
   }
 
   const handleDeleteSelected = async () => {
-    if (selected.length === 0) return
-    const ok = await confirm(`Delete ${selected.length} item${selected.length > 1 ? 's' : ''}?`, {
+    if (selected.size === 0) return
+    const ok = await confirm(`Delete ${selected.size} item${selected.size > 1 ? 's' : ''}?`, {
       title: 'Delete Items',
       danger: true,
     })
@@ -133,14 +133,17 @@ function ItemsTab() {
 
   const toggleSelect = (id, checked) => {
     setSelected(prev => {
+      const next = new Set(prev)
       if (checked) {
-        return [...prev, id]
+        next.add(id)
+      } else {
+        next.delete(id)
       }
-      return prev.filter(sid => sid !== id)
+      return next
     })
   }
 
-  const allChecked = items.length > 0 && items.every(i => selected.includes(i.id))
+  const allChecked = items.length > 0 && items.every(i => selected.has(i.id))
 
   return (
     <div>
@@ -153,13 +156,13 @@ function ItemsTab() {
           placeholder="Search by name or ASIN…"
         />
         <span className="text-[12px] text-muted ml-1">{total} items</span>
-        {selected.length > 0 && (
+        {selected.size > 0 && (
           <button className="btn btn-r btn-sm" onClick={handleDeleteSelected}>
-            Delete {selected.length} selected
+            Delete {selected.size} selected
           </button>
         )}
-        {selected.length > 0 && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelected([])}>
+        {selected.size > 0 && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>
             Clear
           </button>
         )}
@@ -175,7 +178,9 @@ function ItemsTab() {
                   type="checkbox"
                   className="cb"
                   checked={allChecked}
-                  onChange={e => setSelected(e.target.checked ? items.map(i => i.id) : [])}
+                  onChange={e =>
+                    setSelected(e.target.checked ? new Set(items.map(i => i.id)) : new Set())
+                  }
                 />
               </th>
               <th>Name</th>
