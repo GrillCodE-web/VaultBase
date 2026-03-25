@@ -11,22 +11,12 @@ import {
   Mail,
   Archive,
   Trash2,
-  Star,
-  Clock,
   AlertCircle,
   CheckCircle,
-  Search,
-  ChevronRight,
-  ChevronDown,
-  Folder,
-  MoreVertical,
-  Reply,
-  Forward,
-  Paperclip,
   X,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ImapFolderTree, ImapEmailList, ImapMessageViewer } from './Imap/components/index.js'
@@ -42,21 +32,11 @@ function AccountModal({ account, onSave, onClose }) {
     password: '',
     poll_interval: account?.poll_interval ?? 60,
   })
-  const [autoDetected, setAutoDetected] = useState(null)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [saving, setSaving] = useState(false)
-  const { error: toastErr } = useToast()
+  const { error: toastErr } = usePremiumToast()
   const isEdit = !!account
-
-  const [smtpDetected, setSmtpDetected] = useState(null)
-  const [setupSmtp, setSetupSmtp] = useState(true)
-  const [smtpForm, setSmtpForm] = useState({
-    host: '',
-    port: 587,
-    use_tls: false,
-    use_starttls: true,
-  })
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -227,7 +207,7 @@ function AccountModal({ account, onSave, onClose }) {
 // ─── Compose Modal ──────────────────────────────────────────────────────────
 function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onClose, onSent }) {
   const { t } = useLang()
-  const { success: toastOk, error: toastErr } = useToast()
+  const { success: toastOk, error: toastErr } = usePremiumToast()
   const [form, setForm] = useState({
     smtp_config_id: smtpConfigs[0]?.id ?? null,
     to: defaultTo ?? '',
@@ -358,7 +338,7 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
 
 // ─── Main Imap Page ───────────────────────────────────────────────────────
 export default function Imap({ onNavigate: _onNavigate }) {
-  const { success: toastOk, error: toastErr } = useToast()
+  const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 

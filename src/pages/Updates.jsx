@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { check as checkUpdate } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { RefreshCw, Package, CheckCircle, Receipt, XCircle, AlertTriangle, Pin } from 'lucide-react'
-import { useToast } from '../hooks/useToast.jsx'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useLang } from '../hooks/useLang.jsx'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
@@ -144,7 +144,7 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
 // ─── Main page ────────────────────────────────────────────────
 
 export default function Updates() {
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { t } = useLang()
 
   const [items, setItems] = useState([])

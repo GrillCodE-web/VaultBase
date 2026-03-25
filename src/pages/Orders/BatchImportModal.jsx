@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Upload } from 'lucide-react'
-import { useToast } from '../../hooks/useToast'
+import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { STATUS_COLORS } from '../../constants/colors'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
@@ -10,7 +10,7 @@ export function BatchImportModal({ onCreated, onClose }) {
   const [fileName, setFileName] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const modalRef = useRef(null)
 
   useEffect(() => {

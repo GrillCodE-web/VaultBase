@@ -3,7 +3,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { invoke } from '@tauri-apps/api/core'
 import { User, MapPin, Check, X, Shuffle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
-import { useToast } from '../../hooks/useToast'
+import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { HEX_COLORS } from '../../constants/colors.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
@@ -20,7 +20,7 @@ export function ProfileModal({ onCreated, onClose }) {
   const [saveAsTemplate, setSaveAsTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [autoCreateDrop, setAutoCreateDrop] = useState(true)
-  const { toast, error: toastErr } = useToast()
+  const { toast, error: toastErr } = usePremiumToast()
 
   // ── Email auto-assignment state ──────────
   const [emailInput, setEmailInput] = useState('')

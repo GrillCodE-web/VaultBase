@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { ShieldCheck, ShieldAlert, WifiOff, RefreshCw, Copy, Check } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { HEX_COLORS } from '../constants/colors.js'
 
 export function LicenseSection() {
   const { t } = useLang()
-  const { success: toastOk } = useToast()
+  const { success: toastOk } = usePremiumToast()
 
   const [status, setStatus] = useState(null)
   const [installId, setInstallId] = useState('')

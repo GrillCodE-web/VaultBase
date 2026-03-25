@@ -21,7 +21,7 @@ import {
   ShoppingCart,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
@@ -101,7 +101,7 @@ function ImportDropsModal({ profileId, onDone, onClose }) {
   const [preview, setPreview] = useState(null)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { t } = useLang()
 
   const DROP_COLUMNS = [
@@ -471,7 +471,7 @@ function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   const [showDupDrops, setShowDupDrops] = useState(false)
   const [dupDropGroups, setDupDropGroups] = useState([])
   const [ltvData, setLtvData] = useState(null)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 
@@ -882,7 +882,7 @@ function QuickOrderModal({ profile, onClose, onCreated }) {
   const [itemSku, setItemSku] = useState('')
   const [amount, setAmount] = useState('')
   const [saving, setSaving] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
 
   const handleLookup = async () => {
     if (!url.trim()) return
@@ -1026,7 +1026,7 @@ export default function ProfileList({
   const [selectedIdx, setSelectedIdx] = useState(null)
   const tableBodyRef = useRef(null)
   const tableContainerRef = useRef(null)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { t } = useLang()
 
   // Virtual scrolling setup

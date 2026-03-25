@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { Mail, MailCheck, ShieldOff, Trash2, Plus, RefreshCw, X, Link2, Unlink } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
@@ -112,7 +112,7 @@ function EmailModal({ initial, onSave, onClose }) {
       : { email: '', label: '', notes: '' }
   )
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { t } = useLang()
   const isEdit = !!initial
 
@@ -239,7 +239,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
   const [modal, setModal] = useState(null) // null | "add" | EmailPoolEntry
   const [imapAccounts, setImapAccounts] = useState([])
   const [selected, setSelected] = useState(new Set())
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { BookOpen } from 'lucide-react'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { DEFAULT_PAGE_SIZE } from '../utils/pagination.js'
 import { STATUS_COLORS, RISK_COLORS } from '../constants/colors'
@@ -56,7 +56,7 @@ function ItemsTab() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(new Set())
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const searchTimer = useRef(null)
 
@@ -306,7 +306,7 @@ function ShopsTab() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const searchTimer = useRef(null)
 
   const load = useCallback(

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useLang } from '../../hooks/useLang.jsx'
-import { useToast } from '../../hooks/useToast.jsx'
+import { usePremiumToast } from '../../hooks/usePremiumToast'
 import {
   formatCardNumber,
   formatBinMasked,
@@ -25,7 +25,7 @@ export function CardSidePanel({
   onCopy,
 }) {
   const { t } = useLang()
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const rev = revealed[card.id]
   const displayNum = rev?.card_number
     ? formatCardNumber(rev.card_number)

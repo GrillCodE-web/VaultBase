@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom/client'
 import { invoke } from '@tauri-apps/api/core'
 import { useLang, LangProvider } from './hooks/useLang'
-import { ToastProvider, useToast } from './hooks/useToast'
+import { usePremiumToast } from './hooks/usePremiumToast'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Lock } from 'lucide-react'
@@ -102,7 +102,7 @@ function fmtDate(iso) {
 // eslint-disable-next-line react-refresh/only-export-components -- Float window entry point
 function ProfileFloat() {
   const { t } = useLang()
-  const { success: toastOk, error: toastErr } = useToast()
+  const { success: toastOk, error: toastErr } = usePremiumToast()
 
   const [profileId, setProfileId] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -629,8 +629,6 @@ function ProfileFloat() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <LangProvider>
-    <ToastProvider>
-      <ProfileFloat />
-    </ToastProvider>
+    <ProfileFloat />
   </LangProvider>
 )

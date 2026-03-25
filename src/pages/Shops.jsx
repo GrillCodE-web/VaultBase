@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { Download, ExternalLink, Store } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { getDeliveryRateColor, getRiskColor, STATUS_COLORS } from '../constants/colors.js'
@@ -120,7 +120,7 @@ function ProductModal({ initial, onSave, onClose }) {
       : { ...EMPTY_PRODUCT }
   )
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { t } = useLang()
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -305,7 +305,7 @@ function ShopModal({ initial, onSave, onClose }) {
       : { ...EMPTY_SHOP }
   )
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { t } = useLang()
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -444,7 +444,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [productModal, setProductModal] = useState(null)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 
@@ -726,7 +726,7 @@ export default function ShopList({ onNavigate }) {
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [winLossMap, setWinLossMap] = useState({})
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 

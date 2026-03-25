@@ -12,7 +12,7 @@ import {
 import { AlertTriangle, ChevronRight, RefreshCw, Download, FileDown } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { formatCurrency, formatNumber } from '../utils/formatting'
 import {
   CHART_COLORS,
@@ -447,7 +447,7 @@ function CollapsePanel({ title, id, collapsed, onToggle, children }) {
 
 export default function Dashboard({ onNavigate }) {
   const { t } = useLang()
-  const { success: toastSuccess, error: toastError } = useToast()
+  const { success: toastSuccess, error: toastError } = usePremiumToast()
 
   const [period, setPeriod] = useState('7d')
   const [from, setFrom] = useState('')

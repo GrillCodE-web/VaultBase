@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { AlertTriangle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang.jsx'
-import { useToast } from '../../hooks/useToast.jsx'
+import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { normalizeExpiry } from '../../utils/formatting.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
@@ -31,7 +31,7 @@ function Spinner() {
 
 export function ImportModal({ onClose, onImported }) {
   const { t } = useLang()
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const [step, setStep] = useState(1)
   const [raw, setRaw] = useState('')
   const [source, setSource] = useState('')

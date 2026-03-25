@@ -10,7 +10,7 @@ import {
   RefreshCw,
   KeyRound,
 } from 'lucide-react'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useLang } from '../hooks/useLang.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
@@ -74,7 +74,7 @@ function EntityBadge({ type }) {
 }
 
 export default function ActivityLog() {
-  const { success: toastOk, error: toastErr } = useToast()
+  const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 

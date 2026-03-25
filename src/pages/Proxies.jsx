@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
@@ -64,7 +64,7 @@ function StatusBadge({ proxy, healthStatus }) {
 function UsageStatsModal({ onClose }) {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -214,7 +214,7 @@ function ProxyModal({ initial, onSave, onClose }) {
       : { ...EMPTY_PROXY }
   )
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const isEdit = !!initial
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -355,7 +355,7 @@ function ImportModal({ onDone, onClose }) {
   const [raw, setRaw] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
 
   const handleImport = async () => {
     if (!raw.trim()) return
@@ -465,7 +465,7 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
   const [open, setOpen] = useState(false)
   const [shops, setShops] = useState([])
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const ref = useRef(null)
 
   useEffect(() => {
@@ -572,7 +572,7 @@ export default function ProxyList() {
   const [checkingHealth, setCheckingHealth] = useState(false)
   // G2: proxy-shop bindings map: { [proxy_id]: shopObj }
   const [proxyBindings, setProxyBindings] = useState({}) // proxy_id -> shop obj
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 

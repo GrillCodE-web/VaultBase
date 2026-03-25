@@ -22,7 +22,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
@@ -311,7 +311,7 @@ function ShippedModal({ onConfirm, onClose }) {
 function StatusMenu({ order, onUpdate, onClose }) {
   const { t } = useLang()
   const [showShippedModal, setShowShippedModal] = useState(false)
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
 
   const handleStatus = async status => {
@@ -394,7 +394,7 @@ function StatusMenu({ order, onUpdate, onClose }) {
 // ─── E1: RepeatOrderModal ─────────────────────────────────────
 function RepeatOrderModal({ order, onCreated, onClose }) {
   const { t } = useLang()
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const [profiles, setProfiles] = useState([])
   const [selectedProfileId, setSelectedProfileId] = useState(
     order.profile_id ? String(order.profile_id) : ''
@@ -552,7 +552,7 @@ function CreateOrderModal({ onCreated, onClose }) {
   const [profileSearch, setProfileSearch] = useState('')
   const [profileResults, setProfileResults] = useState([])
 
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { suggestions: smartSuggs } = useSmartSuggestions(shopId, profileDetail?.card?.id)
 
   // ── Profile search ──
@@ -1325,7 +1325,7 @@ export default function OrderList({
   openCreate = false,
 }) {
   const { t } = useLang()
-  const { toast } = useToast()
+  const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
 
   // ── Zustand Store ──────────────────────────────────────────────

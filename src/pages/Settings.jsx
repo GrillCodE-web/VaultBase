@@ -24,7 +24,7 @@ import {
   Moon,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
-import { useToast } from '../hooks/useToast'
+import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTheme } from '../hooks/useTheme'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
@@ -34,7 +34,7 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 export default function Settings() {
   const { t, lang, setLang } = useLang()
-  const { success: toastOk, error: toastErr } = useToast()
+  const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
   const { theme, toggleTheme } = useTheme()
 

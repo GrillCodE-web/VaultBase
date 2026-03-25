@@ -3,7 +3,6 @@ import { listen } from '@tauri-apps/api/event'
 import { Archive, Upload, RefreshCw, CreditCard, Zap } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang.jsx'
-import { useToast } from '../hooks/useToast.jsx'
 import { usePremiumToast } from '../hooks/usePremiumToast.js'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
@@ -71,7 +70,7 @@ const DEFAULT_COLS = [
 export default function Cards({ onNavigate, activeTab = 'list', openImport = false }) {
   const { t } = useLang()
   const ALL_COLUMNS = getAllColumns(t)
-  const { toast } = useToast() // Backwards compatible — uses SmartToast internally
+  const { toast } = usePremiumToast() // Backwards compatible — uses SmartToast internally
   const { confirm } = useConfirm()
   const { successDelete, successExport, errorLoad, errorSave } = usePremiumToast()
 
@@ -185,7 +184,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // Load cards when filters or page change
   useEffect(() => {
-    fetchCards().catch(e => {
+    fetchCards().catch(() => {
       errorLoad('Cards')
     })
   }, [fetchCards, errorLoad])
