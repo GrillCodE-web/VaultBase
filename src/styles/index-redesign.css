@@ -30,6 +30,7 @@
 
 /* ── Pages (Redesigned) ─────────────────────────────────── */
 @import './pages/dashboard-redesign.css';
+@import './pages/dashboard-cards-redesign.css';
 @import './pages/auth-redesign.css';
 @import './pages/cards-redesign.css';
 @import './pages/profiles-redesign.css';

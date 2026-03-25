@@ -1,0 +1,589 @@
+/* ═══════════════════════════════════════════════════════════
+   DASHBOARD CARDS — PREMIUM REDESIGN
+   Cyber-Financial Terminal Cards with Smart Interactions
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Smart Stat Cards Grid ───────────────────────────────── */
+.smart-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+/* ─── Premium Stat Card ───────────────────────────────────── */
+.stat-card-premium {
+  position: relative;
+  background: var(--gradient-card);
+  border-radius: var(--r-xl);
+  padding: var(--sp-5);
+  overflow: hidden;
+  transition: all var(--t-mid);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.stat-card-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 217, 255, 0.08) 0%,
+    transparent 50%,
+    rgba(20, 241, 149, 0.05) 100%
+  );
+  opacity: 0;
+  transition: opacity var(--t-mid);
+  pointer-events: none;
+}
+
+.stat-card-premium:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow);
+  border-color: var(--accent-border);
+}
+
+.stat-card-premium:hover::before {
+  opacity: 1;
+}
+
+.stat-card-premium.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 24px rgba(0, 217, 255, 0.2);
+}
+
+/* Card Content Layout */
+.stat-card-content {
+  position: relative;
+  z-index: 1;
+}
+
+.stat-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all var(--t-fast);
+}
+
+.stat-card-premium:hover .stat-card-icon {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  transform: scale(1.05);
+}
+
+.stat-card-icon svg {
+  transition: transform var(--t-fast);
+}
+
+.stat-card-premium:hover .stat-card-icon svg {
+  transform: scale(1.1);
+}
+
+.stat-card-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: var(--sp-1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-card-value {
+  font-size: 32px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: var(--sp-2);
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-card-sub {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-card-sub.trend-positive {
+  color: var(--green-t);
+}
+
+.stat-card-sub.trend-negative {
+  color: var(--red-t);
+}
+
+.stat-card-sub.trend-neutral {
+  color: var(--text-3);
+}
+
+/* Trend Indicator */
+.trend-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.trend-indicator.up {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green-t);
+}
+
+.trend-indicator.down {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red-t);
+}
+
+/* ─── Card Status Badge ───────────────────────────────────── */
+.card-status-badge {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  padding: 3px 8px;
+  border-radius: var(--r-full);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-status-badge.free {
+  background: var(--color-card-free-bg);
+  color: var(--color-card-free);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.card-status-badge.in-use {
+  background: var(--color-card-in-use-bg);
+  color: var(--color-card-in-use);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.card-status-badge.dead {
+  background: var(--color-card-dead-bg);
+  color: var(--color-card-dead);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.card-status-badge.archive {
+  background: var(--color-card-archive-bg);
+  color: var(--color-card-archive);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+/* ─── Mini Chart Area ─────────────────────────────────────── */
+.mini-chart {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 100px;
+  height: 40px;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.mini-chart path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.mini-chart.area {
+  fill: url(#miniChartGradient);
+  stroke: none;
+}
+
+/* ─── Progress Ring ───────────────────────────────────────── */
+.progress-ring-container {
+  position: absolute;
+  top: var(--sp-4);
+  right: var(--sp-4);
+  width: 40px;
+  height: 40px;
+}
+
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+  transition: stroke-dashoffset var(--t-slow);
+  transform-origin: 50% 50%;
+}
+
+.progress-ring-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ─── Card Variants ───────────────────────────────────────── */
+.stat-card-revenue {
+  --card-accent: var(--blue);
+  --card-accent-dim: var(--blue-dim);
+  --card-accent-border: var(--blue-border);
+}
+
+.stat-card-profit {
+  --card-accent: var(--green);
+  --card-accent-dim: var(--green-dim);
+  --card-accent-border: var(--green-border);
+}
+
+.stat-card-orders {
+  --card-accent: var(--purple);
+  --card-accent-dim: var(--purple-dim);
+  --card-accent-border: var(--purple-border);
+}
+
+.stat-card-cards {
+  --card-accent: var(--cyan);
+  --card-accent-dim: rgba(6, 182, 212, 0.1);
+  --card-accent-border: rgba(6, 182, 212, 0.3);
+}
+
+/* ─── Alert Cards ─────────────────────────────────────────── */
+.alert-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-2);
+  border: 1px solid;
+  animation: alertPulse 2s ease-in-out infinite;
+}
+
+@keyframes alertPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.alert-card.error {
+  background: var(--color-error-bg);
+  border-color: var(--red-border);
+}
+
+.alert-card.warning {
+  background: var(--color-warning-bg);
+  border-color: var(--yellow-border);
+  animation: alertPulseWarning 3s ease-in-out infinite;
+}
+
+@keyframes alertPulseWarning {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
+.alert-card.info {
+  background: var(--color-info-bg);
+  border-color: var(--blue-border);
+  animation: none;
+}
+
+.alert-card-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.alert-card-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.alert-card-action {
+  flex-shrink: 0;
+}
+
+.alert-card-action button {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.alert-card-action button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+}
+
+/* ─── Smart Notification Toast ────────────────────────────── */
+.smart-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.smart-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  min-width: 320px;
+  max-width: 480px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.smart-toast.exit {
+  animation: slideOutRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+}
+
+.smart-toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+.smart-toast.success::before {
+  background: var(--color-success);
+}
+
+.smart-toast.error::before {
+  background: var(--color-error);
+}
+
+.smart-toast.warning::before {
+  background: var(--color-warning);
+}
+
+.smart-toast.info::before {
+  background: var(--color-info);
+}
+
+.smart-toast-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-full);
+}
+
+.smart-toast.success .smart-toast-icon {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.smart-toast.error .smart-toast-icon {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.smart-toast.warning .smart-toast-icon {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.smart-toast.info .smart-toast-icon {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.smart-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.smart-toast-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.smart-toast-message {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.smart-toast-close {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--r-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--t-fast);
+}
+
+.smart-toast-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.smart-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--border-accent);
+  animation: progressLinear var(--toast-duration, 4s) linear forwards;
+}
+
+@keyframes progressLinear {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.smart-toast:hover .smart-toast-progress {
+  animation-play-state: paused;
+}
+
+/* ─── Action Buttons within Cards ─────────────────────────── */
+.card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.card-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.card-action-btn.primary {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.card-action-btn.primary:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ─── Card Footer Actions ─────────────────────────────────── */
+.card-footer-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Responsive Adjustments ──────────────────────────────── */
+@media (max-width: 768px) {
+  .smart-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-toast {
+    min-width: auto;
+    max-width: calc(100vw - 48px);
+  }
+}
