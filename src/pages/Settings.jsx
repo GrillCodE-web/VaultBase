@@ -63,55 +63,63 @@ export default function Settings() {
   const [catalogStats, setCatalogStats] = useState(null)
 
   useEffect(() => {
+    // ★ Insight: Флаг cancelled предотвращает setState после unmount
+    let cancelled = false
+
     // All DB calls in parallel — fast
     Promise.allSettled([
       invoke('get_config', { key: 'bin_api_key' }).then(v => {
-        if (v) setBinApiKey(v)
+        if (!cancelled && v) setBinApiKey(v)
       }),
       invoke('get_config', { key: 'always_on_top' }).then(v => {
-        setAlwaysOnTop(v === '1')
+        if (!cancelled) setAlwaysOnTop(v === '1')
       }),
       invoke('get_config', { key: 'autolock_timeout' }).then(v => {
-        if (v) setAutoLock(v)
+        if (!cancelled && v) setAutoLock(v)
       }),
       invoke('get_sidebar_badges').then(b => {
-        setUnsyncedCount(b.unsynced_footprints ?? 0)
+        if (!cancelled) setUnsyncedCount(b.unsynced_footprints ?? 0)
       }),
       invoke('get_config', { key: 'last_backup_time' }).then(v => {
-        if (v) setLastBackup(v)
+        if (!cancelled && v) setLastBackup(v)
       }),
       invoke('get_config', { key: 'badge_notify_imap' }).then(v => {
-        setBadgeNotifyImap(v !== '0')
+        if (!cancelled) setBadgeNotifyImap(v !== '0')
       }),
       invoke('get_config', { key: 'badge_notify_tracking' }).then(v => {
-        setBadgeNotifyTracking(v !== '0')
+        if (!cancelled) setBadgeNotifyTracking(v !== '0')
       }),
       invoke('get_catalog_stats')
-        .then(s => setCatalogStats(s))
+        .then(s => {
+          if (!cancelled) setCatalogStats(s)
+        })
         .catch(e => console.error('[Settings] Failed to get catalog stats:', e)),
     ])
     // Network call deferred — doesn't block initial render
     invoke('sync_get_group_status')
       .then(s => {
-        setSyncGroup(s.in_group ? s : false)
+        if (!cancelled) setSyncGroup(s.in_group ? s : false)
       })
       .catch(e => {
         console.error('[Settings] Failed to get sync group status:', e)
-        setSyncGroup(false)
+        if (!cancelled) setSyncGroup(false)
       })
 
     // Listen for catalog sync and WS connection status
     const u1 = listen('catalog_synced', () => {
       invoke('get_catalog_stats')
-        .then(s => setCatalogStats(s))
+        .then(s => {
+          if (!cancelled) setCatalogStats(s)
+        })
         .catch(e => console.error('[Settings] Failed to get catalog stats after sync:', e))
     })
     const u2 = listen('ws_sync:status', e => {
-      setWsStatus(e.payload)
+      if (!cancelled) setWsStatus(e.payload)
     })
     return () => {
-      u1.then(fn => fn())
-      u2.then(fn => fn())
+      cancelled = true
+      u1.then(fn => fn()).catch(() => {})
+      u2.then(fn => fn()).catch(() => {})
     }
   }, [])
 

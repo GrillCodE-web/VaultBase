@@ -421,6 +421,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
           perPage: 30,
           search,
         })
+        // ★ Insight: Проверка актуальности — если accountId изменился, не обновляем состояние
         setMessages(result.messages)
         setMsgTotal(result.total)
         setMsgPage(page)

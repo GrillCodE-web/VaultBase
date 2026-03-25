@@ -60,14 +60,23 @@ function ItemsTab() {
   const { confirm } = useConfirm()
   const searchTimer = useRef(null)
 
+  // ★ Insight: Ref для актуальных page/search чтобы listener использовал свежие значения
+  const pageRef = useRef(page)
+  const searchRef = useRef(search)
+  pageRef.current = page
+  searchRef.current = search
+
   const load = useCallback(
-    async (p = page, s = search) => {
+    async (p, s) => {
+      // Если параметры не переданы, используем актуальные значения из ref
+      const actualPage = p ?? pageRef.current
+      const actualSearch = s ?? searchRef.current
       setLoading(true)
       try {
         const r = await invoke('get_catalog_items', {
-          page: p,
+          page: actualPage,
           perPage: DEFAULT_PAGE_SIZE,
-          search: s || '',
+          search: actualSearch || '',
         })
         setItems(r.items)
         setTotal(r.total)
@@ -79,19 +88,22 @@ function ItemsTab() {
         setLoading(false)
       }
     },
-    [page, search, toast]
+    [toast]
   )
 
   useEffect(() => {
     load(1, '')
     // Real-time: refresh when a new catalog item arrives via WebSocket
+    // ★ Insight: Используем ref для актуальных page/search чтобы избежать stale closure
     const unlisten = listen('catalog_item_added', () => {
-      load(page, search)
+      load() // load() использует текущие значения из ref
     })
     return () => {
       unlisten.then(fn => fn())
+      // ★ Insight: Cleanup timer при unmount предотвращает memory leak
+      clearTimeout(searchTimer.current)
     }
-  }, [load, page, search])
+  }, [load])
 
   const handleSearch = val => {
     setSearch(val)
@@ -309,14 +321,23 @@ function ShopsTab() {
   const { toast } = usePremiumToast()
   const searchTimer = useRef(null)
 
+  // ★ Insight: Ref для актуальных page/search чтобы listener использовал свежие значения
+  const pageRef = useRef(page)
+  const searchRef = useRef(search)
+  pageRef.current = page
+  searchRef.current = search
+
   const load = useCallback(
-    async (p = page, s = search) => {
+    async (p, s) => {
+      // Если параметры не переданы, используем актуальные значения из ref
+      const actualPage = p ?? pageRef.current
+      const actualSearch = s ?? searchRef.current
       setLoading(true)
       try {
         const r = await invoke('get_catalog_shops', {
-          page: p,
+          page: actualPage,
           perPage: DEFAULT_PAGE_SIZE,
-          search: s || '',
+          search: actualSearch || '',
         })
         setShops(r.items)
         setTotal(r.total)
@@ -328,19 +349,21 @@ function ShopsTab() {
         setLoading(false)
       }
     },
-    [page, search, toast]
+    [toast]
   )
 
   useEffect(() => {
     load(1, '')
     // Real-time: refresh when a new catalog shop arrives via WebSocket
     const unlisten = listen('catalog_shop_added', () => {
-      load(page, search)
+      load() // load() использует текущие значения из ref
     })
     return () => {
       unlisten.then(fn => fn())
+      // ★ Insight: Cleanup timer при unmount предотвращает memory leak
+      clearTimeout(searchTimer.current)
     }
-  }, [load, page, search])
+  }, [load])
 
   const handleSearch = val => {
     setSearch(val)

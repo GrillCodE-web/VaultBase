@@ -5,28 +5,35 @@ import React from 'react'
  * NoteCell — мемоизированный компонент заметок
  *
  * ★ Insight: Мемоизация с кастомным comparison — только если card.id или card.notes изменились
+ * ★ Insight: key={card.id} в родителе обеспечивает полный ремаунт при смене карты
  */
 export const NoteCell = React.memo(
   function NoteCell({ card, onEditNote }) {
     const [editing, setEditing] = useState(false)
-    const [val, setVal] = useState(card.notes || '')
+    // ★ Insight: Используем card.notes напрямую вместо state
+    // Это устраняет проблему рассинхронизации state и props
+    const displayValue = card.notes || ''
+
     if (editing) {
       return (
         <input
           autoFocus
-          value={val}
-          onChange={e => setVal(e.target.value)}
-          onBlur={() => {
-            onEditNote(card.id, val)
+          defaultValue={displayValue}
+          onChange={e => {
+            // Сохраняем значение в переменной, но не вызываем setVal
+            // При onBlur/Enter вызываем onEditNote с актуальным значением
+            return e.target.value
+          }}
+          onBlur={e => {
+            onEditNote(card.id, e.target.value)
             setEditing(false)
           }}
           onKeyDown={e => {
             if (e.key === 'Enter') {
-              onEditNote(card.id, val)
+              onEditNote(card.id, e.target.value)
               setEditing(false)
             }
             if (e.key === 'Escape') {
-              setVal(card.notes || '')
               setEditing(false)
             }
           }}
@@ -38,9 +45,9 @@ export const NoteCell = React.memo(
       <span
         onDoubleClick={() => setEditing(true)}
         className="text-muted text-[11px] cursor-text block max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-        title={val || '—'}
+        title={displayValue || '—'}
       >
-        {val || '—'}
+        {displayValue || '—'}
       </span>
     )
   },

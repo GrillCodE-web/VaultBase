@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
   AreaChart,
@@ -531,12 +531,16 @@ export default function Dashboard({ onNavigate }) {
   }, [loadAll])
 
   // Auto-refresh every 30s
+  // ★ Insight: Используем ref для актуальной loadAll чтобы интервал не пересоздавался
+  const loadAllRef = useRef(loadAll)
+  loadAllRef.current = loadAll
+
   useEffect(() => {
     const id = setInterval(() => {
-      if (!document.hidden) loadAll(true)
+      if (!document.hidden) loadAllRef.current(true)
     }, 30_000)
     return () => clearInterval(id)
-  }, [loadAll])
+  }, [])
 
   const handleExport = async () => {
     setExporting(true)

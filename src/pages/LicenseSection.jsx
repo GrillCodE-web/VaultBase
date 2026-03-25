@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { ShieldCheck, ShieldAlert, WifiOff, RefreshCw, Copy, Check } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
@@ -13,18 +13,25 @@ export function LicenseSection() {
   const [showId, setShowId] = useState(false)
   const [copied, setCopied] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  // ★ Insight: Ref для cleanup setTimeout при unmount
+  const copyTimerRef = useRef(null)
 
   const loadStatus = () => {
     invoke('get_license_status')
       .then(s => setStatus(s))
       .catch(() => setStatus('offline'))
-    // FIX FE-H05: Log installation ID errors instead of silently ignoring
     invoke('get_installation_id')
       .then(setInstallId)
       .catch(e => console.error('[LicenseSection] Failed to get installation ID:', e))
   }
 
-  useEffect(loadStatus, [])
+  useEffect(() => {
+    loadStatus()
+    // ★ Insight: Cleanup timer при unmount предотвращает setState на unmounted компоненте
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    }
+  }, [])
 
   const handleRetry = async () => {
     setRetrying(true)
@@ -42,10 +49,16 @@ export function LicenseSection() {
   }
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(installId).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+    // ★ Insight: .catch() для обработки ошибок clipboard + cleanup timer
+    navigator.clipboard
+      .writeText(installId)
+      .then(() => {
+        setCopied(true)
+        copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(e => {
+        console.error('[LicenseSection] Failed to copy:', e)
+      })
   }
 
   const statusMeta = {

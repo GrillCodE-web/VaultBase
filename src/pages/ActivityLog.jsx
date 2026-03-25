@@ -119,8 +119,7 @@ export default function ActivityLog() {
     } finally {
       setLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- toastErr is stable from useToast
-  }, [search, entityFilter, page])
+  }, [search, entityFilter, page, toastErr])
 
   useEffect(() => {
     load()

@@ -1,5 +1,6 @@
 import { Store, Clock, Copy, CheckCircle, XCircle, User, Trash2 } from 'lucide-react'
 import React from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { ActionsMenu } from '../../components/ActionsMenu.jsx'
 import {
   formatCardNumber,
@@ -435,7 +436,6 @@ export const CardRow = React.memo(
                   icon: User,
                   onClick: async () => {
                     try {
-                      const { invoke } = await import('@tauri-apps/api/core')
                       await invoke('create_profile', { cardId: card.id, notes: null })
                       toast(t('profile_created'), 'success')
                       onNavigate?.('profiles')
@@ -465,7 +465,27 @@ export const CardRow = React.memo(
   },
   (prev, next) => {
     // Custom comparison — только релевантные props
-    // Если они не изменились, пропускаем ре-рендер
+    // ★ Insight: Проверяем ВСЕ revealed поля — CVV, holder_name, billing_address, phone
+    // Без этой проверки раскрытые данные не отображались бы при ре-рендерe
+    const revealedPrev = prev.revealed?.[prev.card.id]
+    const revealedNext = next.revealed?.[next.card.id]
+    const revealedSame =
+      revealedPrev === revealedNext ||
+      (revealedPrev &&
+        revealedNext &&
+        revealedPrev.card_number === revealedNext.card_number &&
+        revealedPrev.cvv === revealedNext.cvv &&
+        revealedPrev.holder_name === revealedNext.holder_name &&
+        revealedPrev.billing_address === revealedNext.billing_address &&
+        revealedPrev.phone === revealedNext.phone)
+
+    // ★ Insight: Array comparison через length + every — дешевле чем JSON.stringify
+    const visibleColsSame =
+      Array.isArray(prev.visibleCols) &&
+      Array.isArray(next.visibleCols) &&
+      prev.visibleCols.length === next.visibleCols.length &&
+      prev.visibleCols.every((c, i) => c === next.visibleCols[i])
+
     return (
       prev.card.id === next.card.id &&
       prev.card.status === next.card.status &&
@@ -487,8 +507,8 @@ export const CardRow = React.memo(
       prev.deletingIds === next.deletingIds &&
       prev.flashedIds === next.flashedIds &&
       prev.statusMenuId === next.statusMenuId &&
-      prev.revealed === next.revealed &&
-      prev.visibleCols === next.visibleCols &&
+      revealedSame &&
+      visibleColsSame &&
       prev.t === next.t
     )
   }

@@ -17,14 +17,16 @@ function ImapLinkCell({ entry, imapAccounts, onLink, onNavigate }) {
   const ref = useRef(null)
   const { t } = useLang()
 
+  // ★ Insight: useCallback для handler предотвращает пересоздание при каждом рендере
+  const handler = useCallback(e => {
+    if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+  }, [])
+
   useEffect(() => {
     if (!open) return
-    const handler = e => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+  }, [open, handler])
 
   if (entry.imap_account_id) {
     return (
@@ -123,6 +125,8 @@ function EmailModal({ initial, onSave, onClose }) {
     setLoading(true)
     try {
       await onSave(form)
+      // ★ Insight: Очищаем scroll lock перед закрытием модалки
+      document.body.style.overflow = ''
       onClose()
     } catch (e) {
       const error = handleError(e, 'EmailModal.handleSave')
@@ -132,7 +136,7 @@ function EmailModal({ initial, onSave, onClose }) {
     }
   }
 
-  // Scroll lock
+  // Scroll lock — cleanup только при unmount (на случай если onClose не вызвался)
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => {
@@ -152,7 +156,15 @@ function EmailModal({ initial, onSave, onClose }) {
           <div id="email-modal-title" className="modal-title">
             {isEdit ? t('email_modal_title_edit') : t('email_modal_title_add')}
           </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
+          <button
+            onClick={() => {
+              // ★ Insight: Очищаем scroll lock при закрытии модалки
+              document.body.style.overflow = ''
+              onClose()
+            }}
+            className="modal-close"
+            aria-label="Close"
+          >
             <X size={16} />
           </button>
         </div>

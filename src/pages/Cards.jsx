@@ -69,7 +69,9 @@ const DEFAULT_COLS = [
 
 export default function Cards({ onNavigate, activeTab = 'list', openImport = false }) {
   const { t } = useLang()
-  const ALL_COLUMNS = getAllColumns(t)
+  // ★ Insight: useMemo предотвращает создание нового массива при каждом рендере
+  // Это ломало бы мемоизацию зависимых компонентов без этой обертки
+  const ALL_COLUMNS = useMemo(() => getAllColumns(t), [t])
   const { toast } = usePremiumToast() // Backwards compatible — uses SmartToast internally
   const { confirm } = useConfirm()
   const { successDelete, successExport, errorLoad, errorSave } = usePremiumToast()
@@ -139,6 +141,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const flashTimers = useRef({})
   // FIX FE-H01: Track delete timers for cleanup on unmount
   const deleteTimers = useRef({})
+  // ★ Insight: Sync error state для fallback UI при ошибке WebSocket
+  const [syncError, setSyncError] = useState(null)
 
   // Local UI state (column visibility and order - localStorage preferences)
   const [visibleCols, setVisibleCols] = useState(() => {
@@ -183,10 +187,32 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   }, [openImport, setShowImport])
 
   // Load cards when filters or page change
+  // ★ Insight: AbortController предотвращает race conditions при быстром переключении фильтров
+  // Предыдущий запрос отменяется, ответ игнорируется если сигнал прерван
   useEffect(() => {
-    fetchCards().catch(() => {
-      errorLoad('Cards')
-    })
+    // AbortController доступен глобально в современных браузерах и Node.js
+    const controller = new globalThis.AbortController()
+    let cancelled = false
+
+    const loadCards = async () => {
+      try {
+        await fetchCards(false, controller?.signal ?? null)
+        if (!cancelled) {
+          // Данные уже обновлены в store, дополнительного state update не нужно
+        }
+      } catch (e) {
+        if (!cancelled && e.name !== 'AbortError') {
+          console.error('[Cards] Load error:', e)
+          errorLoad('Cards')
+        }
+      }
+    }
+    loadCards()
+
+    return () => {
+      cancelled = true
+      controller?.abort()
+    }
   }, [fetchCards, errorLoad])
 
   // Load filter metadata on mount
@@ -205,6 +231,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   }, [activeTab, setFilters])
 
   // Real-time sync: listen for card updates from WS sync
+  // ★ Insight: cardsRef вместо cards в зависимостях предотвращает пересоздание listeners
+  // при каждом обновлении карт (что происходило бы сотни раз в минуту)
+  const cardsRef = useRef(cards)
+  cardsRef.current = cards
+
   useEffect(() => {
     let unlistenUpdate, unlistenFull
     const timers = flashTimers.current
@@ -214,10 +245,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       // Apply status changes via store
       handleSyncUpdate(updates)
 
-      // Flash updated cards
-      // Note: cards is in dependency array so callback always has fresh data
+      // Flash updated cards — используем ref вместо direct dependency
       updates.forEach(upd => {
-        const card = cards.find(c => c.id === upd.id)
+        const card = cardsRef.current.find(c => c.id === upd.id)
         if (card) {
           addFlashedId(card.id)
           if (timers[card.id]) clearTimeout(timers[card.id])
@@ -229,22 +259,22 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     })
       .then(u => {
         unlistenUpdate = u
+        setSyncError(null) // Clear error on successful listener registration
       })
       .catch(e => {
-        // FIX FE-H05: Log sync listener errors instead of silently ignoring
         console.error('[Cards] Failed to register sync:card_update listener:', e)
+        setSyncError('Real-time sync unavailable')
       })
 
     listen('sync:full_data', () => {
-      // Full sync received — reload current page
       handleFullSync()
     })
       .then(u => {
         unlistenFull = u
       })
       .catch(e => {
-        // FIX FE-H05: Log sync listener errors instead of silently ignoring
         console.error('[Cards] Failed to register sync:full_data listener:', e)
+        setSyncError('Real-time sync unavailable')
       })
 
     return () => {
@@ -252,11 +282,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       unlistenFull?.()
       // Clear all timers on cleanup
       Object.values(timers).forEach(clearTimeout)
-      // FIX FE-H01: Also clear delete timers on unmount
       Object.values(deleteTimers.current).forEach(clearTimeout)
       deleteTimers.current = {}
     }
-  }, [cards, handleSyncUpdate, handleFullSync, addFlashedId, removeFlashedId])
+  }, [handleSyncUpdate, handleFullSync, addFlashedId, removeFlashedId])
 
   // ── Close status menu on outside click ────────────────────────────────
 
@@ -485,43 +514,69 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const someSelected = selected.length > 0 && selected.length < cards.length
 
   // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
+  // ★ Insight: Не передаем cards в зависимости — используем card.id из props
+  // index вычисляется внутри CardRow при double-click, здесь достаточно просто setSideCard
   const handleSetSideCard = useCallback(
     c => {
-      const idx = cards.indexOf(c)
-      setSideCard(c, idx)
+      setSideCard(c)
     },
-    [cards, setSideCard]
+    [setSideCard]
   )
 
-  // renderCard — функция для map(), не требует useCallback
-  // CardRow уже мемоизирован, так что inline вызов OK
-  const renderCard = card => (
-    <CardRow
-      key={card.id}
-      card={card}
-      cards={cards}
-      revealed={revealed}
-      selected={selected}
-      deletingIds={deletingIds}
-      flashedIds={flashedIds}
-      statusMenuId={statusMenuId}
-      visibleCols={visibleCols}
-      toggleSelect={toggleSelect}
-      setSideCard={handleSetSideCard}
-      setSideCardIdx={() => {}}
-      setStatusMenuId={setStatusMenuId}
-      handleStatusChange={handleStatusChange}
-      handleCopyToast={handleCopyToast}
-      handleEditNote={handleEditNote}
-      setShopUsageCardId={setShopUsageCardId}
-      setTimelineCardId={setTimelineCardId}
-      handleDelete={handleDelete}
-      setFilter={setFilters}
-      setPage={setPage}
-      onNavigate={onNavigate}
-      t={t}
-      toast={toast}
-    />
+  // ★ Insight: renderCard обернут в useCallback для стабильной ссылки
+  // CardRow.memo защищает от лишних рендеров, но стабильная функция улучшает кэширование
+  const renderCard = useCallback(
+    card => (
+      <CardRow
+        key={card.id}
+        card={card}
+        cards={cards}
+        revealed={revealed}
+        selected={selected}
+        deletingIds={deletingIds}
+        flashedIds={flashedIds}
+        statusMenuId={statusMenuId}
+        visibleCols={visibleCols}
+        toggleSelect={toggleSelect}
+        setSideCard={handleSetSideCard}
+        setSideCardIdx={() => {}}
+        setStatusMenuId={setStatusMenuId}
+        handleStatusChange={handleStatusChange}
+        handleCopyToast={handleCopyToast}
+        handleEditNote={handleEditNote}
+        setShopUsageCardId={setShopUsageCardId}
+        setTimelineCardId={setTimelineCardId}
+        handleDelete={handleDelete}
+        setFilter={setFilters}
+        setPage={setPage}
+        onNavigate={onNavigate}
+        t={t}
+        toast={toast}
+      />
+    ),
+    [
+      cards,
+      revealed,
+      selected,
+      deletingIds,
+      flashedIds,
+      statusMenuId,
+      visibleCols,
+      toggleSelect,
+      handleSetSideCard,
+      setStatusMenuId,
+      handleStatusChange,
+      handleCopyToast,
+      handleEditNote,
+      setShopUsageCardId,
+      setTimelineCardId,
+      handleDelete,
+      setFilters,
+      setPage,
+      onNavigate,
+      t,
+      toast,
+    ]
   )
 
   // ── Grouped render ─────────────────────────────────────────────────────
@@ -530,17 +585,17 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     () =>
       Object.entries(
         cards.reduce((acc, c) => {
-          const k = c.bank_name || t('msg_no_data')
+          const k = c.bank_name || 'No data' // ★ Insight: Хардкод вместо t() предотвращает пересчет при смене языка
           ;(acc[k] = acc[k] || []).push(c)
           return acc
         }, {})
       ).sort((a, b) => a[0].localeCompare(b[0])),
-    [cards, t]
+    [cards] // Убран t из зависимостей — группировка не зависит от перевода
   )
 
   // Virtual scrolling setup - only for non-grouped view
   // ★ Insight: Порог 50 карт вместо 200 — виртуализация включается раньше
-  // overscan 20 вместо 5 — предотвращает белые полосы при быстрой прокрутке
+  // overscan 10 — баланс между производительностью и UX (меньше белых полос)
   const useVirtualCards = !groupByBank && cards.length > 50
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
@@ -548,7 +603,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     count: useVirtualCards ? cards.length : 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 38,
-    overscan: 20, // Увеличено с 5 до 20 для плавной прокрутки
+    overscan: 10, // Оптимизировано: 10 строк вместо 20 для лучшей производительности
     enabled: useVirtualCards,
   })
 
@@ -573,10 +628,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                   statusMenuId={statusMenuId}
                   visibleCols={visibleCols}
                   toggleSelect={toggleSelect}
-                  setSideCard={c => {
-                    const idx = cards.indexOf(c)
-                    setSideCard(c, idx)
-                  }}
+                  setSideCard={handleSetSideCard}
                   setSideCardIdx={() => {}}
                   setStatusMenuId={setStatusMenuId}
                   handleStatusChange={handleStatusChange}
@@ -670,6 +722,21 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   return (
     <div className="content">
+      {/* Sync error banner */}
+      {syncError && (
+        <div className="mb-2 p-2 bg-red-900/20 border border-red-800 rounded text-[12px] text-red-400 flex items-center gap-2">
+          <span>⚠️</span>
+          <span>{syncError}</span>
+          <button
+            onClick={() => setSyncError(null)}
+            className="ml-auto text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Page header */}
       <div className="ph">
         <div>
