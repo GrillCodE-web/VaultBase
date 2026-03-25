@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, createContext, useContext } from 'react'
-import { CheckCircle, XCircle, AlertTriangle, Info, Bell, X } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
 
 const SmartToastContext = createContext(null)
 
@@ -172,7 +172,6 @@ function SmartToastContainer() {
   const {
     toasts,
     remove,
-    hoveredId,
     handleMouseEnter,
     handleMouseLeave,
     collapsedGroups,
@@ -292,5 +291,28 @@ export function useSmartToast() {
     warning: ctx.warning,
     info: ctx.info,
     dismissAll: ctx.dismissAll,
+    // Alias for backwards compatibility with old useToast API
+    toast: ctx.info,
+  }
+}
+
+// Backwards compatibility wrapper - allows gradual migration
+// Components using old useToast will still work but get smart notifications
+export function useToast() {
+  const ctx = useContext(SmartToastContext)
+  if (!ctx) {
+    // Fallback to basic toast if SmartToastProvider not available
+    return {
+      toast: () => {},
+      success: () => {},
+      error: () => {},
+      warn: () => {},
+    }
+  }
+  return {
+    toast: ctx.info, // map 'toast' to 'info'
+    success: ctx.success,
+    error: ctx.error,
+    warn: ctx.warning, // map 'warn' to 'warning'
   }
 }

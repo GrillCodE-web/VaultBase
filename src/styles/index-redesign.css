@@ -44,6 +44,7 @@
 @import './pages/activity-log-redesign.css';
 @import './pages/catalog-redesign.css';
 @import './pages/onboarding-redesign.css';
+@import './pages/premium-enhancements.css';
 
 /* ── Tailwind (if used) ─────────────────────────────────── */
 @tailwind base;

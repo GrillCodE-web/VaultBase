@@ -21,16 +21,9 @@ import {
   ShoppingBag,
   DollarSign,
   Users,
-  Package,
-  CheckCircle2,
   XCircle,
-  Clock,
-  Truck,
-  AlertCircle,
-  Info,
-  ArrowUpRight,
-  ArrowDownRight,
   Minus,
+  Info,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
@@ -42,7 +35,7 @@ import {
   getDeliveryRateColor,
   getExpiryColor,
 } from '../constants/colors'
-import '../../styles/pages/dashboard-cards-redesign.css'
+import '../styles/pages/dashboard-cards-redesign.css'
 
 // ─── Period config ───────────────────────────────────────────
 
@@ -474,7 +467,7 @@ function PremiumStatCard({
   value,
   subtext,
   trend,
-  trendValue,
+  _trendValue,
   onClick,
   variant = 'default',
   statusBadge,
@@ -705,7 +698,7 @@ export default function DashboardRedesigned({ onNavigate }) {
       a.click()
       URL.revokeObjectURL(url)
       toastSuccess('Dashboard exported successfully', {
-        action: { label: 'Open', onClick: () => console.log('Open CSV') },
+        action: { label: 'Open', onClick: () => {} },
       })
     } catch (e) {
       toastError(`Export failed: ${e}`)

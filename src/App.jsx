@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LangProvider, useLang } from './hooks/useLang'
-import { ToastProvider, useToast } from './hooks/useToast'
+import { SmartToastProvider, useToast } from './hooks/useSmartToast'
 import { ConfirmProvider } from './hooks/useConfirm'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
@@ -16,7 +16,7 @@ import Login from './pages/Login'
 import Activate from './pages/Activate'
 
 // App pages — lazy loaded to improve startup time
-const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Dashboard = lazy(() => import('./pages/DashboardRedesigned'))
 const Cards = lazy(() => import('./pages/Cards'))
 const Profiles = lazy(() => import('./pages/Profiles'))
 const Drops = lazy(() => import('./pages/Drops'))
@@ -1134,11 +1134,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <LangProvider>
-        <ToastProvider>
+        <SmartToastProvider>
           <ConfirmProvider>
             <AppInner />
           </ConfirmProvider>
-        </ToastProvider>
+        </SmartToastProvider>
       </LangProvider>
     </ErrorBoundary>
   )
