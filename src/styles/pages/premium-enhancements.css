@@ -1056,3 +1056,234 @@
     overflow-x: auto;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM EMPTY STATE
+   Cyber-Terminal empty states with animated particles
+   ═══════════════════════════════════════════════════════════ */
+
+.premium-empty-state {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: var(--sp-10);
+  overflow: hidden;
+}
+
+.premium-empty-state__particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.premium-empty-state__particles .particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: particle-float 3s ease-in-out infinite;
+}
+
+@keyframes particle-float {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(0);
+  }
+  50% {
+    opacity: 0.6;
+    transform: translateY(-20px) scale(1);
+  }
+}
+
+.premium-empty-state__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 480px;
+  text-align: center;
+}
+
+.premium-empty-state__icon-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--r-2xl);
+  border: 2px solid;
+  margin-bottom: var(--sp-6);
+  overflow: hidden;
+}
+
+.premium-empty-state__icon-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  opacity: 0.3;
+  animation: icon-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes icon-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.1);
+  }
+}
+
+.premium-empty-state__icon {
+  position: relative;
+  z-index: 1;
+  animation: icon-float 3s ease-in-out infinite;
+}
+
+@keyframes icon-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.premium-empty-state__title {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--text);
+  margin: 0 0 var(--sp-2) 0;
+  letter-spacing: 0.05em;
+}
+
+.premium-empty-state__description {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.6;
+  margin: 0 0 var(--sp-6) 0;
+}
+
+.premium-empty-state__actions {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.premium-empty-state__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--r-lg);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.premium-empty-state__button:hover {
+  background: rgba(0, 217, 255, 0.08);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.premium-empty-state__button.primary {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.premium-empty-state__button.primary:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ─── With Steps ──────────────────────────────────────────── */
+.premium-empty-state--with-steps .premium-empty-state__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: 100%;
+  margin-bottom: var(--sp-6);
+}
+
+.premium-empty-state__step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  text-align: left;
+  transition: all var(--t-fast);
+}
+
+.premium-empty-state__step:hover {
+  background: rgba(0, 217, 255, 0.05);
+  border-color: var(--accent);
+}
+
+.premium-empty-state__step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+
+.premium-empty-state__step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.premium-empty-state__step-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.premium-empty-state__step-description {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+/* ─── Decorative Grid ─────────────────────────────────────── */
+.premium-empty-state__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 217, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 217, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
