@@ -54,7 +54,7 @@ export const CardRow = React.memo(
     const statusLabel = card.status === 'in_use' ? 'in use' : card.status
     const badge = getBinBadge(card.card_type)
     const burnCount = card.orders_count ?? 0
-    const isFlashing = flashedIds.has(card.id)
+    const isFlashing = flashedIds.includes(card.id)
 
     const rowClasses = [
       'card-row',
