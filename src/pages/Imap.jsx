@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Inbox,
   Plus,
@@ -9,23 +8,14 @@ import {
   RefreshCw,
   ToggleLeft,
   ToggleRight,
-  Mail,
   CheckCircle,
   AlertCircle,
-  Package,
   X,
   Send,
-  ChevronDown,
-  ChevronRight,
-  Folder,
   Settings,
   PenSquare,
-  AlertOctagon,
-  FileText,
   Database,
-  CornerUpLeft,
   Archive,
-  Search,
   Store,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
@@ -33,29 +23,9 @@ import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { detectImapConfig, detectSmtpConfig } from '../constants/emailProviders.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
-
-function FolderIcon({ name, size = 13 }) {
-  const n = (name ?? '').toLowerCase()
-  if (n === 'inbox') return <Inbox size={size} />
-  if (n.includes('sent')) return <Send size={size} />
-  if (n.includes('trash') || n.includes('deleted')) return <Trash2 size={size} />
-  if (n.includes('spam') || n.includes('junk')) return <AlertOctagon size={size} />
-  if (n.includes('draft')) return <FileText size={size} />
-  return <Folder size={size} />
-}
-
-// ─── Action badge ───────────────────────────────────────────────────────────
-function ActionBadge({ action }) {
-  if (!action) return null
-  const cls =
-    {
-      shipped: 'st-transit',
-      delivered: 'st-delivered',
-      cancelled: 'st-cancelled',
-      processing: 'st-processing',
-    }[action] ?? 'st-pending'
-  return <span className={`st ${cls}`}>{action}</span>
-}
+import { ImapFolderTree } from './Imap/components/ImapFolderTree.jsx'
+import { ImapEmailList } from './Imap/components/ImapEmailList.jsx'
+import { ImapMessageViewer } from './Imap/components/ImapMessageViewer.jsx'
 
 // ─── IMAP Account Modal ─────────────────────────────────────────────────────
 function AccountModal({ account, onSave, onClose }) {
@@ -142,7 +112,6 @@ function AccountModal({ account, onSave, onClose }) {
     setSaving(true)
     try {
       await onSave(form)
-      // Auto-create SMTP config if requested and password provided
       if (!isEdit && setupSmtp && smtpDetected && form.password) {
         try {
           await invoke('add_smtp_config', {
@@ -530,414 +499,7 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
   )
 }
 
-// ─── Message Viewer ─────────────────────────────────────────────────────────
-function MessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
-  if (!message) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-muted text-[13px]">
-        <div className="text-center opacity-50">
-          <Mail size={40} className="mb-2" />
-          <div>Select a message to read</div>
-        </div>
-      </div>
-    )
-  }
-
-  const isHtml = message.body?.trim().startsWith('<')
-
-  return (
-    <div className="flex-1 flex flex-col min-w-0">
-      {/* Header */}
-      <div className="p-[12px_16px] border-b bg-card">
-        <div className="text-[14px] font-semibold mb-2 leading-[1.3]">
-          {message.subject || '(no subject)'}
-        </div>
-        <div className="flex flex-col gap-[3px] text-[12px] text-muted">
-          <div>
-            <span className="text-dim">From:</span> {message.from_email}
-          </div>
-          {message.to_email && (
-            <div>
-              <span className="text-dim">To:</span> {message.to_email}
-            </div>
-          )}
-          <div className="flex items-center justify-between flex-wrap gap-1">
-            <span>{message.received_at ? new Date(message.received_at).toLocaleString() : ''}</span>
-            <div className="flex gap-1.5 items-center">
-              {message.action_taken && <ActionBadge action={message.action_taken} />}
-              {message.extracted_order_number && (
-                <span className="text-[11px] text-blue-t">
-                  <Package size={10} className="inline mr-0\.5" />#{message.extracted_order_number}
-                </span>
-              )}
-              {message.extracted_tracking && (
-                <span className="mono text-[11px] text-muted">{message.extracted_tracking}</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-1.5 mt-2">
-          {!message.is_read && (
-            <button onClick={() => onMarkRead(message)} className="btn btn-b btn-sm">
-              <CheckCircle size={12} /> Mark Read
-            </button>
-          )}
-          <button
-            onClick={() => onReply(message)}
-            className="btn btn-ghost btn-sm"
-            aria-label="Reply to message"
-          >
-            <CornerUpLeft size={12} /> Reply
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => onArchive(message)}
-            title="Archive"
-            aria-label="Archive message"
-          >
-            <Archive size={12} /> Archive
-          </button>
-          <button
-            className="btn btn-r btn-sm btn-icon"
-            onClick={() => onDelete(message)}
-            aria-label="Delete message"
-          >
-            <Trash2 size={12} /> Delete
-          </button>
-        </div>
-      </div>
-      {/* Body */}
-      <div className="flex-1 overflow-auto p-0">
-        {message.body ? (
-          isHtml ? (
-            <iframe
-              srcDoc={message.body}
-              sandbox="allow-same-origin"
-              className="w-full h-full border-none bg-white"
-              title="email-body"
-            />
-          ) : (
-            <pre className="p-4 text-[13px] whitespace-pre-wrap break-word m-0 text-text font-inherit">
-              {message.body}
-            </pre>
-          )
-        ) : (
-          <div className="p-4 text-[12px] text-muted">No body content</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Virtual "All Inboxes" account pseudo-object
-const ALL_INBOX = { id: -1, label: 'All Inboxes', is_active: true }
-
-// ─── FolderRow ───────────────────────────────────────────────────────────────
-function FolderRow({ acc, folder, s, selectedAccount, selectedFolder, onSelectFolder }) {
-  const folderStats = s?.folders?.find(f => f.name === folder)
-  const unread = folderStats?.unread ?? 0
-  const isActive = selectedAccount?.id === acc.id && selectedFolder === folder
-  return (
-    <div
-      onClick={() => onSelectFolder(acc, folder)}
-      className={`folder-tree-item ${isActive ? 'active' : ''}`}
-    >
-      <span className={`text-muted flex ${isActive ? 'active' : ''}`}>
-        <FolderIcon name={folder} size={12} />
-      </span>
-      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{folder}</span>
-      {unread > 0 && <span className="unread-badge">{unread}</span>}
-    </div>
-  )
-}
-
-// ─── FolderTree ───────────────────────────────────────────────────────────────
-function FolderTree({
-  accounts,
-  expandedAccounts,
-  accountFolders,
-  loadingFolders,
-  stats,
-  selectedAccount,
-  selectedFolder,
-  onToggleExpand,
-  onSelectFolder,
-  onAddImap,
-}) {
-  const allUnread = Object.values(stats).reduce((s, a) => s + (a?.unread ?? 0), 0)
-  return (
-    <div className="w-[220px] shrink-0 border-r flex flex-col overflow-y-auto bg-surface">
-      <div className="p-[10px_12px] border-b flex justify-between items-center">
-        <span className="text-[12px] font-semibold text-muted">ACCOUNTS</span>
-        <button
-          onClick={onAddImap}
-          className="btn btn-ghost btn-sm p-[2px_6px]"
-          title="Add IMAP account"
-        >
-          <Plus size={13} />
-        </button>
-      </div>
-      {/* All Inboxes virtual entry */}
-      {accounts.length > 1 && (
-        <div
-          onClick={() => onSelectFolder(ALL_INBOX, 'INBOX')}
-          className={`p-[8px_10px] cursor-pointer flex items-center gap-1.5 border-b folder-tree-item ${
-            selectedAccount?.id === -1 ? 'active' : ''
-          }`}
-        >
-          <Inbox size={13} className="shrink-0 text-blue" />
-          <span className="text-[12px] flex-1 font-semibold">All Inboxes</span>
-          {allUnread > 0 && <span className="unread-badge">{allUnread}</span>}
-        </div>
-      )}
-      {accounts.length === 0 && (
-        <div className="p-[20px_12px] text-center text-[12px] text-muted">
-          No accounts
-          <br />
-          <button onClick={onAddImap} className="btn btn-g btn-sm mt-2">
-            <Plus size={11} /> Add
-          </button>
-        </div>
-      )}
-      {accounts.map(acc => {
-        const expanded = expandedAccounts[acc.id]
-        const folders = accountFolders[acc.id] ?? []
-        const s = stats[acc.id]
-        const unread = s?.unread ?? 0
-        const isSelected = selectedAccount?.id === acc.id
-        return (
-          <div key={acc.id}>
-            <div
-              onClick={() => onToggleExpand(acc)}
-              className={`p-[8px_10px] cursor-pointer flex items-center gap-1.5 folder-tree-item ${
-                isSelected ? 'active' : ''
-              }`}
-            >
-              {expanded ? (
-                <ChevronDown size={13} className="text-muted shrink-0" />
-              ) : (
-                <ChevronRight size={13} className="text-muted shrink-0" />
-              )}
-              <Inbox
-                size={13}
-                className={`shrink-0 folder-icon ${acc.is_active ? 'active' : 'inactive'}`}
-              />
-              <span className="text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                {acc.label}
-              </span>
-              {unread > 0 && <span className="unread-badge">{unread}</span>}
-            </div>
-            {expanded && (
-              <div className="pl-2">
-                {loadingFolders[acc.id] ? (
-                  <div className="p-[6px_12px] text-[11px] text-muted">Loading…</div>
-                ) : folders.length === 0 ? (
-                  ['INBOX'].map(f => (
-                    <FolderRow
-                      key={f}
-                      acc={acc}
-                      folder={f}
-                      s={s}
-                      selectedAccount={selectedAccount}
-                      selectedFolder={selectedFolder}
-                      onSelectFolder={onSelectFolder}
-                    />
-                  ))
-                ) : (
-                  folders.map(f => (
-                    <FolderRow
-                      key={f}
-                      acc={acc}
-                      folder={f}
-                      s={s}
-                      selectedAccount={selectedAccount}
-                      selectedFolder={selectedFolder}
-                      onSelectFolder={onSelectFolder}
-                    />
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── MessageList ──────────────────────────────────────────────────────────────
-const MSG_PAGE_SIZE = 30
-function MessageList({
-  messages,
-  selectedMessage,
-  selectedFolder,
-  selectedAccount,
-  msgTotal,
-  msgPage,
-  loadingMsgs,
-  onLoadMessages,
-  onSelectMessage,
-  onSearch,
-  onMarkRead: _onMarkRead,
-  onArchive: _onArchive,
-  onDelete: _onDelete,
-  msgSearch,
-  onMsgContextMenu,
-}) {
-  const totalPages = Math.ceil(msgTotal / MSG_PAGE_SIZE)
-  const searchRef = useRef(null)
-  const debounceRef = useRef(null)
-  const parentRef = useRef(null)
-
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
-  const rowVirtualizer = useVirtualizer({
-    count: messages.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 65,
-    overscan: 5,
-  })
-
-  const handleSearchChange = e => {
-    const val = e.target.value
-    if (searchRef.current !== null) searchRef.current.value = val
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      onSearch(val)
-    }, 400)
-  }
-
-  return (
-    <div className="w-[300px] shrink-0 border-r flex flex-col overflow-y-auto">
-      <div className="p-[8px_12px] border-b bg-card flex items-center gap-1.5">
-        <span className="text-[12px] font-semibold flex-1">{selectedFolder}</span>
-        <span className="text-[11px] text-muted">{msgTotal} msgs</span>
-        <button
-          onClick={() =>
-            selectedAccount &&
-            onLoadMessages(selectedAccount.id, selectedFolder, msgPage, msgSearch)
-          }
-          className="btn btn-ghost btn-sm p-[2px_4px]"
-          title="Refresh"
-        >
-          <RefreshCw size={11} />
-        </button>
-      </div>
-      <div className="p-[6px_10px] border-b flex items-center gap-1.5 bg-surface">
-        <Search size={12} className="text-muted shrink-0" />
-        <input
-          type="search"
-          placeholder="Search messages…"
-          defaultValue={msgSearch}
-          ref={searchRef}
-          onChange={handleSearchChange}
-          className="flex-1 border-none bg-transparent outline-none text-[12px] text-text min-w-0"
-        />
-      </div>
-      {loadingMsgs ? (
-        <div className="p-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-[52px] bg-hover rounded mb-1\.5" />
-          ))}
-        </div>
-      ) : messages.length === 0 ? (
-        <div className="p-[40px_16px] text-center text-[12px] text-muted">
-          <Mail size={30} className="opacity-[0.3] mb-2" />
-          <div>No messages in {selectedFolder}</div>
-          <div className="text-[11px] mt-1 text-dim">Click Check Now to fetch</div>
-        </div>
-      ) : (
-        <div ref={parentRef} className="flex-1 overflow-auto">
-          <div
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {rowVirtualizer.getVirtualItems().map(virtualRow => {
-              const msg = messages[virtualRow.index]
-              return (
-                <div
-                  key={msg.id}
-                  data-index={virtualRow.index}
-                  ref={rowVirtualizer.measureElement}
-                  onClick={() => onSelectMessage(msg)}
-                  onContextMenu={e => {
-                    e.preventDefault()
-                    onMsgContextMenu?.({ x: e.clientX, y: e.clientY, msg })
-                  }}
-                  className={`message-list-item ${selectedMessage?.id === msg.id ? 'active' : ''}`}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <div className="flex justify-between items-start gap-1">
-                    <div
-                      className={`text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
-                        msg.is_read ? 'message-subject-read' : 'message-subject-unread'
-                      }`}
-                    >
-                      {msg.from_email?.replace(/<.*>/, '').trim() || '(unknown)'}
-                    </div>
-                    <div className="text-[10px] text-muted shrink-0">
-                      {msg.received_at ? new Date(msg.received_at).toLocaleDateString() : ''}
-                    </div>
-                  </div>
-                  <div
-                    className={`text-[12px] overflow-hidden text-ellipsis whitespace-nowrap mt-0.5 ${
-                      msg.is_read ? 'message-subject-read' : 'message-subject-unread'
-                    }`}
-                  >
-                    {msg.subject || '(no subject)'}
-                  </div>
-                  {(msg.action_taken || msg.extracted_order_number) && (
-                    <div className="flex gap-1 mt-[3px] flex-wrap">
-                      {msg.action_taken && <ActionBadge action={msg.action_taken} />}
-                      {msg.extracted_order_number && (
-                        <span className="text-[10px] text-blue-t">
-                          #{msg.extracted_order_number}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 p-3 border-t">
-              <button
-                disabled={msgPage <= 1}
-                onClick={() =>
-                  onLoadMessages(selectedAccount.id, selectedFolder, msgPage - 1, msgSearch)
-                }
-                className="btn btn-ghost btn-sm"
-              >
-                ← Prev
-              </button>
-              <span className="text-[12px] text-muted self-center">
-                {msgPage} / {totalPages}
-              </span>
-              <button
-                disabled={msgPage >= totalPages}
-                onClick={() =>
-                  onLoadMessages(selectedAccount.id, selectedFolder, msgPage + 1, msgSearch)
-                }
-                className="btn btn-ghost btn-sm"
-              >
-                Next →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
+// MessageViewer, ImapEmailList - imported from ./components/
 
 // ─── Accounts & SMTP Panel ───────────────────────────────────────────────────
 function AccountsPanel({
@@ -1812,7 +1374,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
       {/* ── 3-column inbox view ── */}
       {viewMode === 'inbox' && (
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          <FolderTree
+          <ImapFolderTree
             accounts={accounts}
             expandedAccounts={expandedAccounts}
             accountFolders={accountFolders}
@@ -1824,7 +1386,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             onSelectFolder={selectFolder}
             onAddImap={() => setShowAddImap(true)}
           />
-          <MessageList
+          <ImapEmailList
             messages={messages}
             selectedMessage={selectedMessage}
             selectedFolder={selectedFolder}
@@ -1844,7 +1406,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             msgSearch={msgSearch}
             onMsgContextMenu={info => setContextMenu(info)}
           />
-          <MessageViewer
+          <ImapMessageViewer
             message={selectedMessage}
             onReply={handleReply}
             onMarkRead={handleMarkRead}
