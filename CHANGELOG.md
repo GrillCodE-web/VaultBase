@@ -5,6 +5,80 @@ All notable changes to CC Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] — 2026-03-25
+
+### 🎉 Meridian Rebrand + Landing Page
+
+This release introduces the **Meridian** brand — a professional, modern identity for the application.
+The landing page features an invite-only access system with download options for all major platforms.
+
+---
+
+## Added
+
+### Landing Page
+
+- `public/index.html` — Professional Meridian landing page (574 lines)
+  - Modern dark theme with gradient effects
+  - Invite code verification system (`/api/invite/validate`)
+  - Download section for 4 platforms:
+    - 🍎 macOS (Universal — Intel + Apple Silicon)
+    - 🪟 Windows (Windows 10/11 x64)
+    - 🐧 Linux (Debian/Ubuntu/Fedora)
+    - 📦 Source (Build from source)
+  - 6 feature cards:
+    - Military-Grade Encryption (AES-256-GCM)
+    - Offline-First (local storage)
+    - Smart Organization
+    - Analytics Dashboard
+    - Email Integration (IMAP/SMTP)
+    - Native Performance (Tauri v2 + Rust)
+  - Responsive design for mobile devices
+  - Smooth animations and hover effects
+
+---
+
+## Changed
+
+### Rebranding
+
+- Application renamed from "CC Manager" to **"Meridian"**
+- Landing page uses "Meridian" branding
+- Release documentation updated with new branding
+- Tagline: "Next-Generation Data Management"
+
+---
+
+## Documentation
+
+- `RELEASE_2.2.0.md` — Comprehensive release summary
+- Updated `CHANGELOG.md` with landing page details
+- Updated `SECURITY_AUDIT_COMPLETE.md` with 100% completion status
+
+---
+
+## Technical Details
+
+### Version Bump
+
+- `package.json`: 2.2.0 → 2.3.0
+- `src-tauri/tauri.conf.json`: 2.2.0 → 2.3.0
+- Git tag: `v2.3.0`
+
+---
+
+## Production Readiness
+
+✅ **ALL SYSTEMS GO**
+
+- Security: 10/10 (119/119 vulnerabilities fixed)
+- Landing page: Ready with invite verification
+- Documentation: Complete
+- Tests: 93.36% coverage
+- Build: Ready for distribution
+
+---
+
 ## [2.2.0] — 2026-03-25
 
 ### 🔒 SECURITY AUDIT — 100% COMPLETE (119/119 VULNERABILITIES FIXED)
