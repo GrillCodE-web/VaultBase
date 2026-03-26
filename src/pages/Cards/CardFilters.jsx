@@ -101,6 +101,44 @@ export function CardFilters({
           <option value="discover">Discover</option>
         </select>
 
+        {/* P2-DOMAIN: Domain filter */}
+        <select
+          value={filter.domain || ''}
+          onChange={e => {
+            setFilter(f => ({ ...f, domain: e.target.value || null }))
+            setPage(1)
+          }}
+          className="inline-select"
+          aria-label="Filter by domain"
+        >
+          <option value="">{t('cc_filter_domain') || 'Domain'}</option>
+          {filterMeta.domains?.map(d => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
+
+        {/* P2-QUARANTINE: Quarantine status filter */}
+        <select
+          value={filter.quarantine_status || ''}
+          onChange={e => {
+            setFilter(f => ({ ...f, quarantine_status: e.target.value || null }))
+            setPage(1)
+          }}
+          className="inline-select"
+          aria-label="Filter by quarantine status"
+          title="Filter cards by quarantine status (cards < 14 days old)"
+        >
+          <option value="">{t('cc_filter_quarantine') || 'Quarantine'}</option>
+          <option value="available">
+            {t('cc_quarantine_available') || 'Available (>14 days)'}
+          </option>
+          <option value="quarantined">
+            {t('cc_quarantine_status') || 'In Quarantine (<14 days)'}
+          </option>
+        </select>
+
         <input
           value={filter.state || ''}
           onChange={e => {

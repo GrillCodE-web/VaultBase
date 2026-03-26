@@ -5,9 +5,17 @@ import { X } from 'lucide-react'
 export function CardTimelinePanel({ cardId, onClose }) {
   const [events, setEvents] = useState(null)
   useEffect(() => {
+    let cancelled = false
     invoke('get_card_timeline', { cardId })
-      .then(setEvents)
-      .catch(() => setEvents([]))
+      .then(data => {
+        if (!cancelled) setEvents(data || [])
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([])
+      })
+    return () => {
+      cancelled = true
+    }
   }, [cardId])
 
   const getDotClass = eventType => {

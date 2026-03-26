@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import {
@@ -65,7 +65,7 @@ function AccountModal({ account, onSave, onClose }) {
   }
 
   const handleSave = async () => {
-    if (!form.label || !form.host || !form.login) {
+    if (!form.label || !form.host || !form.login || !form.password) {
       toastErr(t('imap_fields_required'))
       return
     }
@@ -435,18 +435,27 @@ export default function Imap({ onNavigate: _onNavigate }) {
     [toastErr]
   )
 
+  // FIX P0-5: Use refs for stable values to prevent listener recreation
+  const msgPageRef = useRef(msgPage)
+  const msgSearchRef = useRef(msgSearch)
+  msgPageRef.current = msgPage
+  msgSearchRef.current = msgSearch
+
   useEffect(() => {
     loadAccounts()
-    const unlisten = listen('imap_message_received', async () => {
+    let unlistenFn = null
+    listen('imap_message_received', async () => {
       await loadAccounts()
       if (selectedAccount) {
-        loadMessages(selectedAccount.id, selectedFolder, msgPage, msgSearch)
+        loadMessages(selectedAccount.id, selectedFolder, msgPageRef.current, msgSearchRef.current)
       }
+    }).then(fn => {
+      unlistenFn = fn
     })
     return () => {
-      unlisten.then(fn => fn())
+      if (unlistenFn) unlistenFn()
     }
-  }, [loadAccounts, loadMessages, selectedAccount, selectedFolder, msgPage, msgSearch])
+  }, [loadAccounts, loadMessages, selectedAccount, selectedFolder])
 
   const handleCheckAll = async () => {
     setChecking(true)

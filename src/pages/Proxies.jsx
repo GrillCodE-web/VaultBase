@@ -74,15 +74,24 @@ function UsageStatsModal({ onClose }) {
   }, [])
 
   useEffect(() => {
+    let cancelled = false // FIX P1-17: Prevent state update on unmounted component
     invoke('get_proxy_usage_stats')
-      .then(setStats)
-      .catch(e => {
-        const error = handleError(e, 'Proxies.getStats')
-        toast(getErrorMessage(error), 'error')
+      .then(data => {
+        if (!cancelled) setStats(data)
       })
-      .finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Intentional: only run on mount, toast is stable
+      .catch(e => {
+        if (!cancelled) {
+          const error = handleError(e, 'Proxies.getStats')
+          toast(getErrorMessage(error), 'error')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const rateColor = rate => getDeliveryRateColor(rate)
 

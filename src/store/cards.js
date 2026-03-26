@@ -84,6 +84,7 @@ export const useCardsStore = create((set, get) => ({
 
     // Return cached data if valid and not forcing refresh
     if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      console.log('[cards] Using cached data:', cached.data.items.length, 'items')
       set({
         cards: cached.data.items,
         total: cached.data.total,
@@ -92,12 +93,14 @@ export const useCardsStore = create((set, get) => ({
       return
     }
 
+    console.log('[cards] Fetching: page=', page, 'filters=', filters)
     set({ loading: true })
 
     try {
       // ★ Insight: AbortSignal позволяет отменить предыдущий запрос при быстром переключении фильтров
       // Tauri invoke не поддерживает abortSignal напрямую, но мы можем проверить сигнал после ответа
       const res = await invoke('get_cards', { filter: filters, page, perPage })
+      console.log('[cards] Received:', res.items.length, 'items, total=', res.total)
 
       // Проверка на отмену после получения ответа (предотвращает race conditions)
       if (abortSignal?.aborted) {
@@ -124,23 +127,8 @@ export const useCardsStore = create((set, get) => ({
       // Auto-reveal cards in background
       get().autoRevealBatch(res.items)
 
-      // FIX FE-H04: Prevent infinite loop by limiting retry depth and checking for actual data mismatch
-      if (res.items.length === 0 && res.total > 0 && page > 1) {
-        // Only retry if we haven't already retried (check if we're on page 1)
-        const currentState = get()
-        if (currentState.retryCount < 3) {
-          set({ page: Math.max(1, page - 1), retryCount: (currentState.retryCount || 0) + 1 })
-          get().fetchCards(true)
-        } else {
-          // After 3 retries, force refresh from page 1
-          console.warn('[cards] Infinite loop detected, forcing refresh from page 1')
-          set({ page: 1, retryCount: 0, total: 0 })
-          get().fetchCards(true)
-        }
-      } else {
-        // Reset retry count on successful fetch
-        set({ retryCount: 0 })
-      }
+      // Reset retry count on successful fetch
+      set({ retryCount: 0 })
     } catch (error) {
       set({ loading: false })
       throw error
@@ -172,13 +160,11 @@ export const useCardsStore = create((set, get) => ({
   autoRevealBatch: async cardList => {
     const failedIds = []
     const BATCH_SIZE = 10
-
-    // ★ Insight: Используем функциональное обновление set() для proper merge
-    // Это предотвращает потерю данных при параллельных запросах (race condition)
-    // Когда batch [1,2,3] и batch [4,5,6] завершаются одновременно,
-    // функциональное обновление гарантирует что все данные будут merged
+    let cancelled = false
 
     for (let i = 0; i < cardList.length; i += BATCH_SIZE) {
+      if (cancelled) break
+
       const batch = cardList.slice(i, i + BATCH_SIZE)
 
       // Параллельное выполнение запросов внутри батча
@@ -186,10 +172,11 @@ export const useCardsStore = create((set, get) => ({
         batch.map(async card => {
           try {
             const data = await invoke('reveal_card', { id: card.id })
-            // ★ Insight: Функциональное обновление с merge — безопасно при concurrent updates
-            set(s => ({
-              revealed: { ...s.revealed, [card.id]: data },
-            }))
+            if (!cancelled) {
+              set(s => ({
+                revealed: { ...s.revealed, [card.id]: data },
+              }))
+            }
           } catch (error) {
             failedIds.push(card.id)
             console.error(`Failed to reveal card ${card.id}:`, error)
@@ -199,8 +186,12 @@ export const useCardsStore = create((set, get) => ({
     }
 
     // Notify user about partial failure
-    if (failedIds.length > 0) {
+    if (failedIds.length > 0 && !cancelled) {
       console.warn(`Failed to reveal ${failedIds.length} cards`)
+    }
+
+    return () => {
+      cancelled = true
     }
   },
 
@@ -380,9 +371,17 @@ export const useCardsStore = create((set, get) => ({
     }))
   },
 
-  handleFullSync: () => {
-    get().fetchCards(true)
-  },
+  handleFullSync: (() => {
+    // FIX P1-11: Debounce full sync to prevent rapid refetches
+    let timeoutId = null
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        get().fetchCards(true)
+        timeoutId = null
+      }, 200)
+    }
+  })(),
 
   // Invalidate cache
   invalidateCache: () => set({ cache: {} }),

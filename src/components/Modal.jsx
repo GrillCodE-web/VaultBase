@@ -17,6 +17,13 @@ export function Modal({
 }) {
   const modalRef = useRef(null)
   const previouslyFocusedRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  // FIX P1-15: Update ref in effect, not during render
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useFocusTrap(modalRef, isOpen)
 
   // Store focused element before modal opens and restore on close
@@ -28,18 +35,19 @@ export function Modal({
     }
   }, [isOpen])
 
+  // FIX P1-15: Use ref for stable onClose reference to prevent listener recreation
   useEffect(() => {
     if (!isOpen) return
 
     const handleEscape = e => {
       if (e.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
       }
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 

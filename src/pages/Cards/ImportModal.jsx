@@ -88,7 +88,8 @@ export function ImportModal({ onClose, onImported }) {
         source: source || 'dump',
       })
       setResult(res)
-      onImported?.()
+      // FIX P1-13: Debounce onImported to prevent rapid refetch
+      setTimeout(() => onImported?.(), 300)
     } catch (e) {
       const error = handleError(e, 'ImportModal.handleImport')
       toast(getErrorMessage(error), 'error')

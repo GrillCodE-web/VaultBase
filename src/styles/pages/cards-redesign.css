@@ -148,6 +148,57 @@
   pointer-events: none;
 }
 
+/* Quarantined state - cards < 14 days old */
+.card-row-quarantined {
+  opacity: 0.75;
+}
+
+/* Quarantined cards get amber left border instead of normal gradient */
+.card-row-quarantined::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(245, 158, 11, 0.7) 0%,
+    rgba(250, 204, 21, 0.9) 50%,
+    rgba(245, 158, 11, 0.7) 100%
+  );
+  background-size: 100% 200%;
+  animation: gradient-flow 3s ease-in-out infinite;
+  opacity: 0.8;
+  border-radius: 2px;
+}
+
+.card-row-quarantined:hover::before {
+  animation-duration: 1.5s;
+  opacity: 1;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+
+/* Domain column styling */
+td .filter-link-badge.domain-badge {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--indigo-t);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 3px 8px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+td .filter-link-badge.domain-badge:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+}
+
 /* Row flash animation */
 .row-flash {
   animation: row-flash-animation 0.6s ease;

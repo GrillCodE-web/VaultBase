@@ -57,6 +57,21 @@ export const CardRow = React.memo(
     const burnCount = card.orders_count ?? 0
     const isFlashing = flashedIds.includes(card.id)
 
+    // P2-QUARANTINE: Check if card is in quarantine (< 14 days old)
+    // Note: We use created_at as fallback since acquired_at may be null for older imports
+    const { isQuarantined, daysOld } = React.useMemo(() => {
+      const acquiredDate = card.acquired_at || card.created_at
+      if (!acquiredDate) return { isQuarantined: false, daysOld: null }
+      const acquired = new Date(acquiredDate).getTime()
+      const now = new Date().getTime()
+      const days = (now - acquired) / (1000 * 60 * 60 * 24)
+      return { isQuarantined: days < 14, daysOld: Math.floor(days) }
+    }, [card.acquired_at, card.created_at])
+
+    const quarantineTooltip = isQuarantined
+      ? `${t('card_in_quarantine') || 'Card in quarantine'} — ${daysOld} ${t('cc_days_old') || 'days old'}`
+      : null
+
     const rowClasses = [
       'card-row',
       isFlashing && 'row-flash',
@@ -64,6 +79,7 @@ export const CardRow = React.memo(
       card.status === 'free' && 'card-row-free',
       card.status === 'dead' && 'card-row-dead',
       card.status === 'in_use' && 'card-row-in-use',
+      isQuarantined && 'card-row-quarantined', // Visual indicator for quarantine
       deletingIds.includes(card.id) && 'card-row-deleting',
     ]
       .filter(Boolean)
@@ -289,6 +305,27 @@ export const CardRow = React.memo(
           <td className="cell-text-sm cell-truncate-sm">{card.source || '—'}</td>
         )}
 
+        {/* Domain — click to filter */}
+        {visibleCols.includes('domain') && (
+          <td>
+            {card.domain ? (
+              <span
+                onClick={e => {
+                  e.stopPropagation()
+                  setFilter(f => ({ ...f, domain: card.domain }))
+                  setPage(1)
+                }}
+                className="filter-link-badge domain-badge"
+                title={`${t('filter_by') || 'Filter by'} ${card.domain}`}
+              >
+                {card.domain}
+              </span>
+            ) : (
+              <span className="text-muted">—</span>
+            )}
+          </td>
+        )}
+
         {/* Status with inline quick-change menu and burn indicator */}
         {visibleCols.includes('status') && (
           <td>
@@ -347,6 +384,16 @@ export const CardRow = React.memo(
                   ×{burnCount}
                 </span>
               )}
+              {isQuarantined && (
+                <span
+                  className="quarantine-badge"
+                  title={
+                    quarantineTooltip || 'Card in quarantine - wait 14 days from acquisition date'
+                  }
+                >
+                  ⏳ {daysOld}d
+                </span>
+              )}
             </div>
           </td>
         )}
@@ -379,7 +426,15 @@ export const CardRow = React.memo(
           <td className="text-[11px] text-text-2 manrope">{rev?.email || '—'}</td>
         )}
         {visibleCols.includes('ip') && (
-          <td className="text-[11px] text-text-2 mono">{rev?.ip_address || '—'}</td>
+          <td className="text-[11px] text-text-2 mono">
+            {rev?.ip_address || card.ip_address ? (
+              <span className="ip-badge" title="IP address from log">
+                🌐 {rev?.ip_address || card.ip_address}
+              </span>
+            ) : (
+              '—'
+            )}
+          </td>
         )}
 
         {/* Actions */}
@@ -497,6 +552,8 @@ export const CardRow = React.memo(
       prev.card.expiry_date === next.card.expiry_date &&
       prev.card.country === next.card.country &&
       prev.card.source === next.card.source &&
+      prev.card.domain === next.card.domain &&
+      prev.card.acquired_at === next.card.acquired_at &&
       prev.card.orders_count === next.card.orders_count &&
       prev.card.zip === next.card.zip &&
       prev.card.city === next.card.city &&

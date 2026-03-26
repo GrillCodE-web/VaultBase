@@ -23,6 +23,9 @@ pub struct Card {
     pub zip: Option<String>,
     pub country: Option<String>,
     pub created_at: String,
+    // FIX P2-DOMAIN: Domain and IP from log parsing
+    pub domain: Option<String>,      // Shop domain (e.g., "tristatecamera.com")
+    pub ip_address: Option<String>,  // IP address from log
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -65,6 +68,10 @@ pub struct CardFilter {
     pub search: Option<String>,
     pub bin: Option<String>,
     pub expiring_soon: Option<bool>,
+    // P2-DOMAIN: Filter by domain
+    pub domain: Option<String>,
+    // P2-QUARANTINE: Filter by quarantine status (cards < 14 days old)
+    pub quarantine_status: Option<String>, // "all" | "available" | "quarantined"
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -82,6 +89,9 @@ pub struct CardInput {
     pub email: Option<String>,
     pub ip_address: Option<String>,
     pub source: String,
+    // FIX P2-DOMAIN: Fields for log parsing
+    pub domain: Option<String>,        // Shop domain from log (e.g., "tristatecamera.com")
+    pub acquired_at: Option<String>,   // Timestamp when card was acquired (from log)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,6 +108,8 @@ pub struct CardFilterMeta {
     pub countries: Vec<String>,
     pub banks:     Vec<String>,
     pub sources:   Vec<String>,
+    // P2-DOMAIN: List of unique domains for filter dropdown
+    pub domains:   Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -978,6 +990,19 @@ pub struct SourceStats {
     pub total_cards: i64,
     pub free_cards: i64,
     pub dead_cards: i64,
+    pub total_orders: i64,
+    pub revenue: f64,
+    pub success_rate: f64,
+}
+
+// P2-DOMAIN: Statistics by domain
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DomainStats {
+    pub domain: String,
+    pub total_cards: i64,
+    pub free_cards: i64,
+    pub dead_cards: i64,
+    pub quarantined_cards: i64,  // Cards < 14 days old
     pub total_orders: i64,
     pub revenue: f64,
     pub success_rate: f64,

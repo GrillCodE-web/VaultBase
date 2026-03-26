@@ -5,9 +5,17 @@ import { X } from 'lucide-react'
 export function CardShopUsagePanel({ cardId, onClose }) {
   const [shops, setShops] = useState(null)
   useEffect(() => {
+    let cancelled = false
     invoke('get_card_shop_usage', { cardId })
-      .then(setShops)
-      .catch(() => setShops([]))
+      .then(data => {
+        if (!cancelled) setShops(data || [])
+      })
+      .catch(() => {
+        if (!cancelled) setShops([])
+      })
+    return () => {
+      cancelled = true
+    }
   }, [cardId])
   return (
     <div role="dialog" aria-modal="true" aria-label="Card shop usage" className="shop-usage-panel">

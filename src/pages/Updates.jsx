@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { check as checkUpdate } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -158,6 +158,9 @@ export default function Updates() {
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [dismissed, setDismissed] = useState(false)
 
+  // FIX P2-5: Track cancelled state to prevent setState after unmount
+  const cancelledRef = useRef(false)
+
   const TABS = [
     { key: 'all', label: t('upd_tab_all') },
     { key: 'track', label: t('upd_tab_tracks') },
@@ -165,6 +168,13 @@ export default function Updates() {
     { key: 'cancelled', label: t('upd_tab_cancelled') },
     { key: 'attention', label: t('upd_tab_attention') },
   ]
+
+  // FIX P2-5: Cleanup cancelled flag on unmount
+  useEffect(() => {
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [])
 
   // ── Load activity feed ──────────────────────────────────────
   const loadData = useCallback(
@@ -179,15 +189,24 @@ export default function Updates() {
           }),
           invoke('get_app_version'),
         ])
-        if (logResult.status === 'fulfilled') setItems(logResult.value.items ?? [])
-        if (appVerResult.status === 'fulfilled') setCurrentVersion(appVerResult.value)
+        // FIX P2-5: Check cancelled flag before updating state
+        if (logResult.status === 'fulfilled' && !cancelledRef.current) {
+          setItems(logResult.value.items ?? [])
+        }
+        if (appVerResult.status === 'fulfilled' && !cancelledRef.current) {
+          setCurrentVersion(appVerResult.value)
+        }
       } catch (err) {
         const msg = err?.toString?.() ?? 'Unknown error'
-        setError(msg)
-        if (!silent) toast(t('upd_load_failed'), 'error')
+        if (!cancelledRef.current) {
+          setError(msg)
+          if (!silent) toast(t('upd_load_failed'), 'error')
+        }
       } finally {
-        setLoading(false)
-        setRefreshing(false)
+        if (!cancelledRef.current) {
+          setLoading(false)
+          setRefreshing(false)
+        }
       }
     },
     [toast, t]
@@ -199,9 +218,10 @@ export default function Updates() {
 
   // ── Check for app update ────────────────────────────────────
   useEffect(() => {
+    let cancelled = false
     checkUpdate()
       .then(update => {
-        if (!update?.available) return
+        if (!update?.available || cancelled) return
 
         // Don't show banner if we already installed this exact version this session
         // (prevents infinite loop after relaunch)
@@ -217,6 +237,9 @@ export default function Updates() {
         // FIX FE-H05: Log update check errors (but don't alert user - likely no internet)
         console.error('[Updates] Failed to check for updates:', e)
       }) // silently ignore — no internet, etc.
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // ── Download ───────────────────────────────────────────────

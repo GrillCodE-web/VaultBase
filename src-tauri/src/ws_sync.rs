@@ -21,6 +21,9 @@ const RECONNECT_SECS: u64 = 3;
 const PING_INTERVAL_SECS: u64 = 30;
 // FIX P3-HB-01: Reconnect after 2 missed pings (60 seconds total)
 const MAX_MISSED_PINGS: u32 = 2;
+// FIX P0-9: Track last full_pull time to prevent duplicate requests on rapid reconnects
+static LAST_FULL_PULL: RwLock<Option<Instant>> = RwLock::new(None);
+const FULL_PULL_DEBOUNCE_SECS: u64 = 30;  // Only one full_pull per 30 seconds
 
 // ─────────────────────────────────────────
 //  Shared credentials (set from main.rs)
@@ -110,9 +113,23 @@ fn ws_loop(app: AppHandle, db_path: String, running: Arc<AtomicBool>, creds: Sha
 
                 let _ = app.emit("ws_sync:status", serde_json::json!({ "connected": true, "connecting": false, "group_id": group_id }));
 
-                // Request full pull of missed updates via socket.io event frame
-                let full_pull = format!(r#"42["message",{}]"#, serde_json::json!({ "type": "full_pull" }));
-                let _ = socket.send(Message::Text(full_pull));
+                // FIX P0-9: Request full pull of missed updates with debouncing
+                let now = Instant::now();
+                let should_pull = {
+                    let last_pull = LAST_FULL_PULL.read().unwrap_or_else(|e| e.into_inner());
+                    match *last_pull {
+                        Some(last) => now.duration_since(last).as_secs() > FULL_PULL_DEBOUNCE_SECS,
+                        None => true,
+                    }
+                };
+
+                if should_pull {
+                    let full_pull = format!(r#"42["message",{}]"#, serde_json::json!({ "type": "full_pull" }));
+                    let _ = socket.send(Message::Text(full_pull));
+                    if let Ok(mut last_pull) = LAST_FULL_PULL.write() {
+                        *last_pull = Some(now);
+                    }
+                }
 
                 // Set a read timeout so the loop can wake up and send keepalive pings.
                 // Reach through MaybeTlsStream to get the underlying TcpStream.

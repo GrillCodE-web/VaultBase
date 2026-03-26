@@ -204,6 +204,7 @@ export default function Settings() {
   }
 
   const handleBackup = async () => {
+    const prevLastBackup = lastBackup // FIX P2-4: Store previous value for rollback
     setExportingBackup(true)
     try {
       const path = await invoke('export_backup')
@@ -212,6 +213,8 @@ export default function Settings() {
       setLastBackup(now)
       toastOk(t('settings_backup_created') + ': ' + path)
     } catch (e) {
+      // FIX P2-4: Rollback on error
+      setLastBackup(prevLastBackup)
       const error = handleError(e, 'Settings.handleBackup')
       toastErr(getErrorMessage(error))
     } finally {

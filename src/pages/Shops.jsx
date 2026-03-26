@@ -984,7 +984,7 @@ export default function ShopList({ onNavigate }) {
                           <td onClick={e => e.stopPropagation()}>
                             <input
                               type="checkbox"
-                              checked={selected.includes(shop.id)}
+                              checked={selected.has(shop.id)}
                               onChange={e =>
                                 setSelected(prev => {
                                   const next = new Set(prev)
@@ -1141,7 +1141,7 @@ export default function ShopList({ onNavigate }) {
                       <td onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
-                          checked={selected.includes(shop.id)}
+                          checked={selected.has(shop.id)}
                           onChange={e =>
                             setSelected(prev => {
                               const next = new Set(prev)

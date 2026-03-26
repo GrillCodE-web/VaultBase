@@ -1,6 +1,6 @@
 [package]
 name = "cc-manager"
-version = "2.1.0"
+version = "2.5.0"
 description = "CC Manager — Desktop CRM for credit card operations"
 authors = []
 edition = "2021"

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+// FIX P2-3: AbortController for fetch cancellation
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
 import { invoke } from '@tauri-apps/api/core'
@@ -1026,6 +1027,8 @@ export default function ProfileList({
   const [selectedIdx, setSelectedIdx] = useState(null)
   const tableBodyRef = useRef(null)
   const tableContainerRef = useRef(null)
+  const deleteTimersRef = useRef(new Map()) // FIX P2-1: Track delete timers for cleanup
+  const fetchAbortRef = useRef(null) // FIX P2-3: AbortController for fetch cancellation
   const { toast } = usePremiumToast()
   const { t } = useLang()
 
@@ -1044,6 +1047,13 @@ export default function ProfileList({
 
   const load = useCallback(
     async (p = page, f = filter) => {
+      // FIX P2-3: Abort previous fetch if still running
+      if (fetchAbortRef.current) {
+        fetchAbortRef.current.abort()
+      }
+      // eslint-disable-next-line no-undef
+      fetchAbortRef.current = new AbortController()
+
       setLoading(true)
       try {
         const result = await invoke('get_profiles', {
@@ -1057,6 +1067,10 @@ export default function ProfileList({
           setPage(prev => Math.max(1, prev - 1))
         }
       } catch (e) {
+        if (fetchAbortRef.current?.signal.aborted) {
+          // Fetch was aborted - don't update state
+          return
+        }
         toast(String(e), 'error')
       } finally {
         setLoading(false)
@@ -1071,11 +1085,22 @@ export default function ProfileList({
   }, [load])
 
   // FIX FE-H02: Cleanup hover timer on unmount to prevent memory leak
+  // FIX P2-1: Cleanup all delete timers on unmount
   useEffect(() => {
     return () => {
       if (hoverTimer.current) {
         clearTimeout(hoverTimer.current)
         hoverTimer.current = null
+      }
+      // Clear all pending delete timers - copy ref to avoid stale closure warning
+      const timers = deleteTimersRef.current
+      timers.forEach(timerId => {
+        clearTimeout(timerId)
+      })
+      timers.clear()
+      // Abort any in-flight fetch
+      if (fetchAbortRef.current) {
+        fetchAbortRef.current.abort()
       }
     }
   }, [])
@@ -1178,23 +1203,9 @@ export default function ProfileList({
     // #15 — undo delete, no confirm dialog
     setDeletingIds(prev => new Set([...prev, profile.id]))
     let undone = false
-    toast({
-      message: t('profile_deleted'),
-      type: 'info',
-      duration: 5000,
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          undone = true
-          setDeletingIds(prev => {
-            const n = new Set(prev)
-            n.delete(profile.id)
-            return n
-          })
-        },
-      },
-    })
-    setTimeout(async () => {
+
+    // FIX P2-1: Track delete timer for cleanup on unmount
+    const timerId = setTimeout(async () => {
       if (undone) return
       try {
         await invoke('delete_profile', { id: profile.id })
@@ -1204,12 +1215,14 @@ export default function ProfileList({
           return n
         })
         load()
+        deleteTimersRef.current.delete(profile.id)
       } catch (e) {
         setDeletingIds(prev => {
           const n = new Set(prev)
           n.delete(profile.id)
           return n
         })
+        deleteTimersRef.current.delete(profile.id)
         const error = handleError(e, 'Profiles.handleDelete')
         if (e.includes?.('active_orders')) {
           const count = e.split(':')[1]
@@ -1219,6 +1232,27 @@ export default function ProfileList({
         }
       }
     }, 5000)
+
+    deleteTimersRef.current.set(profile.id, timerId)
+
+    toast({
+      message: t('profile_deleted'),
+      type: 'info',
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          undone = true
+          clearTimeout(timerId)
+          deleteTimersRef.current.delete(profile.id)
+          setDeletingIds(prev => {
+            const n = new Set(prev)
+            n.delete(profile.id)
+            return n
+          })
+        },
+      },
+    })
   }
 
   const handleDuplicate = async profile => {

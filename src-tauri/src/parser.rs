@@ -1,6 +1,18 @@
 //! CC dump parser with auto-delimiter detection, Luhn validation, and column auto-detection.
+//! FIX P2-DOMAIN: Added log metadata parsing (date, domain, IP)
 
 use crate::models::{CardInput, MappingPreview};
+
+// ─────────────────────────────────────────
+//  Log metadata structure
+// ─────────────────────────────────────────
+
+#[derive(Debug, Clone, Default)]
+pub struct LogMetadata {
+    pub timestamp: Option<String>,  // e.g., "2026-03-04 01:25:38"
+    pub ip: Option<String>,         // e.g., "107.218.77.158"
+    pub domain: Option<String>,     // e.g., "tristatecamera.com"
+}
 
 // ─────────────────────────────────────────
 //  Public result type
@@ -47,20 +59,62 @@ const STREET_SUFFIXES: &[&str] = &[
 //  Handles: "[2025-10-26 12:48:52] IP: x.x.x.x | Domain: foo.com | Data: <carddata>"
 // ─────────────────────────────────────────
 
-fn strip_log_prefix(line: &str) -> &str {
-    // FIX B58: используем find (первое вхождение) вместо rfind,
-    // чтобы вредоносный "| data: " в теле данных не подменял результат.
-    let lower = line.to_lowercase();
-    if let Some(pos) = lower.find("| data: ") {
-        return &line[pos + 8..];
+/// Parse log line metadata and card data separately
+/// Returns (metadata, card_data)
+fn parse_log_line(line: &str) -> (LogMetadata, &str) {
+    let mut meta = LogMetadata::default();
+    let mut card_data = line;
+
+    // Check if this is a log line with prefix
+    if !line.trim_start().starts_with('[') {
+        // Not a log line, return as-is
+        return (meta, line);
     }
-    if let Some(pos) = lower.find("data: ") {
-        // Only strip if it looks like a log line (starts with '[')
-        if line.trim_start().starts_with('[') {
-            return &line[pos + 6..];
+
+    let lower = line.to_lowercase();
+
+    // Extract timestamp: [YYYY-MM-DD HH:MM:SS]
+    if let Some(ts_start) = line.find('[') {
+        if let Some(ts_end) = line.find(']') {
+            if ts_end > ts_start {
+                meta.timestamp = Some(line[ts_start + 1..ts_end].to_string());
+                card_data = &line[ts_end + 1..];
+            }
         }
     }
-    line
+
+    // Extract IP: "IP: x.x.x.x"
+    if let Some(ip_pos) = lower.find("ip: ") {
+        let ip_start = ip_pos + 4;
+        let rest = &line[ip_start..];
+        if let Some(end) = rest.find(" |") {
+            meta.ip = Some(rest[..end].trim().to_string());
+        }
+    }
+
+    // Extract Domain: "Domain: foo.com"
+    if let Some(dom_pos) = lower.find("domain: ") {
+        let dom_start = dom_pos + 8;
+        let rest = &line[dom_start..];
+        if let Some(end) = rest.find(" |") {
+            meta.domain = Some(rest[..end].trim().to_string());
+        }
+    }
+
+    // Extract card data after "Data: "
+    if let Some(pos) = lower.find("| data: ") {
+        card_data = &line[pos + 8..];
+    } else if let Some(pos) = lower.find("data: ") {
+        card_data = &line[pos + 6..];
+    }
+
+    (meta, card_data.trim())
+}
+
+/// Legacy function for backwards compatibility - returns only card data
+fn strip_log_prefix(line: &str) -> &str {
+    let (_, card_data) = parse_log_line(line);
+    card_data
 }
 
 // ─────────────────────────────────────────
@@ -403,15 +457,22 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
     let mut data_line_no = 0usize;
 
     for line in raw.lines() {
-        let line = strip_log_prefix(line.trim());
-        if line.is_empty() { continue; }
+        // FIX P2-DOMAIN: Parse log metadata (timestamp, IP, domain)
+        let (meta, card_line) = parse_log_line(line.trim());
+
+        if card_line.is_empty() { continue; }
         data_line_no += 1;
         let line_no = data_line_no; // 1-based для сообщений об ошибках
 
-        let parts: Vec<&str> = line.split(delim).map(|s| s.trim()).collect();
+        let parts: Vec<&str> = card_line.split(delim).map(|s| s.trim()).collect();
 
         let mut input = CardInput {
             source: source.to_string(),
+            // FIX P2-DOMAIN: Populate domain and acquired_at from log metadata
+            domain: meta.domain,
+            acquired_at: meta.timestamp,
+            // Use IP from log if not explicitly mapped
+            ip_address: meta.ip,
             ..Default::default()
         };
 
@@ -443,7 +504,7 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
                 "country"         => { input.country = Some(val.to_string()); }
                 "phone"           => { input.phone = Some(val.to_string()); }
                 "email"           => { input.email = Some(val.to_string()); }
-                "ip_address"      => { input.ip_address = Some(val.to_string()); }
+                "ip_address"      => { input.ip_address = Some(val.to_string()); } // Override if explicitly mapped
                 _ => {}
             }
         }

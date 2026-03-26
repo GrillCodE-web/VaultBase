@@ -313,11 +313,14 @@ function MainShell({ offlineMode, setOfflineMode }) {
   const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting, group_id? }
 
   React.useEffect(() => {
-    const unlisten = listen('ws_sync:status', e => {
+    let unlistenFn = null
+    listen('ws_sync:status', e => {
       setWsStatus(e.payload)
+    }).then(fn => {
+      unlistenFn = fn
     })
     return () => {
-      unlisten.then(u => u())
+      if (unlistenFn) unlistenFn()
     }
   }, [])
 
@@ -426,7 +429,8 @@ function MainShell({ offlineMode, setOfflineMode }) {
 
   // L: IMAP toast when new messages arrive
   useEffect(() => {
-    const unlisten = listen('badge_update', e => {
+    let unlistenFn = null
+    listen('badge_update', e => {
       const b = e.payload
       if (b) {
         const prev = prevImapRef.current
@@ -440,9 +444,11 @@ function MainShell({ offlineMode, setOfflineMode }) {
         prevImapRef.current = next
         setBadges(b)
       }
+    }).then(fn => {
+      unlistenFn = fn
     })
     return () => {
-      unlisten.then(fn => fn())
+      if (unlistenFn) unlistenFn()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1038,7 +1044,9 @@ function AppInner() {
   const [offlineMode, setOfflineMode] = useState(false)
 
   useEffect(() => {
-    const unlisten = Promise.all([
+    let unlistenFns = []
+
+    Promise.all([
       listen('show_activate', () => setView('activate')),
       listen('show_auth', e => {
         if (e?.payload?.offline) setOfflineMode(true)
@@ -1046,7 +1054,9 @@ function AppInner() {
       }),
       listen('license_revoked', () => setView('revoked')),
       listen('app_locked', () => setView('auth')),
-    ])
+    ]).then(fns => {
+      unlistenFns = fns
+    })
 
     // Fallback if no event arrives within 3s
     const timer = setTimeout(() => {
@@ -1076,7 +1086,9 @@ function AppInner() {
     }, 3000)
 
     return () => {
-      unlisten.then(fns => fns.forEach(fn => fn()))
+      unlistenFns.forEach(fn => {
+        if (typeof fn === 'function') fn()
+      })
       clearTimeout(timer)
     }
   }, [])

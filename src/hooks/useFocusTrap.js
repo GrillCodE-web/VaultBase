@@ -33,6 +33,7 @@ export function useFocusTrap(ref, isActive) {
 
     const handleKeyDown = e => {
       if (e.key !== 'Tab') return
+      // FIX P2-12: Get fresh nodes on each keydown (not stale closure)
       const focusable = getNodes()
       if (!focusable.length) return
 
@@ -53,6 +54,8 @@ export function useFocusTrap(ref, isActive) {
     }
 
     el.addEventListener('keydown', handleKeyDown)
-    return () => el.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      el.removeEventListener('keydown', handleKeyDown)
+    }
   }, [ref, isActive])
 }

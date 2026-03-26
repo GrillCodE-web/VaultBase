@@ -39,6 +39,7 @@ function getAllColumns(t) {
     { id: 'bin_bank', label: 'cc_col_bin' },
     { id: 'type', label: 'cc_col_type' },
     { id: 'source', label: 'cc_col_source' },
+    { id: 'domain', label: 'Domain' }, // P2-DOMAIN: Domain column
     { id: 'status', label: 'cc_col_status' },
     { id: 'health', label: 'Health' },
     { id: 'notes', label: 'cc_col_notes' },
@@ -236,56 +237,71 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const cardsRef = useRef(cards)
   cardsRef.current = cards
 
+  // FIX: Обернуть handleSyncUpdate и handleFullSync в ref для стабильности
+  const handleSyncUpdateRef = useRef(handleSyncUpdate)
+  handleSyncUpdateRef.current = handleSyncUpdate
+  const handleFullSyncRef = useRef(handleFullSync)
+  handleFullSyncRef.current = handleFullSync
+
   useEffect(() => {
-    let unlistenUpdate, unlistenFull
+    let unlistenUpdate = null
+    let unlistenFull = null
+    let isMounted = true
     const timers = flashTimers.current
 
-    listen('sync:card_update', event => {
-      const updates = event.payload ?? []
-      // Apply status changes via store
-      handleSyncUpdate(updates)
+    const setupListeners = async () => {
+      try {
+        // Register card_update listener
+        const updateListener = await listen('sync:card_update', event => {
+          const updates = event.payload ?? []
+          // Use ref to get latest handler
+          handleSyncUpdateRef.current(updates)
 
-      // Flash updated cards — используем ref вместо direct dependency
-      updates.forEach(upd => {
-        const card = cardsRef.current.find(c => c.id === upd.id)
-        if (card) {
-          addFlashedId(card.id)
-          if (timers[card.id]) clearTimeout(timers[card.id])
-          timers[card.id] = setTimeout(() => {
-            removeFlashedId(card.id)
-          }, 2000)
+          // Flash updated cards — используем ref вместо direct dependency
+          updates.forEach(upd => {
+            const card = cardsRef.current.find(c => c.id === upd.id)
+            if (card) {
+              addFlashedId(card.id)
+              if (timers[card.id]) clearTimeout(timers[card.id])
+              timers[card.id] = setTimeout(() => {
+                removeFlashedId(card.id)
+              }, 2000)
+            }
+          })
+        })
+        if (isMounted) {
+          unlistenUpdate = updateListener
+          setSyncError(null)
         }
-      })
-    })
-      .then(u => {
-        unlistenUpdate = u
-        setSyncError(null) // Clear error on successful listener registration
-      })
-      .catch(e => {
-        console.error('[Cards] Failed to register sync:card_update listener:', e)
-        setSyncError('Real-time sync unavailable')
-      })
 
-    listen('sync:full_data', () => {
-      handleFullSync()
-    })
-      .then(u => {
-        unlistenFull = u
-      })
-      .catch(e => {
-        console.error('[Cards] Failed to register sync:full_data listener:', e)
-        setSyncError('Real-time sync unavailable')
-      })
+        // Register full_data listener
+        const fullListener = await listen('sync:full_data', () => {
+          handleFullSyncRef.current()
+        })
+        if (isMounted) {
+          unlistenFull = fullListener
+        }
+      } catch (e) {
+        if (isMounted) {
+          console.error('[Cards] Failed to register sync listeners:', e)
+          setSyncError('Real-time sync unavailable')
+        }
+      }
+    }
+
+    setupListeners()
 
     return () => {
-      unlistenUpdate?.()
-      unlistenFull?.()
+      isMounted = false
+      // Cleanup listeners safely
+      if (unlistenUpdate) unlistenUpdate()
+      if (unlistenFull) unlistenFull()
       // Clear all timers on cleanup
       Object.values(timers).forEach(clearTimeout)
       Object.values(deleteTimers.current).forEach(clearTimeout)
       deleteTimers.current = {}
     }
-  }, [handleSyncUpdate, handleFullSync, addFlashedId, removeFlashedId])
+  }, [addFlashedId, removeFlashedId])
 
   // ── Close status menu on outside click ────────────────────────────────
 
@@ -525,6 +541,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // ★ Insight: renderCard обернут в useCallback для стабильной ссылки
   // CardRow.memo защищает от лишних рендеров, но стабильная функция улучшает кэширование
+  // FIX: cards добавлен в зависимости — он используется в JSX и должен триггерить пересоздание
   const renderCard = useCallback(
     card => (
       <CardRow

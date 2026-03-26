@@ -253,6 +253,15 @@ function ShippedModal({ onConfirm, onClose }) {
   const [carrier, setCarrier] = useState('')
   const modalRef = useRef(null)
   useFocusTrap(modalRef, true)
+
+  // FIX P1-16: Add scroll lock
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
   return (
     <div className="modal-overlay">
       <div
@@ -404,11 +413,29 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
   const modalRef = useRef(null)
   useFocusTrap(modalRef, true)
 
+  // FIX P1-16: Add scroll lock
   useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     invoke('get_profiles', { filter: {}, page: 1, perPage: 200 })
-      .then(r => setProfiles(r.items || []))
-      .catch(() => setProfiles([]))
-      .finally(() => setLoadingProfiles(false))
+      .then(r => {
+        if (!cancelled) setProfiles(r.items || [])
+      })
+      .catch(() => {
+        if (!cancelled) setProfiles([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProfiles(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleRepeat = async () => {

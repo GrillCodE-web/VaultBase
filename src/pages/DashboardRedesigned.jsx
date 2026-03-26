@@ -332,6 +332,58 @@ function SourceTable({ data }) {
   )
 }
 
+// P2-DOMAIN: Domain Statistics Table
+function DomainTable({ data }) {
+  const { t } = useLang()
+  if (!data?.length) return <p className="text-[11px] text-muted py-2">{t('msg_no_data')}</p>
+  return (
+    <div className="overflow-x-auto">
+      <table className="tbl w-full">
+        <thead>
+          <tr>
+            {[
+              'Domain',
+              t('nav_cards'),
+              t('status_free'),
+              t('status_dead'),
+              'Quarantine',
+              t('nav_orders'),
+              t('chart_revenue'),
+              t('col_success_rate'),
+            ].map(h => (
+              <th key={h}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(d => (
+            <tr key={d.domain}>
+              <td>
+                <span className="filter-link-badge domain-badge">{d.domain}</span>
+              </td>
+              <td className="text-right">{formatNumber(d.total_cards)}</td>
+              <td className="text-right text-green-t">{formatNumber(d.free_cards)}</td>
+              <td className="text-right text-red-t">{formatNumber(d.dead_cards)}</td>
+              <td className="text-right">
+                {d.quarantined_cards > 0 ? (
+                  <span className="quarantine-badge">⏳ {d.quarantined_cards}</span>
+                ) : (
+                  '—'
+                )}
+              </td>
+              <td className="text-right">{formatNumber(d.total_orders)}</td>
+              <td className="text-right">{formatCurrency(d.revenue)}</td>
+              <td className="text-right">
+                <RateBadge rate={d.success_rate} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function BinPerfTable({ data }) {
   if (!data?.length) return <p className="text-[11px] text-muted py-2">Not enough data yet</p>
   return (
@@ -550,7 +602,7 @@ function SmartAlertCard({ alert, onAction }) {
     error: { icon: XCircle, color: 'error' },
     warning: { icon: AlertTriangle, color: 'warning' },
     info: { icon: Info, color: 'info' },
-  }[alert.level || 'info']
+  }[alert.level] || { icon: Info, color: 'info' }
 
   const Icon = config.icon
 
@@ -588,6 +640,7 @@ export default function DashboardRedesigned({ onNavigate }) {
   const [banks, setBanks] = useState([])
   const [countries, setCountries] = useState([])
   const [sources, setSources] = useState([])
+  const [domains, setDomains] = useState([]) // P2-DOMAIN: Domain statistics
   const [expiring, setExpiring] = useState([])
   const [recentOrders, setRecentOrders] = useState([])
   const [binPerf, setBinPerf] = useState([])
@@ -621,13 +674,14 @@ export default function DashboardRedesigned({ onNavigate }) {
       if (isRefresh) setRefreshing(true)
       const p = { period, from: from || undefined, to: to || undefined }
       try {
-        const [s, c, hm, b, co, so, ex, ro, bp] = await Promise.allSettled([
+        const [s, c, hm, b, co, so, dm, ex, ro, bp] = await Promise.allSettled([
           invoke('get_dashboard_stats', p),
           invoke('get_revenue_chart', p),
           invoke('get_heatmap_data', p),
           invoke('get_top_banks', p),
           invoke('get_by_country', p),
           invoke('get_by_source', p),
+          invoke('get_by_domain', p), // P2-DOMAIN: Load domain statistics
           invoke('get_expiring_cards_dashboard', { days: 30 }),
           invoke('get_orders', { filter: {}, page: 1, perPage: 10 }),
           invoke('get_bin_performance'),
@@ -653,10 +707,11 @@ export default function DashboardRedesigned({ onNavigate }) {
         if (b.status === 'fulfilled') setBanks(b.value)
         if (co.status === 'fulfilled') setCountries(co.value)
         if (so.status === 'fulfilled') setSources(so.value)
+        if (dm.status === 'fulfilled') setDomains(dm.value) // P2-DOMAIN: Set domain stats
         if (ex.status === 'fulfilled') setExpiring(ex.value)
         if (ro.status === 'fulfilled') setRecentOrders(ro.value?.items ?? [])
         if (bp.status === 'fulfilled') setBinPerf(bp.value)
-        ;[s, c, hm, b, co, so, ex, ro, bp].forEach((r, i) => {
+        ;[s, c, hm, b, co, so, dm, ex, ro, bp].forEach((r, i) => {
           if (r.status === 'rejected') console.warn('Dashboard load error [' + i + ']:', r.reason)
         })
       } catch {
@@ -1052,6 +1107,16 @@ export default function DashboardRedesigned({ onNavigate }) {
         onToggle={toggleSection}
       >
         <SourceTable data={sources} />
+      </CollapsePanel>
+
+      {/* P2-DOMAIN: Domain Statistics Section */}
+      <CollapsePanel
+        title="Domains"
+        id="domains"
+        collapsed={collapsed.domains ?? true}
+        onToggle={toggleSection}
+      >
+        <DomainTable data={domains} />
       </CollapsePanel>
 
       <CollapsePanel

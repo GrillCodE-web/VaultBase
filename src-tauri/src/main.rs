@@ -864,6 +864,14 @@ fn get_by_source(period: String, from: Option<String>, to: Option<String>) -> Re
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_source(&period, from.as_deref(), to.as_deref())
 }
+
+// P2-DOMAIN: Statistics by domain
+#[tauri::command]
+fn get_by_domain(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<DomainStats>, String> {
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_by_domain(&period, from.as_deref(), to.as_deref())
+}
+
 #[tauri::command]
 fn get_expiring_cards_dashboard(days: u32) -> Result<Vec<ExpiringCard>, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
@@ -2312,7 +2320,7 @@ fn main() {
             run_risk_check, save_order_template, get_order_templates,
             get_unsynced_footprints, mark_footprints_synced, sync_now,
             get_dashboard_stats, get_revenue_chart, get_heatmap_data, get_top_banks,
-            get_by_country, get_by_source, get_expiring_cards_dashboard,
+            get_by_country, get_by_source, get_by_domain, get_expiring_cards_dashboard,
             export_dashboard_csv, get_sidebar_badges,
             get_bin_performance, get_shop_win_loss,
             add_imap_account, get_imap_accounts, update_imap_account,

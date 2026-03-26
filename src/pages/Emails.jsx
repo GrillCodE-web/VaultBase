@@ -120,14 +120,20 @@ function EmailModal({ initial, onSave, onClose }) {
 
   const valid = form.email.includes('@')
 
+  // FIX P2-6: Consolidated scroll lock cleanup - only in useEffect
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
   const handleSave = async () => {
     if (!valid) return
     setLoading(true)
     try {
       await onSave(form)
-      // ★ Insight: Очищаем scroll lock перед закрытием модалки
-      document.body.style.overflow = ''
-      onClose()
+      onClose() // Cleanup handled by useEffect
     } catch (e) {
       const error = handleError(e, 'EmailModal.handleSave')
       toast(getErrorMessage(error), 'error')
@@ -135,14 +141,6 @@ function EmailModal({ initial, onSave, onClose }) {
       setLoading(false)
     }
   }
-
-  // Scroll lock — cleanup только при unmount (на случай если onClose не вызвался)
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
 
   return (
     <div className="modal-overlay">
@@ -157,11 +155,7 @@ function EmailModal({ initial, onSave, onClose }) {
             {isEdit ? t('email_modal_title_edit') : t('email_modal_title_add')}
           </div>
           <button
-            onClick={() => {
-              // ★ Insight: Очищаем scroll lock при закрытии модалки
-              document.body.style.overflow = ''
-              onClose()
-            }}
+            onClick={onClose} // Cleanup handled by useEffect
             className="modal-close"
             aria-label="Close"
           >

@@ -13,7 +13,7 @@ use crate::encryption::{FieldEncryption, hash_value};
 use crate::models::*;
 use crate::parser::{extract_bin_last4, luhn_valid};
 
-pub const CURRENT_MIGRATION_VERSION: u32 = 8;
+pub const CURRENT_MIGRATION_VERSION: u32 = 9;
 
 // ─────────────────────────────────────────
 //  Database struct
@@ -59,11 +59,13 @@ impl Database {
         let manager = SqliteConnectionManager::file(path)
             .with_init(|c| {
                 // Initialize each connection with pragmas
-                c.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")
+                // FIX P0-7: Add busy_timeout for SQLite to wait instead of returning SQLITE_BUSY
+                // FIX P2-10: Add wal_autocheckpoint for better WAL management (3000 pages = ~12MB)
+                c.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA wal_autocheckpoint = 3000;")
             });
 
         Pool::builder()
-            .max_size(4)  // 4 concurrent connections for desktop mode
+            .max_size(8)  // FIX P2-24: Increase from 4 to 8 for better concurrency
             .build(manager)
             .ok()
     }
@@ -195,13 +197,14 @@ impl Database {
                 "INSERT OR IGNORE INTO credit_cards
                  (card_number, expiry_date, cvv, holder_name, billing_address,
                   city, state, zip, country, phone, email, ip_address,
-                  bin, last4, source, card_hash)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
+                  bin, last4, source, card_hash, domain, acquired_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)",
                 params![
                     enc_number, card.expiry_date, enc_cvv, enc_holder, enc_address,
                     card.city, card.state, card.zip, card.country,
                     enc_phone, enc_email, enc_ip,
-                    bin, last4, card.source, card_hash
+                    bin, last4, card.source, card_hash,
+                    card.domain, card.acquired_at
                 ],
             ).map_err(|e| e.to_string())?;
 
@@ -270,6 +273,23 @@ impl Database {
                 date('20'||substr(expiry_date,4,2)||'-'||substr(expiry_date,1,2)||'-01','+1 month','-1 day') \
                 BETWEEN date('now') AND date('now','+60 days')".to_string());
         }
+        // P2-DOMAIN: Filter by domain
+        if let Some(ref domain) = filter.domain {
+            if !domain.is_empty() {
+                conditions.push(format!("domain = ?{}", params_list.len()+1));
+                params_list.push(Box::new(domain.clone()));
+            }
+        }
+        // P2-QUARANTINE: Filter by quarantine status (cards < 14 days old are quarantined)
+        if let Some(ref q_status) = filter.quarantine_status {
+            if q_status == "available" {
+                // Cards older than 14 days OR without acquired_at (always available)
+                conditions.push("(acquired_at IS NULL OR julianday('now') - julianday(acquired_at) >= 14)".to_string());
+            } else if q_status == "quarantined" {
+                // Cards less than 14 days old
+                conditions.push("(acquired_at IS NOT NULL AND julianday('now') - julianday(acquired_at) < 14)".to_string());
+            }
+        }
         // search by last4 or bin (plaintext)
         if let Some(ref s) = filter.search {
             let trimmed = s.trim().to_string();
@@ -294,7 +314,7 @@ impl Database {
         let data_sql  = format!(
             "SELECT id, bin, last4, expiry_date, holder_name, bank_name,
                     card_type, card_level, status, source, notes,
-                    city, state, zip, country, created_at
+                    city, state, zip, country, created_at, domain, acquired_at
              FROM credit_cards {} ORDER BY created_at DESC LIMIT ?{} OFFSET ?{}",
             where_clause,
             params_list.len() + 1,
@@ -336,6 +356,8 @@ impl Database {
                 zip:        row.get(13)?,
                 country:    row.get(14)?,
                 created_at: row.get::<_, String>(15).unwrap_or_default(),
+                domain:     row.get(16)?,
+                ip_address: row.get(17)?,  // IP from log (stored as plaintext for filtering)
             })
         }).map_err(|e| e.to_string())?
           .filter_map(|r| r.ok())
@@ -377,7 +399,19 @@ impl Database {
         let sources: Vec<String> = stmt.query_map([], |r| r.get(0))
             .map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
 
-        Ok(crate::models::CardFilterMeta { countries, banks, sources })
+        // P2-DOMAIN: Get unique domains for filter dropdown (safe — returns empty if column doesn't exist)
+        let domains: Vec<String> = self.conn.prepare(
+            "SELECT DISTINCT domain FROM credit_cards WHERE domain IS NOT NULL AND domain != '' ORDER BY domain LIMIT 80"
+        ).ok()
+        .and_then(|mut stmt| {
+            stmt.query_map([], |r| r.get(0))
+                .ok()
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        })
+        .flatten()
+        .unwrap_or_default();
+
+        Ok(crate::models::CardFilterMeta { countries, banks, sources, domains })
     }
 
     // ─────────────────────────────────────────
@@ -1080,6 +1114,52 @@ impl Database {
                 total_orders: r.get(4)?,
                 revenue:      r.get::<_,f64>(5).unwrap_or(0.0),
                 success_rate: r.get::<_,f64>(6).unwrap_or(0.0),
+            })
+        }).map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    }
+
+    // P2-DOMAIN: Statistics by domain
+    pub fn get_by_domain(&self, period: &str, from: Option<&str>, to: Option<&str>) -> Result<Vec<DomainStats>, String> {
+        let (start, end) = period_dates(period, from, to);
+        let (date_and, p_strs) = date_and_clause(&start, &end, "o.created_at");
+        let os_where = if date_and.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", date_and)
+        };
+        let sql = format!(
+            "WITH os AS (\
+             SELECT cc.domain as cid,COUNT(*) as to_,\
+             SUM(CASE WHEN o.status IN('shipped','delivered')THEN 1 ELSE 0 END) as sh,\
+             SUM(COALESCE(o.total_amount,0)) as re\
+             FROM orders o JOIN profiles p ON p.id=o.profile_id {} GROUP BY cc.domain),\
+             cs AS (SELECT domain,id,\
+             CASE WHEN status='free' THEN 1 ELSE 0 END as is_free,\
+             CASE WHEN status='dead' THEN 1 ELSE 0 END as is_dead,\
+             CASE WHEN acquired_at IS NOT NULL AND julianday('now') - julianday(acquired_at) < 14 THEN 1 ELSE 0 END as is_quarantined\
+             FROM credit_cards WHERE domain IS NOT NULL AND domain != '')\
+             SELECT cs.domain,COUNT(*) as tc,\
+             SUM(cs.is_free) as fc,SUM(cs.is_dead) as dc,SUM(cs.is_quarantined) as qc,\
+             COALESCE(SUM(os.to_),0),COALESCE(SUM(os.re),0.0),\
+             CASE WHEN COALESCE(SUM(os.to_),0)=0 THEN 0.0 ELSE\
+             CAST(COALESCE(SUM(os.sh),0) AS REAL)*100/CAST(COALESCE(SUM(os.to_),0) AS REAL) END\
+             FROM cs LEFT JOIN os ON os.cid=cs.domain\
+             GROUP BY cs.domain ORDER BY COALESCE(SUM(os.to_),0) DESC LIMIT 20",
+            os_where
+        );
+        let p_refs: Vec<&dyn rusqlite::ToSql> = p_strs.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(p_refs.as_slice(), |r| {
+            Ok(DomainStats {
+                domain:           r.get::<_,Option<String>>(0)?.unwrap_or_else(|| "—".into()),
+                total_cards:      r.get(1)?,
+                free_cards:       r.get(2)?,
+                dead_cards:       r.get(3)?,
+                quarantined_cards: r.get(4)?,
+                total_orders:     r.get(5)?,
+                revenue:          r.get::<_,f64>(6).unwrap_or(0.0),
+                success_rate:     r.get::<_,f64>(7).unwrap_or(0.0),
             })
         }).map_err(|e| e.to_string())?;
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
@@ -4532,6 +4612,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         if version < 6 { migration_v6(conn)?; conn.execute_batch("PRAGMA user_version = 6")?; version = 6; }
         if version < 7 { migration_v7(conn)?; conn.execute_batch("PRAGMA user_version = 7")?; }
         if version < 8 { migration_v8(conn)?; conn.execute_batch("PRAGMA user_version = 8")?; }
+        if version < 9 { migration_v9(conn)?; conn.execute_batch("PRAGMA user_version = 9")?; }
     Ok(())
     }
 
@@ -4884,6 +4965,16 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         // Add indexes for performance
         let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_orders_carrier ON orders(carrier_type);");
         let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);");
+        Ok(())
+    }
+
+    fn migration_v9(conn: &Connection) -> SqlResult<()> {
+        // P2-DOMAIN: Add domain and acquired_at columns to credit_cards
+        let _ = conn.execute_batch("ALTER TABLE credit_cards ADD COLUMN domain TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE credit_cards ADD COLUMN acquired_at DATETIME;");
+        // Index for domain filtering and grouping
+        let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_cards_domain ON credit_cards(domain);");
+        let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_cards_acquired_at ON credit_cards(acquired_at);");
         Ok(())
     }
 
