@@ -41,4 +41,5 @@ include!("_orders.rs");
 include!("_misc.rs");
 include!("_users.rs");
 include!("_helpers.rs");
+include!("_seed.rs");
 include!("_migrations.rs");

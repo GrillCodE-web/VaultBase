@@ -35,7 +35,7 @@ import {
   getDeliveryRateColor,
   getExpiryColor,
 } from '../constants/colors'
-import '../styles/pages/dashboard-cards-redesign.css'
+// Стили дашборд-карточек — в общем styles/pages.css (через index.css).
 
 // ─── Period config ───────────────────────────────────────────
 

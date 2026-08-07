@@ -266,6 +266,39 @@ export default function Settings() {
     }
   }
 
+  const [seeding, setSeeding] = useState(false)
+  const handleSeedTestData = async () => {
+    const ok = await confirm(
+      'В базу добавятся демо-записи: карты, магазины, профили, заказы, email, прокси — по несколько штук. Удобно посмотреть интерфейс. Реальные данные не затрагиваются, если они уже есть.',
+      { title: 'Загрузить тестовые данные?', confirmLabel: 'Загрузить' }
+    )
+    if (!ok) return
+    setSeeding(true)
+    try {
+      const summary = await invoke('seed_test_data', { force: false })
+      toastOk(summary || 'Тестовые данные загружены')
+    } catch (e) {
+      if (String(e).includes('data_exists')) {
+        const force = await confirm('В базе уже есть записи. Добавить тестовые поверх них?', {
+          title: 'Данные уже есть',
+          confirmLabel: 'Добавить',
+        })
+        if (force) {
+          try {
+            const summary = await invoke('seed_test_data', { force: true })
+            toastOk(summary || 'Тестовые данные добавлены')
+          } catch (err) {
+            toastErr(getErrorMessage(handleError(err, 'Settings.seed')))
+          }
+        }
+      } else {
+        toastErr(getErrorMessage(handleError(e, 'Settings.seed')))
+      }
+    } finally {
+      setSeeding(false)
+    }
+  }
+
   const handleBackup = async () => {
     const prevLastBackup = lastBackup // FIX P2-4: Store previous value for rollback
     setExportingBackup(true)
@@ -719,6 +752,26 @@ export default function Settings() {
             <button onClick={handleRestore} disabled={restoring} className="btn btn-y btn-sm">
               <FolderOpen size={13} />
               {restoring ? t('settings_restoring') : t('settings_restore')}
+            </button>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">Тестовые данные</div>
+              <div className="setting-desc">
+                Заполнить базу демо-записями, чтобы посмотреть интерфейс
+              </div>
+            </div>
+            <button
+              onClick={handleSeedTestData}
+              disabled={seeding}
+              className="btn btn-ghost btn-sm"
+            >
+              {seeding ? (
+                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <Database size={13} />
+              )}
+              {seeding ? 'Загрузка…' : 'Загрузить демо'}
             </button>
           </div>
         </div>

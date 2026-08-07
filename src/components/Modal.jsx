@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
-import '../styles/components/modal-redesign.css'
+// Стили модалки — в общем styles/components.css (подключается из index.css).
 
 /**
  * Modal - Reusable modal component with animations

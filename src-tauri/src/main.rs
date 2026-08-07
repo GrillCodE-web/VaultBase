@@ -1660,6 +1660,22 @@ fn stuffer_get_config() -> Result<StufferConfigView, String> {
     })
 }
 
+// ── Тестовые данные (демо / онбординг) ──────────────────────────────────────
+// Заполняет БД разнообразными демо-записями (карты, магазины, профили, дропы,
+// заказы, email, прокси) через штатные insert-хелперы — со шифрованием, как у
+// настоящих данных. force=true перезаписывает поверх существующих.
+#[tauri::command]
+fn seed_test_data(force: bool) -> Result<String, String> {
+    require_user()?;
+    with_db!(db, { db.seed_test_data(force) })
+}
+
+#[tauri::command]
+fn has_any_data() -> Result<bool, String> {
+    require_user()?;
+    with_db!(db, { Ok(db.has_any_data()) })
+}
+
 #[tauri::command]
 fn stuffer_set_config(api_key: Option<String>, base_url: String) -> Result<(), String> {
     require_perm(models::perms::MANAGE_COURIERS)?;
@@ -2873,6 +2889,7 @@ fn main() {
             get_activity_log, clear_activity_log,
             get_config, set_config, export_backup, import_backup,
             stuffer_get_config, stuffer_set_config,
+            seed_test_data, has_any_data,
             stuffer_list_couriers, stuffer_list_available_couriers, stuffer_add_courier,
             stuffer_list_packages, stuffer_get_labels, stuffer_create_package,
             get_installation_id, get_challenge_code, activate_license,

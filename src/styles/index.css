@@ -1,0 +1,29 @@
+/* ═══════════════════════════════════════════════════════════
+   VAULTBASE — единая точка входа стилей
+   Раньше было 36 файлов, подключённых по одному через @import.
+   Теперь 5 логических файлов. Порядок @layer определяет каскад:
+   слой, объявленный раньше, СЛАБЕЕ. Поэтому app идёт между
+   tw-base (preflight Tailwind) и tw-utils (утилиты Tailwind).
+   ═══════════════════════════════════════════════════════════ */
+@layer tw-base, app, tw-utils;
+
+/* tokens — ВНЕ слоя: переменные и @keyframes видны всем безусловно
+   и не участвуют в конфликтах специфичности. */
+@import './tokens.css';
+
+/* base/layout/components/pages — уже обёрнуты в @layer app внутри себя. */
+@import './base.css';
+@import './layout.css';
+@import './components.css';
+@import './pages.css';
+
+/* ── Tailwind ───────────────────────────────────────────── */
+@layer tw-base {
+  @tailwind base;
+}
+
+@tailwind components;
+
+@layer tw-utils {
+  @tailwind utilities;
+}

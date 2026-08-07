@@ -851,7 +851,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
+    <div className="content" style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div
         style={{
           display: 'flex',

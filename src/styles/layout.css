@@ -1,0 +1,1367 @@
+@layer app {
+  /* ═══════════════════════════════════════════════════════════
+   LAYOUT (слой app)
+   ═══════════════════════════════════════════════════════════ */
+
+  /* ── источник: layout/sidebar-redesign.css ── */
+
+  /* ═══════════════════════════════════════════════════════════
+   SIDEBAR — NATIVE macOS (Finder-стиль)
+   ═══════════════════════════════════════════════════════════ */
+
+  .sidebar {
+    width: var(--sidebar-w-collapsed);
+    /* Стекло: backdrop-filter работает даже без системной вибрэнси */
+    background: var(--sidebar-bg, var(--glass-bg));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border-right: 1px solid var(--sidebar-border, var(--glass-border));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Верхний отступ 28px под трафик-лайты macOS (overlay titlebar).
+     На Windows/Linux titleBarStyle игнорируется, отступ всё равно
+     даёт опрятный воздух сверху. */
+    padding: 28px 6px var(--sp-2);
+    gap: 1px;
+    flex-shrink: 0;
+    transition: width 180ms ease-out;
+    overflow: visible;
+    position: relative;
+  }
+
+  .sidebar.expanded {
+    width: var(--sidebar-w);
+    align-items: stretch;
+    padding: 28px 8px var(--sp-2);
+  }
+
+  /* Зона перетаскивания окна (трафик-лайты macOS) */
+  .sidebar-drag-region {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    -webkit-app-region: drag;
+    app-region: drag;
+    flex-shrink: 0;
+    /* На macOS оставляем место для кнопок закрытия/сворачивания */
+    pointer-events: auto;
+  }
+
+  /* Под вибрэнси фон убирается — его рисует система.
+   Флаг ставится из Rust только если эффект реально применился. */
+  [data-vibrancy='on'] .sidebar {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* ── Логотип ────────────────────────────────────────────── */
+  .sidebar-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 30px;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: var(--fs-body);
+    color: var(--text-2);
+    letter-spacing: 0;
+    flex-shrink: 0;
+    margin-bottom: var(--sp-2);
+    border-radius: var(--r-sm);
+    background: transparent;
+    border: none;
+  }
+
+  .sidebar.expanded .sidebar-logo {
+    padding: 0 8px;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .sidebar-logo-text {
+    font-size: var(--fs-body);
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ── Пункт навигации ────────────────────────────────────────
+   Активный — сплошная скруглённая заливка, как в боковой
+   панели Finder. Полоса-индикатор слева убрана. */
+  .sbi {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--h-row);
+    border-radius: var(--r-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    cursor: default;
+    gap: 8px;
+    padding: 0;
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    font-weight: 400;
+    transition:
+      background-color var(--t-fast),
+      color var(--t-fast);
+  }
+
+  .sbi svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    stroke-width: 1.5;
+  }
+
+  .sbi:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  .sbi.active {
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 500;
+    /* macOS Finder-style: лёгкая тень под активным пунктом */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .sbi.active:hover {
+    background: var(--accent-hover, var(--accent));
+  }
+
+  .sbi:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .sidebar.expanded .sbi {
+    justify-content: flex-start;
+    padding: 0 8px;
+  }
+
+  /* ── Тултип (в свёрнутом виде) ──────────────────────────── */
+  .sbi-tip {
+    position: absolute;
+    left: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: var(--fs-caption);
+    font-weight: 400;
+    padding: 3px 7px;
+    border-radius: var(--r-sm);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    z-index: var(--z-tooltip);
+    box-shadow: var(--shadow-md);
+    font-family: var(--font-ui);
+  }
+
+  .sidebar:not(.expanded) .sbi:hover .sbi-tip {
+    opacity: 1;
+  }
+
+  .sidebar.expanded .sbi-tip {
+    display: none;
+  }
+
+  /* ── Подпись (в развёрнутом виде) ───────────────────────── */
+  .sbi-label {
+    font-size: var(--fs-body);
+    white-space: nowrap;
+    overflow: hidden;
+    opacity: 0;
+    width: 0;
+    font-weight: inherit;
+    letter-spacing: 0;
+  }
+
+  .sidebar.expanded .sbi-label {
+    opacity: 1;
+    width: auto;
+  }
+
+  /* ── Разделитель ────────────────────────────────────────── */
+  .sidebar-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--separator);
+    margin: 5px 0;
+    flex-shrink: 0;
+  }
+
+  /* ── Бейдж ──────────────────────────────────────────────── */
+  .sbi-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 15px;
+    height: 15px;
+    border-radius: var(--r-full);
+    background: var(--red);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    padding: 0 4px;
+    box-shadow: none;
+  }
+
+  .sidebar.expanded .sbi-badge {
+    position: static;
+    margin-left: auto;
+  }
+
+  /* На выделенном пункте бейдж инвертируется — иначе
+   красный на синем нечитаем. */
+  .sbi.active .sbi-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  .sbi-badge.y {
+    background: var(--yellow);
+    color: #1d1d1f;
+  }
+
+  .sbi-badge.g {
+    background: var(--green);
+    color: #ffffff;
+  }
+
+  .sidebar-spacer {
+    flex: 1;
+  }
+
+  /* ── Индикатор офлайна ──────────────────────────────────── */
+  .offline-pill {
+    background: var(--color-error-bg);
+    border: 1px solid var(--red-border);
+    color: var(--red-t);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: var(--r-sm);
+    text-align: center;
+    width: 100%;
+    margin-top: 5px;
+    font-family: var(--font-ui);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* ── Состояние синхронизации ────────────────────────────── */
+  .sync-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 3px 6px;
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    border-radius: var(--r-sm);
+    margin: 5px 0;
+    font-family: var(--font-ui);
+    text-transform: none;
+    letter-spacing: 0;
+    transition: background-color var(--t-fast);
+  }
+
+  .sync-pill.connected {
+    background: var(--color-success-bg);
+    border: 1px solid var(--green-border);
+    color: var(--green-t);
+  }
+
+  /* Промежуточное состояние помечается цветом, не миганием */
+  .sync-pill.connecting {
+    background: var(--color-warning-bg);
+    border: 1px solid var(--yellow-border);
+    color: var(--yellow-t);
+  }
+
+  .sync-pill.disconnected {
+    background: var(--color-error-bg);
+    border: 1px solid var(--red-border);
+    color: var(--red-t);
+  }
+
+  .sync-pill-label {
+    font-size: var(--fs-caption);
+    font-weight: 500;
+  }
+
+  .sidebar.expanded .sync-pill {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* ── Кнопка сворачивания ────────────────────────────────── */
+  .sidebar-toggle {
+    width: 100%;
+    height: var(--h-control-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm);
+    color: var(--text-3);
+    cursor: default;
+    transition:
+      background-color var(--t-fast),
+      color var(--t-fast);
+    margin-top: 5px;
+  }
+
+  .sidebar-toggle:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  .sidebar-toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .sidebar-toggle svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 1.5;
+  }
+
+  /* ── источник: layout/topbar-redesign.css ── */
+
+  /* ═══════════════════════════════════════════════════════════
+   TOOLBAR & TABS — NATIVE macOS
+   ═══════════════════════════════════════════════════════════ */
+
+  /* ── Панель инструментов ────────────────────────────────── */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--separator);
+    padding: 0 var(--sp-4);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+    height: var(--h-toolbar);
+    position: relative;
+  }
+
+  /* Градиентная линия под тулбаром убрана: в macOS это
+   обычный разделитель толщиной в пиксель. */
+
+  /* ── Табы как segmented control ─────────────────────────────
+   Общая утопленная подложка, активный сегмент — приподнятая
+   плашка. Узнаваемый элемент системы. */
+  .topbar {
+    --seg-pad: 2px;
+  }
+
+  .tab {
+    height: 22px;
+    padding: 0 10px;
+    border: none;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--text-2);
+    font-family: var(--font-ui);
+    font-size: var(--fs-control);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: default;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    white-space: nowrap;
+    position: relative;
+    transition:
+      background-color var(--t-fast),
+      color var(--t-fast);
+  }
+
+  /* Группа табов получает общую подложку через соседство */
+  .tab:first-of-type {
+    margin-left: 0;
+  }
+
+  .tab:hover {
+    color: var(--text);
+  }
+
+  .tab.active {
+    background: var(--card);
+    color: var(--text);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .tab:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  /* ── Бейдж на табе ──────────────────────────────────────── */
+  .tab-badge {
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: var(--r-full);
+    background: var(--red);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none;
+  }
+
+  .tab-badge.y {
+    background: var(--yellow);
+    color: #1d1d1f;
+  }
+
+  .tab-badge.g {
+    background: var(--green);
+    color: #ffffff;
+  }
+
+  /* ── Действия в тулбаре ─────────────────────────────────── */
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .topbar-btn {
+    width: var(--h-control);
+    height: var(--h-control);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-md);
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    cursor: default;
+    transition:
+      background-color var(--t-fast),
+      color var(--t-fast);
+  }
+
+  .topbar-btn:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  .topbar-btn.active {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  .topbar-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .topbar-btn svg {
+    width: 15px;
+    height: 15px;
+    stroke-width: 1.5;
+  }
+
+  /* ── Поиск в тулбаре ────────────────────────────────────── */
+  .topbar-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    max-width: 240px;
+  }
+
+  .topbar-search-input {
+    width: 100%;
+    height: var(--h-control);
+    padding: 0 8px 0 26px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: var(--fs-control);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+    outline: none;
+    transition:
+      border-color var(--t-fast),
+      box-shadow var(--t-fast);
+  }
+
+  .topbar-search-input::placeholder {
+    color: var(--text-3);
+  }
+
+  .topbar-search-input:focus {
+    border-color: var(--accent);
+    box-shadow: var(--focus-ring);
+  }
+
+  .topbar-search-icon {
+    position: absolute;
+    left: 9px;
+    width: 12px;
+    height: 12px;
+    color: var(--text-3);
+    pointer-events: none;
+    stroke-width: 1.5;
+  }
+
+  .topbar-search-input:focus ~ .topbar-search-icon {
+    color: var(--text-2);
+  }
+
+  /* ── Разделитель ────────────────────────────────────────── */
+  .topbar-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--separator);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  /* ── Пользователь ───────────────────────────────────────── */
+  .topbar-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: var(--h-control);
+    padding: 0 6px;
+    border-radius: var(--r-md);
+    cursor: default;
+    transition: background-color var(--t-fast);
+  }
+
+  .topbar-user:hover {
+    background: var(--hover);
+  }
+
+  .topbar-user-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-fg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .topbar-user-name {
+    font-size: var(--fs-body);
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  /* ── Хлебные крошки ─────────────────────────────────────── */
+  .breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-body);
+  }
+
+  .breadcrumb-item {
+    color: var(--text-3);
+    cursor: default;
+    transition: color var(--t-fast);
+  }
+
+  .breadcrumb-item:hover {
+    color: var(--text);
+  }
+
+  .breadcrumb-item.active {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .breadcrumb-separator {
+    color: var(--dim);
+    font-size: var(--fs-caption);
+  }
+
+  /* ── Заголовок страницы ─────────────────────────────────── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+  }
+
+  .page-title {
+    font-family: var(--font-ui);
+    font-size: var(--fs-title);
+    line-height: var(--lh-title);
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    text-transform: none;
+  }
+
+  /* Декоративная метка перед заголовком удалена */
+
+  .page-subtitle {
+    font-size: var(--fs-body);
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  .page-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── источник: layout/content-redesign.css ── */
+
+  /* ═══════════════════════════════════════════════════════════
+   CONTENT LAYOUT — CYBER-FINANCIAL TERMINAL
+   ═══════════════════════════════════════════════════════════ */
+
+  /* ── Main Layout ────────────────────────────────────────── */
+  .app-container {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg);
+    position: relative;
+  }
+
+  /* ── Content Area ───────────────────────────────────────── */
+  .content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .content-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    animation: none;
+  }
+
+  /* Custom scrollbar */
+  .content-main::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .content-main::-webkit-scrollbar-track {
+    background: var(--inset);
+  }
+
+  .content-main::-webkit-scrollbar-thumb {
+    background: var(--border-hi);
+    border-radius: 4px;
+  }
+
+  .content-main::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+  }
+
+  /* ── Grid Layouts ───────────────────────────────────────── */
+  .grid2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .grid4 {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  @media (max-width: 1024px) {
+    .grid3 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .grid4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 600px) {
+    .grid2,
+    .grid3,
+    .grid4 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ── Flex Utilities ─────────────────────────────────────── */
+  .flex {
+    display: flex;
+  }
+
+  .flex-col {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+
+  .flex-1 {
+    flex: 1;
+  }
+
+  /* ── Spacing Utilities ──────────────────────────────────── */
+  .gap-1 {
+    gap: var(--sp-1);
+  }
+  .gap-2 {
+    gap: var(--sp-2);
+  }
+  .gap-3 {
+    gap: var(--sp-3);
+  }
+  .gap-4 {
+    gap: var(--sp-4);
+  }
+  .gap-5 {
+    gap: var(--sp-5);
+  }
+  .gap-6 {
+    gap: var(--sp-6);
+  }
+
+  .mb-1 {
+    margin-bottom: var(--sp-1);
+  }
+  .mb-2 {
+    margin-bottom: var(--sp-2);
+  }
+  .mb-3 {
+    margin-bottom: var(--sp-3);
+  }
+  .mb-4 {
+    margin-bottom: var(--sp-4);
+  }
+  .mb-5 {
+    margin-bottom: var(--sp-5);
+  }
+  .mb-6 {
+    margin-bottom: var(--sp-6);
+  }
+
+  .mt-1 {
+    margin-top: var(--sp-1);
+  }
+  .mt-2 {
+    margin-top: var(--sp-2);
+  }
+  .mt-3 {
+    margin-top: var(--sp-3);
+  }
+  .mt-4 {
+    margin-top: var(--sp-4);
+  }
+  .mt-5 {
+    margin-top: var(--sp-5);
+  }
+  .mt-6 {
+    margin-top: var(--sp-6);
+  }
+
+  /* ── Page Header Actions ────────────────────────────────── */
+  .ph-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* ── Filters Bar ────────────────────────────────────────── */
+  .filters-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .filter-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Stats Row ──────────────────────────────────────────── */
+  .stats-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .stat-item {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all var(--t-fast);
+  }
+
+  .stat-item:hover {
+    border-color: var(--border-hi);
+    transform: translateY(-1px);
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-md);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-text);
+    flex-shrink: 0;
+  }
+
+  .stat-content {
+    flex: 1;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: var(--font-ui);
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Section Divider ────────────────────────────────────── */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 32px 0;
+    position: relative;
+  }
+
+  .section-divider::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0.4;
+  }
+
+  /* ── Card Container ─────────────────────────────────────── */
+  .card-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: var(--font-ui);
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* ── Loading Overlay ────────────────────────────────────── */
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(13, 17, 23, 0.9);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    animation: none;
+  }
+
+  @supports not (backdrop-filter: blur(4px)) {
+    .loading-overlay {
+      background: rgba(13, 17, 23, 0.95);
+    }
+  }
+
+  .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* ── Text Utilities ─────────────────────────────────────── */
+  .text-muted {
+    color: var(--muted);
+  }
+
+  .text-accent {
+    color: var(--accent-text);
+  }
+
+  .text-success {
+    color: var(--green-t);
+  }
+
+  .text-error {
+    color: var(--red-t);
+  }
+
+  .text-warning {
+    color: var(--yellow-t);
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .text-right {
+    text-align: right;
+  }
+
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  .font-heading {
+    font-family: var(--font-ui);
+  }
+
+  .font-body {
+    font-family: var(--font-ui);
+  }
+
+  /* ── Overflow Utilities ─────────────────────────────────── */
+  .overflow-auto {
+    overflow: auto;
+  }
+
+  .overflow-hidden {
+    overflow: hidden;
+  }
+
+  .overflow-x-auto {
+    overflow-x: auto;
+  }
+
+  .overflow-y-auto {
+    overflow-y: auto;
+  }
+
+  /* ── Page Header ────────────────────────────────────────── */
+  .ph {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .ph-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: var(--font-ui);
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-sub {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    margin-top: 4px;
+  }
+
+  /* ── Section Label ──────────────────────────────────────── */
+  .slabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .slabel::before {
+    content: '';
+    width: 16px;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.4;
+  }
+
+  /* ── Live Indicator Dot ─────────────────────────────────── */
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    animation: none;
+  }
+
+  /* ── Content Wrapper ────────────────────────────────────── */
+  .content {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    /* Мягкое появление при переключении страниц — контент не «прыгает»,
+     а плавно проявляется. Один раз при монтировании. */
+    animation: fadeIn 0.18s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .content {
+      animation: none;
+    }
+  }
+
+  /* ── Responsive Utilities ───────────────────────────────── */
+  @media (max-width: 768px) {
+    .content-main {
+      padding: 16px 20px;
+    }
+
+    .hide-mobile {
+      display: none !important;
+    }
+  }
+
+  @media (min-width: 769px) {
+    .show-mobile {
+      display: none !important;
+    }
+  }
+
+  /* ── источник: layout/responsive-redesign.css ── */
+
+  /* ═══════════════════════════════════════════════════════════
+   RESPONSIVE REDESIGN — CYBER-FINANCIAL TERMINAL
+   Mobile-first responsive utilities and layout adjustments
+   ═══════════════════════════════════════════════════════════ */
+
+  /* ═══════════════════════════════════════════════════════════
+   BREAKPOINT VARIABLES (for reference)
+   ═══════════════════════════════════════════════════════════ */
+  /*
+  --breakpoint-mobile: 768px;
+  --breakpoint-tablet: 1024px;
+  --breakpoint-desktop: 1280px;
+*/
+
+  /* ═══════════════════════════════════════════════════════════
+   MOBILE LAYOUT ADJUSTMENTS (max-width: 768px)
+   ═══════════════════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    /* Stack grid layouts vertically */
+    .grid-mobile-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Full-width cards on mobile */
+    .card-grid-mobile {
+      grid-template-columns: 1fr;
+    }
+
+    /* Reduce padding on containers */
+    .content-responsive {
+      padding: 12px;
+    }
+
+    /* Hide non-essential elements on mobile */
+    .desktop-only {
+      display: none !important;
+    }
+
+    /* Show mobile-specific navigation */
+    .mobile-nav {
+      display: block;
+    }
+
+    /* Adjust sidebar for mobile */
+    .sidebar {
+      transform: translateX(-100%);
+      position: fixed;
+      z-index: var(--z-modal);
+      transition: transform var(--t-mid) ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    /* Topbar adjustments */
+    .topbar {
+      padding: 12px;
+    }
+
+    /* Hide complex filters on mobile, show simplified */
+    .filters-complex {
+      display: none;
+    }
+
+    .filters-simple {
+      display: block;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   TABLET LAYOUT ADJUSTMENTS (769px to 1024px)
+   ═══════════════════════════════════════════════════════════ */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .tablet-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .desktop-only {
+      display: block;
+    }
+
+    .mobile-only {
+      display: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   DESKTOP LAYOUT (1025px and up)
+   ═══════════════════════════════════════════════════════════ */
+  @media (min-width: 1025px) {
+    .mobile-only {
+      display: none;
+    }
+
+    .main-content {
+      padding: 24px;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   TOUCH-OPTIMIZED CONTROLS
+   For devices with coarse pointer (mobile/tablet)
+   ═══════════════════════════════════════════════════════════ */
+  @media (pointer: coarse) {
+    /* Increase button hit targets */
+    .btn {
+      min-height: 44px;
+      padding: 12px 16px;
+    }
+
+    /* Icon buttons need larger touch area */
+    .icon-btn {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 12px;
+    }
+
+    /* Form inputs */
+    input[type='text'],
+    input[type='email'],
+    input[type='password'],
+    input[type='number'],
+    input[type='search'],
+    input[type='tel'],
+    input[type='url'],
+    select,
+    textarea {
+      min-height: 44px;
+      padding: 12px;
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    /* Checkbox and radio */
+    input[type='checkbox'],
+    input[type='radio'] {
+      min-width: 20px;
+      min-height: 20px;
+    }
+
+    /* Table cells */
+    table td,
+    table th {
+      padding: 14px 12px;
+    }
+
+    /* Action buttons in tables */
+    .tbl-actions .btn,
+    .tbl-actions .icon-btn {
+      min-width: 40px;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   PRINT STYLES
+   ═══════════════════════════════════════════════════════════ */
+  @media print {
+    .no-print,
+    .sidebar,
+    .topbar,
+    .btn,
+    .icon-btn {
+      display: none !important;
+    }
+
+    body {
+      background: white;
+      color: black;
+    }
+
+    .card,
+    .panel {
+      border: 1px solid #ccc;
+      box-shadow: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   REDUCED MOTION
+   For users who prefer reduced motion
+   ═══════════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   HIGH CONTRAST MODE
+   For users who prefer high contrast
+   ═══════════════════════════════════════════════════════════ */
+  @media (prefers-contrast: high) {
+    .btn,
+    .icon-btn,
+    input,
+    select,
+    .card,
+    .panel {
+      border-width: 2px;
+    }
+  }
+}

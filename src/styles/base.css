@@ -1,0 +1,363 @@
+@layer app {
+  /* ═══════════════════════════════════════════════════════════
+   RESET (слой app)
+   ═══════════════════════════════════════════════════════════ */
+
+  /* ── источник: reset-redesign.css ── */
+
+  /* ═══════════════════════════════════════════════════════════
+   RESET & BASE — NATIVE macOS
+   ═══════════════════════════════════════════════════════════ */
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Нативное приложение не «резинится» и не подсвечивает тапы */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    color: var(--text);
+    background: var(--bg);
+    overflow: auto;
+    /* Хром интерфейса не выделяется — как в нативных приложениях.
+     Данные, которые нужно копировать, возвращают выделение ниже. */
+    user-select: none;
+    cursor: default;
+  }
+
+  input,
+  textarea,
+  [contenteditable],
+  .selectable,
+  .mono,
+  code,
+  pre,
+  td,
+  .float-val {
+    user-select: text;
+    cursor: auto;
+  }
+
+  /* ── Заголовки ──────────────────────────────────────────── */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  h1 {
+    font-size: var(--fs-title);
+    line-height: var(--lh-title);
+  }
+  h2 {
+    font-size: 17px;
+    line-height: 22px;
+  }
+  h3 {
+    font-size: var(--fs-heading);
+    line-height: var(--lh-heading);
+  }
+  h4 {
+    font-size: 14px;
+    line-height: 19px;
+  }
+  h5 {
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+  }
+  h6 {
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+  }
+
+  p {
+    margin: 0;
+  }
+
+  /* ── Ссылки ─────────────────────────────────────────────── */
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color var(--t-fast);
+  }
+
+  a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+  }
+
+  a:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--r-xs);
+  }
+
+  ul,
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Контролы ───────────────────────────────────────────── */
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    cursor: default;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    /* Базовый радиус нужен ради кольца фокуса: у кнопок,
+     собранных только из утилит Tailwind (например «показать
+     пароль» на экране входа), своего радиуса нет, и кольцо
+     рисовалось прямым углом. Любой класс это переопределит. */
+    border-radius: var(--r-sm);
+  }
+
+  button:focus {
+    outline: none;
+  }
+
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+  }
+
+  /* Моноширинные цифры: суммы и треки не «прыгают» при обновлении */
+  .mono,
+  code,
+  pre,
+  [data-numeric] {
+    font-family: var(--font-mono);
+    font-size: var(--fs-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  table {
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+
+  td,
+  th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Выделение текста ───────────────────────────────────── */
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  ::-moz-selection {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  /* ── Полосы прокрутки: «плавающие», как в macOS ─────────── */
+  ::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 7px;
+    /* Прозрачная рамка + background-clip даёт отступ вокруг ползунка */
+    border: 4px solid transparent;
+    background-clip: content-box;
+    min-height: 32px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.42);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  [data-theme='dark'] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.24);
+    background-clip: content-box;
+  }
+
+  [data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+    background-clip: content-box;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    [data-theme='system'] ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.24);
+      background-clip: content-box;
+    }
+
+    [data-theme='system'] ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);
+      background-clip: content-box;
+    }
+  }
+
+  /* ── Фокус: кольцо macOS ────────────────────────────────────
+   Без border-radius: у :focus-visible специфичность выше
+   класса, и радиус здесь ломал форму всех сфокусированных
+   элементов. box-shadow повторяет радиус элемента сам. */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  [disabled] {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  /* ── Перетаскивание окна ────────────────────────────────── */
+  [data-tauri-drag-region] {
+    cursor: default;
+    user-select: none;
+  }
+
+  /* ── Утилиты ────────────────────────────────────────────── */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .pointer {
+    cursor: default;
+  }
+
+  .no-select {
+    user-select: none;
+  }
+
+  .truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .break-word {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Низовые правила приложения (вне слоя)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Корень ─────────────────────────────────────────────── */
+#root {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Фокус ──────────────────────────────────────────────────
+   Радиус здесь не задаётся намеренно: у :focus-visible
+   специфичность выше класса, и поле ввода с --r-sm скруглялось
+   бы до 3px. Кольцо строится на box-shadow, который повторяет
+   радиус самого элемента. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── Градиентная рамка → обычная ────────────────────────── */
+.gradient-border-box {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+
+/* Свечения упразднены — классы-заглушки no-op. */
+.glow-subtle,
+.glow-accent {
+  box-shadow: none;
+}
+
+.text-gradient {
+  color: var(--accent);
+  -webkit-text-fill-color: currentColor;
+}
+
+.cyber-grid-bg {
+  position: relative;
+}
+
+.float {
+  animation: none;
+}
+
+/* ── Печать ─────────────────────────────────────────────── */
+@media print {
+  .sidebar,
+  .topbar,
+  .modal-overlay,
+  .toast-container {
+    display: none !important;
+  }
+}

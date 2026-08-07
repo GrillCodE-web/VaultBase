@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   VAULTBASE — NATIVE macOS
-   Точка входа: подключается из main.jsx и float.jsx.
-   Вся система стилей — в styles/index-redesign.css.
+   VAULTBASE — точка входа стилей (main.jsx, float.jsx)
+   Вся система сведена в styles/index.css → 5 файлов:
+   tokens · base · layout · components · pages.
    ═══════════════════════════════════════════════════════════ */
 
-@import './styles/index-redesign.css';
+@import './styles/index.css';

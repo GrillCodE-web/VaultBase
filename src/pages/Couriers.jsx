@@ -9,6 +9,7 @@ import {
   X,
   MapPin,
   Loader2,
+  Settings as SettingsIcon,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
@@ -41,7 +42,7 @@ function base64ToBlobUrl(b64) {
   return URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
 }
 
-export default function Couriers({ activeTab }) {
+export default function Couriers({ activeTab, onNavigate }) {
   const { t } = useLang()
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const { hasPerm } = useAuth()
@@ -64,7 +65,18 @@ export default function Couriers({ activeTab }) {
 
   const notify = useCallback((e, ctx) => toastErr(getErrorMessage(handleError(e, ctx))), [toastErr])
 
+  // Пока не знаем статус ключа — null. true/false после проверки.
+  // Без ключа не дёргаем API вообще: иначе на каждой вкладке сыпались тосты
+  // «Stuffer не настроен». Вместо этого показываем экран настройки.
+  const [stufferReady, setStufferReady] = useState(null)
+  useEffect(() => {
+    invoke('stuffer_get_config')
+      .then(cfg => setStufferReady(!!cfg?.api_key_set))
+      .catch(() => setStufferReady(false))
+  }, [])
+
   const load = useCallback(async () => {
+    if (!stufferReady) return
     setLoading(true)
     try {
       if (tab === 'assigned') setCouriers(await invoke('stuffer_list_couriers'))
@@ -75,7 +87,7 @@ export default function Couriers({ activeTab }) {
     } finally {
       setLoading(false)
     }
-  }, [tab, notify])
+  }, [tab, notify, stufferReady])
 
   useEffect(() => {
     load()
@@ -83,7 +95,7 @@ export default function Couriers({ activeTab }) {
 
   // Assigned couriers are needed for the "new package" courier selector.
   useEffect(() => {
-    if (tab === 'packages' && couriers.length === 0) {
+    if (stufferReady && tab === 'packages' && couriers.length === 0) {
       invoke('stuffer_list_couriers')
         .then(setCouriers)
         .catch(() => {})
@@ -199,7 +211,7 @@ export default function Couriers({ activeTab }) {
   if (tab === 'assigned') {
     if (loading)
       return (
-        <div className="p-4">
+        <div className="content">
           <SkeletonRows count={6} />
         </div>
       )
@@ -239,7 +251,7 @@ export default function Couriers({ activeTab }) {
   if (tab === 'available') {
     if (loading)
       return (
-        <div className="p-4">
+        <div className="content">
           <SkeletonRows count={6} />
         </div>
       )
@@ -284,9 +296,45 @@ export default function Couriers({ activeTab }) {
     )
   }
 
+  // Ключ Stuffer не настроен — показываем аккуратный экран, а не ошибки.
+  if (stufferReady === false) {
+    return (
+      <div className="content">
+        <div className="empty-state" style={{ paddingTop: 64 }}>
+          <div className="empty-state-icon empty-state-icon--lg">
+            <Truck />
+          </div>
+          <div className="empty-state-title">Stuffer не подключён</div>
+          <div className="empty-state-text" style={{ maxWidth: 380 }}>
+            Курьеры и посылки берутся из внешнего сервиса Stuffer. Укажите API-ключ в настройках,
+            чтобы раздел заработал.
+          </div>
+          {hasPerm('manage_couriers') && (
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ marginTop: 16 }}
+              onClick={() => onNavigate?.('settings')}
+            >
+              <SettingsIcon size={14} /> Открыть настройки
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Пока проверяем статус ключа — лёгкий скелетон, без дёрганья API.
+  if (stufferReady === null) {
+    return (
+      <div className="content">
+        <SkeletonRows count={5} />
+      </div>
+    )
+  }
+
   // ── Packages ──
   return (
-    <div className="p-4">
+    <div className="content">
       <div className="flex items-center justify-between mb-3">
         <button className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {t('couriers_refresh')}
