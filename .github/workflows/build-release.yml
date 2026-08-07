@@ -20,6 +20,14 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+# GITHUB_TOKEN по умолчанию выдаётся только на чтение, поэтому tauri-action
+# падал на самом последнем шаге — уже собрав .dmg/.msi/.deb:
+#   Couldn't find release with tag vX.Y.Z. Creating one.
+#   Error: Resource not accessible by integration
+# contents: write нужен, чтобы создать GitHub Release и загрузить в него файлы.
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:

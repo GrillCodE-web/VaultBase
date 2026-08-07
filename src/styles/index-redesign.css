@@ -10,7 +10,15 @@
    Слой, объявленный раньше, имеет МЕНЬШИЙ приоритет независимо
    от того, где в файле лежит его содержимое. Так preflight
    Tailwind проигрывает нашему reset, а утилиты по-прежнему
-   перебивают всё остальное. */
+   перебивают всё остальное.
+
+   ВАЖНО: наши файлы подключаются через `@import ... layer(app)`.
+   Обычный `@import` НЕ помещает содержимое в слой — правила
+   остаются вне слоёв, а любой не-слоевой CSS в каскаде сильнее
+   ЛЮБОГО слоя. Из-за этого утилиты Tailwind проигрывали всему
+   приложению: `.gap-2` определялся трижды (8px в utilities,
+   var(--sp-2) в content, .5rem в Tailwind) и побеждали первые
+   два. Фактически Tailwind был отключён, хотя и собирался. */
 @layer tw-base, app, tw-utils;
 
 /* Шрифты не подключаются из сети: CSP приложения не содержит
@@ -18,45 +26,48 @@
    системный стек — см. --font-ui в tokens-redesign.css. */
 
 /* ── Дизайн-система ─────────────────────────────────────── */
+/* tokens и animations идут ВНЕ слоя: это переменные и @keyframes,
+   они не участвуют в конфликтах специфичности, а :root в слое
+   переопределить сложнее. */
 @import './tokens-redesign.css';
-@import './reset-redesign.css';
+@import './reset-redesign.css' layer(app);
 @import './animations-redesign.css';
-@import './utilities-redesign.css';
+@import './utilities-redesign.css' layer(app);
 
 /* ── Слои ───────────────────────────────────────────────── */
-@import './layout/sidebar-redesign.css';
-@import './layout/topbar-redesign.css';
-@import './layout/content-redesign.css';
+@import './layout/sidebar-redesign.css' layer(app);
+@import './layout/topbar-redesign.css' layer(app);
+@import './layout/content-redesign.css' layer(app);
 
 /* ── Компоненты ─────────────────────────────────────────── */
-@import './components/buttons-redesign.css';
-@import './components/forms-redesign.css';
-@import './components/inline-elements.css';
-@import './components/modal-redesign.css';
-@import './components/table-redesign.css';
-@import './components/badges-redesign.css';
-@import './components/filters-redesign.css';
-@import './components/panel-redesign.css';
-@import './components/theme-switcher.css';
+@import './components/buttons-redesign.css' layer(app);
+@import './components/forms-redesign.css' layer(app);
+@import './components/inline-elements.css' layer(app);
+@import './components/modal-redesign.css' layer(app);
+@import './components/table-redesign.css' layer(app);
+@import './components/badges-redesign.css' layer(app);
+@import './components/filters-redesign.css' layer(app);
+@import './components/panel-redesign.css' layer(app);
+@import './components/theme-switcher.css' layer(app);
 
 /* ── Страницы ───────────────────────────────────────────── */
-@import './pages/dashboard-redesign.css';
-@import './pages/dashboard-cards-redesign.css';
-@import './pages/auth-redesign.css';
-@import './pages/cards-redesign.css';
-@import './pages/profiles-redesign.css';
-@import './pages/updates-redesign.css';
-@import './pages/orders-redesign.css';
-@import './pages/shops-redesign.css';
-@import './pages/proxies-redesign.css';
-@import './pages/couriers-redesign.css';
-@import './pages/emails-redesign.css';
-@import './pages/imap-redesign.css';
-@import './pages/settings-redesign.css';
-@import './pages/activity-log-redesign.css';
-@import './pages/catalog-redesign.css';
-@import './pages/onboarding-redesign.css';
-@import './pages/premium-enhancements.css';
+@import './pages/dashboard-redesign.css' layer(app);
+@import './pages/dashboard-cards-redesign.css' layer(app);
+@import './pages/auth-redesign.css' layer(app);
+@import './pages/cards-redesign.css' layer(app);
+@import './pages/profiles-redesign.css' layer(app);
+@import './pages/updates-redesign.css' layer(app);
+@import './pages/orders-redesign.css' layer(app);
+@import './pages/shops-redesign.css' layer(app);
+@import './pages/proxies-redesign.css' layer(app);
+@import './pages/couriers-redesign.css' layer(app);
+@import './pages/emails-redesign.css' layer(app);
+@import './pages/imap-redesign.css' layer(app);
+@import './pages/settings-redesign.css' layer(app);
+@import './pages/activity-log-redesign.css' layer(app);
+@import './pages/catalog-redesign.css' layer(app);
+@import './pages/onboarding-redesign.css' layer(app);
+@import './pages/premium-enhancements.css' layer(app);
 
 /* ── Tailwind ───────────────────────────────────────────── */
 @layer tw-base {
