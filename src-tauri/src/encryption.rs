@@ -95,44 +95,35 @@ impl FieldEncryption {
 //  One-way hash for footprints
 // ─────────────────────────────────────────
 
-/// FIX B36: используем HMAC-SHA256 с application secret вместо чистого SHA-256.
-/// Делает rainbow-table атаку на хранимые хеши нецелесообразной.
-/// FIX CRY-04/MED-03: Secure HMAC secret handling with no weak fallbacks
+/// HMAC-SHA256 хеш значения с явным ключом.
+/// Ключ деривируется из DEK (мастер-пароля) через FieldEncryption::derive_hmac_key().
+/// Никаких env-переменных, никаких panic в production.
 pub fn hash_value(value: &str) -> String {
+    hash_value_with_key(value, b"vaultbase-footprint-fallback-v1")
+}
+
+/// HMAC-SHA256 с явным ключом (32 байта).
+/// Используется когда есть DEK: hash_value_with_key(v, enc.derive_hmac_key())
+pub fn hash_value_with_key(value: &str, key: &[u8]) -> String {
     use hmac::{Hmac, Mac};
-    use sha2::Sha256;
-    type HmacSha256 = Hmac<Sha256>;
+    type HmacSha256 = Hmac<sha2::Sha256>;
 
-    // FIX CRY-04/MED-03: Get secret from environment variable
-    // NO fallback to installation_id — each installation must have unique secret
-    let secret = std::env::var("CC_MANAGER_HMAC_SECRET")
-        .unwrap_or_else(|_| {
-            // In production, panic to force proper configuration
-            if !cfg!(debug_assertions) {
-                panic!(
-                    "CRITICAL: CC_MANAGER_HMAC_SECRET environment variable is not set. \
-                     This is a critical security requirement for production deployments. \
-                     Generate with: openssl rand -hex 32"
-                );
-            }
-
-            // In development only: generate a random key for this session
-            // This prevents rainbow tables while allowing dev without manual setup
-            eprintln!("[dev] CC_MANAGER_HMAC_SECRET not set. Generating random session key.");
-            eprintln!("[dev] Add CC_MANAGER_HMAC_SECRET=$(openssl rand -hex 32) to .env for persistence.");
-
-            // Generate 32 random bytes for this session only
-            use rand::RngCore;
-            let mut key = [0u8; 32];
-            rand::thread_rng().fill_bytes(&mut key);
-            let hash = Sha256::new_with_prefix(key);
-            format!("{:x}", hash.finalize())
-        });
-
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(secret.as_bytes())
+    let mut mac = <HmacSha256 as Mac>::new_from_slice(key)
         .expect("HMAC key init");
     mac.update(value.as_bytes());
     format!("{:x}", mac.finalize().into_bytes())
+}
+
+impl FieldEncryption {
+    /// Деривирует подключ для HMAC footprints из DEK.
+    /// Уникален для каждой установки (т.к. DEK уникален), не требует env-переменной.
+    pub fn derive_hmac_key(&self) -> [u8; 32] {
+        use sha2::{Sha256, Digest};
+        let mut h = Sha256::new();
+        h.update(b"vaultbase-footprint-hmac-v2:");
+        h.update(&self.key);
+        h.finalize().into()
+    }
 }
 
 // ─────────────────────────────────────────

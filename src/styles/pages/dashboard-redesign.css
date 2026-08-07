@@ -55,7 +55,7 @@
 }
 
 .bsi-lbl {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--muted);
   text-transform: uppercase;
@@ -65,7 +65,7 @@
 }
 
 .bsi-val {
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -120,7 +120,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at top right, rgba(0, 217, 255, 0.03), transparent 70%);
+  background: radial-gradient(circle at top right, transparent, transparent 70%);
   opacity: 0;
   transition: opacity var(--t-mid);
   pointer-events: none;
@@ -141,7 +141,7 @@
 }
 
 .sc-lbl {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--muted);
   text-transform: uppercase;
@@ -154,7 +154,7 @@
 }
 
 .sc-val {
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   font-size: 32px;
   font-weight: 700;
   line-height: 1;
@@ -166,7 +166,7 @@
   font-size: 11px;
   color: var(--text-3);
   margin-top: 4px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -290,7 +290,7 @@
   color: var(--text-3);
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all var(--t-fast);
   white-space: nowrap;
@@ -322,7 +322,7 @@
   border-radius: var(--r-md);
   margin-bottom: 8px;
   font-size: 13px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   transition: all var(--t-fast);
   position: relative;
   overflow: hidden;
@@ -375,7 +375,7 @@
 }
 
 .chart-title {
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
@@ -417,7 +417,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all var(--t-fast);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -449,7 +449,7 @@
 }
 
 .heatmap-title {
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
@@ -466,7 +466,7 @@
   align-items: center;
   font-size: 11px;
   color: var(--text-3);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .heatmap-legend-item {
@@ -527,13 +527,13 @@
   font-size: 13px;
   color: var(--text);
   margin-bottom: 4px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .activity-time {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Heatmap Cells ───────────────────────────────────────── */

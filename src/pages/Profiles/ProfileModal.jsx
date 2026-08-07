@@ -31,6 +31,9 @@ export function ProfileModal({ onCreated, onClose }) {
   // ── Card billing preview state ────────────
   const [cardBillingPreview, setCardBillingPreview] = useState(null)
 
+  // ── Cleanup refs ──────────────────────────
+  const isMountedRef = useRef(true)
+
   const handleDeleteTemplate = async id => {
     try {
       await invoke('delete_profile_template', { id })
@@ -56,18 +59,30 @@ export function ProfileModal({ onCreated, onClose }) {
       page: 1,
       perPage: 200,
     })
-      .then(r => setFreeCards(r.items || []))
-      .catch(() => setFreeCards([]))
-      .finally(() => setCardsLoading(false))
+      .then(r => {
+        if (isMountedRef.current) setFreeCards(r.items || [])
+      })
+      .catch(() => {
+        if (isMountedRef.current) setFreeCards([])
+      })
+      .finally(() => {
+        if (isMountedRef.current) setCardsLoading(false)
+      })
     invoke('get_profile_templates')
-      .then(setTemplates)
+      .then(templates => {
+        if (isMountedRef.current) setTemplates(templates)
+      })
       .catch(e => console.error('[ProfileModal] Failed to get templates:', e))
     // Load available emails for the datalist
     invoke('get_available_emails', { limit: 50 })
       .then(emails => {
-        setAvailableEmails(emails)
+        if (isMountedRef.current) setAvailableEmails(emails)
       })
       .catch(e => console.error('[ProfileModal] Failed to get available emails:', e))
+
+    return () => {
+      isMountedRef.current = false
+    }
   }, [])
 
   const filtered = freeCards.filter(c => {

@@ -3,6 +3,9 @@
   "description": "Minimal capability for float overlay window",
   "windows": ["float"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-hide",
+    "core:window:allow-set-always-on-top"
   ]
 }

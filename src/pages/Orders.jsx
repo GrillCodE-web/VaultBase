@@ -322,12 +322,15 @@ function StatusMenu({ order, onUpdate, onClose }) {
   const [showShippedModal, setShowShippedModal] = useState(false)
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
+  const submittingRef = useRef(false)
 
   const handleStatus = async status => {
     if (status === 'shipped') {
       setShowShippedModal(true)
       return
     }
+    if (submittingRef.current) return
+    submittingRef.current = true
     if (status === 'declined' || status === 'cancelled') {
       const markDead = await confirm(
         status === 'declined'
@@ -348,6 +351,8 @@ function StatusMenu({ order, onUpdate, onClose }) {
       } catch (e) {
         const error = handleError(e, 'OrderModal.handleUpdate')
         toast(getErrorMessage(error), 'error')
+      } finally {
+        submittingRef.current = false
       }
       return
     }
@@ -359,10 +364,14 @@ function StatusMenu({ order, onUpdate, onClose }) {
     } catch (e) {
       const error = handleError(e, 'Orders.handleStatusChange')
       toast(getErrorMessage(error), 'error')
+    } finally {
+      submittingRef.current = false
     }
   }
 
   const handleShipped = async meta => {
+    if (submittingRef.current) return
+    submittingRef.current = true
     try {
       await invoke('update_order_status', { id: order.id, status: 'shipped', meta })
       toast(t('order_marked_shipped'), 'success')
@@ -371,6 +380,8 @@ function StatusMenu({ order, onUpdate, onClose }) {
     } catch (e) {
       const error = handleError(e, 'Orders.handleShipped')
       toast(getErrorMessage(error), 'error')
+    } finally {
+      submittingRef.current = false
     }
   }
 
@@ -410,6 +421,7 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
   )
   const [loading, setLoading] = useState(false)
   const [loadingProfiles, setLoadingProfiles] = useState(true)
+  const submittingRef = useRef(false)
   const modalRef = useRef(null)
   useFocusTrap(modalRef, true)
 
@@ -443,6 +455,8 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
       toast('Select a profile', 'warn')
       return
     }
+    if (submittingRef.current) return
+    submittingRef.current = true
     setLoading(true)
     try {
       await invoke('create_order', {
@@ -464,6 +478,7 @@ function RepeatOrderModal({ order, onCreated, onClose }) {
       toast(String(e), 'error')
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 
@@ -572,6 +587,7 @@ function CreateOrderModal({ onCreated, onClose }) {
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [loading, setLoading] = useState(false)
+  const submittingRef = useRef(false)
   const [itemSuggestions, setItemSuggestions] = useState({}) // {idx: [{id,name,asin,price}]}
   const [activeItemIdx, setActiveItemIdx] = useState(null)
   const [customEmail, setCustomEmail] = useState('')
@@ -708,17 +724,28 @@ function CreateOrderModal({ onCreated, onClose }) {
     setShopObj(s)
     setShopSearch(s.name || s.domain)
     setShopResults([])
-    try {
-      const [em, px, tmpl] = await Promise.all([
-        invoke('get_emails', { filter: {}, page: 1, perPage: 100 }),
-        invoke('get_proxies', { filter: {}, page: 1, perPage: 100 }),
-        invoke('get_order_templates', { shopTag: s.domain }),
-      ])
-      setEmails(em.items || [])
-      setProxies(px.items || [])
-      setTemplates(tmpl || [])
-    } catch {
-      /* non-fatal */
+    // allSettled, а не all: get_emails требует manage_emails, get_proxies —
+    // manage_proxies, и у оператора этих прав по умолчанию нет. С Promise.all
+    // один отказ ронял всю тройку, и шаблоны заказа (на которые право не
+    // нужно) тоже не подгружались — оператор видел три пустых списка без
+    // единого сообщения. Теперь каждый список живёт своей жизнью.
+    const [em, px, tmpl] = await Promise.allSettled([
+      invoke('get_emails', { filter: {}, page: 1, perPage: 100 }),
+      invoke('get_proxies', { filter: {}, page: 1, perPage: 100 }),
+      invoke('get_order_templates', { shopTag: s.domain }),
+    ])
+    setEmails(em.status === 'fulfilled' ? em.value.items || [] : [])
+    setProxies(px.status === 'fulfilled' ? px.value.items || [] : [])
+    setTemplates(tmpl.status === 'fulfilled' ? tmpl.value || [] : [])
+
+    // Об отказе по правам сообщаем один раз и мягко: список останется пустым,
+    // но оформить заказ можно и без письма из пула или прокси.
+    const denied = [em, px, tmpl]
+      .filter(r => r.status === 'rejected')
+      .map(r => String(r.reason?.message || r.reason || ''))
+      .filter(m => m.startsWith('permission_denied'))
+    if (denied.length) {
+      console.warn('[Orders] selectShop: часть справочников недоступна по правам:', denied)
     }
   }
 
@@ -790,6 +817,8 @@ function CreateOrderModal({ onCreated, onClose }) {
       toast('Profile, shop and drop are required', 'warn')
       return
     }
+    if (submittingRef.current) return
+    submittingRef.current = true
     setLoading(true)
     try {
       const itemsPayload = items
@@ -824,6 +853,7 @@ function CreateOrderModal({ onCreated, onClose }) {
       toast(String(e), 'error')
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 
@@ -1374,6 +1404,7 @@ export default function OrderList({
     undoDelete,
     bulkUpdateStatus,
     bulkDelete,
+    patchOrderLocal,
   } = useOrdersStore()
 
   // Local UI state (not in store)
@@ -1494,9 +1525,10 @@ export default function OrderList({
   }
 
   const handleBulkStatus = async status => {
+    const ids = [...selected]
     try {
-      await bulkUpdateStatus([...selected], status)
-      toast(`${selected.size} orders → ${status}`, 'success')
+      await bulkUpdateStatus(ids, status)
+      toast(`${ids.length} orders → ${status}`, 'success')
     } catch (e) {
       const error = handleError(e, 'Orders.handleBulkStatus')
       toast(getErrorMessage(error), 'error')
@@ -1506,9 +1538,10 @@ export default function OrderList({
   const handleBulkDelete = async () => {
     const ok = await confirm(t('orders_confirm_delete_many'), { danger: true })
     if (!ok) return
+    const ids = [...selected]
     try {
-      await bulkDelete([...selected])
-      toast(t('orders_deleted_many').replace('{n}', selected.size), 'success')
+      await bulkDelete(ids)
+      toast(t('orders_deleted_many').replace('{n}', ids.length), 'success')
     } catch (e) {
       const error = handleError(e, 'Orders.handleBulkDelete')
       toast(getErrorMessage(error), 'error')
@@ -1517,7 +1550,7 @@ export default function OrderList({
 
   const totalPages = getTotalPages(total, DEFAULT_PAGE_SIZE)
 
-  const allSelected = orders.length > 0 && selected.size === orders.length
+  const allSelected = orders.length > 0 && selected.length === orders.length
 
   return (
     <div className="content">
@@ -1559,9 +1592,9 @@ export default function OrderList({
       />
 
       {/* Bulk Action Panel */}
-      {selected.size > 0 && (
+      {selected.length > 0 && (
         <div className="bulk-action-panel">
-          <span className="text-info-bold">{selected.size} selected</span>
+          <span className="text-info-bold">{selected.length} selected</span>
           <span className="text-border mx-1">|</span>
           <button className="btn btn-b btn-sm" onClick={() => handleBulkStatus('processing')}>
             → Processing
@@ -1638,7 +1671,7 @@ export default function OrderList({
                       key={o.id}
                       order={o}
                       isSelected={selected.includes(o.id)}
-                      isDeleting={deletingIds.has(o.id)}
+                      isDeleting={deletingIds.includes(o.id)}
                       isExpanded={expandedId === o.id}
                       onToggleExpand={() => {
                         setExpandedId(expandedId === o.id ? null : o.id)
@@ -1650,6 +1683,7 @@ export default function OrderList({
                       showStatusMenu={statusMenuId === o.id}
                       onRepeat={() => setRepeatOrder(o)}
                       onDelete={() => handleDelete(o)}
+                      onTrackingUpdate={(id, val) => patchOrderLocal(id, { tracking_number: val })}
                       StatusMenuComponent={
                         <StatusMenu
                           order={o}

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>VaultBase</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="shortcut icon" href="/favicon.svg"/>
+<style>
+:root{
+  --bg:#07090f;
+  --surface:#0e1018;
+  --border:#ffffff0d;
+  --accent:#6c63ff;
+  --accent2:#00d4aa;
+  --text:#e2e4ec;
+  --muted:#5a6170;
+  --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 700px 500px at 50% 30%,#6c63ff12 0%,transparent 70%);
+  pointer-events:none;
+}
+.wrap{
+  position:relative;z-index:1;
+  width:100%;max-width:480px;padding:0 20px;
+}
+.logo{
+  display:block;width:48px;height:48px;
+  margin:0 auto 20px;
+}
+h1{font-size:22px;font-weight:800;letter-spacing:-.4px;text-align:center;margin-bottom:8px}
+.sub{text-align:center;color:var(--muted);font-size:14px;margin-bottom:32px}
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:28px;
+}
+.label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+.row{display:flex;gap:8px}
+input{
+  flex:1;background:#ffffff07;border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;font-size:15px;
+  color:var(--text);font-family:inherit;outline:none;
+  transition:border-color .2s;letter-spacing:.5px;
+}
+input::placeholder{color:var(--muted)}
+input:focus{border-color:#6c63ff55}
+button{
+  padding:12px 20px;border-radius:8px;border:none;cursor:pointer;
+  background:var(--accent);color:#fff;font-size:14px;font-weight:700;
+  font-family:inherit;transition:opacity .2s;white-space:nowrap;
+}
+button:hover{opacity:.85}
+button:disabled{opacity:.4;cursor:default}
+.msg{
+  margin-top:14px;font-size:13px;padding:10px 14px;
+  border-radius:8px;display:none;
+}
+.msg.err{background:#ff4d6d15;border:1px solid #ff4d6d30;color:#ff8fa0}
+.msg.ok{background:#00d4aa15;border:1px solid #00d4aa30;color:#00d4aa}
+
+#dl-panel{display:none;margin-top:24px}
+.dl-title{
+  font-size:11px;font-weight:700;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:14px;
+}
+.dl-grid{display:flex;flex-direction:column;gap:8px}
+.dl-btn{
+  display:flex;align-items:center;gap:14px;
+  background:#ffffff07;border:1px solid var(--border);
+  border-radius:10px;padding:14px 16px;cursor:pointer;
+  text-decoration:none;color:var(--text);
+  transition:background .15s,border-color .15s;
+}
+.dl-btn:hover{background:#ffffff10;border-color:#6c63ff44}
+.dl-icon{font-size:24px;line-height:1;flex-shrink:0}
+.dl-info{flex:1;min-width:0}
+.dl-name{font-size:14px;font-weight:600}
+.dl-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.dl-arrow{color:var(--muted);font-size:18px;flex-shrink:0}
+.version-tag{
+  display:inline-block;background:#6c63ff18;border:1px solid #6c63ff33;
+  color:var(--accent);font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:20px;letter-spacing:.3px;
+  margin-bottom:14px;
+}
+.changelog{
+  margin-top:16px;padding:16px;
+  background:#ffffff05;border:1px solid var(--border);
+  border-radius:10px;
+}
+.changelog-title{
+  font-size:11px;font-weight:700;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--accent);margin-bottom:10px;
+}
+.changelog-text{
+  font-size:13px;line-height:1.6;color:var(--text);
+  white-space:pre-line;
+}
+.changelog-text li,.changelog-text p{margin-bottom:4px}
+.footer{text-align:center;margin-top:28px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="/favicon.svg" width="48" height="48" alt="VaultBase"/>
+  <h1>VaultBase</h1>
+  <p class="sub">Введите код доступа для продолжения</p>
+
+  <div class="card">
+    <div class="label">Код доступа</div>
+    <div class="row">
+      <input id="code-input" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="24" autocomplete="off" spellcheck="false"/>
+      <button id="btn-submit">Войти</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="dl-panel">
+    <div class="card" style="margin-top:0">
+      <div id="ver-tag" class="version-tag" style="display:none"></div>
+      <div class="dl-title">Выберите платформу</div>
+      <div class="dl-grid" id="dl-grid"></div>
+      <div id="changelog-block" class="changelog" style="display:none">
+        <div class="changelog-title">Что нового</div>
+        <div class="changelog-text" id="changelog-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">&copy; 2026 VaultBase &mdash; Ограниченный доступ</div>
+</div>
+
+<script>
+const PLATFORM = {
+  windows: { icon: '🪟', name: 'Windows', ext: '.exe / .msi' },
+  macos:   { icon: '🍎', name: 'macOS',   ext: '.dmg' },
+  linux:   { icon: '🐧', name: 'Linux',   ext: '.AppImage / .deb' },
+};
+const TYPE_LABELS = {
+  installer:  'Установщик',
+  portable:   'Портативная',
+  dmg:        'Образ диска',
+  appimage:   'AppImage',
+  deb:        'DEB пакет',
+  msi:        'MSI',
+  updater:    'Обновление',
+};
+
+function fmtSize(b) {
+  if (!b) return '';
+  if (b >= 1073741824) return (b/1073741824).toFixed(1)+' ГБ';
+  if (b >= 1048576)    return (b/1048576).toFixed(1)+' МБ';
+  return (b/1024).toFixed(0)+' КБ';
+}
+
+function autoFormat(v) {
+  const raw = v.replace(/[^a-zA-Z0-9]/g,'').toUpperCase();
+  return raw.replace(/(.{4})(?=.)/g,'$1-').slice(0,19);
+}
+
+const input = document.getElementById('code-input');
+const btn   = document.getElementById('btn-submit');
+const msg   = document.getElementById('msg');
+
+input.addEventListener('input', () => { input.value = autoFormat(input.value); });
+input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+function showMsg(text, type) {
+  msg.textContent = text;
+  msg.className = 'msg ' + type;
+  msg.style.display = 'block';
+}
+
+function submit() {
+  const code = input.value.trim();
+  if (!code) return;
+  btn.disabled = true;
+  btn.textContent = '...';
+  msg.style.display = 'none';
+
+  fetch('/invite/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  .then(r => r.json().then(d => ({ status: r.status, data: d })))
+  .then(({ status, data }) => {
+    if (status !== 200 || !data.ok) {
+      const ERRORS = {
+        missing_code:  'Введите код доступа.',
+        invalid_code:  'Код недействителен. Проверьте и попробуйте снова.',
+        already_used:  'Этот код уже был использован.',
+        expired:       'Срок действия кода истёк.',
+        database_error:'Ошибка сервера. Попробуйте позже.',
+      };
+      showMsg(ERRORS[data.error] || 'Доступ запрещён.', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Войти';
+      return;
+    }
+    onUnlocked(data);
+  })
+  .catch(() => {
+    showMsg('Ошибка сети. Попробуйте снова.', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Войти';
+  });
+}
+
+btn.addEventListener('click', submit);
+
+function onUnlocked(data) {
+  document.querySelector('.card').style.display = 'none';
+  document.querySelector('.sub').style.display = 'none';
+
+  if (data.version) {
+    const vt = document.getElementById('ver-tag');
+    vt.textContent = 'v' + data.version;
+    vt.style.display = 'inline-block';
+  }
+
+  const grid = document.getElementById('dl-grid');
+  grid.innerHTML = '';
+
+  const files = (data.files || []).filter(f => f.download_url);
+
+  if (!files.length && data.download_url) {
+    files.push({
+      platform: 'windows',
+      file_type: 'installer',
+      download_url: data.download_url,
+      file_size: data.file_size,
+      version: data.version,
+    });
+  }
+
+  if (!files.length) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:14px;text-align:center;padding:12px 0">Файлы для скачивания пока не доступны.</div>';
+  } else {
+    files.forEach(f => {
+      const pkey = (f.platform || '').split('-')[0].replace('darwin','macos');
+      const p = PLATFORM[pkey] || { icon: '📦', name: f.platform || 'Пакет', ext: '' };
+      const label = TYPE_LABELS[f.file_type] || f.file_type || '';
+      const size  = fmtSize(f.file_size);
+      const meta  = [label, size].filter(Boolean).join(' · ');
+
+      const a = document.createElement('a');
+      a.href = f.download_url;
+      a.className = 'dl-btn';
+      a.download = '';
+      a.innerHTML = `
+        <span class="dl-icon">${p.icon}</span>
+        <span class="dl-info">
+          <span class="dl-name">${p.name}</span>
+          ${meta ? `<span class="dl-meta">${meta}</span>` : ''}
+        </span>
+        <span class="dl-arrow">↓</span>`;
+      grid.appendChild(a);
+    });
+  }
+
+  const notes = data.notes || '';
+  if (notes) {
+    const block = document.getElementById('changelog-block');
+    const text = document.getElementById('changelog-text');
+    text.textContent = notes;
+    block.style.display = 'block';
+  }
+
+  document.getElementById('dl-panel').style.display = 'block';
+}
+</script>
+</body>
+</html>

@@ -8,7 +8,7 @@ const router = express.Router();
  * POST /invite/validate
  * Called from landing page — validates an invite code and returns download URL
  * Body: { code: "XXXX-XXXX-XXXX-XXXX" }
- * FIX API-H07: Use transaction to prevent race condition (double-spend attack)
+ * Supports multi-use codes via max_uses field (0 = unlimited, default = 1)
  */
 router.post('/validate', (req, res) => {
   const { code } = req.body || {};
@@ -19,15 +19,10 @@ router.post('/validate', (req, res) => {
 
   const db = getDb();
 
-  // Try with dashes or without
   const formatted = `${normalized.slice(0,4)}-${normalized.slice(4,8)}-${normalized.slice(8,12)}-${normalized.slice(12,16)}`;
 
-  // FIX API-H07: Use transaction to atomically check and mark as used
-  // This prevents race condition where two simultaneous requests could both see is_used=0
   try {
     const result = db.transaction(() => {
-      // SELECT with immediate write lock using FOR UPDATE pattern
-      // In SQLite, we use BEGIN IMMEDIATE to get write lock
       const row = db.prepare(
         'SELECT * FROM invite_codes WHERE code = ?'
       ).get(formatted);
@@ -36,27 +31,31 @@ router.post('/validate', (req, res) => {
         return { status: 404, error: 'invalid_code' };
       }
 
-      if (row.is_used) {
-        return { status: 409, error: 'already_used' };
-      }
-
       if (row.expires_at && new Date(row.expires_at) < new Date()) {
         return { status: 410, error: 'expired' };
       }
 
-      // Mark as used atomically within transaction
-      db.prepare(
-        'UPDATE invite_codes SET is_used=1, used_at=CURRENT_TIMESTAMP WHERE code=? AND is_used=0'
-      ).run(formatted);
+      // max_uses=0 means unlimited; max_uses=N means up to N uses
+      const maxUses = row.max_uses ?? 1;
+      const useCount = row.use_count ?? 0;
 
-      // Verify the update succeeded (row was not already used)
-      const updatedRow = db.prepare('SELECT is_used FROM invite_codes WHERE code=?').get(formatted);
-      if (!updatedRow?.is_used) {
-        // Another request beat us to it
+      if (maxUses > 0 && useCount >= maxUses) {
         return { status: 409, error: 'already_used' };
       }
 
-      return { status: 200, row };
+      // Increment use_count atomically; set is_used when max reached
+      const newCount = useCount + 1;
+      const nowExhausted = maxUses > 0 && newCount >= maxUses ? 1 : 0;
+
+      db.prepare(
+        `UPDATE invite_codes
+         SET use_count = use_count + 1,
+             is_used   = CASE WHEN max_uses > 0 AND (use_count + 1) >= max_uses THEN 1 ELSE is_used END,
+             used_at   = COALESCE(used_at, CURRENT_TIMESTAMP)
+         WHERE code = ?`
+      ).run(formatted);
+
+      return { status: 200, row, useCount: newCount, maxUses, exhausted: nowExhausted };
     })();
 
     if (result.status !== 200) {
@@ -65,14 +64,12 @@ router.post('/validate', (req, res) => {
 
     const { row } = result;
 
-    // Get latest published version (cached 5 min)
     let version = cache.get('invite:version');
     if (!version) {
       version = db.prepare('SELECT * FROM versions WHERE is_published=1 ORDER BY published_at DESC LIMIT 1').get();
       cache.set('invite:version', version, 5 * 60 * 1000);
     }
 
-    // Get all published installer files (cached 5 min)
     let files = cache.get('invite:files');
     if (!files) {
       files = db.prepare(`SELECT file_type, download_url, file_size, platform, version FROM release_files WHERE is_published=1 AND file_type != 'updater' ORDER BY published_at DESC`).all();
@@ -82,6 +79,7 @@ router.post('/validate', (req, res) => {
     return res.json({
       ok: true,
       label: row.label || '',
+      uses_left: result.maxUses > 0 ? result.maxUses - result.useCount : null,
       version: version ? version.version : null,
       download_url: version ? version.download_url : null,
       file_size: version ? version.file_size : null,

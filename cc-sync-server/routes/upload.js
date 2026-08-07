@@ -2,14 +2,27 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { getDb } = require('../database');
-const { requireBasicAuth } = require('../middleware');
+const { requireAdmin } = require('../middleware');
 const router = express.Router();
 
 const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, '../public/releases');
 fs.mkdirSync(RELEASES_DIR, { recursive: true });
 
-const FILE_TYPES = ['updater', 'installer-dmg', 'installer-app'];
-const ALLOWED_EXTENSIONS = ['.dmg', '.tar.gz', '.zip'];
+// Типы артефактов. `updater` — архив/инсталлятор, который скачивает встроенный
+// апдейтер Tauri (к нему обязательна подпись). Остальные — то, что человек
+// качает руками со страницы загрузки.
+const FILE_TYPES = [
+  'updater',
+  'installer-dmg',   // macOS
+  'installer-app',   // macOS .app.tar.gz
+  'installer-msi',   // Windows MSI
+  'installer-nsis',  // Windows NSIS .exe
+  'installer-deb',   // Linux Debian/Ubuntu
+  'installer-appimage', // Linux AppImage
+];
+// Расширения были только macOS-овские (.dmg/.tar.gz/.zip), из-за чего Windows- и
+// Linux-сборки залить было физически нельзя — аплоад отбивал их по расширению.
+const ALLOWED_EXTENSIONS = ['.dmg', '.tar.gz', '.zip', '.msi', '.exe', '.deb', '.AppImage', '.sig'];
 const MAX_FILE_SIZE = 600 * 1024 * 1024; // 600MB
 
 /**
@@ -27,14 +40,20 @@ function sanitizeFilename(filename) {
 }
 
 /**
- * Validate file extension against allowed list
+ * Проверка расширения по белому списку.
+ *
+ * Сравнение регистронезависимое с обеих сторон: `.AppImage` в списке записан в
+ * «родном» регистре, а path.extname отдаёт как есть — без нормализации обеих
+ * сторон AppImage-сборка отбивалась бы как недопустимая.
+ * Составное `.tar.gz` path.extname не понимает (вернёт `.gz`), поэтому отдельно.
  */
 function validateExtension(filename) {
-  const ext = filename.endsWith('.tar.gz') ? '.tar.gz' : path.extname(filename).toLowerCase();
-  return ALLOWED_EXTENSIONS.includes(ext);
+  const lower = filename.toLowerCase();
+  const ext = lower.endsWith('.tar.gz') ? '.tar.gz' : path.extname(lower);
+  return ALLOWED_EXTENSIONS.some(a => a.toLowerCase() === ext);
 }
 
-router.post('/', requireBasicAuth, (req, res) => {
+router.post('/', requireAdmin, (req, res) => {
   const ct = req.headers['content-type'] || '';
   if (!ct.includes('multipart/form-data')) return res.status(400).json({ error: 'multipart required' });
   const boundary = ct.split('boundary=')[1];
@@ -91,8 +110,8 @@ router.post('/', requireBasicAuth, (req, res) => {
         return res.status(400).json({ error: `Invalid file extension. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}` });
       }
 
-      const ext  = orig.endsWith('.tar.gz') ? '.tar.gz' : path.extname(orig) || '.dmg';
-      const safeFilename = `cc-manager-${version}-${platform.replace(/[^a-z0-9-_]/gi,'_')}-${file_type}${ext}`;
+      const ext  = orig.toLowerCase().endsWith('.tar.gz') ? '.tar.gz' : path.extname(orig) || '.dmg';
+      const safeFilename = `vaultbase-${version}-${platform.replace(/[^a-z0-9-_]/gi,'_')}-${file_type}${ext}`;
 
       // Final safety check: ensure filename doesn't contain path separators
       if (safeFilename.includes('/') || safeFilename.includes('..')) {
@@ -101,8 +120,12 @@ router.post('/', requireBasicAuth, (req, res) => {
 
       fs.writeFileSync(path.join(RELEASES_DIR, safeFilename), parsed.file.data);
 
-      const base = process.env.BASE_URL || 'https://api.eulivehub.com';
-      const download_url = `${base}/releases/${filename}`;
+      // BASE_URL должен указывать на боевой домен: он попадает в download_url,
+      // который потом раздаётся клиентам и апдейтеру. Прежний дефолт
+      // api.eulivehub.com на 2026-08-07 не резолвится вообще (NXDOMAIN) —
+      // ссылки на скачивание вели бы в никуда.
+      const base = (process.env.BASE_URL || 'https://sec201-www.otpmanager.pro').replace(/\/+$/, '');
+      const download_url = `${base}/releases/${safeFilename}`;
       const file_size = parsed.file.data.length;
       const db = getDb();
 
@@ -132,13 +155,13 @@ router.post('/', requireBasicAuth, (req, res) => {
         }
       }
 
-      res.json({ ok:true, version, filename, download_url, file_type,
+      res.json({ ok:true, version, filename: safeFilename, download_url, file_type,
         file_size_mb:(file_size/1024/1024).toFixed(2), is_published:publish, needs_signature:!signature });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 });
 
-router.post('/signature', requireBasicAuth, express.json(), (req, res) => {
+router.post('/signature', requireAdmin, express.json(), (req, res) => {
   const { version, signature, file_type = 'updater' } = req.body || {};
   if (!version || !signature) return res.status(400).json({ error: 'version and signature required' });
   const db = getDb();
@@ -150,7 +173,7 @@ router.post('/signature', requireBasicAuth, express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/publish', requireBasicAuth, express.json(), (req, res) => {
+router.post('/publish', requireAdmin, express.json(), (req, res) => {
   const { version, publish, file_type = 'updater' } = req.body || {};
   if (!version) return res.status(400).json({ error: 'version required' });
   const db = getDb();

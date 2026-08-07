@@ -22,21 +22,30 @@ import {
   Bell,
   Sun,
   Moon,
+  Truck,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTheme } from '../hooks/useTheme'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useAuth } from '../hooks/useAuth'
 import { LicenseSection } from '../components/LicenseSection'
 import { STATUS_COLORS } from '../constants/colors'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+
+const THEME_OPTIONS = [
+  { value: 'system', label: 'System', Icon: Monitor },
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+]
 
 export default function Settings() {
   const { t, lang, setLang } = useLang()
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
-  const { theme, toggleTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
+  const { currentUser, isAdmin, hasPerm } = useAuth()
 
   const [syncGroup, setSyncGroup] = useState(null) // null = loading, false = no group, object = group info
   const [syncGroupLoading, setSyncGroupLoading] = useState(false)
@@ -48,11 +57,24 @@ export default function Settings() {
   const [generatedCode, setGeneratedCode] = useState(null)
 
   const [binApiKey, setBinApiKey] = useState('')
+  const [binApiKeySet, setBinApiKeySet] = useState(false)
   const [binApiSaved, setBinApiSaved] = useState(false)
+  const [stufferUrl, setStufferUrl] = useState('')
+  const [stufferKey, setStufferKey] = useState('')
+  const [stufferKeySet, setStufferKeySet] = useState(false)
+  const [stufferSaved, setStufferSaved] = useState(false)
   const [exportingBackup, setExportingBackup] = useState(false)
   const [wsStatus, setWsStatus] = useState(null) // { connected, connecting, group_id? }
   const [changingPw, setChangingPw] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
+  // Смена пароля оператора (своего аккаунта)
+  const [ownPwForm, setOwnPwForm] = useState({ current: '', next: '', confirm: '' })
+  const [savingOwnPw, setSavingOwnPw] = useState(false)
+  // Аудит лог (admin)
+  const [auditLog, setAuditLog] = useState(null)
+  const [auditFilter, setAuditFilter] = useState({ action: '', userId: '' })
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [onlineSessions, setOnlineSessions] = useState([])
   const [alwaysOnTop, setAlwaysOnTop] = useState(false)
   const [autoLock, setAutoLock] = useState('300')
   const [unsyncedCount, setUnsyncedCount] = useState(0)
@@ -68,8 +90,8 @@ export default function Settings() {
 
     // All DB calls in parallel — fast
     Promise.allSettled([
-      invoke('get_config', { key: 'bin_api_key' }).then(v => {
-        if (!cancelled && v) setBinApiKey(v)
+      invoke('get_config', { key: 'bin_api_key_set' }).then(v => {
+        if (!cancelled) setBinApiKeySet(v === '1')
       }),
       invoke('get_config', { key: 'always_on_top' }).then(v => {
         if (!cancelled) setAlwaysOnTop(v === '1')
@@ -88,6 +110,12 @@ export default function Settings() {
       }),
       invoke('get_config', { key: 'badge_notify_tracking' }).then(v => {
         if (!cancelled) setBadgeNotifyTracking(v !== '0')
+      }),
+      invoke('stuffer_get_config').then(cfg => {
+        if (!cancelled && cfg) {
+          setStufferUrl(cfg.base_url || '')
+          setStufferKeySet(!!cfg.api_key_set)
+        }
       }),
       invoke('get_catalog_stats')
         .then(s => {
@@ -194,11 +222,42 @@ export default function Settings() {
   const saveBinApiKey = async () => {
     try {
       await invoke('set_config', { key: 'bin_api_key', value: binApiKey })
+      setBinApiKeySet(!!binApiKey.trim())
+      setBinApiKey('')
       setBinApiSaved(true)
       toastOk(t('settings_bin_api_saved'))
       setTimeout(() => setBinApiSaved(false), 2000)
     } catch (e) {
       const error = handleError(e, 'Settings.saveBinApiKey')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const clearBinApiKey = async () => {
+    try {
+      await invoke('set_config', { key: 'bin_api_key', value: '' })
+      setBinApiKeySet(false)
+      setBinApiKey('')
+      toastOk(t('settings_bin_api_saved'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.clearBinApiKey')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const saveStufferConfig = async () => {
+    try {
+      await invoke('stuffer_set_config', {
+        apiKey: stufferKey.trim() ? stufferKey.trim() : null,
+        baseUrl: stufferUrl.trim(),
+      })
+      if (stufferKey.trim()) setStufferKeySet(true)
+      setStufferKey('')
+      setStufferSaved(true)
+      toastOk(t('settings_stuffer_saved'))
+      setTimeout(() => setStufferSaved(false), 2000)
+    } catch (e) {
+      const error = handleError(e, 'Settings.saveStufferConfig')
       toastErr(getErrorMessage(error))
     }
   }
@@ -229,7 +288,7 @@ export default function Settings() {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog')
       const path = await open({
-        filters: [{ name: 'CC Manager Backup', extensions: ['db', 'ccbak'] }],
+        filters: [{ name: 'VaultBase Backup', extensions: ['db', 'ccbak'] }],
         multiple: false,
       })
       if (!path) {
@@ -327,6 +386,63 @@ export default function Settings() {
     } catch (e) {
       const error = handleError(e, 'Settings.handleChangePassword')
       toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleChangeOwnPassword = async () => {
+    if (ownPwForm.next !== ownPwForm.confirm) {
+      toastErr('Пароли не совпадают')
+      return
+    }
+    if (ownPwForm.next.length < 6) {
+      toastErr('Минимум 6 символов')
+      return
+    }
+    setSavingOwnPw(true)
+    try {
+      await invoke('change_own_password', {
+        currentPassword: ownPwForm.current,
+        newPassword: ownPwForm.next,
+      })
+      toastOk('Пароль успешно изменён')
+      setOwnPwForm({ current: '', next: '', confirm: '' })
+    } catch (e) {
+      const msg = String(e)
+      if (msg.includes('wrong_current_password')) toastErr('Неверный текущий пароль')
+      else toastErr(msg)
+    } finally {
+      setSavingOwnPw(false)
+    }
+  }
+
+  const loadAuditLog = async () => {
+    setAuditLoading(true)
+    try {
+      const [log, sessions] = await Promise.all([
+        invoke('get_full_audit_log', {
+          userId: auditFilter.userId ? Number(auditFilter.userId) : null,
+          actionType: auditFilter.action || null,
+          limit: 100,
+          offset: 0,
+        }),
+        invoke('get_online_sessions'),
+      ])
+      setAuditLog(log)
+      setOnlineSessions(sessions)
+    } catch (e) {
+      toastErr(String(e))
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+
+  const revokeSession = async sessionId => {
+    try {
+      await invoke('revoke_session', { sessionId })
+      setOnlineSessions(s => s.filter(x => x.session_id !== sessionId))
+      toastOk('Сессия завершена')
+    } catch (e) {
+      toastErr(String(e))
     }
   }
 
@@ -469,13 +585,25 @@ export default function Settings() {
           </div>
           <div className="setting-row">
             <div className="setting-info">
-              <div className="setting-title">Theme</div>
-              <div className="setting-desc">Switch between light and dark mode</div>
+              <div className="setting-title">Appearance</div>
+              <div className="setting-desc">Follow the system or pick a fixed theme</div>
             </div>
-            <button onClick={toggleTheme} className="btn btn-ghost btn-sm">
-              {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
-              {theme === 'dark' ? 'Light' : 'Dark'}
-            </button>
+            {/* Сегментированный контрол вместо кнопки-переключателя:
+                режимов три, а toggle умеет только два. */}
+            <div className="tabs" role="group" aria-label="Appearance">
+              {THEME_OPTIONS.map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`tab ${theme === value ? 'active' : ''}`}
+                  onClick={() => setTheme(value)}
+                  aria-pressed={theme === value}
+                >
+                  <Icon size={13} aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -493,17 +621,66 @@ export default function Settings() {
               type="password"
               value={binApiKey}
               onChange={e => setBinApiKey(e.target.value)}
-              placeholder={t('settings_bin_api_placeholder')}
+              placeholder={binApiKeySet ? '••••••••••••' : t('settings_bin_api_placeholder')}
               className="form-input flex-1"
+              autoComplete="off"
             />
             <button
               onClick={saveBinApiKey}
+              disabled={!binApiKey.trim()}
               className={`btn btn-sm ${binApiSaved ? 'btn-g' : 'btn-b'}`}
             >
               {binApiSaved ? t('msg_saved') : t('btn_save')}
             </button>
+            {binApiKeySet && (
+              <button onClick={clearBinApiKey} className="btn btn-ghost btn-sm">
+                {t('btn_clear') || 'Clear'}
+              </button>
+            )}
+          </div>
+          <div className="setting-desc mt-1.5">
+            {binApiKeySet
+              ? t('settings_bin_api_configured') || 'Configured'
+              : t('settings_bin_api_not_configured') || 'Not configured'}
           </div>
         </div>
+
+        {/* Stuffer API — панель скрыта без manage_couriers: stuffer_set_config
+            закрыт этим правом на бэкенде (main.rs), и без него сохранение
+            всегда падало бы с permission_denied уже после ввода ключа. */}
+        {hasPerm('manage_couriers') && (
+          <div className="panel">
+            <div className="ptitle">
+              <Truck size={13} className="inline mr-1.5" />
+              {t('settings_stuffer_title')}
+            </div>
+            <div className="setting-desc mb-2">{t('settings_stuffer_desc')}</div>
+            <div className="flex flex-col gap-2">
+              <input
+                type="text"
+                value={stufferUrl}
+                onChange={e => setStufferUrl(e.target.value)}
+                placeholder={t('settings_stuffer_url')}
+                className="form-input"
+              />
+              <input
+                type="password"
+                value={stufferKey}
+                onChange={e => setStufferKey(e.target.value)}
+                placeholder={
+                  stufferKeySet ? t('settings_stuffer_key_set') : t('settings_stuffer_key_ph')
+                }
+                className="form-input"
+              />
+              <button
+                onClick={saveStufferConfig}
+                className={`btn btn-sm self-end ${stufferSaved ? 'btn-g' : 'btn-b'}`}
+              >
+                {stufferSaved ? t('settings_stuffer_saved') : t('settings_stuffer_save')}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Database */}
         <div className="panel">
@@ -516,8 +693,17 @@ export default function Settings() {
               <div className="setting-title">Backup database</div>
               {lastBackup && <div className="setting-desc">Last: {lastBackup}</div>}
             </div>
-            <button onClick={handleBackup} disabled={exportingBackup} className="btn btn-b btn-sm">
-              {exportingBackup ? <RefreshCw size={13} /> : <Download size={13} />}
+            <button
+              onClick={handleBackup}
+              disabled={exportingBackup}
+              className="btn btn-b btn-sm"
+              style={{ opacity: exportingBackup ? 0.6 : 1 }}
+            >
+              {exportingBackup ? (
+                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <Download size={13} />
+              )}
               {exportingBackup ? t('settings_creating') : t('settings_create_backup')}
             </button>
           </div>
@@ -624,6 +810,8 @@ export default function Settings() {
                     onChange={e => setPwForm(p => ({ ...p, [key]: e.target.value }))}
                     placeholder={placeholder}
                     className="form-input"
+                    maxLength={128}
+                    autoComplete="new-password"
                   />
                 </div>
               ))}
@@ -680,6 +868,7 @@ export default function Settings() {
                     onChange={e => setNewGroupName(e.target.value)}
                     placeholder="Group name"
                     className="form-input"
+                    maxLength={64}
                     onKeyDown={e => e.key === 'Enter' && handleCreateGroup()}
                   />
                   <div className="flex gap-2">
@@ -814,7 +1003,152 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="text-center py-3 pb-1 text-muted text-[11px]">CC Manager v0.1.0</div>
+      {/* Смена пароля аккаунта (для операторов) */}
+      {currentUser && !isAdmin && (
+        <div className="panel mt-4">
+          <div className="ptitle">
+            <Shield size={13} className="inline mr-1.5" />
+            Смена пароля аккаунта
+          </div>
+          <div className="flex flex-col gap-3">
+            {[
+              { key: 'current', label: 'Текущий пароль', placeholder: 'Текущий пароль' },
+              { key: 'next', label: 'Новый пароль', placeholder: 'Минимум 6 символов' },
+              { key: 'confirm', label: 'Повторите пароль', placeholder: 'Повторите новый пароль' },
+            ].map(({ key, label, placeholder }) => (
+              <div className="form-group" key={key}>
+                <label className="form-label">{label}</label>
+                <input
+                  type="password"
+                  value={ownPwForm[key]}
+                  onChange={e => setOwnPwForm(p => ({ ...p, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="form-input"
+                  maxLength={128}
+                  autoComplete="new-password"
+                />
+              </div>
+            ))}
+            <div>
+              <button
+                onClick={handleChangeOwnPassword}
+                disabled={savingOwnPw || !ownPwForm.current || !ownPwForm.next}
+                className="btn btn-r btn-sm"
+              >
+                {savingOwnPw ? (
+                  <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                ) : (
+                  <Shield size={13} />
+                )}
+                Сменить пароль
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Аудит и активные сессии (только для admin) */}
+      {isAdmin && (
+        <div className="panel mt-4">
+          <div className="ptitle">
+            <Shield size={13} className="inline mr-1.5" />
+            Аудит и сессии
+          </div>
+
+          {/* Фильтры */}
+          <div className="flex gap-2 mb-3 flex-wrap">
+            <input
+              type="text"
+              value={auditFilter.action}
+              onChange={e => setAuditFilter(f => ({ ...f, action: e.target.value }))}
+              placeholder="Тип действия (login, take_card…)"
+              className="form-input flex-1 min-w-[160px]"
+            />
+            <input
+              type="number"
+              value={auditFilter.userId}
+              onChange={e => setAuditFilter(f => ({ ...f, userId: e.target.value }))}
+              placeholder="ID пользователя"
+              className="form-input w-[140px]"
+            />
+            <button onClick={loadAuditLog} disabled={auditLoading} className="btn btn-b btn-sm">
+              {auditLoading ? (
+                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+              Загрузить
+            </button>
+          </div>
+
+          {/* Активные сессии */}
+          {onlineSessions.length > 0 && (
+            <div className="mb-4">
+              <div className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
+                Активные сессии
+              </div>
+              <div className="flex flex-col gap-1">
+                {onlineSessions.map(s => (
+                  <div
+                    key={s.session_id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-surface border text-[12px]"
+                  >
+                    <div>
+                      <span className="font-semibold">{s.username}</span>
+                      <span className="text-muted ml-2">{s.ip || 'localhost'}</span>
+                      <span className="text-dim ml-2">{s.created_at}</span>
+                    </div>
+                    <button
+                      onClick={() => revokeSession(s.session_id)}
+                      className="btn btn-r btn-sm"
+                    >
+                      <LogOut size={11} /> Завершить
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Лог событий */}
+          {auditLog === null ? (
+            <div className="text-muted text-[12px]">
+              Нажмите «Загрузить» для просмотра аудит-лога
+            </div>
+          ) : auditLog.length === 0 ? (
+            <div className="text-muted text-[12px]">Событий не найдено</div>
+          ) : (
+            <div className="overflow-auto max-h-[400px]">
+              <table className="tbl w-full">
+                <thead>
+                  <tr>
+                    <th>Время</th>
+                    <th>Пользователь</th>
+                    <th>Действие</th>
+                    <th>Детали</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLog.map((row, i) => (
+                    <tr key={i}>
+                      <td className="mono text-[11px] whitespace-nowrap">{row.created_at}</td>
+                      <td>{row.username || row.user_id}</td>
+                      <td>
+                        <span className="st st-pending text-[10px]">{row.action_type}</span>
+                      </td>
+                      <td className="text-muted text-[11px] max-w-[300px] truncate">
+                        {row.details}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="text-center py-3 pb-1 text-muted text-[11px]">VaultBase v0.1.0</div>
     </div>
   )
 }

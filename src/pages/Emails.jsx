@@ -1,10 +1,22 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { Mail, MailCheck, ShieldOff, Trash2, Plus, RefreshCw, X, Link2, Unlink } from 'lucide-react'
+import {
+  Mail,
+  MailCheck,
+  ShieldOff,
+  Trash2,
+  Plus,
+  RefreshCw,
+  X,
+  Link2,
+  Unlink,
+  Search,
+} from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
+import { useDebounce } from '../hooks/useDebounce'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { STATUS_COLORS } from '../constants/colors.js'
@@ -242,6 +254,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [filterBlocked, setFilterBlocked] = useState(null) // null | true | false | "used"
+  const [searchInput, setSearchInput] = useState('')
+  const debouncedSearch = useDebounce(searchInput, 300)
   const [modal, setModal] = useState(null) // null | "add" | EmailPoolEntry
   const [imapAccounts, setImapAccounts] = useState([])
   const [selected, setSelected] = useState(new Set())
@@ -249,15 +263,8 @@ export default function EmailPool({ onNavigate, inTab = false }) {
   const { confirm } = useConfirm()
   const { t } = useLang()
 
-  // Virtualization setup
+  // Virtualization setup — use filteredEmails after it's defined; computed below after states
   const parentRef = useRef(null)
-  const useVirtual = emails.length > 100
-  const rowVirtualizer = useVirtualizer({
-    count: useVirtual ? emails.length : 0,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 55,
-    overscan: 5,
-  })
 
   const load = useCallback(
     async (p = page, fb = filterBlocked) => {
@@ -342,6 +349,22 @@ export default function EmailPool({ onNavigate, inTab = false }) {
   }
 
   const cleanCount = emails.filter(e => !e.is_blocked && !e.shops_used?.length).length
+  const filteredEmails = useMemo(() => {
+    if (!debouncedSearch.trim()) return emails
+    const q = debouncedSearch.trim().toLowerCase()
+    return emails.filter(
+      e => e.email?.toLowerCase().includes(q) || e.label?.toLowerCase().includes(q)
+    )
+  }, [emails, debouncedSearch])
+
+  const useVirtual = filteredEmails.length > 100
+  const rowVirtualizer = useVirtualizer({
+    count: useVirtual ? filteredEmails.length : 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 55,
+    overscan: 5,
+  })
+
   const toggleSelect = id =>
     setSelected(prev => {
       const next = new Set(prev)
@@ -418,22 +441,45 @@ export default function EmailPool({ onNavigate, inTab = false }) {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="filters mb-3">
-        {[
-          [null, t('filter_all')],
-          [false, t('filter_clean')],
-          ['used', t('filter_used')],
-          [true, t('filter_blocked')],
-        ].map(([val, label]) => (
-          <button
-            key={String(val)}
-            onClick={() => applyFilter(val)}
-            className={`flt${filterBlocked === val ? ' active' : ''}`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* Filters + Search */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="filters">
+          {[
+            [null, t('filter_all')],
+            [false, t('filter_clean')],
+            ['used', t('filter_used')],
+            [true, t('filter_blocked')],
+          ].map(([val, label]) => (
+            <button
+              key={String(val)}
+              onClick={() => applyFilter(val)}
+              className={`flt${filterBlocked === val ? ' active' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="relative ml-auto">
+          <Search
+            size={13}
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+          />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Search emails..."
+            className="input input-sm pl-7 w-48"
+          />
+          {searchInput && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-base"
+              onClick={() => setSearchInput('')}
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bulk Action Bar */}
@@ -485,7 +531,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
               </tbody>
             </table>
           </div>
-        ) : emails.length === 0 ? (
+        ) : filteredEmails.length === 0 ? (
           <div className="flex-1-overflow">
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
@@ -527,10 +573,12 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                       Select all emails
                       <input
                         type="checkbox"
-                        checked={emails.length > 0 && selected.size === emails.length}
+                        checked={
+                          filteredEmails.length > 0 && selected.size === filteredEmails.length
+                        }
                         onChange={e =>
                           e.target.checked
-                            ? setSelected(new Set(emails.map(em => em.id)))
+                            ? setSelected(new Set(filteredEmails.map(em => em.id)))
                             : setSelected(new Set())
                         }
                         aria-label="Select all emails"
@@ -549,7 +597,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
             </table>
             <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
               {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                const entry = emails[virtualRow.index]
+                const entry = filteredEmails[virtualRow.index]
                 return (
                   <div
                     key={virtualRow.key}
@@ -642,10 +690,12 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                       Select all emails
                       <input
                         type="checkbox"
-                        checked={emails.length > 0 && selected.size === emails.length}
+                        checked={
+                          filteredEmails.length > 0 && selected.size === filteredEmails.length
+                        }
                         onChange={e =>
                           e.target.checked
-                            ? setSelected(new Set(emails.map(em => em.id)))
+                            ? setSelected(new Set(filteredEmails.map(em => em.id)))
                             : setSelected(new Set())
                         }
                         aria-label="Select all emails"
@@ -662,7 +712,7 @@ export default function EmailPool({ onNavigate, inTab = false }) {
                 </tr>
               </thead>
               <tbody>
-                {emails.map(entry => (
+                {filteredEmails.map(entry => (
                   <tr
                     key={entry.id}
                     style={{

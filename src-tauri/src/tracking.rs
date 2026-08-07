@@ -240,10 +240,7 @@ fn extract_xml_element(xml: &str, tag: &str) -> Option<String> {
 // ─────────────────────────────────────────
 
 pub fn check_ups_tracking(tracking: &str) -> Result<TrackingStatus, String> {
-    // UPS Tracking API v2 requires OAuth2 token
-    // For now, return error indicating auth is needed
-    // TODO: Implement OAuth2 flow with client_id/client_secret
-
+    // UPS Tracking API v2 — OAuth2 token flow
     let client_id = std::env::var("UPS_CLIENT_ID").ok().filter(|s| !s.is_empty());
     let client_secret = std::env::var("UPS_CLIENT_SECRET").ok().filter(|s| !s.is_empty());
 
@@ -260,7 +257,7 @@ pub fn check_ups_tracking(tracking: &str) -> Result<TrackingStatus, String> {
     let resp = ureq::get(&url)
         .set("Authorization", &format!("Bearer {}", token))
         .set("transId", "123")
-        .set("transactionSrc", "CC-Manager")
+        .set("transactionSrc", "vaultbase")
         .timeout(std::time::Duration::from_secs(10))
         .call();
 
@@ -618,6 +615,16 @@ mod tests {
         assert_eq!(detect_carrier("9405111899223456789012"), Some("USPS"));
         assert_eq!(detect_carrier("9407111899223456789012"), Some("USPS"));
         assert_eq!(detect_carrier("9409111899223456789012"), Some("USPS"));
-        assert_eq!(detect_carrier("940011189922345678901"), None); // Too short
+
+        // 21 цифр — это ВАЛИДНЫЙ USPS: запасная ветка detect_carrier принимает
+        // 20–22 цифры, начинающиеся с 9 (USPS Tracking Plus бывает и такой
+        // длины). Тест раньше ждал здесь None с комментарием «Too short» и
+        // падал: ошибочным было ожидание, а не код.
+        assert_eq!(detect_carrier("940011189922345678901"), Some("USPS"));
+
+        // Действительно коротко: 19 цифр не подходит ни под одну ветку.
+        assert_eq!(detect_carrier("9400111899223456789"), None);
+        // Начинается не с 9 — не USPS (и не подходит по длине под остальных).
+        assert_eq!(detect_carrier("8400111899223456789012"), None);
     }
 }

@@ -1,4 +1,4 @@
-// Keyboard shortcuts configuration for CC Manager
+// Keyboard shortcuts configuration for VaultBase
 
 export const SHORTCUTS = {
   // Navigation shortcuts

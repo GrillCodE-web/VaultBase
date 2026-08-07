@@ -1,5 +1,5 @@
 -- ================================================================
--- CC Manager - Test Data Import Script
+-- VaultBase - Test Data Import Script
 -- Generated for testing purposes
 -- ================================================================
 

@@ -252,41 +252,124 @@ function BanksTable({ data }) {
   )
 }
 
+function CountryHeatBar({ data }) {
+  if (!data?.length) return null
+  const maxCards = Math.max(...data.map(c => c.total_cards), 1)
+  const sorted = [...data].sort((a, b) => b.total_cards - a.total_cards).slice(0, 15)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+      {sorted.map(c => {
+        const pct = (c.total_cards / maxCards) * 100
+        const rate = c.success_rate ?? 0
+        const barColor =
+          rate >= 50
+            ? 'var(--color-heatmap-high)'
+            : rate >= 20
+              ? 'var(--color-heatmap-medium)'
+              : rate > 0
+                ? 'var(--color-heatmap-low)'
+                : 'var(--color-heatmap-no-data)'
+        return (
+          <div key={c.country} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span
+              style={{
+                width: 36,
+                fontSize: 10,
+                textAlign: 'right',
+                flexShrink: 0,
+                color: 'var(--text-2)',
+              }}
+            >
+              {c.country || '—'}
+            </span>
+            <div
+              style={{
+                flex: 1,
+                height: 16,
+                background: 'var(--separator)',
+                borderRadius: 3,
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
+              <div
+                style={{
+                  width: `${pct}%`,
+                  height: '100%',
+                  background: barColor,
+                  borderRadius: 3,
+                  transition: 'width 0.3s',
+                  minWidth: 2,
+                }}
+              />
+            </div>
+            <span
+              style={{
+                width: 32,
+                fontSize: 10,
+                textAlign: 'right',
+                flexShrink: 0,
+                fontWeight: 600,
+              }}
+            >
+              {c.total_cards}
+            </span>
+            <span
+              style={{
+                width: 36,
+                fontSize: 9,
+                textAlign: 'right',
+                flexShrink: 0,
+                color: 'var(--text-2)',
+              }}
+            >
+              {rate >= 0 ? `${rate}%` : '—'}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function CountryTable({ data }) {
   const { t } = useLang()
   if (!data?.length) return <p className="text-[11px] text-muted py-2">{t('msg_no_data')}</p>
   return (
-    <div className="overflow-x-auto">
-      <table className="tbl w-full">
-        <thead>
-          <tr>
-            {[
-              t('cc_col_country'),
-              t('nav_cards'),
-              t('status_free'),
-              t('nav_orders'),
-              t('chart_revenue'),
-              t('col_success_rate'),
-            ].map(h => (
-              <th key={h}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map(c => (
-            <tr key={c.country}>
-              <td>{c.country}</td>
-              <td className="text-right">{formatNumber(c.total_cards)}</td>
-              <td className="text-right text-green-t">{formatNumber(c.free_cards)}</td>
-              <td className="text-right">{formatNumber(c.total_orders)}</td>
-              <td className="text-right">{formatCurrency(c.revenue)}</td>
-              <td className="text-right">
-                <RateBadge rate={c.success_rate} />
-              </td>
+    <div>
+      <CountryHeatBar data={data} />
+      <div className="overflow-x-auto">
+        <table className="tbl w-full">
+          <thead>
+            <tr>
+              {[
+                t('cc_col_country'),
+                t('nav_cards'),
+                t('status_free'),
+                t('nav_orders'),
+                t('chart_revenue'),
+                t('col_success_rate'),
+              ].map(h => (
+                <th key={h}>{h}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map(c => (
+              <tr key={c.country}>
+                <td>{c.country}</td>
+                <td className="text-right">{formatNumber(c.total_cards)}</td>
+                <td className="text-right text-green-t">{formatNumber(c.free_cards)}</td>
+                <td className="text-right">{formatNumber(c.total_orders)}</td>
+                <td className="text-right">{formatCurrency(c.revenue)}</td>
+                <td className="text-right">
+                  <RateBadge rate={c.success_rate} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

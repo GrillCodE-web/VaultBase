@@ -296,10 +296,43 @@ export function useSmartToast() {
   }
 }
 
+// Normalize old toast() call syntax into the smart toast options.
+// Old API: toast({ message, type, duration, action }) or toast(string, type)
+function normalizeToastArgs(message, typeOrOptions) {
+  if (typeof message === 'object' && message !== null) {
+    const { message: msg, type = 'info', duration, action, groupKey } = message
+    return { message: msg ?? '', type, options: { duration, action, groupKey } }
+  }
+  return {
+    message,
+    type: typeof typeOrOptions === 'string' ? typeOrOptions : 'info',
+    options: typeof typeOrOptions === 'object' && typeOrOptions !== null ? typeOrOptions : {},
+  }
+}
+
+function useSmartToastMethods(ctx) {
+  return {
+    toast: useCallback(
+      (message, typeOrOptions) => {
+        if (!ctx) return
+        const { message: msg, type, options } = normalizeToastArgs(message, typeOrOptions)
+        ctx.info(msg, { ...options, ...(type !== 'info' ? { groupKey: msg } : {}) })
+      },
+      [ctx]
+    ),
+    success: useCallback((msg, options) => ctx?.success?.(msg, options), [ctx]),
+    error: useCallback((msg, options) => ctx?.error?.(msg, options), [ctx]),
+    warning: useCallback((msg, options) => ctx?.warning?.(msg, options), [ctx]),
+    info: useCallback((msg, options) => ctx?.info?.(msg, options), [ctx]),
+  }
+}
+
 // Backwards compatibility wrapper - allows gradual migration
 // Components using old useToast will still work but get smart notifications
+// eslint-disable-next-line react-refresh/only-export-components -- хук и провайдер намеренно в одном файле
 export function useToast() {
   const ctx = useContext(SmartToastContext)
+  const { toast, success, error, warning } = useSmartToastMethods(ctx)
   if (!ctx) {
     // Fallback to basic toast if SmartToastProvider not available
     return {
@@ -310,9 +343,9 @@ export function useToast() {
     }
   }
   return {
-    toast: ctx.info, // map 'toast' to 'info'
-    success: ctx.success,
-    error: ctx.error,
-    warn: ctx.warning, // map 'warn' to 'warning'
+    toast,
+    success,
+    error,
+    warn: warning, // map 'warn' to 'warning'
   }
 }

@@ -77,18 +77,14 @@ export function Modal({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between py-5 px-6 border-b">
+          <div className="modal-header">
             {title && (
-              <h2 id="modal-title" className="text-[16px] font-semibold text-text m-0">
+              <h2 id="modal-title" className="modal-header__title">
                 {title}
               </h2>
             )}
             {showCloseButton && (
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="modal-close-btn bg-transparent border-none text-text-3 cursor-pointer p-1 flex items-center justify-center rounded-sm ml-auto"
-              >
+              <button onClick={onClose} aria-label="Close" className="modal-close">
                 <X size={18} />
               </button>
             )}
@@ -96,10 +92,10 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="modal-body">{children}</div>
 
         {/* Footer */}
-        {footer && <div className="py-5 px-6 border-t flex gap-3 justify-end">{footer}</div>}
+        {footer && <div className="modal-footer">{footer}</div>}
       </div>
     </div>
   )

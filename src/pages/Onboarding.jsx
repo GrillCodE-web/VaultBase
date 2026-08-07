@@ -70,7 +70,7 @@ export default function Onboarding({ onComplete, onNavigate }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-10 gap-8 bg-bg">
       <div className="text-center">
-        <h1 className="text-[28px] font-bold mb-2 text-text">Welcome to CC Manager</h1>
+        <h1 className="text-[28px] font-bold mb-2 text-text">Welcome to VaultBase</h1>
         <p className="text-muted text-[14px]">Complete these steps to get started</p>
       </div>
 
@@ -131,7 +131,7 @@ export default function Onboarding({ onComplete, onNavigate }) {
         <div className="text-center">
           <p className="text-accent mb-4 font-semibold">All steps complete!</p>
           <button className="btn btn-b" onClick={onComplete}>
-            Start Using CC Manager
+            Start Using VaultBase
           </button>
         </div>
       )}

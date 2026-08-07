@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useLang } from '../../hooks/useLang.jsx'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
@@ -9,7 +9,7 @@ import {
   countryFlag,
 } from '../../utils/formatting.js'
 import { getBinBadge } from '../../constants/cardTypes.js'
-import { CARD_STATUS_CSS } from '../../constants/status.js'
+import { CARD_STATUS_CSS, ORDER_STATUS_CSS } from '../../constants/status.js'
 import { CardField } from './CardField.jsx'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
@@ -27,6 +27,8 @@ export function CardSidePanel({
   const { t } = useLang()
   const { toast } = usePremiumToast()
   const rev = revealed[card.id]
+  const [recentOrders, setRecentOrders] = useState([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
   const displayNum = rev?.card_number
     ? formatCardNumber(rev.card_number)
     : formatBinMasked(card.bin, card.last4)
@@ -35,7 +37,31 @@ export function CardSidePanel({
   const badge = getBinBadge(card.card_type)
 
   useEffect(() => {
+    let isMounted = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- стандартный паттерн loading-флага перед fetch
+    setOrdersLoading(true)
+    invoke('get_recent_orders_by_card', { cardId: card.id, limit: 5 })
+      .then(orders => {
+        if (isMounted) setRecentOrders(orders || [])
+      })
+      .catch(e => {
+        if (isMounted) {
+          if (import.meta.env.DEV) console.error('[CardSidePanel] Failed to load orders:', e)
+          setRecentOrders([])
+        }
+      })
+      .finally(() => {
+        if (isMounted) setOrdersLoading(false)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [card.id])
+
+  useEffect(() => {
+    let isMounted = true
     const handler = e => {
+      if (!isMounted) return
       if (e.key === 'Escape') {
         onClose()
         return
@@ -50,7 +76,10 @@ export function CardSidePanel({
       }
     }
     document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+    return () => {
+      isMounted = false
+      document.removeEventListener('keydown', handler)
+    }
   }, [idx, cards, onClose, onNavigate])
 
   const copyField = val => {
@@ -202,6 +231,43 @@ export function CardSidePanel({
               mono
               onCopy={copyField}
             />
+            {/* Usage history */}
+            <div className="h-px bg-border my-1.5" />
+            <div className="text-[10px] uppercase tracking-wider text-muted mb-1.5 mt-2">
+              {t('usage_history') || 'Usage History'}
+              {(card.orders_count ?? 0) > 0 && (
+                <span className="ml-1.5 text-text normal-case">({card.orders_count} total)</span>
+              )}
+            </div>
+            {ordersLoading ? (
+              <div className="text-[11px] text-muted py-1">Loading...</div>
+            ) : recentOrders.length === 0 ? (
+              <div className="text-[11px] text-muted py-1">
+                {t('no_orders_for_card') || 'No orders yet'}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-[3px]">
+                {recentOrders.map(o => (
+                  <div
+                    key={o.id}
+                    className="flex items-center justify-between py-[3px] px-[6px] rounded bg-surface text-[11px]"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`st ${ORDER_STATUS_CSS[o.status] ?? 'st-archive'} shrink-0`}>
+                        {o.status}
+                      </span>
+                      <span className="text-muted truncate">{o.shop_name || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                      {o.total_amount != null && (
+                        <span className="text-blue-t mono">${o.total_amount.toFixed(2)}</span>
+                      )}
+                      <span className="text-muted text-[10px]">{o.created_at?.slice(0, 10)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

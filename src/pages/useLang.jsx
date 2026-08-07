@@ -3,7 +3,7 @@ import { en } from '../i18n/en.js'
 import { ru } from '../i18n/ru.js'
 
 const LANGS = { en, ru }
-const STORAGE_KEY = 'cc_manager_lang'
+const STORAGE_KEY = 'vaultbase_lang'
 
 const LangContext = createContext(null)
 

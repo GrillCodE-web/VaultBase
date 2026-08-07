@@ -16,11 +16,60 @@ const { getDb } = require('./database');
 // Map: installation_id → WebSocket
 const clients = new Map();
 
+// Keep-alive timer handle, cleared on graceful shutdown.
+let pingInterval = null;
+
 const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
+const VALID_STATUSES = ['free', 'in_use', 'archive', 'declined', 'dead'];
 function weight(s) { return STATUS_WEIGHT[s] || 0; }
 
 function send(ws, obj) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj));
+}
+
+/**
+ * Apply a batch of card updates atomically.
+ *
+ * The conflict resolver uses monotonic status weights (higher always wins), so a
+ * partially-applied batch can never be repaired by a later sync — the client
+ * believes it already pushed those rows. All writes therefore go through a single
+ * better-sqlite3 transaction. Transactions are synchronous: nothing inside the
+ * transaction callback may await.
+ *
+ * @returns {Array<{card_hash: string, status: string}>} rows that were written
+ */
+function applyCardPush(db, groupId, installationId, cards) {
+  const stmt = db.prepare(`
+    INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(card_hash, group_id) DO UPDATE SET
+      status         = CASE WHEN ? > ? THEN excluded.status ELSE sync_cards.status END,
+      encrypted_data = CASE WHEN ? > ? THEN excluded.encrypted_data ELSE sync_cards.encrypted_data END,
+      notes          = CASE WHEN ? > ? THEN excluded.notes ELSE sync_cards.notes END,
+      updated_by     = CASE WHEN ? > ? THEN excluded.updated_by ELSE sync_cards.updated_by END,
+      updated_at     = CASE WHEN ? > ? THEN CURRENT_TIMESTAMP ELSE sync_cards.updated_at END
+  `);
+  const lookup = db.prepare('SELECT status FROM sync_cards WHERE card_hash=? AND group_id=?');
+
+  return db.transaction(() => {
+    const written = [];
+    for (const card of cards) {
+      // FIX WS-VALIDATION-04: Strict validation of card data
+      if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
+      if (!card.status || !VALID_STATUSES.includes(card.status)) continue;
+      const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
+      const inW = weight(card.status);
+      const curW = weight(lookup.get(card.card_hash, groupId)?.status || 'free');
+      stmt.run(
+        card.card_hash, groupId, card.encrypted_data || null,
+        card.status, notes, installationId,
+        // CASE WHEN params (new_weight > cur_weight)
+        inW, curW, inW, curW, inW, curW, inW, curW, inW, curW,
+      );
+      written.push({ card_hash: card.card_hash, status: card.status });
+    }
+    return written;
+  })();
 }
 
 module.exports = function initWsTauri(wss, io) {
@@ -62,8 +111,20 @@ module.exports = function initWsTauri(wss, io) {
       }
 
       let msg;
-      try { msg = JSON.parse(raw.toString()); }
-      catch { return; }
+      try {
+        msg = JSON.parse(raw.toString());
+      } catch (e) {
+        // Malformed frame — the only possible failure here is a SyntaxError from
+        // non-JSON input. Tell the client rather than dropping it silently, so a
+        // protocol mismatch is diagnosable from the client side.
+        if (!(e instanceof SyntaxError)) throw e;
+        send(ws, { type: 'error', error: 'malformed_json' });
+        return;
+      }
+      if (!msg || typeof msg !== 'object') {
+        send(ws, { type: 'error', error: 'malformed_json' });
+        return;
+      }
 
       // ── Auth ──────────────────────────────────────────────────
       if (msg.type === 'auth') {
@@ -139,40 +200,13 @@ module.exports = function initWsTauri(wss, io) {
           return;
         }
 
-        const db = getDb();
-        const stmt = db.prepare(`
-          INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-          ON CONFLICT(card_hash, group_id) DO UPDATE SET
-            status         = CASE WHEN ? > ? THEN excluded.status ELSE sync_cards.status END,
-            encrypted_data = CASE WHEN ? > ? THEN excluded.encrypted_data ELSE sync_cards.encrypted_data END,
-            notes          = CASE WHEN ? > ? THEN excluded.notes ELSE sync_cards.notes END,
-            updated_by     = CASE WHEN ? > ? THEN excluded.updated_by ELSE sync_cards.updated_by END,
-            updated_at     = CASE WHEN ? > ? THEN CURRENT_TIMESTAMP ELSE sync_cards.updated_at END
-        `);
-
-        const updated = [];
-        for (const card of cards) {
-          // FIX WS-VALIDATION-04: Strict validation of card data
-          if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
-          if (!card.status || !['free', 'in_use', 'archive', 'declined', 'dead'].includes(card.status)) continue;
-          // Sanitize notes
-          const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
-          const inW  = weight(card.status);
-          const db2  = getDb();
-          const existing = db2.prepare('SELECT status FROM sync_cards WHERE card_hash=? AND group_id=?').get(card.card_hash, ws.groupId);
-          const curW = weight(existing?.status || 'free');
-          stmt.run(
-            card.card_hash, ws.groupId, card.encrypted_data || null,
-            card.status, notes, ws.installationId,
-            // CASE WHEN params (new_weight > cur_weight)
-            inW, curW,
-            inW, curW,
-            inW, curW,
-            inW, curW,
-            inW, curW,
-          );
-          updated.push({ card_hash: card.card_hash, status: card.status });
+        let updated;
+        try {
+          updated = applyCardPush(getDb(), ws.groupId, ws.installationId, cards);
+        } catch (e) {
+          console.error('[ws-tauri] card push transaction failed:', e.message);
+          send(ws, { type: 'error', error: 'push_failed' });
+          return;
         }
 
         if (updated.length > 0) {
@@ -209,11 +243,21 @@ module.exports = function initWsTauri(wss, io) {
       }
     });
 
-    ws.on('error', () => {});
+    // Socket-level transport errors (ECONNRESET on abrupt client exit, protocol
+    // framing errors, TLS failures). The 'close' handler still runs afterwards
+    // and performs cleanup, so this only needs to record the cause.
+    ws.on('error', (err) => {
+      const iid = ws.installationId || 'unauthenticated';
+      if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
+        console.warn(`[ws-tauri] client ${iid} dropped connection: ${err.code}`);
+        return;
+      }
+      console.error(`[ws-tauri] socket error for ${iid}: ${err.message}`);
+    });
   });
 
   // Periodic ping to keep connections alive (every 30 sec)
-  setInterval(() => {
+  pingInterval = setInterval(() => {
     for (const [, ws] of clients) {
       if (ws.readyState === ws.OPEN) send(ws, { type: 'ping' });
     }
@@ -232,7 +276,20 @@ function broadcastToGroup(groupId, msg, excludeInstallationId) {
 function broadcastCatalogUpdate(wss, type, data) {
   const msg = JSON.stringify({ type: 'catalog_update', payload: { type, data } });
   wss.clients.forEach(client => {
-    if (client.readyState === 1) client.send(msg);
+    if (client.readyState === 1 && client.authenticated) client.send(msg);
   });
 }
 module.exports.broadcastCatalogUpdate = broadcastCatalogUpdate;
+
+/** Stop the keep-alive timer and close every tracked client. Used on shutdown. */
+function shutdown() {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+  for (const [, ws] of clients) {
+    if (ws.readyState === ws.OPEN) ws.close(1001, 'server_shutdown');
+  }
+  clients.clear();
+}
+module.exports.shutdown = shutdown;

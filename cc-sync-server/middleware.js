@@ -1,3 +1,4 @@
+const auth = require('./auth');
 const { getDb } = require('./database');
 
 // FIX API-H01: TOCTOU - Atomically check and update token in single transaction
@@ -19,7 +20,7 @@ function requireToken(req, res, next) {
   try {
     const result = db.transaction(() => {
       // Check token exists and is active
-      const row = db.prepare('SELECT token, is_active FROM licenses WHERE token = ?').get(token);
+      const row = db.prepare('SELECT token, is_active, installation_id FROM licenses WHERE token = ?').get(token);
 
       if (!row) {
         return { valid: false, error: 'invalid_token' };
@@ -38,12 +39,15 @@ function requireToken(req, res, next) {
         return { valid: false, error: 'revoked_concurrent' };
       }
 
-      return { valid: true };
+      return { valid: true, installation_id: row.installation_id };
     })();
 
     if (!result.valid) {
       return res.status(401).json({ error: result.error });
     }
+
+    // Exposed for request logging; never log the token itself.
+    req.installationId = result.installation_id;
 
   } catch (e) {
     console.error('[middleware/requireToken] Transaction error:', e);
@@ -54,33 +58,43 @@ function requireToken(req, res, next) {
   next();
 }
 
-function requireBasicAuth(req, res, next) {
-  const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-  const ADMIN_PASS = process.env.ADMIN_PASS;
-
-  // Critical security check: ADMIN_PASS must be set and strong
-  if (!ADMIN_PASS) {
+/**
+ * Admin gate. Accepts either a signed session cookie (browser, set by the login
+ * page) or HTTP Basic credentials (scripts and ops tooling such as check_all.py).
+ *
+ * Browsers are redirected to the login page rather than receiving a
+ * WWW-Authenticate challenge, which is what produced the native credential
+ * dialog. API callers still get a machine-readable 401.
+ */
+function requireAdmin(req, res, next) {
+  if (!process.env.ADMIN_PASS) {
     console.error('CRITICAL: ADMIN_PASS environment variable is not set. Admin API disabled for security.');
-    return res.status(503).send('Admin API disabled - ADMIN_PASS not configured');
+    return res.status(503).json({ error: 'admin_not_configured' });
   }
-  if (ADMIN_PASS.length < 12) {
+  if (process.env.ADMIN_PASS.length < 12) {
     console.error('WARNING: ADMIN_PASS is too short. Use at least 12 characters for security.');
   }
 
-  const header = req.headers['authorization'] || '';
-  const match = header.match(/^Basic\s+(.+)$/i);
-  if (!match) {
-    res.set('WWW-Authenticate', 'Basic realm="CC Manager Admin"');
-    return res.status(401).send('Unauthorized');
+  const cookie = auth.readCookie(req, auth.COOKIE_NAME);
+  if (cookie && auth.verifySession(cookie)) {
+    req.adminUser = auth.adminUser();
+    return next();
   }
-  const decoded = Buffer.from(match[1], 'base64').toString('utf8');
-  const [user, ...passParts] = decoded.split(':');
-  const pass = passParts.join(':');
-  if (user !== ADMIN_USER || pass !== ADMIN_PASS) {
-    res.set('WWW-Authenticate', 'Basic realm="CC Manager Admin"');
-    return res.status(401).send('Unauthorized');
+
+  if (auth.basicAuthValid(req)) {
+    req.adminUser = auth.adminUser();
+    return next();
   }
-  next();
+
+  // Stale or tampered cookie: clear it so the login page starts from a clean slate.
+  if (cookie) auth.clearSessionCookie(req, res);
+
+  if (auth.wantsJson(req)) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  const adminPath = process.env.ADMIN_PATH || '/ghostadmin/1asfd-54-local';
+  const next_ = encodeURIComponent(req.originalUrl);
+  return res.redirect(302, `${adminPath}/login?next=${next_}`);
 }
 
-module.exports = { requireToken, requireBasicAuth };
+module.exports = { requireToken, requireAdmin };

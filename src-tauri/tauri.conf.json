@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "CC Manager",
-  "version": "2.5.0",
-  "identifier": "com.ccmanager.app",
+  "productName": "VaultBase",
+  "version": "2.5.2",
+  "identifier": "com.vaultbase.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -13,35 +13,43 @@
     "windows": [
       {
         "label": "main",
-        "title": "CC Manager",
+        "title": "VaultBase",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
         "minHeight": 600,
         "resizable": true,
-        "decorations": true
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "transparent": false,
+        "shadow": true
       },
       {
         "label": "float",
         "title": "Profile",
         "url": "float.html",
-        "width": 620,
-        "height": 360,
-        "resizable": false,
-        "decorations": true,
+        "width": 380,
+        "height": 460,
+        "minWidth": 340,
+        "minHeight": 320,
+        "maxWidth": 600,
+        "resizable": true,
+        "decorations": false,
         "alwaysOnTop": true,
+        "skipTaskbar": true,
         "visible": false,
         "transparent": true,
         "shadow": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' https://api.eulivehub.com https://api.iinapi.com https://api.17track.net; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' https://sec201-www.otpmanager.pro wss://sec201-www.otpmanager.pro https://api.iinapi.com https://api.17track.net; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app"],
+    "targets": ["deb", "appimage", "msi", "nsis", "dmg", "app"],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
@@ -50,6 +58,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    },
     "macOS": {
       "minimumSystemVersion": "12.0",
       "signingIdentity": "-"
@@ -57,8 +75,8 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://api.eulivehub.com/update"],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIwMjc2NTkyOERCM0JERTYKUldUbXZiT05rbVVuc05MbnBYMHhhZit3aUFXR3d6RU9OL0h1WUlubjhDbllmbk5uenNpbk1leHUK"
+      "endpoints": ["https://sec201-www.otpmanager.pro/update?current_version={{current_version}}"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJDMTNGMUQxM0IwRDRFQTgKUldTb1RnMDcwZkVUTEVqa0dWWFl4UFhONzhia3o4cmlMY0J6WGNIeEo4dXhqd3ZMUk9vSzhFdTkK"
     }
   }
 }

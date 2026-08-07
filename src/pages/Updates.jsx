@@ -40,7 +40,7 @@ function relativeTime(isoStr, t) {
 }
 
 // Key used to remember which version was already downloaded+installed
-const INSTALLED_VER_KEY = 'cc_manager_installed_version'
+const INSTALLED_VER_KEY = 'vaultbase_installed_version'
 
 // ─── UpdateCard ────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-// CC Manager — TypeScript Type Definitions
+// VaultBase — TypeScript Type Definitions
 // Version: 2.2.0
 
 // ============================================================================

@@ -7,7 +7,7 @@ describe('getCardHealth', () => {
     const health = getCardHealth(card)
     expect(health.label).toBe('Burned')
     expect(health.cls).toBe('st-dead')
-    expect(health.dot).toBe('#ef4444')
+    expect(health.dot).toBe('#ff3b30')
   })
 
   it('returns "Expired" for expired cards', () => {
@@ -22,7 +22,7 @@ describe('getCardHealth', () => {
     const health = getCardHealth(card)
     expect(health.label).toBe('Used')
     expect(health.cls).toBe('st-inuse')
-    expect(health.dot).toBe('#eab308')
+    expect(health.dot).toBe('#ffcc00')
   })
 
   it('returns "Fresh" for free cards', () => {
@@ -30,7 +30,7 @@ describe('getCardHealth', () => {
     const health = getCardHealth(card)
     expect(health.label).toBe('Fresh')
     expect(health.cls).toBe('st-free')
-    expect(health.dot).toBe('#22c55e')
+    expect(health.dot).toBe('#28cd41')
   })
 
   it('returns null for in_use cards with < 3 orders', () => {

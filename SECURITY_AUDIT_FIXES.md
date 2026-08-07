@@ -1,4 +1,4 @@
-# Security Audit Fixes — CC Manager
+# Security Audit Fixes — VaultBase
 
 **Дата аудита:** 2026-03-25
 **Статус:** Исправлено 36 из 119 уязвимостей (30%)
@@ -187,14 +187,18 @@
 cd src-tauri && cargo audit
 cd cc-sync-server && npm audit
 
-# 2. Проверка на hardcoded пароли
-grep -r "sUI9qkKVq5O10tH1p8" .  # Должно быть пусто
+# 2. Проверка на hardcoded секреты
+# Ищем ПАТТЕРНЫ, а не конкретное значение: конкретный пароль устаревает
+# после ротации, и проверка начинает проходить вхолостую (см. Finding #6).
+grep -rnE "password\s*=\s*['\"][^'\"]{8,}" --include='*.py' --include='*.sh' --include='*.js' .
+grep -rnE "curl .*-u +[A-Za-z0-9_.-]+:[^ ]" --include='*.py' --include='*.sh' .
+grep -rnE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" --include='*.py' --include='*.sh' .
 grep -r "changeme" .  # Только в .md файлах
 grep -r "CHANGE_ME" .  # Только в .example файлах
 
 # 3. Database integrity
-sqlite3 cc_manager.db "PRAGMA integrity_check;"
-sqlite3 cc_manager.db "PRAGMA foreign_key_check;"
+sqlite3 vaultbase.db "PRAGMA integrity_check;"
+sqlite3 vaultbase.db "PRAGMA foreign_key_check;"
 
 # 4. Build test
 npm run tauri build
@@ -350,14 +354,18 @@ npm run tauri build
 cd src-tauri && cargo audit
 cd cc-sync-server && npm audit
 
-# 2. Проверка на hardcoded пароли
-grep -r "sUI9qkKVq5O10tH1p8" .  # Должно быть пусто
+# 2. Проверка на hardcoded секреты
+# Ищем ПАТТЕРНЫ, а не конкретное значение: конкретный пароль устаревает
+# после ротации, и проверка начинает проходить вхолостую (см. Finding #6).
+grep -rnE "password\s*=\s*['\"][^'\"]{8,}" --include='*.py' --include='*.sh' --include='*.js' .
+grep -rnE "curl .*-u +[A-Za-z0-9_.-]+:[^ ]" --include='*.py' --include='*.sh' .
+grep -rnE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" --include='*.py' --include='*.sh' .
 grep -r "changeme" .  # Только в .md файлах
 grep -r "CHANGE_ME" .  # Только в .example файлах
 
 # 3. Database integrity
-sqlite3 cc_manager.db "PRAGMA integrity_check;"
-sqlite3 cc_manager.db "PRAGMA foreign_key_check;"
+sqlite3 vaultbase.db "PRAGMA integrity_check;"
+sqlite3 vaultbase.db "PRAGMA foreign_key_check;"
 
 # 4. Build test
 npm run tauri build

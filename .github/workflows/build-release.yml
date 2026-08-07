@@ -1,0 +1,184 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v2.5.1)'
+        required: false
+        default: 'v2.5.1'
+      publish_to_panel:
+        description: 'Залить сборки в админ-панель после успеха'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows — MSVC toolchain, produces .msi + .exe (NSIS)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows-x64
+            bundles: msi,nsis,updater
+
+          # Linux — Ubuntu 22.04, produces .deb + .AppImage
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: linux-x64
+            bundles: deb,appimage,updater
+
+          # macOS Apple Silicon — produces .dmg (M1/M2/M3/M4)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            label: macos-arm64
+            bundles: dmg,app,updater
+
+          # macOS Intel — produces .dmg (x86_64)
+          - os: macos-13
+            target: x86_64-apple-darwin
+            label: macos-x64
+            bundles: dmg,app,updater
+
+    name: Build · ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # ─── Checkout ────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ─── Node.js ─────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ─── Rust ────────────────────────────────────────────────────────
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+
+      # ─── Linux system deps ───────────────────────────────────────────
+      - name: Install Linux deps
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config
+
+      # ─── macOS code-sign setup (optional — skip for unsigned builds) ─
+      # Uncomment and add secrets APPLE_CERTIFICATE + APPLE_CERTIFICATE_PASSWORD
+      # to get a signed .dmg with Gatekeeper approval:
+      # - name: Import macOS certificate
+      #   if: startsWith(matrix.os, 'macos')
+      #   uses: apple-actions/import-codesign-certs@v3
+      #   with:
+      #     p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+      #     p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      # ─── Frontend deps ───────────────────────────────────────────────
+      - name: Install npm deps
+        run: npm ci
+
+      # ─── Build Tauri app ─────────────────────────────────────────────
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ключ подписи для .sig-файлов авто-апдейтера.
+          # Сгенерирован локально: npx tauri signer generate -w .secrets/vaultbase-updater.key
+          # Содержимое приватного ключа положить в Secrets как TAURI_SIGNING_PRIVATE_KEY.
+          # Без него .sig не создаются и встроенный апдейтер отвергнет обновление.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: VaultBase ${{ github.ref_name }}
+          releaseBody: |
+            Автоматическая сборка VaultBase ${{ github.ref_name }}
+
+            **Файлы:**
+            - Windows x64: `.msi` (MSI installer) / `_x64-setup.exe` (NSIS)
+            - Linux x64: `.deb` (Debian/Ubuntu) / `.AppImage` (универсальный)
+            - macOS Apple Silicon (M1/M2/M3/M4): `.dmg`
+            - macOS Intel: `.dmg`
+          releaseDraft: true
+          prerelease: false
+          # Бандл `updater` обязателен: без него Tauri не создаёт .sig-подписи,
+          # и встроенное авто-обновление молча не работает (проверено на локальной
+          # сборке — с `--bundles msi,nsis` .sig не появились).
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      # ─── Upload artifacts (also available without a release tag) ─────
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaultbase-${{ matrix.label }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.zip
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ─── Публикация в админ-панель ──────────────────────────────────────
+  # Отдельная job: стартует только когда собрались ВСЕ платформы, и заливает
+  # их в панель одним заходом. Так на сервере не появляется полурелиз, где
+  # апдейтер уже видит новую версию, но файла под нужную ОС ещё нет.
+  publish:
+    name: Публикация в панель
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.publish_to_panel }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Скачать все артефакты
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Список собранного
+        run: find artifacts -type f | sort
+
+      - name: Залить в админ-панель
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
+          ADMIN_PATH: ${{ secrets.ADMIN_PATH }}
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
+        run: |
+          python3 scripts/upload-artifacts.py \
+            --dir artifacts \
+            --version "${GITHUB_REF_NAME#v}" \
+            --notes "Автоматическая сборка ${GITHUB_REF_NAME}" \
+            --publish

@@ -11,7 +11,7 @@
   border-radius: 12px;
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border: 1px solid;
@@ -67,7 +67,7 @@
   border-radius: var(--r-md);
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   border: 1px solid;
 }
 
@@ -101,7 +101,7 @@
   background: var(--yellow-dim);
   border-color: var(--yellow-border);
   color: var(--yellow-t);
-  animation: statusPulse 2s ease-in-out infinite;
+  animation: none;
 }
 
 /* Diamond for dead/error */
@@ -146,7 +146,7 @@
   border-radius: 4px;
   font-size: 10px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.08em;
   border: 1px solid;
 }
@@ -186,7 +186,7 @@
 
 /* ── Badge with Glow Effect ─────────────────────────────── */
 .badge-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: none;
 }
 
 /* ── Status Dot ─────────────────────────────────────────── */
@@ -213,7 +213,7 @@
 .status-dot.active {
   background: var(--green);
   color: var(--green);
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: none;
 }
 
 .status-dot.inactive {
@@ -240,7 +240,7 @@
   border-radius: var(--r-md);
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   border: 1px solid;
 }
 
@@ -274,7 +274,7 @@
   background: var(--yellow-dim);
   border-color: var(--yellow-border);
   color: var(--yellow-t);
-  animation: statusPulse 2s ease-in-out infinite;
+  animation: none;
 }
 
 /* Diamond for dead/error */
@@ -310,7 +310,7 @@
   border-radius: 4px;
   font-size: 10px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.08em;
   border: 1px solid;
 }
@@ -339,64 +339,46 @@
   color: var(--orange-t);
 }
 
-/* ── Risk Badge ─────────────────────────────────────────── */
+/* ── Значок риска ───────────────────────────────────────────
+   Единственное определение: раньше .risk-badge объявлялся ещё в
+   modal-redesign.css и shops-redesign.css, и по порядку @import
+   побеждала версия из shops — то есть отступы брались из одного
+   файла, а фигурные индикаторы из другого.
+
+   Уровень задаётся классами .risk-safe / .risk-warning /
+   .risk-high (см. float.jsx:50-52). Прежние .low/.medium/.high
+   не использовал никто, а их ::before рисовал пустой квадрат
+   6px внутри каждого значка. */
 .risk-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: var(--r-sm);
-  font-size: 11px;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: 1px solid;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-full);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  font-family: var(--font-ui);
+  text-transform: none;
+  letter-spacing: 0;
+  border: 1px solid transparent;
 }
 
-/* Shape indicators for accessibility (risk level not by color alone) */
-.risk-badge::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-}
-
-/* Circle for low risk */
-.risk-badge.low::before {
-  border-radius: 50%;
-  border: 2px solid var(--green-t);
-}
-
-.risk-badge.low {
+.risk-safe {
+  color: var(--green-t);
   background: var(--green-dim);
   border-color: var(--green-border);
-  color: var(--green-t);
 }
 
-/* Square for medium risk */
-.risk-badge.medium::before {
-  border-radius: 2px;
-  border: 2px solid var(--yellow-t);
-}
-
-.risk-badge.medium {
+.risk-warning {
+  color: var(--yellow-t);
   background: var(--yellow-dim);
   border-color: var(--yellow-border);
-  color: var(--yellow-t);
 }
 
-/* Diamond for high risk */
-.risk-badge.high::before {
-  border-radius: 2px;
-  border: 2px solid var(--red-t);
-  transform: rotate(45deg);
-}
-
-.risk-badge.high {
+.risk-high {
+  color: var(--red-t);
   background: var(--red-dim);
   border-color: var(--red-border);
-  color: var(--red-t);
 }
 
 /* ── Count Badge (notification style) ───────────────────── */
@@ -412,7 +394,7 @@
   color: var(--bg);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
 }
 
@@ -437,7 +419,7 @@
   border-radius: var(--r-md);
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   background: var(--inset);
   border: 1px solid var(--border);
   color: var(--text-2);
@@ -485,7 +467,7 @@
   border: 1px solid var(--border);
   font-size: 12px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--text-2);
 }
 
@@ -517,7 +499,7 @@
   color: var(--red-t);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -528,7 +510,7 @@
   height: 6px;
   background: var(--red);
   border-radius: 50%;
-  animation: live-pulse 1.5s ease-in-out infinite;
+  animation: none;
 }
 
 /* ── Verified Badge ─────────────────────────────────────── */
@@ -543,7 +525,7 @@
   color: var(--green-t);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Expiry Warning Badge ───────────────────────────────── */
@@ -555,7 +537,7 @@
   border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   border: 1px solid;
 }
 
@@ -563,7 +545,7 @@
   background: var(--red-dim);
   border-color: var(--red-border);
   color: var(--red-t);
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: none;
 }
 
 .expiry-badge.soon {
@@ -588,7 +570,7 @@
   border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border: 1px solid;
@@ -603,7 +585,7 @@
   border-radius: 9999px;
   font-size: 10px;
   font-weight: 600;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   white-space: nowrap;
 }
 

@@ -30,7 +30,7 @@ describe('useLang', () => {
   })
 
   it('loads saved language from localStorage on mount', () => {
-    localStorage.setItem('cc_manager_lang', 'ru')
+    localStorage.setItem('vaultbase_lang', 'ru')
 
     const wrapper = ({ children }) => <LangProvider>{children}</LangProvider>
     const { result } = renderHook(() => useLang(), { wrapper })
@@ -57,7 +57,7 @@ describe('useLang', () => {
       result.current.setLang('ru')
     })
 
-    expect(localStorage.getItem('cc_manager_lang')).toBe('ru')
+    expect(localStorage.getItem('vaultbase_lang')).toBe('ru')
   })
 
   it('translates keys using t() function for English', () => {

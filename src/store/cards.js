@@ -29,13 +29,14 @@ export const useCardsStore = create((set, get) => ({
   cache: {},
   lastFetch: null,
   retryCount: 0, // FIX FE-H04: Track retry count to prevent infinite loops
+  requestId: 0, // Monotonic counter — discards out-of-order fetch responses
 
   // Actions
   setPage: page => set({ page }),
 
-  setFilters: filters =>
+  setFilters: next =>
     set(state => ({
-      filters: { ...state.filters, ...filters },
+      filters: typeof next === 'function' ? next(state.filters) : { ...state.filters, ...next },
       page: 1, // Reset to page 1 when filters change
     })),
 
@@ -78,13 +79,14 @@ export const useCardsStore = create((set, get) => ({
     const { filters, page, perPage, cache, retryCount } = state
 
     // Generate cache key — include retryCount to prevent stale cache hits
-    // ★ Insight: Без retryCount в ключе кэша, retry мог вернуть устаревшие данные
     const cacheKey = JSON.stringify({ filters, page, perPage, retryCount })
     const cached = cache[cacheKey]
 
+    const reqId = state.requestId + 1
+    set({ requestId: reqId })
+
     // Return cached data if valid and not forcing refresh
     if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      console.log('[cards] Using cached data:', cached.data.items.length, 'items')
       set({
         cards: cached.data.items,
         total: cached.data.total,
@@ -93,18 +95,20 @@ export const useCardsStore = create((set, get) => ({
       return
     }
 
-    console.log('[cards] Fetching: page=', page, 'filters=', filters)
     set({ loading: true })
 
     try {
       // ★ Insight: AbortSignal позволяет отменить предыдущий запрос при быстром переключении фильтров
       // Tauri invoke не поддерживает abortSignal напрямую, но мы можем проверить сигнал после ответа
       const res = await invoke('get_cards', { filter: filters, page, perPage })
-      console.log('[cards] Received:', res.items.length, 'items, total=', res.total)
 
       // Проверка на отмену после получения ответа (предотвращает race conditions)
       if (abortSignal?.aborted) {
-        console.log('[cards] Fetch aborted, ignoring response')
+        return
+      }
+
+      // A newer fetch already resolved — discard this stale response
+      if (get().requestId !== reqId) {
         return
       }
 
@@ -124,13 +128,12 @@ export const useCardsStore = create((set, get) => ({
         loading: false,
       })
 
-      // Auto-reveal cards in background
-      get().autoRevealBatch(res.items)
-
       // Reset retry count on successful fetch
       set({ retryCount: 0 })
     } catch (error) {
-      set({ loading: false })
+      if (get().requestId === reqId) {
+        set({ loading: false })
+      }
       throw error
     }
   },
@@ -157,41 +160,14 @@ export const useCardsStore = create((set, get) => ({
     }
   },
 
-  autoRevealBatch: async cardList => {
-    const failedIds = []
-    const BATCH_SIZE = 10
-    let cancelled = false
-
-    for (let i = 0; i < cardList.length; i += BATCH_SIZE) {
-      if (cancelled) break
-
-      const batch = cardList.slice(i, i + BATCH_SIZE)
-
-      // Параллельное выполнение запросов внутри батча
-      await Promise.all(
-        batch.map(async card => {
-          try {
-            const data = await invoke('reveal_card', { id: card.id })
-            if (!cancelled) {
-              set(s => ({
-                revealed: { ...s.revealed, [card.id]: data },
-              }))
-            }
-          } catch (error) {
-            failedIds.push(card.id)
-            console.error(`Failed to reveal card ${card.id}:`, error)
-          }
-        })
-      )
-    }
-
-    // Notify user about partial failure
-    if (failedIds.length > 0 && !cancelled) {
-      console.warn(`Failed to reveal ${failedIds.length} cards`)
-    }
-
-    return () => {
-      cancelled = true
+  revealCard: async id => {
+    if (get().revealed[id]) return
+    try {
+      const data = await invoke('reveal_card', { id })
+      set(s => ({ revealed: { ...s.revealed, [id]: data } }))
+    } catch (error) {
+      console.error(`Failed to reveal card ${id}:`, error)
+      throw error
     }
   },
 
@@ -220,6 +196,7 @@ export const useCardsStore = create((set, get) => ({
         cards: state.cards.map(c => {
           // Только если версия совпадает, применяем серверные данные
           if (c.id === id && c._optimisticVersion === optimisticVersion) {
+            // eslint-disable-next-line no-unused-vars -- rest-omit паттерн: убираем _optimisticVersion из объекта
             const { _optimisticVersion, ...rest } = c
             return {
               ...rest,

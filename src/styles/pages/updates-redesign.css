@@ -42,7 +42,7 @@
 }
 
 .sum-num {
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   font-size: 32px;
   font-weight: 700;
   line-height: 1;
@@ -56,7 +56,7 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   margin-top: 6px;
 }
 
@@ -187,7 +187,7 @@
 }
 
 .trk-num {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 700;
   color: var(--green-t);
@@ -198,7 +198,7 @@
   font-size: 11px;
   color: var(--muted);
   margin-top: 3px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   font-weight: 500;
 }
 

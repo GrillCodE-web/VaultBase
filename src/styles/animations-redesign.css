@@ -13,11 +13,11 @@
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 12px rgba(0, 217, 255, 0.3);
+    box-shadow: 0 0 12px transparent;
   }
   50% {
     opacity: 0.7;
-    box-shadow: 0 0 24px rgba(0, 217, 255, 0.5);
+    box-shadow: 0 0 24px transparent;
   }
 }
 
@@ -79,7 +79,7 @@
 
 /* Apply with animation-delay for stagger effect */
 .stagger-item {
-  animation: stagger-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  animation: none;
 }
 .stagger-item:nth-child(1) {
   animation-delay: 0ms;
@@ -156,7 +156,7 @@
 }
 
 .glitch-effect {
-  animation: glitch 0.3s ease;
+  animation: none;
 }
 
 /* ── Skeleton Loading ───────────────────────────────────── */
@@ -193,21 +193,26 @@
   }
 }
 
+.btn-r:hover,
+.btn-warn:hover {
+  animation: btn-warn-shake 0.28s ease;
+}
+
 @keyframes btn-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.4);
+    box-shadow: 0 0 0 0 transparent;
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(0, 217, 255, 0);
+    box-shadow: 0 0 0 8px transparent;
   }
 }
 
 /* ── Copy Feedback ──────────────────────────────────────── */
 @keyframes copy-blink {
   0% {
-    background: rgba(0, 217, 255, 0.15);
-    box-shadow: 0 0 12px rgba(0, 217, 255, 0.3);
+    background: transparent;
+    box-shadow: 0 0 12px transparent;
   }
   100% {
     background: transparent;
@@ -231,7 +236,7 @@
 @keyframes row-flash {
   0% {
     background: rgba(20, 241, 149, 0.12);
-    border-left-color: #14f195;
+    border-left-color: var(--green);
     box-shadow: 0 0 16px rgba(20, 241, 149, 0.2);
   }
   70% {
@@ -247,7 +252,7 @@
 }
 
 .row-flash {
-  animation: row-flash 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: none;
   transition: none !important;
 }
 
@@ -267,15 +272,10 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0, 217, 255, 0.1) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(to bottom, transparent 0%, transparent 50%, transparent 100%);
   pointer-events: none;
   z-index: var(--z-tooltip);
-  animation: scanline 8s linear infinite;
+  animation: none;
   opacity: var(--scanline-opacity);
 }
 
@@ -306,7 +306,7 @@
 }
 
 .magnetic-hover:hover {
-  animation: magnetic-hover 0.3s ease;
+  animation: none;
 }
 
 /* ── Glow Pulse (for active/live indicators) ────────────── */
@@ -314,18 +314,18 @@
   0%,
   100% {
     box-shadow:
-      0 0 8px rgba(0, 217, 255, 0.3),
-      0 0 16px rgba(0, 217, 255, 0.2);
+      0 0 8px transparent,
+      0 0 16px transparent;
   }
   50% {
     box-shadow:
-      0 0 16px rgba(0, 217, 255, 0.5),
-      0 0 32px rgba(0, 217, 255, 0.3);
+      0 0 16px transparent,
+      0 0 32px transparent;
   }
 }
 
 .glow-pulse {
-  animation: glow-pulse 2s ease-in-out infinite;
+  animation: none;
 }
 
 /* ── Diagonal Wipe (for loading states) ─────────────────── */
@@ -369,10 +369,10 @@
 }
 
 .success-animation {
-  animation: success-pop 0.3s ease;
+  animation: none;
 }
 .error-animation {
-  animation: error-shake 0.4s ease;
+  animation: none;
 }
 
 /* Fade In */
@@ -527,7 +527,7 @@
 /* Row Highlight (when updated) */
 @keyframes rowHighlight {
   0% {
-    background: rgba(0, 217, 255, 0.15);
+    background: transparent;
   }
   100% {
     background: transparent;
@@ -597,77 +597,77 @@
 
 /* Page entrance animation */
 .page-enter {
-  animation: page-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: page-in 0.22s ease both;
 }
 
 /* Fade in */
 .fade-in {
-  animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Fade out */
 .fade-out {
-  animation: fadeOut 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Scale in */
 .scale-in {
-  animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Modal entrance */
 .modal-enter {
-  animation: modal-in 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Modal exit */
 .modal-exit {
-  animation: scaleOut 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Overlay fade */
 .overlay-enter {
-  animation: overlay-fade 0.2s ease-out;
+  animation: none;
 }
 
 /* Shake animation */
 .shake {
-  animation: shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Pulse animation */
 .pulse {
-  animation: pulse 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Bounce animation */
 .bounce {
-  animation: bounce 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Row highlight */
 .row-highlight {
-  animation: rowHighlight 1s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Row delete */
 .row-delete {
-  animation: rowDelete 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: none;
 }
 
 /* Row insert */
 .row-insert {
-  animation: rowInsert 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
 }
 
 /* Toast slide out */
 .toast-exit {
-  animation: slideOutRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: none;
 }
 
 /* Status pulse */
 .status-pulse {
-  animation: statusPulse 2s ease-in-out infinite;
+  animation: none;
 }
 
 /* Spinner */

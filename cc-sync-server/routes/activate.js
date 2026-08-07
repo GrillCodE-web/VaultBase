@@ -1,8 +1,20 @@
 const express = require('express');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const { getDb } = require('../database');
 
 const router = express.Router();
+
+// Activation is a once-per-installation operation, and the activation key is only
+// 16 hex chars of an HMAC — brute-forceable without a limiter. 10 attempts per IP
+// per 15 minutes leaves ample room for a user retrying a mistyped key.
+const activateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'rate_limit_exceeded' },
+});
 
 /**
  * Derive the expected activation key for a given installation_id + challenge.
@@ -24,7 +36,7 @@ function deriveActivationKey(installation_id, challenge) {
 }
 
 // POST /activate
-router.post('/', (req, res) => {
+router.post('/', activateLimiter, (req, res) => {
   const { installation_id, challenge, activation_key } = req.body || {};
 
   if (!installation_id || !challenge || !activation_key) {
@@ -44,7 +56,9 @@ router.post('/', (req, res) => {
   }
 
   const expected = deriveActivationKey(installation_id, challenge);
-  if (activation_key !== expected) {
+  const keyBuf = Buffer.from(activation_key);
+  const expBuf = Buffer.from(expected);
+  if (keyBuf.length !== expBuf.length || !crypto.timingSafeEqual(keyBuf, expBuf)) {
     return res.status(401).json({ error: 'invalid_key' });
   }
 
@@ -61,7 +75,7 @@ router.post('/', (req, res) => {
     ).run(installation_id);
   }
 
-  return res.json({ token });
+  return res.json({ token, role: row.role || 'operator' });
 });
 
 module.exports = router;

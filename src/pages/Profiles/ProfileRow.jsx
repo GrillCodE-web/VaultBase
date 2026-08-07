@@ -27,6 +27,8 @@ export const ProfileRow = React.memo(
     onCopyBilling,
     onCopyShipping,
     onQuickOrder,
+    isChecked,
+    onToggleSelect,
   }) {
     const { t } = useLang()
     const p = profile
@@ -54,6 +56,14 @@ export const ProfileRow = React.memo(
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
+        <td className="w-8" onClick={e => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={!!isChecked}
+            onChange={() => onToggleSelect?.(p.id)}
+            className="accent-accent"
+          />
+        </td>
         <td className="text-[12px] text-muted">{isExpanded ? '▾' : '▸'}</td>
         <td>
           <span className="font-mono text-[11px] text-muted">{shortId(p.id)}</span>

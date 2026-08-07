@@ -1,7 +1,11 @@
-# 🧠 CC Manager — Smart Automation & Collective Mind Plan
+# 🧠 VaultBase — Smart Automation & Collective Mind Plan
+
+> **СТАТУС РЕАЛИЗАЦИИ (2026-08-06): ⬜ ЗАПЛАНИРОВАНО (частично).**
+> Готово: sync footprint-хешей, базовый risk-check, sync-группы через WebSocket.
+> Не сделано: авто-архив «сгоревших» карт, risk-scoring V2 со взвешиванием по времени,
+> UI настроек автоматизации, smart-алерты. Отслеживается в [ROADMAP.md](./ROADMAP.md).
 
 **Дата создания:** 2026-03-24
-**Статус:** 🔄 IN PROGRESS
 **Приоритет:** HIGH
 
 ---
@@ -149,7 +153,7 @@ pub fn check_tracking_smart(tracking: &str) -> Result<TrackingStatus, String> {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  CC Manager — Admin Dashboard                               │
+│  VaultBase — Admin Dashboard                               │
 ├─────────────────────────────────────────────────────────────┤
 │  👥 Users: 1,247  │  🏪 Shops: 342  │  📦 Orders: 45,892   │
 │  ✅ Delivered: 32,451 (70.7%)  │  ❌ Declined: 8,234 (17.9%)│

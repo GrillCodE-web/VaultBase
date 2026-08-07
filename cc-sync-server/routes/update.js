@@ -10,10 +10,13 @@ const router = express.Router();
  *
  * Tauri app config (tauri.conf.json):
  *   "updater": {
- *     "active": true,
- *     "endpoints": ["https://api.eulivehub.com/update"],
+ *     "endpoints": ["https://sec201-www.otpmanager.pro/update?current_version={{current_version}}"],
  *     "pubkey": "<your ed25519 public key>"
  *   }
+ *
+ * Версия приходит в query — именно поэтому в endpoints шаблон
+ * `?current_version={{current_version}}`, а не путь `{{target}}/{{arch}}/...`:
+ * такой путь этот роутер не обслуживает и вернул бы 404.
  *
  * Response format Tauri expects:
  * {
@@ -49,14 +52,43 @@ router.get('/', (req, res) => {
     return res.status(204).end();
   }
 
-  // Build platform map — support multiple platforms if needed
+  // Собираем ВСЕ платформы этой версии из release_files.
+  //
+  // Раньше здесь отдавалась одна платформа из строки `versions` (по умолчанию
+  // darwin-aarch64), поэтому апдейт работал ровно для одной ОС, а всем
+  // остальным Tauri отвечал «нет подходящей платформы». Теперь берём каждую
+  // строку с file_type='updater' для этой версии — Windows, Linux и обе macOS
+  // обновляются с одного эндпоинта.
   const platforms = {};
-  const plat = row.platform || 'darwin-aarch64';
-  platforms[plat] = {
-    url: row.download_url,
-    signature: row.signature,
-  };
-  if (row.file_size) platforms[plat].size = row.file_size;
+  let rows = [];
+  try {
+    rows = db.prepare(`
+      SELECT platform, download_url, signature, file_size
+      FROM release_files
+      WHERE version = ? AND file_type = 'updater' AND is_published = 1
+        AND download_url IS NOT NULL AND signature IS NOT NULL
+    `).all(row.version);
+  } catch (e) {
+    // release_files может отсутствовать на старых БД — не роняем апдейтер,
+    // просто откатываемся на одиночную платформу из versions ниже.
+    console.error('[update] release_files query failed:', e.message);
+  }
+
+  for (const r of rows) {
+    platforms[r.platform || 'darwin-aarch64'] = {
+      url: r.download_url,
+      signature: r.signature,
+      ...(r.file_size ? { size: r.file_size } : {}),
+    };
+  }
+
+  // Фолбэк: если в release_files ничего нет (залили только через versions),
+  // отдаём одну платформу — прежнее поведение, чтобы не сломать старые релизы.
+  if (Object.keys(platforms).length === 0) {
+    const plat = row.platform || 'darwin-aarch64';
+    platforms[plat] = { url: row.download_url, signature: row.signature };
+    if (row.file_size) platforms[plat].size = row.file_size;
+  }
 
   return res.json({
     version: row.version,

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a8cff"/>
+      <stop offset="100%" stop-color="#0057cc"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.14"/>
+      <stop offset="45%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#shine)"/>
+
+  <!-- Bold V letterform, sized to dominate the tile -->
+  <path d="
+    M 96 116
+    L 186 116
+    L 256 336
+    L 326 116
+    L 416 116
+    L 306 428
+    L 206 428
+    Z
+  " fill="#fff"/>
+
+  <!-- Keyhole cut into the V's base — the vault signature -->
+  <circle cx="256" cy="372" r="27" fill="url(#bg)"/>
+  <path d="M 244 380 L 268 380 L 274 424 L 238 424 Z" fill="url(#bg)"/>
+</svg>

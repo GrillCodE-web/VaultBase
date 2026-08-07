@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────
-#  CC Manager — Upload changed files via sshpass+scp
+#  VaultBase — Upload changed files via sshpass+scp
 #  macOS M1 compatible
 #
 #  Required environment variables:
@@ -13,7 +13,7 @@ VPS_IP="${VPS_IP:?VPS_IP environment variable required}"
 VPS_USER="${VPS_USER:-root}"
 VPS_PASS="${VPS_PASS:?VPS_PASS environment variable required}"
 REMOTE="$VPS_USER@$VPS_IP"
-REMOTE_DIR="/opt/cc-manager-server"
+REMOTE_DIR="/opt/vaultbase-server"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 G='\033[0;32m'; Y='\033[1;33m'; R='\033[0;31m'; C='\033[0;36m'; B='\033[1m'; NC='\033[0m'
@@ -31,7 +31,7 @@ SSH="sshpass -p '$VPS_PASS' ssh -o StrictHostKeyChecking=accept-new -o UpdateHos
 
 echo ""
 echo -e "${B}${C}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${B}${C}║     CC Manager — Deploy  $(date '+%Y-%m-%d %H:%M')       ║${NC}"
+echo -e "${B}${C}║     VaultBase — Deploy  $(date '+%Y-%m-%d %H:%M')       ║${NC}"
 echo -e "${B}${C}╚══════════════════════════════════════════════════╝${NC}"
 
 # ── files to upload ─────────────────────────────────────
@@ -75,7 +75,7 @@ done
 # ── restart app ─────────────────────────────────────────
 echo ""
 echo -e "${B}${C}━━━  Restarting PM2  ━━━${NC}"
-eval "$SSH 'pm2 restart cc-manager-server 2>/dev/null || pm2 restart all'"
+eval "$SSH 'pm2 restart vaultbase-server 2>/dev/null || pm2 restart all'"
 ok "App restarted"
 
 echo ""

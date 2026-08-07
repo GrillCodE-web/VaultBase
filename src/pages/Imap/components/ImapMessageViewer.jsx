@@ -86,7 +86,7 @@ export function ImapMessageViewer({ message, onReply, onMarkRead, onDelete, onAr
           isHtml ? (
             <iframe
               srcDoc={message.body}
-              sandbox="allow-same-origin"
+              sandbox=""
               className="w-full h-full border-none bg-white"
               title="email-body"
             />

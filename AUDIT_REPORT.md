@@ -1,7 +1,7 @@
-# CC Manager — Comprehensive Audit Report
+# VaultBase — Comprehensive Audit Report
 
 **Audit Date:** March 24, 2026
-**Application:** CC Manager v2.2.0 (Tauri v2 + React 18)
+**Application:** VaultBase v2.2.0 (Tauri v2 + React 18)
 **Scope:** Full-stack audit (Frontend, Backend, CSS, Accessibility, Testing, Security)
 
 ---
@@ -41,14 +41,14 @@
 **Impact:** Rainbow-table attacks possible if source compromised
 
 ```rust
-let mut mac = <HmacSha256 as Mac>::new_from_slice(b"cc-manager-footprint-v1-secret")
+let mut mac = <HmacSha256 as Mac>::new_from_slice(b"vaultbase-footprint-v1-secret")
 ```
 
 **Fix:**
 
 ```rust
 use std::env;
-let secret = env::var("CC_MANAGER_HMAC_SECRET")
+let secret = env::var("vaultbase_HMAC_SECRET")
     .unwrap_or_else(|_| generate_secure_secret());
 ```
 

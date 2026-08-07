@@ -58,7 +58,7 @@
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
@@ -68,7 +68,7 @@
 .profile-id {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
 }
 
@@ -91,14 +91,14 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
 }
 
 .profile-detail-value {
   font-size: 13px;
   color: var(--text-2);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -118,7 +118,7 @@
   display: flex;
   gap: 16px;
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .profile-stat {
@@ -186,13 +186,13 @@
   font-weight: 700;
   color: var(--text);
   margin-bottom: 8px;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .quick-create-text {
   font-size: 13px;
   color: var(--text-3);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Profile Template Selector ──────────────────────────── */
@@ -247,14 +247,14 @@
   font-weight: 700;
   color: var(--text);
   margin-bottom: 8px;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .template-description {
   font-size: 12px;
   color: var(--text-3);
   line-height: 1.4;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Profile Grid View ──────────────────────────────────── */
@@ -281,7 +281,7 @@
 
 .profile-list-item:hover {
   border-left-color: var(--accent);
-  background: rgba(0, 217, 255, 0.03);
+  background: transparent;
 }
 
 .profile-list-item.selected {
@@ -319,13 +319,13 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .profile-list-value {
   font-size: 13px;
   color: var(--text-3);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Card Assignment ────────────────────────────────────── */
@@ -338,12 +338,12 @@
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .card-assignment.auto {
-  background: rgba(168, 85, 247, 0.08);
-  border-color: rgba(168, 85, 247, 0.25);
+  background: transparent;
+  border-color: transparent;
   color: var(--purple-bright);
 }
 
@@ -369,7 +369,7 @@
   border-radius: var(--r-md);
   font-size: 12px;
   color: var(--text-3);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   margin-bottom: 16px;
 }
 
@@ -384,7 +384,7 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   color: var(--text-2);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -402,7 +402,7 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--yellow-t);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Export Options ─────────────────────────────────────── */
@@ -446,13 +446,13 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .export-option-format {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   margin-top: 4px;
 }
 

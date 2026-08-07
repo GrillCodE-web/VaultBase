@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handleError, getErrorMessage } from '../errorHandler.js'
 
-/* eslint-disable no-undef -- Test file using vitest globals */
 describe('Error Handler', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -134,4 +133,3 @@ describe('Error Handler', () => {
     })
   })
 })
-/* eslint-enable no-undef */

@@ -102,7 +102,7 @@ export default function Activate({ onActivated }) {
           </div>
           <h1 className="auth-title text-[18px]">{t('activate_title') || 'Activation Required'}</h1>
           <p className="auth-sub">
-            {t('activate_subtitle') || 'This copy of CC Manager must be activated.'}
+            {t('activate_subtitle') || 'This copy of VaultBase must be activated.'}
           </p>
         </div>
 

@@ -1,35 +1,53 @@
+/**
+ * Значения намеренно указаны через var(), а не хексами.
+ *
+ * Утилиты Tailwind живут в слое tw-utils, который перебивает
+ * весь остальной CSS (см. index-redesign.css). Пока здесь стояли
+ * хексы тёмной палитры, любой bg-card в JSX возвращал #0f1318
+ * поверх macOS-темы — то есть светлая тема ломалась ровно в тех
+ * 108 местах, где этот класс используется.
+ *
+ * Ограничение: с var() не работает модификатор прозрачности
+ * (bg-card/50) — Tailwind не умеет вставлять alpha в готовый
+ * цвет. В проекте таких мест нет ни одного, поэтому обмен
+ * выгодный. Если появятся — брать готовый токен -dim.
+ */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        bg:          '#060910',
-        surface:     '#0a0d14',
-        card:        '#0f1318',
-        'card-hi':   '#141924',
-        inset:       '#080b10',
-        border:      '#1b2131',
-        'border-hi': '#252d42',
-        text:        '#e2e8f5',
-        'text-2':    '#8896b3',
-        muted:       '#4a5568',
-        accent:      '#3b82f6',
-        'green-t':   '#4ade80',
-        'red-t':     '#f87171',
-        'yellow-t':  '#facc15',
-        'blue-t':    '#60a5fa',
-        'orange-t':  '#fb923c',
-        'gray-t':    '#94a3b8',
+        bg: 'var(--bg)',
+        surface: 'var(--surface)',
+        card: 'var(--card)',
+        'card-hi': 'var(--card-hi)',
+        inset: 'var(--inset)',
+        border: 'var(--border)',
+        'border-hi': 'var(--border-hi)',
+        separator: 'var(--separator)',
+        text: 'var(--text)',
+        'text-2': 'var(--text-2)',
+        'text-3': 'var(--text-3)',
+        muted: 'var(--muted)',
+        accent: 'var(--accent)',
+        'accent-fg': 'var(--accent-fg)',
+        'green-t': 'var(--green-t)',
+        'red-t': 'var(--red-t)',
+        'yellow-t': 'var(--yellow-t)',
+        'blue-t': 'var(--blue-t)',
+        'orange-t': 'var(--orange-t)',
+        'teal-t': 'var(--teal-t)',
+        'gray-t': 'var(--text-3)',
       },
       fontFamily: {
-        sans: ['DM Sans', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        sans: ['var(--font-ui)'],
+        mono: ['var(--font-mono)'],
       },
       borderRadius: {
-        sm: '5px',
-        md: '8px',
-        lg: '12px',
-        xl: '16px',
+        sm: 'var(--r-sm)',
+        md: 'var(--r-md)',
+        lg: 'var(--r-lg)',
+        xl: 'var(--r-xl)',
       },
     },
   },

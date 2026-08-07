@@ -1,6 +1,17 @@
-import { Store, Clock, Copy, CheckCircle, XCircle, User, Trash2 } from 'lucide-react'
+import {
+  Store,
+  Clock,
+  Copy,
+  CheckCircle,
+  XCircle,
+  User,
+  Trash2,
+  HandMetal,
+  Eye,
+} from 'lucide-react'
 import React from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { useAuth } from '../../hooks/useAuth'
 import { ActionsMenu } from '../../components/ActionsMenu.jsx'
 import {
   formatCardNumber,
@@ -23,6 +34,7 @@ import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
  */
 export const CardRow = React.memo(
   function CardRow({
+    onCardTaken,
     card,
     cards,
     revealed,
@@ -44,9 +56,13 @@ export const CardRow = React.memo(
     setFilter,
     setPage,
     onNavigate,
+    revealCard,
     t,
     toast,
   }) {
+    const { hasPerm } = useAuth()
+    const canTake = hasPerm('take_cards')
+    const canReveal = hasPerm('view_own_cards_full')
     const rev = revealed[card.id]
     const displayNum = rev?.card_number
       ? formatCardNumber(rev.card_number)
@@ -128,6 +144,26 @@ export const CardRow = React.memo(
                 </span>
               )}
               <span className="mono text-[12px]">{displayNum}</span>
+              {!rev && canReveal && (
+                <button
+                  onClick={e => {
+                    e.stopPropagation()
+                    // revealCard пробрасывает ошибку дальше (store/cards.js),
+                    // а обработчик не async — без .catch это был настоящий
+                    // unhandled rejection: по клику не происходило ничего.
+                    // Чаще всего это отказ по владельцу карты: право
+                    // view_own_cards_full есть, но карта закреплена за другим.
+                    Promise.resolve(revealCard?.(card.id)).catch(err => {
+                      toast(getErrorMessage(err, 'CardRow.reveal'), 'error')
+                    })
+                  }}
+                  className="btn btn-ghost btn-sm btn-compact"
+                  title={t('cc_reveal') || 'Reveal'}
+                  aria-label={`Reveal full details for card ending in ${card.last4}`}
+                >
+                  <Eye size={13} className="icon-sm" aria-hidden="true" />
+                </button>
+              )}
             </div>
           </td>
         )}
@@ -273,7 +309,7 @@ export const CardRow = React.memo(
         {/* Bank — click to filter */}
         {visibleCols.includes('bin_bank') && (
           <td>
-            <span className="mono cell-text-sm">{card.bin || '——'}</span>
+            <span className="bin-badge">{card.bin || '——'}</span>
             {card.bank_name && (
               <span
                 onClick={e => {
@@ -486,6 +522,26 @@ export const CardRow = React.memo(
                   danger: true,
                 },
                 { divider: true },
+                ...(canTake && card.status === 'free'
+                  ? [
+                      {
+                        label: 'Взять карту',
+                        icon: HandMetal,
+                        onClick: async () => {
+                          try {
+                            await invoke('take_card', { cardId: card.id })
+                            toast('Карта закреплена за вами', 'success')
+                            onCardTaken?.()
+                          } catch (e) {
+                            const msg = String(e).includes('card_already_assigned')
+                              ? 'Карта уже назначена другому оператору'
+                              : String(e)
+                            toast(msg, 'error')
+                          }
+                        },
+                      },
+                    ]
+                  : []),
                 {
                   label: t('new_profile'),
                   icon: User,

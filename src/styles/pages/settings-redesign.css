@@ -51,14 +51,14 @@
   font-size: 18px;
   font-weight: 700;
   color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.02em;
 }
 
 .settings-section-subtitle {
   font-size: 12px;
   color: var(--muted);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   margin-top: 4px;
 }
 
@@ -90,14 +90,14 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   margin-bottom: 4px;
 }
 
 .settings-row-description {
   font-size: 12px;
   color: var(--muted);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   line-height: 1.5;
 }
 
@@ -158,7 +158,7 @@
   right: 0;
   width: 120px;
   height: 120px;
-  background: radial-gradient(circle, rgba(0, 217, 255, 0.1), transparent 70%);
+  background: radial-gradient(circle, transparent, transparent 70%);
   pointer-events: none;
 }
 
@@ -173,14 +173,14 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.02em;
 }
 
 .sync-group-id {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   margin-top: 4px;
 }
 
@@ -192,7 +192,7 @@
   font-weight: 700;
   padding: 4px 10px;
   border-radius: var(--r-sm);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border: 1px solid;
@@ -242,14 +242,14 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   margin-bottom: 4px;
 }
 
 .sync-member-status {
   font-size: 10px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -268,7 +268,7 @@
   font-size: 32px;
   font-weight: 700;
   color: var(--accent-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.1em;
   margin-bottom: 12px;
   user-select: all;
@@ -277,7 +277,7 @@
 .pair-code-hint {
   font-size: 12px;
   color: var(--muted);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── License Info Card ──────────────────────────────────── */
@@ -325,7 +325,7 @@
 .license-status-label {
   font-size: 12px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 4px;
@@ -335,7 +335,7 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Backup Section ─────────────────────────────────────── */
@@ -379,14 +379,14 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   margin-bottom: 4px;
 }
 
 .backup-action-hint {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Responsive Design ──────────────────────────────────── */

@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Carto — macOS</title>
+  <title>VaultBase — macOS</title>
   <meta name="description" content="The cleanest order and task manager for Apple Silicon." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="shortcut icon" href="/favicon.svg" />
   <!-- No index, no cache -->
   <meta name="robots" content="noindex, nofollow" />
   <meta http-equiv="Cache-Control" content="no-store" />
@@ -376,14 +378,13 @@
 
   <header>
     <div class="logo-mark">
-      <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="2" width="6" height="6" rx="1.5" fill="#0b0c0e"/>
-        <rect x="10" y="2" width="6" height="6" rx="1.5" fill="#0b0c0e" opacity=".5"/>
-        <rect x="2" y="10" width="6" height="6" rx="1.5" fill="#0b0c0e" opacity=".5"/>
-        <rect x="10" y="10" width="6" height="6" rx="1.5" fill="#0b0c0e" opacity=".25"/>
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 96 116 L 186 116 L 256 336 L 326 116 L 416 116 L 306 428 L 206 428 Z" fill="#0b0c0e"/>
+        <circle cx="256" cy="372" r="27" fill="#d4b896"/>
+        <path d="M 244 380 L 268 380 L 274 424 L 238 424 Z" fill="#d4b896"/>
       </svg>
     </div>
-    <span class="logo-text">Carto</span>
+    <span class="logo-text">VaultBase</span>
     <span class="badge">Private Beta</span>
   </header>
 
@@ -422,7 +423,7 @@
 
       <div id="download-block">
         <div class="dl-top">
-          <span class="dl-title">Carto</span>
+          <span class="dl-title">VaultBase</span>
           <span class="dl-ver" id="dl-ver-label">—</span>
         </div>
         <div class="dl-files" id="dl-files">
@@ -433,7 +434,7 @@
   </main>
 
   <footer>
-    <span>© 2025 Carto</span>
+    <span>© 2026 VaultBase</span>
     <span>Apple Silicon · Invite-only</span>
   </footer>
 
@@ -579,7 +580,7 @@
       if (installers.length > 0) {
         dlFilesEl.innerHTML = installers.map(f => {
           const name = typeNames[f.file_type] || f.file_type;
-          const filename = f.download_url ? f.download_url.split('/').pop() : 'Carto';
+          const filename = f.download_url ? f.download_url.split('/').pop() : 'VaultBase';
           const mb = f.file_size ? (f.file_size/1048576).toFixed(1) + ' MB · ' : '';
           const plat = f.platform === 'darwin-x86_64' ? 'macOS Intel' : 'macOS · Apple Silicon';
           return `<a class="dl-btn" href="${f.download_url || '#'}" download>
@@ -594,7 +595,7 @@
       } else if (invData.download_url) {
         // Fallback: single file from old invite response
         const mb = invData.file_size ? (invData.file_size/1048576).toFixed(1) + ' MB · ' : '';
-        const filename = invData.download_url.split('/').pop() || 'Carto.dmg';
+        const filename = invData.download_url.split('/').pop() || 'VaultBase.dmg';
         dlFilesEl.innerHTML = `<a class="dl-btn" href="${invData.download_url}" download>
           <div class="dl-icon">${dlSvg}</div>
           <div class="dl-meta">

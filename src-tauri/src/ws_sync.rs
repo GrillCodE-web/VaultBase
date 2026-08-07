@@ -16,7 +16,7 @@ use tungstenite::{connect, Message};
 use tauri::{AppHandle, Emitter};
 use crate::models;
 
-const WS_URL: &str = "wss://api.eulivehub.com/socket.io/?EIO=4&transport=websocket";
+// URL выводится из crate::endpoints (переменная VAULTBASE_SYNC_WS_URL там же).
 const RECONNECT_SECS: u64 = 3;
 const PING_INTERVAL_SECS: u64 = 30;
 // FIX P3-HB-01: Reconnect after 2 missed pings (60 seconds total)
@@ -67,7 +67,7 @@ impl WsSyncHandle {
 //  Start background thread
 // ─────────────────────────────────────────
 
-pub fn start(app: AppHandle, db_path: String, handle: Arc<WsSyncHandle>) {
+pub fn start(app: AppHandle, handle: Arc<WsSyncHandle>) {
     if handle.is_running() { return; }
     handle.running.store(true, Ordering::Relaxed);
 
@@ -75,7 +75,7 @@ pub fn start(app: AppHandle, db_path: String, handle: Arc<WsSyncHandle>) {
     let creds   = handle.creds.clone();
 
     std::thread::spawn(move || {
-        ws_loop(app, db_path, running, creds);
+        ws_loop(app, running, creds);
     });
 }
 
@@ -83,7 +83,7 @@ pub fn start(app: AppHandle, db_path: String, handle: Arc<WsSyncHandle>) {
 //  Main loop
 // ─────────────────────────────────────────
 
-fn ws_loop(app: AppHandle, db_path: String, running: Arc<AtomicBool>, creds: SharedCreds) {
+fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
     while running.load(Ordering::Relaxed) {
         let (token, group_id) = {
             let c = creds.read().unwrap_or_else(|e| e.into_inner());
@@ -98,7 +98,10 @@ fn ws_loop(app: AppHandle, db_path: String, running: Arc<AtomicBool>, creds: Sha
 
         let _ = app.emit("ws_sync:status", serde_json::json!({ "connected": false, "connecting": true }));
 
-        match connect(WS_URL) {
+        // Переменную VAULTBASE_SYNC_WS_URL читает сам endpoints::ws_url();
+        // если её нет, адрес выводится из общей базы (VAULTBASE_SERVER_URL).
+        let ws_url = crate::endpoints::ws_url();
+        match connect(ws_url) {
             Ok((mut socket, _)) => {
                 // FIX WS-TOKEN-01: Sanitize token before sending (prevent injection)
                 let token_sanitized = token.chars()
@@ -124,7 +127,8 @@ fn ws_loop(app: AppHandle, db_path: String, running: Arc<AtomicBool>, creds: Sha
                 };
 
                 if should_pull {
-                    let full_pull = format!(r#"42["message",{}]"#, serde_json::json!({ "type": "full_pull" }));
+                    // Event name must match socket.js `socket.on('sync:full_pull')`.
+                    let full_pull = r#"42["sync:full_pull",{}]"#.to_string();
                     let _ = socket.send(Message::Text(full_pull));
                     if let Ok(mut last_pull) = LAST_FULL_PULL.write() {
                         *last_pull = Some(now);
@@ -179,7 +183,13 @@ fn ws_loop(app: AppHandle, db_path: String, running: Arc<AtomicBool>, creds: Sha
                                     if arr.len() >= 2 {
                                         let event_name = arr[0].as_str().unwrap_or("").to_string();
                                         let data = arr[1].clone();
-                                        handle_socketio_event(&app, &db_path, &event_name, &data);
+                                        if let Some(state) = crate::STATE.get() {
+                                            if let Ok(db) = state.db.lock() {
+                                                if let Some(pool) = db.pool.as_ref() {
+                                                    handle_socketio_event(&app, pool, &event_name, &data);
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -236,9 +246,9 @@ fn ws_loop(app: AppHandle, db_path: String, running: Arc<AtomicBool>, creds: Sha
 //  Event handler
 // ─────────────────────────────────────────
 
-fn handle_socketio_event(app: &AppHandle, db_path: &str, event_name: &str, data: &serde_json::Value) {
+fn handle_socketio_event(app: &AppHandle, pool: &crate::database::DbPool, event_name: &str, data: &serde_json::Value) {
     match event_name {
-        "card_update" | "full_data" => {
+        "card:update" | "sync:full_data" => {
             let cards = match data["cards"].as_array() {
                 Some(c) => c.clone(),
                 None => return,
@@ -248,22 +258,22 @@ fn handle_socketio_event(app: &AppHandle, db_path: &str, event_name: &str, data:
                 eprintln!("[ws_sync] Ignoring batch with {} cards (max 100)", cards.len());
                 return;
             }
-            apply_card_updates(db_path, &cards);
+            apply_card_updates(pool, &cards);
 
-            let event = if event_name == "full_data" { "sync:full_data" } else { "sync:card_update" };
+            let event = if event_name == "sync:full_data" { "sync:full_data" } else { "sync:card_update" };
             let _ = app.emit(event, serde_json::json!({
                 "cards": cards,
                 "updated_by": data["updated_by"].as_str().unwrap_or(""),
             }));
         }
 
-        "member_joined" => {
+        "group:member_joined" => {
             let _ = app.emit("sync:member_joined", serde_json::json!({
                 "installation_id": data["installation_id"].as_str().unwrap_or("")
             }));
         }
 
-        "member_left" => {
+        "group:member_left" => {
             let _ = app.emit("sync:member_left", serde_json::json!({
                 "installation_id": data["installation_id"].as_str().unwrap_or("")
             }));
@@ -285,7 +295,7 @@ fn handle_socketio_event(app: &AppHandle, db_path: &str, event_name: &str, data:
                         stop: item_data["stop"].as_bool().unwrap_or(false)
                             || item_data["stop"].as_i64().map(|v| v != 0).unwrap_or(false),
                     };
-                    apply_catalog_item(db_path, input);
+                    apply_catalog_item(pool, input);
                     let _ = app.emit("catalog_item_added", item_data);
                 }
             } else if update_type == "shop" {
@@ -302,7 +312,7 @@ fn handle_socketio_event(app: &AppHandle, db_path: &str, event_name: &str, data:
                         excluded: item_data["excluded"].as_bool().unwrap_or(false)
                             || item_data["excluded"].as_i64().map(|v| v != 0).unwrap_or(false),
                     };
-                    apply_catalog_shop(db_path, input);
+                    apply_catalog_shop(pool, input);
                     let _ = app.emit("catalog_shop_added", item_data);
                 }
             }
@@ -320,37 +330,33 @@ fn status_weight(s: &str) -> u8 {
     match s { "dead" => 5, "declined" => 4, "archive" => 3, "in_use" => 2, "free" => 1, _ => 0 }
 }
 
-fn apply_catalog_item(db_path: &str, item: models::CatalogItemInput) {
-    let conn = match rusqlite::Connection::open(db_path) {
+fn apply_catalog_item(pool: &crate::database::DbPool, item: models::CatalogItemInput) {
+    let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return,
     };
-    let _ = conn.execute_batch("PRAGMA journal_mode=WAL;");
     let _ = conn.execute(
         "INSERT OR REPLACE INTO catalog_items(id,name,asin,price,pct,category,notes_en,stop) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
         rusqlite::params![item.id, item.name, item.asin, item.price, item.pct, item.category, item.notes_en, item.stop as i64],
     );
 }
 
-fn apply_catalog_shop(db_path: &str, shop: models::CatalogShopInput) {
-    let conn = match rusqlite::Connection::open(db_path) {
+fn apply_catalog_shop(pool: &crate::database::DbPool, shop: models::CatalogShopInput) {
+    let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return,
     };
-    let _ = conn.execute_batch("PRAGMA journal_mode=WAL;");
     let _ = conn.execute(
         "INSERT OR REPLACE INTO catalog_shops(domain,category,score,ship_us,fraud_level,top_brands,top_products,excluded) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
         rusqlite::params![shop.domain, shop.category, shop.score, shop.ship_us as i64, shop.fraud_level, shop.top_brands, shop.top_products, shop.excluded as i64],
     );
 }
 
-fn apply_card_updates(db_path: &str, cards: &[serde_json::Value]) {
-    let conn = match rusqlite::Connection::open(db_path) {
+fn apply_card_updates(pool: &crate::database::DbPool, cards: &[serde_json::Value]) {
+    let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return,
     };
-    // WAL already set by main connection; set here too just in case
-    let _ = conn.execute_batch("PRAGMA journal_mode=WAL;");
 
     // ★ Insight: BEGIN/COMMIT транзакция для batch update
     // Ускоряет синхронизацию 100 карт с ~5 секунд до ~200ms

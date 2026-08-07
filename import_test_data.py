@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CC Manager - Test Data Import Script
+VaultBase - Test Data Import Script
 Imports TG1-TG43 data with proper relationships
 """
 
@@ -8,7 +8,7 @@ import sqlite3
 import json
 from datetime import datetime
 
-DB_PATH = 'cc_manager.db'
+DB_PATH = 'vaultbase.db'
 
 # ============================================================================
 # DATA DEFINITIONS
@@ -527,7 +527,7 @@ def import_data():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    print("🚀 Starting CC Manager Test Data Import...")
+    print("🚀 Starting VaultBase Test Data Import...")
     print("=" * 60)
 
     # 1. Import Shops

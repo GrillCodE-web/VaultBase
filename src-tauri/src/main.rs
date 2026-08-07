@@ -3,12 +3,14 @@
 
 mod database;
 mod encryption;
+mod endpoints;
 mod imap;
 mod license;
 mod models;
 mod parser;
 mod rate_limiter;  // FIX TC-H03: Rate limiting infrastructure
 mod smtp;
+mod stuffer;
 mod sync;
 mod tracking;
 mod ws_sync;
@@ -27,12 +29,43 @@ use tauri::{Manager, Emitter};
 //  Global state
 // ─────────────────────────────────────────
 
-struct AppState {
-    db: Mutex<Database>,
-    is_locked: AtomicBool,  // FIX B-MED-05: Atomic flag для предотвращения race condition в autolock
+pub(crate) struct AppState {
+    pub(crate) db: Mutex<Database>,
+    pub(crate) is_locked: AtomicBool,
+    pub(crate) current_user: Mutex<Option<ActiveUser>>,
 }
-static STATE: OnceCell<AppState> = OnceCell::new();
+pub(crate) static STATE: OnceCell<AppState> = OnceCell::new();
 fn state() -> &'static AppState { STATE.get().expect("AppState not initialized") }
+
+/// Получить текущего пользователя или вернуть ошибку
+fn require_user() -> Result<ActiveUser, String> {
+    state().current_user.lock().map_err(|e| e.to_string())?
+        .clone().ok_or_else(|| "not_logged_in".to_string())
+}
+
+/// Проверить право у текущего пользователя
+fn require_perm(key: &str) -> Result<ActiveUser, String> {
+    let u = require_user()?;
+    if !u.has_perm(key) { return Err(format!("permission_denied:{}", key)); }
+    Ok(u)
+}
+
+/// Проверить что текущий пользователь — admin
+fn require_admin() -> Result<ActiveUser, String> {
+    let u = require_user()?;
+    if !u.is_admin() { return Err("permission_denied:admin_only".to_string()); }
+    Ok(u)
+}
+
+/// Проверить хотя бы одно право из списка.
+/// Нужно там, где одно и то же действие законно для двух разных ролей —
+/// например создание магазина: и как управление справочником, и как побочный
+/// шаг оформления заказа по магазину из каталога.
+fn require_any_perm(keys: &[&str]) -> Result<ActiveUser, String> {
+    let u = require_user()?;
+    if keys.iter().any(|k| u.has_perm(k)) { return Ok(u); }
+    Err(format!("permission_denied:{}", keys.join("|")))
+}
 
 // ── WS Sync global handle ──────────────────────────────────────────────────
 static WS_HANDLE: OnceCell<std::sync::Arc<ws_sync::WsSyncHandle>> = OnceCell::new();
@@ -51,16 +84,16 @@ fn db_path() -> PathBuf {
         } else {
             cwd
         };
-        p.push("cc_manager.db");
+        p.push("vaultbase.db");
         p
     }
     #[cfg(not(debug_assertions))]
     {
         let dir = dirs::data_local_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("cc-manager");
+            .join("vaultbase");
         std::fs::create_dir_all(&dir).ok();
-        dir.join("cc_manager.db")
+        dir.join("vaultbase.db")
     }
 }
 
@@ -68,7 +101,7 @@ fn db_path() -> PathBuf {
 fn backup_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("cc-manager")
+        .join("vaultbase")
         .join("backups")
 }
 
@@ -85,8 +118,11 @@ macro_rules! with_db {
 //  Whitelist для get_config/set_config (FIX B49)
 // ─────────────────────────────────────────
 
+// Секреты сюда НЕ добавляются. API-ключ не должен передаваться во frontend
+// даже зашифрованным: вместо значения читается виртуальный флаг `<key>_set`
+// (см. CONFIG_SECRET и get_config). Тот же паттерн, что у license_token.
 const CONFIG_READABLE: &[&str] = &[
-    "autolock_timeout", "bin_api_key", "tracking_api_key",
+    "autolock_timeout",
     "sync_enabled", "theme", "language", "installation_id",
     "license_status_cache",
     "sync_group_id", "sync_group_name",
@@ -94,6 +130,13 @@ const CONFIG_READABLE: &[&str] = &[
     "dash_collapsed_banks", "dash_collapsed_countries",
     "dash_collapsed_sources", "dash_collapsed_expiring",
     "badge_notify_imap", "badge_notify_tracking",
+    "stuffer_base_url",
+];
+
+/// Ключи-секреты: записать можно, прочитать значение — нельзя.
+/// Frontend вместо значения запрашивает `<key>_set` и получает "1" либо "0".
+const CONFIG_SECRET: &[&str] = &[
+    "bin_api_key", "tracking_api_key", "stuffer_api_key",
 ];
 
 const CONFIG_WRITABLE: &[&str] = &[
@@ -111,9 +154,197 @@ fn is_config_readable(key: &str) -> bool {
 fn is_config_writable(key: &str) -> bool {
     CONFIG_WRITABLE.contains(&key)
 }
+/// Для `"bin_api_key_set"` вернёт `Some("bin_api_key")`.
+fn secret_flag_target(key: &str) -> Option<&'static str> {
+    let base = key.strip_suffix("_set")?;
+    CONFIG_SECRET.iter().copied().find(|k| *k == base)
+}
 
 // ─────────────────────────────────────────
-//  Auth
+//  User Auth & Role Management
+// ─────────────────────────────────────────
+
+#[tauri::command]
+fn user_login(username: String, password: String, ip_address: Option<String>, device_info: Option<String>) -> Result<LoginResult, String> {
+    rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, 0)?;
+    let result = with_db!(db, {
+        db.user_login(&username, &password, ip_address.as_deref(), device_info.as_deref())
+    })?;
+    // Сохраняем в AppState
+    let active = ActiveUser {
+        user_id: result.user_id,
+        username: result.username.clone(),
+        role: result.role.clone(),
+        permissions: result.permissions.clone(),
+        token: result.token.clone(),
+        ip_address: ip_address.clone(),
+    };
+    if let Ok(mut u) = state().current_user.lock() { *u = Some(active); }
+    Ok(result)
+}
+
+#[tauri::command]
+fn try_auto_login(ip_address: Option<String>, device_info: Option<String>) -> Result<Option<LoginResult>, String> {
+    let result = with_db!(db, {
+        db.try_auto_login(ip_address.as_deref(), device_info.as_deref())
+    })?;
+    if let Some(ref r) = result {
+        let active = ActiveUser {
+            user_id: r.user_id,
+            username: r.username.clone(),
+            role: r.role.clone(),
+            permissions: r.permissions.clone(),
+            token: r.token.clone(),
+            ip_address: ip_address.clone(),
+        };
+        if let Ok(mut u) = state().current_user.lock() { *u = Some(active); }
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+fn user_logout(token: String) -> Result<(), String> {
+    with_db!(db, { db.user_logout(&token) })?;
+    if let Ok(mut u) = state().current_user.lock() { *u = None; }
+    Ok(())
+}
+
+#[tauri::command]
+fn get_current_user() -> Result<Option<LoginResult>, String> {
+    let u = state().current_user.lock().map_err(|e| e.to_string())?;
+    Ok(u.as_ref().map(|u| LoginResult {
+        token: u.token.clone(),
+        user_id: u.user_id,
+        username: u.username.clone(),
+        display_name: None,
+        role: u.role.clone(),
+        permissions: u.permissions.clone(),
+    }))
+}
+
+#[tauri::command]
+fn resume_session(token: String) -> Result<LoginResult, String> {
+    let result = with_db!(db, {
+        db.get_active_user_by_token(&token).ok_or("session_expired".to_string())
+    })?;
+    let login = LoginResult {
+        token: result.token.clone(),
+        user_id: result.user_id,
+        username: result.username.clone(),
+        display_name: None,
+        role: result.role.clone(),
+        permissions: result.permissions.clone(),
+    };
+    if let Ok(mut u) = state().current_user.lock() { *u = Some(result); }
+    Ok(login)
+}
+
+#[tauri::command]
+fn get_users() -> Result<Vec<User>, String> {
+    require_admin()?;
+    with_db!(db, { db.get_users() })
+}
+
+#[tauri::command]
+fn create_user(input: CreateUserInput) -> Result<User, String> {
+    let admin = require_admin()?;
+    let new_user = with_db!(db, { db.create_user(&input, admin.user_id) })?;
+    with_db!(db, {
+        db.log_user_activity(admin.user_id, "user.created", Some("user"),
+            Some(&new_user.id.to_string()), Some(&format!("username={}", new_user.username)), admin.ip_address.as_deref())
+    })?;
+    Ok(new_user)
+}
+
+#[tauri::command]
+fn update_user_cmd(id: i64, display_name: Option<String>, is_active: bool, role: Option<String>) -> Result<(), String> {
+    require_admin()?;
+    with_db!(db, { db.update_user(id, display_name.as_deref(), is_active, role.as_deref()) })
+}
+
+#[tauri::command]
+fn delete_user_cmd(id: i64) -> Result<(), String> {
+    let admin = require_admin()?;
+    if admin.user_id == id { return Err("cannot_delete_self".into()); }
+    with_db!(db, { db.delete_user(id) })
+}
+
+#[tauri::command]
+fn set_user_password_cmd(id: i64, new_password: String) -> Result<(), String> {
+    require_admin()?;
+    with_db!(db, { db.set_user_password(id, &new_password) })
+}
+
+#[tauri::command]
+fn get_user_with_permissions(id: i64) -> Result<UserWithPermissions, String> {
+    require_admin()?;
+    with_db!(db, { db.get_user_with_permissions(id) })
+}
+
+#[tauri::command]
+fn set_user_permission_cmd(user_id: i64, key: String, granted: bool) -> Result<(), String> {
+    let admin = require_admin()?;
+    with_db!(db, {
+        db.set_user_permission(user_id, &key, granted)?;
+        db.log_user_activity(admin.user_id, "user.permission_set", Some("user"),
+            Some(&user_id.to_string()), Some(&format!("{}={}", key, granted)), None)
+    })
+}
+
+#[tauri::command]
+fn reset_user_permissions_cmd(user_id: i64) -> Result<(), String> {
+    require_admin()?;
+    with_db!(db, { db.reset_user_permissions(user_id) })
+}
+
+#[tauri::command]
+fn get_users_stats() -> Result<Vec<UserStats>, String> {
+    require_admin()?;
+    with_db!(db, { db.get_users_stats() })
+}
+
+#[tauri::command]
+fn get_user_period_stats(user_id: i64) -> Result<Vec<UserPeriodStats>, String> {
+    require_admin()?;
+    with_db!(db, { db.get_user_period_stats(user_id) })
+}
+
+#[tauri::command]
+fn get_user_activity_log(user_id: Option<i64>, limit: Option<u32>, offset: Option<u32>) -> Result<Vec<UserActivity>, String> {
+    require_admin()?;
+    with_db!(db, { db.get_user_activity_log(user_id, limit.unwrap_or(100), offset.unwrap_or(0)) })
+}
+
+#[tauri::command]
+fn get_admin_overview() -> Result<AdminOverview, String> {
+    require_admin()?;
+    with_db!(db, { db.get_admin_overview() })
+}
+
+#[tauri::command]
+fn take_card(card_id: i64) -> Result<(), String> {
+    let user = require_perm(models::perms::TAKE_CARDS)?;
+    with_db!(db, {
+        db.assign_card_to_user(card_id, user.user_id, Some(user.user_id))
+    })
+}
+
+#[tauri::command]
+fn transfer_card_cmd(card_id: i64, to_user_id: i64) -> Result<(), String> {
+    let user = require_perm(models::perms::TRANSFER_CARDS)?;
+    with_db!(db, {
+        db.transfer_card(card_id, to_user_id, user.user_id)
+    })
+}
+
+#[tauri::command]
+fn get_my_card_assignments() -> Result<Vec<CardAssignment>, String> {
+    let user = require_user()?;
+    with_db!(db, { db.get_user_card_assignments(user.user_id) })
+}
+
+// ─────────────────────────────────────────
+//  Master Password Auth (существующая система)
 // ─────────────────────────────────────────
 
 #[tauri::command]
@@ -160,13 +391,24 @@ fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
             return Err("wrong_password".into());
         }
 
-        // FIX B-MED-07: Автоматическая миграция bcrypt cost factor
-        // bcrypt хеш формата $2b$XX$... где XX — cost factor
-        // Парсим cost из хеша и обновляем если < 14
-        let needs_upgrade = hash.starts_with("$2b$") && hash.len() > 7
-            && hash[4..7].parse::<u32>().map(|c| c < 14).unwrap_or(false);
+        // FIX B-MED-07: Автоматическая миграция bcrypt cost factor.
+        // Формат хеша: `$2b$XX$...`, где XX — cost из ДВУХ цифр на позициях 4..6.
+        // Был срез hash[4..7] — он захватывал третий символ `$`, давал "12$",
+        // parse::<u32>() падал, а .unwrap_or(false)гасил ошибку: условие всегда
+        // было false и миграция не отработала НИ РАЗУ с момента написания.
+        // Поэтому же счёт «119 уязвимостей исправлено» завышен минимум на одну.
+        let parsed_cost = if hash.starts_with("$2b$") && hash.len() > 7 {
+            hash[4..6].parse::<u32>().ok()
+        } else {
+            None
+        };
+        // Нераспознанный формат логируем, а не проглатываем: молчаливый
+        // .unwrap_or(false) и был причиной того, что баг жил незамеченным.
+        if parsed_cost.is_none() && hash.starts_with("$2b$") {
+            eprintln!("[bcrypt] cannot parse cost from hash prefix, upgrade skipped");
+        }
 
-        if needs_upgrade {
+        if parsed_cost.is_some_and(|c| c < 14) {
             // Ре-хешируем с новым cost factor
             let new_hash = bcrypt::hash(&password, 14).map_err(|e| e.to_string())?;
             db.set_config("master_password_hash", &new_hash).map_err(|e| e.to_string())?;
@@ -197,8 +439,7 @@ fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
     // Start WS sync in background (non-blocking)
     if let Some(h) = WS_HANDLE.get() {
         h.set_creds(token, group_id);
-        let db_p = db_path().to_str().unwrap_or("cc_manager.db").to_string();
-        ws_sync::start(app, db_p, h.clone());
+        ws_sync::start(app, h.clone());
     }
     Ok(())
 }
@@ -311,6 +552,7 @@ fn detect_mapping_preview(raw: String) -> Result<MappingPreview, String> {
 
 #[tauri::command]
 fn import_cards(raw: String, mapping: Vec<String>, source: String) -> Result<ImportResult, String> {
+    require_perm(models::perms::ADD_CARDS_MANUAL)?;
     let parse_result = parser::parse_cards(&raw, mapping, &source);
     let total_parsed = parse_result.parsed.len();
 
@@ -338,6 +580,7 @@ fn import_cards(raw: String, mapping: Vec<String>, source: String) -> Result<Imp
 
 #[tauri::command]
 fn get_cards(filter: CardFilter, page: u32, per_page: u32) -> Result<PaginatedCards, String> {
+    require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
     guard.get_cards(&filter, page, per_page.max(1))
@@ -346,6 +589,7 @@ fn get_cards(filter: CardFilter, page: u32, per_page: u32) -> Result<PaginatedCa
 // FIX B01: get_card теперь реально фильтрует по id
 #[tauri::command]
 fn get_card_filter_meta() -> Result<CardFilterMeta, String> {
+    require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
     guard.get_card_filter_meta()
@@ -353,6 +597,7 @@ fn get_card_filter_meta() -> Result<CardFilterMeta, String> {
 
 #[tauri::command]
 fn get_card(id: i64) -> Result<Card, String> {
+    require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
     let filter = CardFilter { id: Some(id), ..Default::default() };
@@ -364,35 +609,43 @@ fn get_card(id: i64) -> Result<Card, String> {
 // Это предотвращает несанкционированный доступ и brute-force атаки
 #[tauri::command]
 fn reveal_card(id: i64, master_password: Option<String>) -> Result<CardDecrypted, String> {
-    // FIX TC-H03: Rate limiting — 5 requests per minute per installation
+    // Rate limiting — 5 requests per minute per installation
     let rate_key = id as u64;
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_key)?;
+
+    // Require authenticated user with card-viewing permission
+    let user = require_perm(models::perms::VIEW_OWN_CARDS_FULL)?;
 
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
-        // FIX TC-H04: Require master password verification for sensitive card data
+        // Право называется view_OWN_cards_full — до этого «own» ничем не
+        // подкреплялось: любой оператор с правом раскрывал PAN и CVV чужой
+        // карты. Владелец известен из card_assignments (в отличие от заказов,
+        // см. docs/PERMISSIONS.md), поэтому проверку можно сделать честно.
+        // Незакреплённая карта не блокируется: защищать нечего, и иначе
+        // ломается порядок «взять карту → раскрыть» и легаси-профили.
+        if !user.is_admin() {
+            if let Some(owner_id) = db.get_card_owner(id) {
+                if owner_id != user.user_id {
+                    let _ = db.log_event("security.reveal_denied",
+                        &format!("User {} tried to reveal card {} owned by {}", user.user_id, id, owner_id),
+                        Some("security"), Some(&id.to_string()));
+                    return Err("card_owned_by_another_user".into());
+                }
+            }
+        }
+
+        // If master password provided, verify it as an extra gate
         if let Some(password) = master_password {
-            // Verify master password before revealing card details
             let stored_hash = db.get_config("master_password_hash").map_err(|e| e.to_string())?;
             if let Some(expected_hash) = stored_hash {
-                use sha2::{Digest, Sha256};
-                let mut hasher = Sha256::new();
-                hasher.update(password.as_bytes());
-                let provided_hash = format!("{:x}", hasher.finalize());
-
-                if provided_hash != expected_hash {
-                    // Log failed attempt
+                if !bcrypt::verify(&password, &expected_hash).unwrap_or(false) {
                     let _ = db.log_event("security.reveal_failed",
                         &format!("Failed attempt to reveal card {} - wrong password", id),
                         Some("security"), None);
                     return Err("invalid_master_password".into());
                 }
-            }
-        } else {
-            // If app is locked, require password
-            if db.is_locked() {
-                return Err("app_locked_password_required".into());
             }
         }
 
@@ -409,6 +662,10 @@ fn reveal_card(id: i64, master_password: Option<String>) -> Result<CardDecrypted
 
 #[tauri::command]
 fn update_card_status(id: i64, status: String, app: tauri::AppHandle) -> Result<(), String> {
+    // Изменение статуса — часть рабочего цикла оператора (карта отработала,
+    // сгорела и т.п.), поэтому вход, а не отдельное право. Правка уезжает в
+    // sync-группу, так что анонимный вызов испортил бы данные всем участникам.
+    require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
@@ -438,6 +695,7 @@ fn update_card_status(id: i64, status: String, app: tauri::AppHandle) -> Result<
 
 #[tauri::command]
 fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -> Result<(), String> {
+    require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
@@ -467,6 +725,8 @@ fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -> Result<()
 
 #[tauri::command]
 fn delete_card(id: i64) -> Result<(), String> {
+    // Необратимо и затрагивает общий пул карт — только админ.
+    require_admin()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
         db.delete_card(id)?;
@@ -478,6 +738,7 @@ fn delete_card(id: i64) -> Result<(), String> {
 
 #[tauri::command]
 fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), String> {
+    require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
@@ -517,6 +778,8 @@ fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), String> {
 
 #[tauri::command]
 fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
+    // Массовое необратимое удаление — только админ, как и delete_card.
+    require_admin()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
         db.bulk_delete(&ids)?;
@@ -529,11 +792,12 @@ fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
 // FIX B50: export_cards теперь логирует количество и список id
 #[tauri::command]
 fn export_cards(ids: Vec<i64>, format: String) -> Result<String, String> {
+    let user = require_perm(models::perms::EXPORT_DATA)?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
         let result = db.export_cards(&ids, &format)?;
         let _ = db.log_event("card.exported",
-            &format!("{} cards exported (format: {})", ids.len(), format),
+            &format!("{} cards exported (format: {}) by {}", ids.len(), format, user.username),
             Some("card"), None);
         Ok(result)
     })
@@ -553,76 +817,99 @@ fn enrich_bin(bin: String) -> Result<BinInfo, String> {
 //  Profiles + Drops
 // ─────────────────────────────────────────
 
+// Профили и дропы — это PII (имя получателя, адрес, телефон), поэтому все
+// команды закрыты минимум входом. Отдельного права нет намеренно: профиль
+// заводится под карту в ходе оформления заказа, то есть нужен каждому
+// оператору. Разделение «свои/чужие» здесь так же невозможно, как в заказах —
+// в profiles нет колонки владельца (см. docs/PERMISSIONS.md).
 #[tauri::command]
 fn create_profile(card_id: i64, notes: Option<String>) -> Result<Profile, String> {
+    require_user()?;
     with_db!(db, { db.create_profile(card_id, notes) })
 }
 #[tauri::command]
 fn get_profiles(filter: ProfileFilter, page: u32, per_page: u32) -> Result<PaginatedProfiles, String> {
+    require_user()?;
     with_db!(db, { db.get_profiles(&filter, page, per_page) })
 }
 #[tauri::command]
 fn get_profile(id: String) -> Result<ProfileDetail, String> {
+    require_user()?;
     with_db!(db, { db.get_profile_detail(&id) })
 }
 #[tauri::command]
 fn get_profile_detail(id: String) -> Result<ProfileDetail, String> {
+    require_user()?;
     with_db!(db, { db.get_profile_detail(&id) })
 }
 #[tauri::command]
 fn update_profile(id: String, notes: String) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.update_profile_notes(&id, &notes) })
 }
 #[tauri::command]
 fn update_profile_notes(id: String, notes: String) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.update_profile_notes(&id, &notes) })
 }
 #[tauri::command]
 fn delete_profile(id: String) -> Result<(), String> {
+    // Удаление профиля каскадом уносит дропы; владельца нет — только админ.
+    require_admin()?;
     with_db!(db, { db.delete_profile(&id) })
 }
 #[tauri::command]
 fn duplicate_profile(id: String) -> Result<Profile, String> {
+    require_user()?;
     with_db!(db, { db.duplicate_profile(&id) })
 }
 #[tauri::command]
 fn find_duplicate_profiles() -> Result<Vec<Vec<Profile>>, String> {
+    require_user()?;
     with_db!(db, { db.find_duplicate_profiles() })
 }
 
 #[tauri::command]
 fn save_profile_template(name: String, country: Option<String>, state: Option<String>, city: Option<String>, phone_prefix: Option<String>, source: Option<String>) -> Result<i64, String> {
+    require_user()?;
     with_db!(db, { db.save_profile_template(&name, country.as_deref(), state.as_deref(), city.as_deref(), phone_prefix.as_deref(), source.as_deref()) })
 }
 
 #[tauri::command]
 fn get_profile_templates() -> Result<Vec<ProfileTemplate>, String> {
+    require_user()?;
     with_db!(db, { db.get_profile_templates() })
 }
 
 #[tauri::command]
 fn delete_profile_template(id: i64) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.delete_profile_template(id) })
 }
 
 #[tauri::command]
 fn add_drop(profile_id: String, drop: DropInput) -> Result<Drop, String> {
+    require_user()?;
     with_db!(db, { db.add_drop(&profile_id, &drop) })
 }
 #[tauri::command]
 fn update_drop(id: i64, drop: DropInput) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.update_drop(id, &drop) })
 }
 #[tauri::command]
 fn delete_drop(id: i64) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.delete_drop(id) })
 }
 #[tauri::command]
 fn set_primary_drop(id: i64, profile_id: String) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.set_primary_drop(id, &profile_id) })
 }
 #[tauri::command]
 fn import_drops(profile_id: String, raw: String, mapping: Vec<String>) -> Result<ImportResult, String> {
+    require_user()?;
     let cols = mapping.clone();
     let rows: Vec<DropInput> = raw.lines().filter(|l| !l.trim().is_empty())
         .filter_map(|line| {
@@ -647,6 +934,7 @@ fn import_drops(profile_id: String, raw: String, mapping: Vec<String>) -> Result
 }
 #[tauri::command]
 fn find_duplicate_drops() -> Result<Vec<Vec<Drop>>, String> {
+    require_user()?;
     with_db!(db, { db.find_duplicate_drops() })
 }
 
@@ -656,30 +944,38 @@ fn find_duplicate_drops() -> Result<Vec<Vec<Drop>>, String> {
 
 #[tauri::command]
 fn add_email(email: String, label: String, notes: String) -> Result<EmailPoolEntry, String> {
+    require_perm(models::perms::MANAGE_EMAILS)?;
     let label = if label.is_empty() { None } else { Some(label) };
     let notes = if notes.is_empty() { None } else { Some(notes) };
     with_db!(db, { db.add_email(&email, label, notes) })
 }
 #[tauri::command]
 fn get_emails(filter: EmailFilter, page: u32, per_page: u32) -> Result<PaginatedEmails, String> {
+    require_perm(models::perms::MANAGE_EMAILS)?;
     with_db!(db, { db.get_emails(&filter, page, per_page) })
 }
 #[tauri::command]
 fn update_email(id: i64, label: String, notes: String) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_EMAILS)?;
     let label = if label.is_empty() { None } else { Some(label) };
     let notes = if notes.is_empty() { None } else { Some(notes) };
     with_db!(db, { db.update_email(id, label, notes) })
 }
 #[tauri::command]
 fn block_email(id: i64, blocked: bool) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_EMAILS)?;
     with_db!(db, { db.block_email(id, blocked) })
 }
 #[tauri::command]
 fn delete_email(id: i64) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_EMAILS)?;
     with_db!(db, { db.delete_email(id) })
 }
 #[tauri::command]
 fn get_clean_email_for_shop(shop_id: i64) -> Result<Option<EmailPoolEntry>, String> {
+    // Не MANAGE_EMAILS: это шаг оформления заказа, а не управление пулом.
+    // Возвращается один свободный адрес, весь пул при этом не раскрывается.
+    require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, { db.get_clean_email_for_shop(shop_id) })
 }
 
@@ -689,31 +985,40 @@ fn get_clean_email_for_shop(shop_id: i64) -> Result<Option<EmailPoolEntry>, Stri
 
 #[tauri::command]
 fn add_proxy(input: ProxyInput) -> Result<Proxy, String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.add_proxy(&input) })
 }
 #[tauri::command]
 fn import_proxies(raw: String) -> Result<ImportResult, String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.import_proxies(&raw) })
 }
 #[tauri::command]
 fn get_proxies(filter: ProxyFilter, page: u32, per_page: u32) -> Result<PaginatedProxies, String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.get_proxies(&filter, page, per_page) })
 }
 #[tauri::command]
 fn update_proxy(id: i64, input: ProxyInput) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.update_proxy(id, &input) })
 }
 #[tauri::command]
 fn block_proxy(id: i64, blocked: bool) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.block_proxy(id, blocked) })
 }
 #[tauri::command]
 fn delete_proxy(id: i64) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.delete_proxy(id) })
 }
 
 #[tauri::command]
 fn test_proxy_connection(host: String, port: u16) -> Result<bool, String> {
+    // Иначе любой вошедший пользователь мог бы сканировать порты изнутри сети,
+    // где стоит клиент: команда делает исходящее соединение по произвольному адресу.
+    require_perm(models::perms::MANAGE_PROXIES)?;
     use std::net::{TcpStream, ToSocketAddrs};
     let addr = format!("{}:{}", host, port);
     let addrs: Vec<_> = addr.to_socket_addrs().map_err(|e| e.to_string())?.collect();
@@ -731,38 +1036,52 @@ fn test_proxy_connection(host: String, port: u16) -> Result<bool, String> {
 
 #[tauri::command]
 fn create_shop(input: ShopInput) -> Result<Shop, String> {
+    // Оператор создаёт магазин на лету при оформлении заказа по позиции из
+    // каталога (Orders.jsx: selectShop → _fromCatalog), поэтому одного
+    // MANAGE_SHOPS здесь мало — иначе ломается основной сценарий работы.
+    require_any_perm(&[models::perms::MANAGE_SHOPS, models::perms::CREATE_ORDERS])?;
     with_db!(db, { db.create_shop(&input) })
 }
 #[tauri::command]
 fn get_shops(page: u32, per_page: u32, search: String) -> Result<PaginatedShops, String> {
+    // Только вход в систему: список магазинов — это справочник, он нужен для
+    // выбора при заказе, на страницах прокси и в самом разделе магазинов.
+    require_user()?;
     with_db!(db, { db.get_shops(page, per_page, &search) })
 }
 #[tauri::command]
 fn get_shop(id: i64) -> Result<ShopDetail, String> {
+    require_user()?;
     with_db!(db, { db.get_shop_detail(id) })
 }
 #[tauri::command]
 fn update_shop(id: i64, input: ShopInput) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.update_shop(id, &input) })
 }
 #[tauri::command]
 fn delete_shop(id: i64) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.delete_shop(id) })
 }
 #[tauri::command]
 fn add_shop_product(shop_id: i64, product: ProductInput) -> Result<Product, String> {
+    require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.add_shop_product(shop_id, &product) })
 }
 #[tauri::command]
 fn update_shop_product(id: i64, product: ProductInput) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.update_shop_product(id, &product) })
 }
 #[tauri::command]
 fn delete_shop_product(id: i64) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.delete_shop_product(id) })
 }
 #[tauri::command]
 fn get_shop_smart_suggestions(shop_id: i64, card_id: i64) -> Result<Vec<Suggestion>, String> {
+    require_user()?;
     with_db!(db, { db.get_shop_smart_suggestions(shop_id, card_id) })
 }
 
@@ -772,14 +1091,24 @@ fn get_shop_smart_suggestions(shop_id: i64, card_id: i64) -> Result<Vec<Suggesti
 
 #[tauri::command]
 fn create_order(input: OrderInput) -> Result<Order, String> {
+    require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, { db.create_order(&input) })
 }
+// ВНИМАНИЕ: право view_all_orders сейчас не может быть применено.
+// В таблице orders нет колонки владельца (см. _migrations.rs: orders), поэтому
+// разделения «свои заказы / все заказы» не существует — отфильтровать чужие
+// нечем. Ставим require_user(): это честный минимум, который закрывает доступ
+// без входа, но не притворяется, что право работает.
+// Чтобы включить право по-настоящему, нужна миграция: orders.created_by
+// + фильтр по нему в get_orders, когда права нет.
 #[tauri::command]
 fn get_orders(filter: OrderFilter, page: u32, per_page: u32) -> Result<PaginatedOrders, String> {
+    require_user()?;
     with_db!(db, { db.get_orders(&filter, page, per_page) })
 }
 #[tauri::command]
 fn get_order(id: i64) -> Result<OrderDetail, String> {
+    require_user()?;
     with_db!(db, { db.get_order(id) })
 }
 #[tauri::command]
@@ -791,12 +1120,25 @@ fn get_recent_orders_by_profile(profile_id: String, limit: u32) -> Result<Vec<Or
     with_db!(db, { db.get_recent_orders_by_profile(&profile_id, limit) })
 }
 #[tauri::command]
+fn get_recent_orders_by_card(card_id: i64, limit: u32) -> Result<Vec<Order>, String> {
+    with_db!(db, { db.get_recent_orders_by_card(card_id, limit) })
+}
+#[tauri::command]
 fn update_order_status(id: i64, status: String, meta: Option<StatusMeta>) -> Result<(), String> {
+    require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, { db.update_order_status(id, &status, meta.as_ref()) })
 }
 #[tauri::command]
 fn delete_order(id: i64) -> Result<(), String> {
+    // Удаление — необратимо и затрагивает чужие заказы (владельца у заказа нет),
+    // поэтому только админ, а не CREATE_ORDERS.
+    require_admin()?;
     with_db!(db, { db.delete_order(id) })
+}
+#[tauri::command]
+fn update_order_tracking(id: i64, tracking_number: Option<String>, carrier: Option<String>) -> Result<(), String> {
+    require_perm(models::perms::CREATE_ORDERS)?;
+    with_db!(db, { db.update_order_tracking(id, tracking_number.as_deref(), carrier.as_deref()) })
 }
 
 // FIX B02: различаем offline (нет токена/сети) и "сервер ответил — нет риска"
@@ -834,33 +1176,43 @@ fn get_order_templates(shop_tag: Option<String>) -> Result<Vec<OrderTemplate>, S
 }
 
 // Dashboard
+// Эти сводки агрегируют данные всех операторов (выручка, банки, страны),
+// поэтому закрыты правом view_stats_global. Оператор без него видит на
+// дашборде пустые панели — фронт грузит их через Promise.allSettled,
+// одиночный отказ не роняет страницу.
 #[tauri::command]
 fn get_dashboard_stats(period: String, from: Option<String>, to: Option<String>) -> Result<DashboardStats, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_dashboard_stats(&period, from.as_deref(), to.as_deref())
 }
 #[tauri::command]
 fn get_revenue_chart(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<RevenuePoint>, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_revenue_chart(&period, from.as_deref(), to.as_deref())
 }
 #[tauri::command]
 fn get_heatmap_data(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<HeatmapCell>, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_heatmap_data(&period, from.as_deref(), to.as_deref())
 }
 #[tauri::command]
 fn get_top_banks(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<BankStats>, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_top_banks(&period, from.as_deref(), to.as_deref())
 }
 #[tauri::command]
 fn get_by_country(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<CountryStats>, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_country(&period, from.as_deref(), to.as_deref())
 }
 #[tauri::command]
 fn get_by_source(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<SourceStats>, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_source(&period, from.as_deref(), to.as_deref())
 }
@@ -868,17 +1220,20 @@ fn get_by_source(period: String, from: Option<String>, to: Option<String>) -> Re
 // P2-DOMAIN: Statistics by domain
 #[tauri::command]
 fn get_by_domain(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<DomainStats>, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_domain(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
 fn get_expiring_cards_dashboard(days: u32) -> Result<Vec<ExpiringCard>, String> {
+    require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_expiring_cards_dashboard(days)
 }
 #[tauri::command]
 fn export_dashboard_csv(period: String, from: Option<String>, to: Option<String>) -> Result<String, String> {
+    require_perm(models::perms::EXPORT_DATA)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.export_dashboard_csv(&period, from.as_deref(), to.as_deref())
 }
@@ -899,26 +1254,32 @@ fn get_shop_win_loss() -> Result<Vec<models::ShopWinLoss>, String> {
 // IMAP
 #[tauri::command]
 fn add_imap_account(input: ImapInput) -> Result<ImapAccount, String> {
+    require_user()?;
     with_db!(db, { db.add_imap_account(&input) })
 }
 #[tauri::command]
 fn get_imap_accounts() -> Result<Vec<ImapAccount>, String> {
+    require_user()?;
     with_db!(db, { db.get_imap_accounts() })
 }
 #[tauri::command]
 fn update_imap_account(id: i64, input: ImapInput) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.update_imap_account(id, &input) })
 }
 #[tauri::command]
 fn delete_imap_account(id: i64) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.delete_imap_account(id) })
 }
 #[tauri::command]
 fn toggle_imap_account(id: i64, active: bool) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.toggle_imap_account(id, active) })
 }
 #[tauri::command]
 fn get_imap_messages(filter: ImapMsgFilter, page: u32) -> Result<PaginatedMessages, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_imap_messages(&filter, page, 50)
 }
@@ -926,6 +1287,7 @@ fn get_imap_messages(filter: ImapMsgFilter, page: u32) -> Result<PaginatedMessag
 /// Progress events: imap_check_progress { account_id, account_label, messages, orders, error? }
 #[tauri::command]
 fn imap_check_all(app_handle: tauri::AppHandle) -> Result<ImapCheckResult, String> {
+    require_user()?;
     let accounts: Vec<_> = {
         let guard = state().db.lock().map_err(|e| e.to_string())?;
         guard.get_imap_accounts()?.into_iter().filter(|a| a.is_active).collect()
@@ -996,15 +1358,18 @@ fn imap_check_all(app_handle: tauri::AppHandle) -> Result<ImapCheckResult, Strin
 }
 #[tauri::command]
 fn test_imap_connection(id: i64) -> Result<String, String> {
+    require_user()?;
     let (acc, pw) = with_db!(db, { db.get_imap_account_with_password(id) })?;
     imap::ImapPoller::test_connection(&acc.host, acc.port as u16, &acc.login, &pw)
 }
 #[tauri::command]
 fn link_all_imap_accounts() -> Result<u32, String> {
+    require_user()?;
     with_db!(db, { db.link_all_imap_to_email_pool() })
 }
 #[tauri::command]
 fn link_email_to_imap(email_id: i64, imap_account_id: Option<i64>) -> Result<(), String> {
+    require_user()?;
     with_db!(db, {
         db.conn.execute("UPDATE email_pool SET imap_account_id=?1 WHERE id=?2",
             rusqlite::params![imap_account_id, email_id]).map_err(|e| e.to_string())?;
@@ -1018,6 +1383,7 @@ fn link_email_to_imap(email_id: i64, imap_account_id: Option<i64>) -> Result<(),
 /// Emits imap_folders_refreshed { account_id, folders } when background fetch completes.
 #[tauri::command]
 fn list_imap_folders(account_id: i64, app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
+    require_user()?;
     let cached = {
         let guard = state().db.lock().map_err(|e| e.to_string())?;
         guard.get_cached_imap_folders(account_id)
@@ -1044,6 +1410,7 @@ fn list_imap_folders(account_id: i64, app_handle: tauri::AppHandle) -> Result<Ve
 }
 #[tauri::command]
 fn get_imap_account_stats(account_id: i64) -> Result<ImapAccountStats, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_imap_account_stats(account_id)
 }
@@ -1051,6 +1418,7 @@ fn get_imap_account_stats(account_id: i64) -> Result<ImapAccountStats, String> {
 /// Call refresh_folder_from_imap() separately to trigger background server fetch.
 #[tauri::command]
 fn get_folder_messages(account_id: i64, folder: String, page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_imap_folder_messages(account_id, &folder, page, 30, search.as_deref())
 }
@@ -1060,6 +1428,7 @@ fn get_folder_messages(account_id: i64, folder: String, page: u32, search: Optio
 /// Returns immediately — never blocks the UI.
 #[tauri::command]
 fn refresh_folder_from_imap(account_id: i64, folder: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+    require_user()?;
     let (acc, pw) = {
         let g = state().db.lock().map_err(|e| e.to_string())?;
         match g.get_imap_account_with_password(account_id) {
@@ -1105,42 +1474,51 @@ fn refresh_folder_from_imap(account_id: i64, folder: String, app_handle: tauri::
 /// Unified inbox: all accounts' INBOX messages sorted newest first.
 #[tauri::command]
 fn get_unified_inbox(page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_all_inbox_messages(page, 30, search.as_deref())
 }
 #[tauri::command]
 fn archive_imap_message(account_id: i64, message_id: i64) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.archive_imap_message(message_id) })
 }
 #[tauri::command]
 fn get_imap_message_body(account_id: i64, message_id: i64) -> Result<String, String> {
+    require_user()?;
     with_db!(db, { imap::get_message_body_from_server(db, account_id, message_id) })
 }
 #[tauri::command]
 fn mark_imap_message_read(account_id: i64, message_id: i64) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { imap::mark_message_read_on_server(db, account_id, message_id) })
 }
 #[tauri::command]
 fn delete_imap_message(account_id: i64, message_id: i64) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.delete_imap_message(message_id) })
 }
 
 // SMTP
 #[tauri::command]
 fn add_smtp_config(input: SmtpConfigInput) -> Result<SmtpConfig, String> {
+    require_user()?;
     with_db!(db, { db.add_smtp_config(&input) })
 }
 #[tauri::command]
 fn get_smtp_configs() -> Result<Vec<SmtpConfig>, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_smtp_configs()
 }
 #[tauri::command]
 fn delete_smtp_config(id: i64) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.delete_smtp_config(id) })
 }
 #[tauri::command]
 fn test_smtp_connection(id: i64) -> Result<String, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     let cfg = guard.get_smtp_configs()?.into_iter().find(|c| c.id == id)
         .ok_or_else(|| "smtp_config_not_found".to_string())?;
@@ -1150,11 +1528,13 @@ fn test_smtp_connection(id: i64) -> Result<String, String> {
 }
 #[tauri::command]
 fn send_email(smtp_config_id: i64, to: String, subject: String, body: String) -> Result<(), String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     smtp::EmailSender::send(&*guard, smtp_config_id, &to, &subject, &body)
 }
 #[tauri::command]
 fn get_sent_emails(page: u32) -> Result<PaginatedSentEmails, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_sent_emails(page, 50)
 }
@@ -1162,25 +1542,33 @@ fn get_sent_emails(page: u32) -> Result<PaginatedSentEmails, String> {
 // Activity Log
 #[tauri::command]
 fn get_activity_log(filter: LogFilter, page: u32) -> Result<PaginatedLog, String> {
+    require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_activity_log(&filter, page, 100)
 }
 #[tauri::command]
 fn clear_activity_log() -> Result<(), String> {
+    // Очистка журнала стирает следы действий — сюда же пишутся
+    // security.reveal_denied и прочие события безопасности. Оператор,
+    // способный чистить аудит, обнуляет смысл аудита. Только админ.
+    require_admin()?;
     with_db!(db, { db.clear_activity_log() })
 }
 
 // Sync
 #[tauri::command]
 fn get_unsynced_footprints() -> Result<Vec<Footprint>, String> {
+    require_user()?;
     with_db!(db, { db.get_unsynced_footprints_db() })
 }
 #[tauri::command]
 fn mark_footprints_synced(ids: Vec<i64>) -> Result<(), String> {
+    require_user()?;
     with_db!(db, { db.mark_footprints_synced_db(&ids) })
 }
 #[tauri::command]
 fn sync_now() -> Result<SyncResult, String> {
+    require_user()?;
     with_db!(db, { sync::SyncClient::sync_footprints(db) })
 }
 
@@ -1199,6 +1587,16 @@ fn get_server_version() -> Result<Option<serde_json::Value>, String> {
 // FIX B49: get_config/set_config с whitelist
 #[tauri::command]
 fn get_config(key: String) -> Result<Option<String>, String> {
+    // `<secret>_set` отдаёт только факт наличия ключа, но не сам ключ.
+    if let Some(secret_key) = secret_flag_target(&key) {
+        return with_db!(db, {
+            let present = db
+                .get_config(secret_key)
+                .map_err(|e| e.to_string())?
+                .is_some_and(|v| !v.is_empty());
+            Ok(Some(if present { "1".to_string() } else { "0".to_string() }))
+        });
+    }
     if !is_config_readable(&key) {
         return Err(format!("config_key_not_allowed: {}", key));
     }
@@ -1206,15 +1604,148 @@ fn get_config(key: String) -> Result<Option<String>, String> {
 }
 #[tauri::command]
 fn set_config(key: String, value: String) -> Result<(), String> {
+    // Вход обязателен: whitelist ограничивает *какие* ключи можно писать, но не
+    // *кому*. Без этого настройки менялись бы и на заблокированном приложении.
+    // get_config намеренно остаётся без проверки — App.jsx:1218 читает
+    // always_on_top до resumeSession(), то есть до появления пользователя.
+    require_user()?;
     if !is_config_writable(&key) {
         return Err(format!("config_key_not_allowed: {}", key));
     }
     with_db!(db, { db.set_config(&key, &value).map_err(|e| e.to_string()) })
 }
 
+// ─────────────────────────────────────────
+//  Stuffer API integration
+// ─────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+struct StufferConfigView {
+    api_key_set: bool,
+    base_url: String,
+}
+
+/// Считать (base_url, api_key) из config коротким локом БД.
+/// HTTP-вызовы делаются уже вне лока, чтобы не держать мьютекс во время сети.
+fn stuffer_creds() -> Result<(String, String), String> {
+    with_db!(db, {
+        let api_key = db
+            .get_config("stuffer_api_key")
+            .map_err(|e| e.to_string())?
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| "stuffer_not_configured".to_string())?;
+        let base_url = db
+            .get_config("stuffer_base_url")
+            .map_err(|e| e.to_string())?
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| stuffer::DEFAULT_BASE_URL.to_string());
+        Ok((base_url, api_key))
+    })
+}
+
+#[tauri::command]
+fn stuffer_get_config() -> Result<StufferConfigView, String> {
+    with_db!(db, {
+        let api_key_set = db
+            .get_config("stuffer_api_key")
+            .map_err(|e| e.to_string())?
+            .map(|s| !s.is_empty())
+            .unwrap_or(false);
+        let base_url = db
+            .get_config("stuffer_base_url")
+            .map_err(|e| e.to_string())?
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| stuffer::DEFAULT_BASE_URL.to_string());
+        Ok(StufferConfigView { api_key_set, base_url })
+    })
+}
+
+#[tauri::command]
+fn stuffer_set_config(api_key: Option<String>, base_url: String) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_COURIERS)?;
+    with_db!(db, {
+        let base = if base_url.trim().is_empty() {
+            stuffer::DEFAULT_BASE_URL.to_string()
+        } else {
+            base_url.trim().to_string()
+        };
+        db.set_config("stuffer_base_url", &base).map_err(|e| e.to_string())?;
+        // Пустой api_key => не трогаем сохранённый ключ (поле оставили пустым).
+        if let Some(key) = api_key {
+            if !key.trim().is_empty() {
+                db.set_config("stuffer_api_key", key.trim()).map_err(|e| e.to_string())?;
+            }
+        }
+        db.log_event("stuffer.config_updated", "Stuffer API config saved", Some("stuffer"), None)?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+fn stuffer_list_couriers() -> Result<Vec<stuffer::CourierFull>, String> {
+    require_perm(models::perms::VIEW_COURIERS)?;
+    let (base_url, api_key) = stuffer_creds()?;
+    stuffer::list_couriers(&base_url, &api_key)
+}
+
+#[tauri::command]
+fn stuffer_list_available_couriers() -> Result<Vec<stuffer::CourierAvailable>, String> {
+    require_perm(models::perms::VIEW_COURIERS)?;
+    let (base_url, api_key) = stuffer_creds()?;
+    stuffer::list_available_couriers(&base_url, &api_key)
+}
+
+#[tauri::command]
+fn stuffer_add_courier(courier_id: i64) -> Result<stuffer::CourierFull, String> {
+    require_perm(models::perms::MANAGE_COURIERS)?;
+    let (base_url, api_key) = stuffer_creds()?;
+    let courier = stuffer::add_courier(&base_url, &api_key, courier_id)?;
+    with_db!(db, {
+        let _ = db.log_event(
+            "stuffer.courier_added",
+            &format!("Courier {} added", courier_id),
+            Some("stuffer"),
+            Some(&courier_id.to_string()),
+        );
+    });
+    Ok(courier)
+}
+
+#[tauri::command]
+fn stuffer_list_packages() -> Result<Vec<stuffer::Package>, String> {
+    require_perm(models::perms::VIEW_PACKAGES)?;
+    let (base_url, api_key) = stuffer_creds()?;
+    stuffer::list_packages(&base_url, &api_key)
+}
+
+#[tauri::command]
+fn stuffer_get_labels(package_id: i64) -> Result<Vec<stuffer::LabelFile>, String> {
+    require_perm(models::perms::VIEW_PACKAGES)?;
+    let (base_url, api_key) = stuffer_creds()?;
+    stuffer::get_labels(&base_url, &api_key, package_id)
+}
+
+#[tauri::command]
+fn stuffer_create_package(package: stuffer::PackageInput) -> Result<i64, String> {
+    require_perm(models::perms::CREATE_PACKAGES)?;
+    let (base_url, api_key) = stuffer_creds()?;
+    let package_id = stuffer::create_package(&base_url, &api_key, &package)?;
+    with_db!(db, {
+        let _ = db.log_event(
+            "stuffer.package_created",
+            &format!("Package {} created", package_id),
+            Some("stuffer"),
+            Some(&package_id.to_string()),
+        );
+    });
+    Ok(package_id)
+}
+
 // FIX B29: export_backup использует единую backup_dir()
 #[tauri::command]
 fn export_backup() -> Result<String, String> {
+    // Бэкап — это вся база одним файлом, то есть полный обход любых прав.
+    require_admin()?;
     let bdir = backup_dir();
     std::fs::create_dir_all(&bdir).map_err(|e| e.to_string())?;
     let now = chrono::Local::now().format("%Y%m%d_%H%M%S");
@@ -1243,7 +1774,7 @@ fn import_backup(path: String) -> Result<(), String> {
         .map_err(|e| format!("invalid_path: {}", e))?;
 
     // Get the app data directory to validate the backup is from a trusted location
-    let app_data_dir = std::env::var("CC_MANAGER_BACKUP_DIR")
+    let app_data_dir = std::env::var("vaultbase_BACKUP_DIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
             // Default to user's Downloads or Documents folder as fallback
@@ -1869,8 +2400,7 @@ fn sync_create_group(name: String, app: tauri::AppHandle) -> Result<SyncGroupInf
     // Refresh WS creds with new group
     if let Some(h) = WS_HANDLE.get() {
         h.set_creds(token, Some(info.group_id.clone()));
-        let db_p = db_path().to_str().unwrap_or("cc_manager.db").to_string();
-        ws_sync::start(app, db_p, h.clone());
+        ws_sync::start(app, h.clone());
     }
     Ok(info)
 }
@@ -1896,8 +2426,7 @@ fn sync_join_group(pair_code: String, app: tauri::AppHandle) -> Result<SyncGroup
     })?;
     if let Some(h) = WS_HANDLE.get() {
         h.set_creds(token, Some(info.group_id.clone()));
-        let db_p = db_path().to_str().unwrap_or("cc_manager.db").to_string();
-        ws_sync::start(app, db_p, h.clone());
+        ws_sync::start(app, h.clone());
     }
     Ok(info)
 }
@@ -2016,6 +2545,7 @@ fn get_proxy_usage_stats() -> Result<Vec<ProxyUsageStat>, String> {
 // E3: Batch Order Creator
 #[tauri::command]
 fn batch_create_orders(orders: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
+    require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, {
         let (ok, fail) = db.batch_create_orders(&orders)?;
         Ok(serde_json::json!({ "created": ok, "failed": fail }))
@@ -2025,10 +2555,12 @@ fn batch_create_orders(orders: Vec<serde_json::Value>) -> Result<serde_json::Val
 // G2: Proxy-Shop Binding commands
 #[tauri::command]
 fn set_proxy_shop_binding(proxy_id: i64, shop_id: i64) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.set_proxy_shop_binding(proxy_id, shop_id) })
 }
 #[tauri::command]
 fn remove_proxy_shop_binding(shop_id: i64) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.remove_proxy_shop_binding(shop_id) })
 }
 #[tauri::command]
@@ -2157,14 +2689,14 @@ pub fn get_config_internal(key: &str) -> Result<Option<String>, String> {
 // ─────────────────────────────────────────
 
 fn sync_catalog_from_server(app: &tauri::AppHandle) -> Result<(), String> {
-    const BASE: &str = "https://api.eulivehub.com";
+    let base = endpoints::server_base();
     const PER_PAGE: u32 = 100;
 
     // Fetch all item pages
     let mut total_items = 0usize;
     let mut page = 1u32;
     loop {
-        let url = format!("{}/api/catalog/items?per_page={}&page={}", BASE, PER_PAGE, page);
+        let url = format!("{}/api/catalog/items?per_page={}&page={}", base, PER_PAGE, page);
         match ureq::get(&url).timeout(std::time::Duration::from_secs(30)).call() {
             Ok(resp) => {
                 match resp.into_json::<serde_json::Value>() {
@@ -2211,7 +2743,7 @@ fn sync_catalog_from_server(app: &tauri::AppHandle) -> Result<(), String> {
     // Fetch all shop pages
     page = 1;
     loop {
-        let url = format!("{}/api/catalog/shops?per_page={}&page={}", BASE, PER_PAGE, page);
+        let url = format!("{}/api/catalog/shops?per_page={}&page={}", base, PER_PAGE, page);
         match ureq::get(&url).timeout(std::time::Duration::from_secs(30)).call() {
             Ok(resp) => {
                 match resp.into_json::<serde_json::Value>() {
@@ -2256,11 +2788,14 @@ fn sync_catalog_from_server(app: &tauri::AppHandle) -> Result<(), String> {
 
 fn main() {
     let db_p = db_path();
-    let db_path_str = db_p.to_str().unwrap_or("cc_manager.db").to_string();
+    let db_path_str = db_p.to_str().unwrap_or("vaultbase.db").to_string();
     let db = Database::open(&db_path_str).expect("Failed to open database");
+    // Создаём дефолтного admin если пользователей ещё нет
+    let _ = db.ensure_admin_exists();
     STATE.set(AppState {
         db: Mutex::new(db),
-        is_locked: AtomicBool::new(true),  // FIX B-MED-05: Изначально заблокировано (до unlock)
+        is_locked: AtomicBool::new(true),
+        current_user: Mutex::new(None),
     }).unwrap_or_else(|_| panic!("Failed to set AppState"));
 
     // Init WS sync handle (not started yet — starts after unlock)
@@ -2269,8 +2804,6 @@ fn main() {
         creds:   ws_sync::new_credentials(),
     });
     WS_HANDLE.set(ws_h).unwrap_or_else(|_| panic!("Failed to set WsSyncHandle"));
-
-    let db_path_for_ws = db_path_str.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -2302,6 +2835,12 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            user_login, try_auto_login, user_logout, get_current_user, resume_session,
+            get_users, create_user, update_user_cmd, delete_user_cmd,
+            set_user_password_cmd, get_user_with_permissions,
+            set_user_permission_cmd, reset_user_permissions_cmd,
+            get_users_stats, get_user_period_stats, get_user_activity_log,
+            get_admin_overview, take_card, transfer_card_cmd, get_my_card_assignments,
             setup_password, is_password_set, unlock, lock, change_password, is_locked,
             detect_mapping_preview,
             import_cards, get_cards, get_card, get_card_filter_meta, reveal_card,
@@ -2316,7 +2855,7 @@ fn main() {
             add_proxy, import_proxies, get_proxies, update_proxy, block_proxy, delete_proxy, test_proxy_connection,
             create_shop, get_shops, get_shop, update_shop, delete_shop,
             add_shop_product, update_shop_product, delete_shop_product, get_shop_smart_suggestions,
-            create_order, get_orders, get_order, get_latest_order_by_profile, get_recent_orders_by_profile, update_order_status, delete_order,
+            create_order, get_orders, get_order, get_latest_order_by_profile, get_recent_orders_by_profile, get_recent_orders_by_card, update_order_status, delete_order, update_order_tracking,
             run_risk_check, save_order_template, get_order_templates,
             get_unsynced_footprints, mark_footprints_synced, sync_now,
             get_dashboard_stats, get_revenue_chart, get_heatmap_data, get_top_banks,
@@ -2333,6 +2872,9 @@ fn main() {
             test_smtp_connection, send_email, get_sent_emails,
             get_activity_log, clear_activity_log,
             get_config, set_config, export_backup, import_backup,
+            stuffer_get_config, stuffer_set_config,
+            stuffer_list_couriers, stuffer_list_available_couriers, stuffer_add_courier,
+            stuffer_list_packages, stuffer_get_labels, stuffer_create_package,
             get_installation_id, get_challenge_code, activate_license,
             get_license_status, retry_license_connection,
             global_search, open_float_window, open_main_window_page, get_server_version, get_app_version,

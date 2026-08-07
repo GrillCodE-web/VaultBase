@@ -5,7 +5,9 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
+import { useDebounce } from '../hooks/useDebounce.js'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
+import { EmptyState } from '../components/EmptyState.jsx'
 import { getDeliveryRateColor, getRiskColor, STATUS_COLORS } from '../constants/colors.js'
 import { ORDER_STATUS_COLORS } from '../constants/status.js'
 import { SHOP_FLAGS, getActiveShopFlags } from '../constants/shops.js'
@@ -21,7 +23,10 @@ function ShopRiskBadge({ shopId }) {
     // FIX FE-H05: Log shop risk score errors instead of silently ignoring
     invoke('get_shop_risk_score', { shopId })
       .then(setRisk)
-      .catch(e => console.error('[Shops] Failed to get shop risk score:', e))
+      .catch(e => {
+        if (import.meta.env.DEV) console.error('[Shops] Failed to get shop risk score:', e)
+        setRisk(null)
+      })
   }, [shopId])
   if (!risk) return <span className="text-muted">—</span>
   const riskConfig = getRiskColor(risk.risk_level)
@@ -721,7 +726,8 @@ export default function ShopList({ onNavigate }) {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const search = useDebounce(searchInput, 300)
   const [expanded, setExpanded] = useState(null)
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(new Set())
@@ -762,7 +768,7 @@ export default function ShopList({ onNavigate }) {
   )
 
   useEffect(() => {
-    load()
+    load(1, search)
     // FIX FE-H05: Log shop win/loss errors instead of silently ignoring
     invoke('get_shop_win_loss')
       .then(rows => {
@@ -774,7 +780,7 @@ export default function ShopList({ onNavigate }) {
       })
       .catch(e => console.error('[Shops] Failed to get shop win/loss:', e))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Intentional: only run on mount, load is stable
+  }, [search]) // Reload when debounced search changes
 
   const handleCreate = async form => {
     await invoke('create_shop', { input: form })
@@ -840,9 +846,9 @@ export default function ShopList({ onNavigate }) {
       <div className="filters">
         <input
           className="search-box w-[260px]"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && load(1, search)}
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && load(1, searchInput)}
           placeholder={t('shops_search_placeholder')}
         />
 
@@ -911,12 +917,23 @@ export default function ShopList({ onNavigate }) {
           </table>
         </div>
       ) : shops.length === 0 ? (
-        <div className="panel text-center p-12">
-          <Store size={36} className="mb-3 mx-auto opacity-20" />
-          <p className="text-muted text-[13px] mb-[14px]">{t('no_shops')}</p>
-          <button onClick={() => setModal('new')} className="btn btn-b">
-            + Add your first shop
-          </button>
+        <div className="panel p-0">
+          <EmptyState
+            icon={<Store size={38} />}
+            title={t('no_shops')}
+            subtitle={
+              search
+                ? t('shops_search_no_results') || 'No shops match your search'
+                : t('shops_add_first') || 'Add your first shop to get started'
+            }
+            action={
+              !search && (
+                <button onClick={() => setModal('new')} className="btn btn-b">
+                  + {t('new_shop')}
+                </button>
+              )
+            }
+          />
         </div>
       ) : useVirtual ? (
         <div className="panel p-0 overflow-x-auto">

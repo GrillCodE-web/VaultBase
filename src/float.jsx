@@ -117,9 +117,6 @@ function ProfileFloat() {
   const [showQuickOrder, setShowQuickOrder] = useState(false)
   const [quickUrl, setQuickUrl] = useState('')
   const autoCopiedRef = useRef(false)
-  const [floatWidth, setFloatWidth] = useState(() => {
-    return parseInt(localStorage.getItem('float_width') || '380', 10)
-  })
 
   // ── Load profile data ──────────────────────────────────────
   // FIX FE-01: Added AbortController to prevent race conditions and state updates after unmount
@@ -206,29 +203,6 @@ function ProfileFloat() {
     }
   }, [])
 
-  // ── F5: Save float width to localStorage with debounce ─────
-  useEffect(() => {
-    const t = setTimeout(() => localStorage.setItem('float_width', String(floatWidth)), 300)
-    return () => clearTimeout(t)
-  }, [floatWidth])
-
-  // ── F5: Resize handle mouse handler ────────────────────────
-  const handleResizeStart = e => {
-    e.preventDefault()
-    const startX = e.clientX
-    const startW = floatWidth
-    const onMove = ev => {
-      const newW = Math.max(340, Math.min(600, startW - (ev.clientX - startX)))
-      setFloatWidth(newW)
-    }
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }
-
   // ── F4: Auto-copy billing address on tab switch ────────────
   useEffect(() => {
     if (tab === 'billing' && card && !autoCopiedRef.current) {
@@ -288,20 +262,19 @@ function ProfileFloat() {
   }
 
   return (
-    <div className="float-window" style={{ width: floatWidth }}>
-      {/* F5: Resize handle — left edge drag */}
-      <div onMouseDown={handleResizeStart} className="float-resize-handle cursor-grab" />
-
-      {/* ── Header ── */}
-      <div className="float-header">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="font-semibold text-[13px]">
+    <div className="float-window">
+      {/* Шапка тянет окно; интерактивные элементы внутри
+          помечены data-tauri-drag-region="false", иначе
+          перетаскивание съедает по ним клики. */}
+      <div className="float-header" data-tauri-drag-region>
+        <div className="flex items-center justify-between" data-tauri-drag-region>
+          <div data-tauri-drag-region>
+            <span className="font-semibold text-[13px]" data-tauri-drag-region>
               {profile.holder_name || t('section_card')}
             </span>
-            {card && <span className="text-muted ml-8 text-[11px]">••{card.last4}</span>}
+            {card && <span className="text-muted ml-2 text-[11px]">••{card.last4}</span>}
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6" data-tauri-drag-region="false">
             <RiskBadge level={profile.risk_level} />
             {card && (
               <span className={`st ${card.status === 'free' ? 'st-free' : 'st-archive'}`}>
@@ -428,7 +401,7 @@ function ProfileFloat() {
               </button>
             </>
           ) : (
-            <div className="text-center text-muted mt-30 text-[12px]">
+            <div className="text-center text-muted mt-8 text-[12px]">
               No drop address configured
             </div>
           ))}
@@ -491,7 +464,7 @@ function ProfileFloat() {
               </div>
             )}
             {recentOrders.length === 0 ? (
-              <div className="text-center text-muted mt-30 text-[12px]">No orders yet</div>
+              <div className="text-center text-muted mt-8 text-[12px]">No orders yet</div>
             ) : (
               <div className="flex flex-col gap-6">
                 {recentOrders.map(order => (

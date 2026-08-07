@@ -7,8 +7,10 @@ use sha2::{Digest, Sha256};
 use aes_gcm::aead::rand_core::RngCore;
 use aes_gcm::aead::OsRng;
 
-const ACTIVATE_URL: &str = "https://api.eulivehub.com/activate";
-const VERIFY_URL: &str = "https://api.eulivehub.com/verify";
+// Адрес сервера задаётся в одном месте — crate::endpoints. Раньше он был вшит
+// здесь двумя константами, и сменить домен без пересборки было нельзя.
+fn activate_url() -> String { crate::endpoints::endpoint("/activate") }
+fn verify_url() -> String { crate::endpoints::endpoint("/verify") }
 
 // ─────────────────────────────────────────────
 // Types
@@ -33,6 +35,8 @@ struct ActivateRequest<'a> {
 #[derive(Debug, Deserialize)]
 struct ActivateResponse {
     token: String,
+    #[serde(default)]
+    role: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,6 +47,24 @@ struct VerifyRequest {
 #[derive(Debug, Deserialize)]
 struct VerifyResponse {
     valid: bool,
+    #[serde(default)]
+    role: Option<String>,
+}
+
+/// Нормализует роль из ответа сервера: только admin/operator.
+fn normalize_role(role: Option<&str>) -> Option<&'static str> {
+    match role {
+        Some("admin") => Some("admin"),
+        Some("operator") => Some("operator"),
+        _ => None,
+    }
+}
+
+/// Сохраняет роль лицензии в конфиг (применяется при автовходе).
+fn store_license_role(db: &Database, role: Option<&str>) {
+    if let Some(r) = normalize_role(role) {
+        let _ = db.set_config("license_role", r);
+    }
 }
 
 // ─────────────────────────────────────────────
@@ -66,7 +88,15 @@ pub fn get_or_create_installation_id(db: &Database) -> Result<String, String> {
 
 /// FIX CRY-05: Use full 32 hex characters (128 bits) instead of 16 (64 bits)
 /// FIX CRY-06: Add random component to prevent time-based prediction attacks
-pub fn format_as_challenge(installation_id: &str) -> String {
+///
+/// ВНИМАНИЕ: функция недетерминированная — каждый вызов даёт НОВЫЙ код
+/// (случайный nonce + текущий час). Напрямую её вызывать нельзя: сервер ищет
+/// лицензию по паре (installation_id, challenge), и если при активации
+/// сгенерировать challenge заново, он не совпадёт с тем, который пользователь
+/// показал администратору, — активация вернёт 404 not_found.
+/// Используйте `get_challenge_code`, который генерирует код один раз и
+/// запоминает его в конфиге.
+fn generate_challenge(installation_id: &str) -> String {
     // Use current time component (hour) for time-binding
     let epoch_hour = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -92,10 +122,23 @@ pub fn format_as_challenge(installation_id: &str) -> String {
     format!("{}-{}-{}-{}", &raw[0..8], &raw[8..16], &raw[16..24], &raw[24..32])
 }
 
-// Convenience wrapper used by `get_challenge_code` command
+/// Код активации для показа пользователю.
+///
+/// Генерируется ОДИН раз на установку и сохраняется в конфиг: администратор
+/// заводит лицензию именно под этот код, и при активации должен уйти он же.
+/// Раньше код генерировался заново на каждый вызов (случайный nonce внутри),
+/// поэтому показанный пользователю код и отправленный на сервер никогда не
+/// совпадали — сервер отвечал 404 not_found и активация была невозможна.
 pub fn get_challenge_code(db: &Database) -> Result<String, String> {
+    if let Some(saved) = db.get_config("activation_challenge").map_err(|e| e.to_string())? {
+        if !saved.is_empty() {
+            return Ok(saved);
+        }
+    }
     let id = get_or_create_installation_id(db)?;
-    Ok(format_as_challenge(&id))
+    let challenge = generate_challenge(&id);
+    db.set_config("activation_challenge", &challenge).map_err(|e| e.to_string())?;
+    Ok(challenge)
 }
 
 // ─────────────────────────────────────────────
@@ -104,7 +147,12 @@ pub fn get_challenge_code(db: &Database) -> Result<String, String> {
 
 pub fn activate(db: &Database, activation_key: &str) -> Result<(), String> {
     let installation_id = get_or_create_installation_id(db)?;
-    let challenge = format_as_challenge(&installation_id);
+    // Именно get_challenge_code, а не generate_challenge: нужен ТОТ ЖЕ код,
+    // который пользователь показал администратору. Здесь раньше вызывалась
+    // generate_challenge — она создаёт новый случайный код на каждый вызов,
+    // поэтому пара (installation_id, challenge) не находилась в БД и сервер
+    // отвечал `server_error_404`.
+    let challenge = get_challenge_code(db)?;
 
     let body = ActivateRequest {
         installation_id: &installation_id,
@@ -112,7 +160,7 @@ pub fn activate(db: &Database, activation_key: &str) -> Result<(), String> {
         activation_key,
     };
 
-    let resp = ureq::post(ACTIVATE_URL)
+    let resp = ureq::post(&activate_url())
         .set("Content-Type", "application/json")
         .send_json(serde_json::to_value(&body).map_err(|e| e.to_string())?)
         .map_err(|e| match e {
@@ -134,6 +182,7 @@ pub fn activate(db: &Database, activation_key: &str) -> Result<(), String> {
     };
 
     db.set_config("license_token", &token_to_store).map_err(|e| e.to_string())?;
+    store_license_role(db, activate_resp.role.as_deref());
     db.log_event("system.activated", "License activated", Some("system"), None)
         .map_err(|e| e.to_string())?;
 
@@ -164,7 +213,7 @@ pub fn verify_at_startup(db: &Database) -> Result<LicenseStatus, String> {
             None => raw_token,
         };
 
-        do_verify(token)
+        do_verify(db, token)
     }
 }
 
@@ -173,10 +222,10 @@ pub fn retry_verify(db: &Database) -> Result<LicenseStatus, String> {
     verify_at_startup(db)
 }
 
-fn do_verify(token: String) -> Result<LicenseStatus, String> {
+fn do_verify(db: &Database, token: String) -> Result<LicenseStatus, String> {
     let body = VerifyRequest { token };
 
-    match ureq::post(VERIFY_URL)
+    match ureq::post(&verify_url())
         .set("Content-Type", "application/json")
         .send_json(serde_json::to_value(&body).map_err(|e| e.to_string())?)
     {
@@ -186,6 +235,7 @@ fn do_verify(token: String) -> Result<LicenseStatus, String> {
                 .map_err(|_| "invalid_server_response".to_string())?;
 
             if verify_resp.valid {
+                store_license_role(db, verify_resp.role.as_deref());
                 Ok(LicenseStatus::Active)
             } else {
                 Ok(LicenseStatus::Revoked)

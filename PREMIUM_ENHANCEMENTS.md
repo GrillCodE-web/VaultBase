@@ -1,23 +1,29 @@
-# Premium Enhancements — CC Manager
+# Premium Enhancements — VaultBase
 
-Документация по премиум-компонентам и утилитам для CC Manager.
+Документация по премиум-компонентам и утилитам для VaultBase.
 
 ---
 
 ## 🎨 Design System
 
-### Цветовая схема
+> Актуальная палитра — «native macOS». Токены заданы в
+> `src/styles/tokens-redesign.css` (есть светлая и тёмная темы). Старая cyber-палитра
+> (`#00d9ff` и т.п.) выведена из употребления; остаточные хардкоды вычищаются в рамках
+> редизайна UI (см. ROADMAP.md).
 
-- **Accent**: `#00d9ff` (cyan) — основной акцентный цвет
-- **Purple**: `#a855f7` — вторичный акцент
-- **Green**: `#14f195` — успех/позитив
-- **Red**: `#ef4444` — ошибки/негатив
-- **Background**: `#0d1117` — основной фон
+### Цветовая схема (значения из tokens-redesign.css)
+
+- **Accent**: `#0a84ff` (system blue) — основной акцентный цвет
+- **Purple**: `#af52de` — вторичный акцент
+- **Green**: `#28cd41` — успех/позитив
+- **Red**: `#ff3b30` — ошибки/негатив
+- **Background (dark)**: `#1e1e1e` / surface `#252527`
+- **Background (light)**: `#ececec` / surface `#f5f5f7`
 
 ### Типографика
 
-- **Rajdhani** — заголовки (cyber-terminal стиль)
-- **Manrope** — основной текст
+- **Системный шрифт ОС** (San Francisco / Segoe UI / system-ui) — заголовки и текст.
+  Google Fonts блокируются CSP намеренно; приложение использует нативный системный шрифт.
 - **JetBrains Mono** — код, числовые данные
 
 ---

@@ -92,15 +92,20 @@ function ItemsTab() {
   )
 
   useEffect(() => {
+    let isMounted = true
     load(1, '')
+
     // Real-time: refresh when a new catalog item arrives via WebSocket
-    // ★ Insight: Используем ref для актуальных page/search чтобы избежать stale closure
-    const unlisten = listen('catalog_item_added', () => {
-      load() // load() использует текущие значения из ref
+    let unlistenFn = null
+    listen('catalog_item_added', () => {
+      if (isMounted) load()
+    }).then(fn => {
+      if (isMounted) unlistenFn = fn
     })
+
     return () => {
-      unlisten.then(fn => fn())
-      // ★ Insight: Cleanup timer при unmount предотвращает memory leak
+      isMounted = false
+      unlistenFn?.()
       clearTimeout(searchTimer.current)
     }
   }, [load])

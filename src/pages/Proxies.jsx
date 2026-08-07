@@ -91,7 +91,7 @@ function UsageStatsModal({ onClose }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [toast])
 
   const rateColor = rate => getDeliveryRateColor(rate)
 

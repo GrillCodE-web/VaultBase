@@ -8,11 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
 CONF="src-tauri/tauri.conf.json"
-KEY_FILE="$HOME/.tauri/cc-manager.key"
-KEY_PUB_FILE="$HOME/.tauri/cc-manager.key.pub"
+KEY_FILE="$HOME/.tauri/vaultbase.key"
+KEY_PUB_FILE="$HOME/.tauri/vaultbase.key.pub"
 
 echo "════════════════════════════════════════"
-echo "  CC Manager — Tauri Build + Sign"
+echo "  VaultBase — Tauri Build + Sign"
 echo "════════════════════════════════════════"
 echo ""
 
@@ -99,7 +99,7 @@ if [ ! -f "$KEY_FILE" ]; then
   echo "✗ Ключ не найден: $KEY_FILE"
   echo ""
   echo "Ищем ключ в других местах..."
-  FOUND=$(find "$HOME" -name "*.key" -not -name "*.key.pub" 2>/dev/null | grep -i "tauri\|cc-manager\|ccmanager" | head -5)
+  FOUND=$(find "$HOME" -name "*.key" -not -name "*.key.pub" 2>/dev/null | grep -i "tauri\|vaultbase\|vaultbase" | head -5)
   if [ -n "$FOUND" ]; then
     echo "Найдены ключи:"
     echo "$FOUND"

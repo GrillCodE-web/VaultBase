@@ -1,12 +1,12 @@
 const express = require('express');
 const crypto = require('crypto');
 const { getDb } = require('../database');
-const { requireBasicAuth } = require('../middleware');
+const { requireAdmin } = require('../middleware');
 const { deriveActivationKey } = require('./activate');
 const cache = require('../cache');
 
 const router = express.Router();
-router.use(requireBasicAuth);
+router.use(requireAdmin);
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 router.get('/stats', (req, res) => {
@@ -20,9 +20,10 @@ router.get('/stats', (req, res) => {
   const fp_7d    = db.prepare("SELECT COUNT(*) AS n FROM footprints WHERE created_at >= datetime('now','-7 days')").get().n;
   const latest   = db.prepare('SELECT version FROM versions WHERE is_published=1 ORDER BY published_at DESC LIMIT 1').get();
 
-  const inviteTotal  = db.prepare('SELECT COUNT(*) AS n FROM invite_codes').get().n;
-  const inviteUsed   = db.prepare('SELECT COUNT(*) AS n FROM invite_codes WHERE is_used=1').get().n;
-  const inviteActive = db.prepare("SELECT COUNT(*) AS n FROM invite_codes WHERE is_used=0 AND (expires_at IS NULL OR expires_at > datetime('now'))").get().n;
+  const inviteTotal      = db.prepare('SELECT COUNT(*) AS n FROM invite_codes').get().n;
+  const inviteUsed       = db.prepare('SELECT COUNT(*) AS n FROM invite_codes WHERE is_used=1').get().n;
+  const inviteActive     = db.prepare("SELECT COUNT(*) AS n FROM invite_codes WHERE is_used=0 AND (expires_at IS NULL OR expires_at > datetime('now'))").get().n;
+  const inviteTotalUses  = db.prepare('SELECT COALESCE(SUM(use_count),0) AS n FROM invite_codes').get().n;
 
   const rawDays = db.prepare(`
     SELECT date(created_at) AS date, COUNT(*) AS count FROM footprints
@@ -51,6 +52,7 @@ router.get('/stats', (req, res) => {
     invite_total: inviteTotal,
     invite_used: inviteUsed,
     invite_active: inviteActive,
+    invite_total_uses: inviteTotalUses,
     fp_by_day,
     fp_by_type,
   };
@@ -64,7 +66,7 @@ router.get('/licenses', (req, res) => {
   const cached = cache.get('admin:licenses');
   if (cached) return res.json(cached);
   const rows = getDb().prepare(
-    'SELECT installation_id,label,challenge,token,is_active,created_at,last_seen FROM licenses ORDER BY created_at DESC'
+    'SELECT installation_id,label,challenge,token,is_active,role,created_at,last_seen FROM licenses ORDER BY created_at DESC'
   ).all();
   // Mask tokens for security - show only first 8 chars
   const maskedRows = rows.map(r => ({
@@ -76,12 +78,13 @@ router.get('/licenses', (req, res) => {
 });
 
 router.post('/licenses', (req, res) => {
-  const { installation_id, challenge, label } = req.body || {};
+  const { installation_id, challenge, label, role } = req.body || {};
   if (!installation_id || !challenge) return res.status(400).json({ error: 'installation_id and challenge required' });
+  const licRole = (role === 'admin') ? 'admin' : 'operator';
   const db = getDb();
   try {
-    db.prepare('INSERT INTO licenses (installation_id,challenge,label) VALUES (?,?,?)').run(
-      installation_id.trim(), challenge.trim().toUpperCase(), label || ''
+    db.prepare('INSERT INTO licenses (installation_id,challenge,label,role) VALUES (?,?,?,?)').run(
+      installation_id.trim(), challenge.trim().toUpperCase(), label || '', licRole
     );
   } catch(e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'installation_id already exists' });
@@ -93,11 +96,18 @@ router.post('/licenses', (req, res) => {
   res.json({ ok: true, activation_key });
 });
 
-// PATCH /admin/api/licenses/:id — edit label
+// PATCH /admin/api/licenses/:id — edit label and/or role
 router.patch('/licenses/:id', (req, res) => {
-  const { label } = req.body || {};
-  if (label === undefined) return res.status(400).json({ error: 'label required' });
-  getDb().prepare('UPDATE licenses SET label=? WHERE installation_id=?').run(label.trim(), req.params.id);
+  const { label, role } = req.body || {};
+  if (label === undefined && role === undefined) return res.status(400).json({ error: 'label or role required' });
+  const db = getDb();
+  if (label !== undefined) {
+    db.prepare('UPDATE licenses SET label=? WHERE installation_id=?').run(label.trim(), req.params.id);
+  }
+  if (role !== undefined) {
+    if (role !== 'admin' && role !== 'operator') return res.status(400).json({ error: 'role must be admin or operator' });
+    db.prepare('UPDATE licenses SET role=? WHERE installation_id=?').run(role, req.params.id);
+  }
   cache.invalidate('admin:licenses');
   cache.invalidate('admin:stats');
   res.json({ ok: true });
@@ -167,9 +177,6 @@ router.get('/licenses/export.csv', (req, res) => {
 
 // ── Invite Codes ──────────────────────────────────────────────────────────────
 
-// FIX: Use crypto.randomBytes for unpredictable invite codes
-const crypto = require('crypto');
-
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0,O,1,I confusion
   const randomBytes = crypto.randomBytes(16);
@@ -190,10 +197,11 @@ router.get('/invites', (req, res) => {
 
 // POST /admin/api/invites — create one or many
 router.post('/invites', (req, res) => {
-  const { label, count = 1, expires_days } = req.body || {};
+  const { label, count = 1, expires_days, max_uses = 1 } = req.body || {};
   const db = getDb();
   const created = [];
   const n = Math.min(Math.max(parseInt(count) || 1, 1), 50);
+  const maxUses = Math.max(parseInt(max_uses) || 1, 0); // 0 = unlimited
 
   const expires_at = expires_days
     ? new Date(Date.now() + parseInt(expires_days) * 86400000).toISOString().slice(0, 19)
@@ -207,18 +215,20 @@ router.post('/invites', (req, res) => {
     } while (db.prepare('SELECT 1 FROM invite_codes WHERE code=?').get(code) && attempts < 10);
 
     db.prepare(
-      'INSERT INTO invite_codes (code, label, expires_at) VALUES (?,?,?)'
-    ).run(code, label || '', expires_at);
+      'INSERT INTO invite_codes (code, label, expires_at, max_uses, use_count) VALUES (?,?,?,?,0)'
+    ).run(code, label || '', expires_at, maxUses);
     created.push(code);
   }
 
   res.json({ ok: true, codes: created });
 });
 
-// PATCH /admin/api/invites/:code — edit label
+// PATCH /admin/api/invites/:code — edit label and/or max_uses
 router.patch('/invites/:code', (req, res) => {
-  const { label } = req.body || {};
-  getDb().prepare('UPDATE invite_codes SET label=? WHERE code=?').run(label || '', req.params.code);
+  const { label, max_uses } = req.body || {};
+  const db = getDb();
+  if (label !== undefined) db.prepare('UPDATE invite_codes SET label=? WHERE code=?').run(label || '', req.params.code);
+  if (max_uses !== undefined) db.prepare('UPDATE invite_codes SET max_uses=? WHERE code=?').run(Math.max(parseInt(max_uses) || 0, 0), req.params.code);
   res.json({ ok: true });
 });
 
@@ -228,18 +238,18 @@ router.delete('/invites/:code', (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /admin/api/invites/:code/reset — mark as unused again
+// POST /admin/api/invites/:code/reset — reset use counter
 router.post('/invites/:code/reset', (req, res) => {
-  getDb().prepare('UPDATE invite_codes SET is_used=0, used_at=NULL WHERE code=?').run(req.params.code);
+  getDb().prepare('UPDATE invite_codes SET is_used=0, used_at=NULL, use_count=0 WHERE code=?').run(req.params.code);
   res.json({ ok: true });
 });
 
 // GET /admin/api/invites/export.csv
 router.get('/invites/export.csv', (req, res) => {
   const rows = getDb().prepare('SELECT * FROM invite_codes ORDER BY created_at DESC').all();
-  const header = 'code,label,is_used,used_at,created_at,expires_at\n';
+  const header = 'code,label,use_count,max_uses,is_used,used_at,created_at,expires_at\n';
   const csv = header + rows.map(r =>
-    [r.code, r.label, r.is_used, r.used_at || '', r.created_at, r.expires_at || '']
+    [r.code, r.label, r.use_count ?? 0, r.max_uses ?? 1, r.is_used, r.used_at || '', r.created_at, r.expires_at || '']
       .map(v => `"${String(v || '').replace(/"/g, '""')}"`)
       .join(',')
   ).join('\n');
@@ -261,14 +271,23 @@ router.delete('/versions/:version', (req, res) => {
   if (!row) return res.status(404).json({ error: 'not found' });
 
   if (row.download_url) {
+    const fs = require('fs');
+    const path = require('path');
+    const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, '../public/releases');
+    const filename = row.download_url.split('/').pop();
+    const filepath = path.join(RELEASES_DIR, filename);
+    // Deleting the binary is best-effort: the DB row must be removed either way, so
+    // a missing or locked file cannot fail the request. It is still logged, because
+    // a leftover file silently consuming disk is an operational problem.
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, '../public/releases');
-      const filename = row.download_url.split('/').pop();
-      const filepath = path.join(RELEASES_DIR, filename);
-      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-    } catch(e) { /* non-fatal */ }
+      fs.unlinkSync(filepath);
+    } catch (e) {
+      if (e.code === 'ENOENT') {
+        console.warn(`[admin-api] release binary already absent: ${filename}`);
+      } else {
+        console.error(`[admin-api] failed to delete release binary ${filename} (${e.code}): ${e.message}`);
+      }
+    }
   }
 
   db.prepare('DELETE FROM release_files WHERE version=? AND file_type=?').run(req.params.version, file_type);
@@ -432,10 +451,10 @@ router.get('/groups/stats', (req, res) => {
 router.post('/licenses/:id/rotate-token', (req, res) => {
   try {
     const db = getDb();
-    const licenseId = parseInt(req.params.id, 10);
+    const installationId = req.params.id;
 
-    // Get current license
-    const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(licenseId);
+    // Get current license (PK is installation_id TEXT — there is no `id` column)
+    const license = db.prepare('SELECT * FROM licenses WHERE installation_id = ?').get(installationId);
     if (!license) {
       return res.status(404).json({ error: 'license_not_found' });
     }
@@ -444,13 +463,13 @@ router.post('/licenses/:id/rotate-token', (req, res) => {
     const newToken = crypto.randomBytes(32).toString('hex');
 
     // Update token
-    db.prepare('UPDATE licenses SET token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .run(newToken, licenseId);
+    db.prepare('UPDATE licenses SET token = ?, token_rotated_at = CURRENT_TIMESTAMP WHERE installation_id = ?')
+      .run(newToken, installationId);
 
     // Log rotation
     db.prepare(
       "INSERT INTO audit_log (action, details, created_at) VALUES ('token_rotation', ?, CURRENT_TIMESTAMP)"
-    ).run(JSON.stringify({ license_id: licenseId, installation_id: license.installation_id }));
+    ).run(JSON.stringify({ installation_id: installationId }));
 
     res.json({
       success: true,
@@ -462,20 +481,23 @@ router.post('/licenses/:id/rotate-token', (req, res) => {
   }
 });
 
-// FIX A-MED-06: Endpoint to enable/disable auto token rotation (90-day policy)
-router.post('/licenses/:id/set-auto-rotate', (req, res) => {
-  try {
-    const db = getDb();
-    const licenseId = parseInt(req.params.id, 10);
-    const { enabled } = req.body || {};
-
-    db.prepare('UPDATE licenses SET auto_rotate = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .run(enabled ? 1 : 0, licenseId);
-
-    res.json({ success: true, enabled });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// FIX A-MED-06 отменён 2026-08-07: эндпоинт `POST /licenses/:id/set-auto-rotate`
+// удалён, вместе с ним не удалена только колонка `licenses.auto_rotate`
+// (миграция в database.js оставлена, чтобы не ломать существующие БД).
+//
+// Почему удалён, а не доделан. Флаг писался ровно в одном месте — здесь — и не
+// читался НИГДЕ: ни планировщика ротации, ни проверки в requireToken или
+// /verify не существует. То есть политика «ротация раз в 90 дней» была заявлена
+// в UI-контракте, но не выполнялась.
+//
+// Дописать планировщик нельзя без изменений на клиенте: клиент сохраняет токен
+// при активации (license.rs) и НИКОГДА его не обновляет — обработки смены
+// токена там нет вовсе. Включённая серверная авторотация просто разорвала бы
+// связь со всеми клиентами на 90-й день, причём молча.
+//
+// Чтобы вернуть фичу, нужны обе половины: (1) клиент умеет принимать новый
+// токен в ответе /verify и перезаписывать license_token, (2) сервер получает
+// планировщик. Ручная ротация (`POST /licenses/:id/rotate-token` выше) осталась
+// и работает — она осознанно отзывает доступ, что и требуется.
 
 module.exports = router;

@@ -1,153 +1,189 @@
 /* ═══════════════════════════════════════════════════════════
-   CC MANAGER — CYBER-FINANCIAL TERMINAL DESIGN SYSTEM
+   VAULTBASE — NATIVE macOS DESIGN SYSTEM
+   Токены. Имена сохранены от прежней системы — меняются
+   только значения, поэтому 29 CSS-файлов перекрашиваются
+   без правок в них.
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Base Layers ────────────────────────────────────────── */
-  --bg: #0d1117;
-  --surface: #161b22;
-  --card: #1c2128;
-  --card-hi: #22272e;
-  --inset: #0d1117;
+  color-scheme: light dark;
 
-  /* ── Borders ────────────────────────────────────────────── */
-  --border: #30363d;
-  --border-hi: #444c56;
-  --border-accent: rgba(0, 217, 255, 0.3);
+  /* ── Типографика ──────────────────────────────────────────
+     Системный шрифт выбран намеренно: нативное приложение
+     обязано выглядеть частью ОС. Плюс CSP приложения не
+     пропускает внешние шрифты (нет font-src). */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Inter Variable',
+    Inter, 'Noto Sans', 'DejaVu Sans', sans-serif;
 
-  /* ── Text Hierarchy ─────────────────────────────────────── */
-  --text: #f0f6fc;
-  --text-2: #c9d1d9;
-  --text-3: #8b949e;
-  --muted: #8b949e;
-  --dim: #484f58;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Mono', Consolas, 'JetBrains Mono',
+    'DejaVu Sans Mono', monospace;
 
-  /* ── Accent System (Cyan/Teal) ──────────────────────────── */
-  --accent: #00d9ff;
-  --accent-bright: #14f195;
-  --accent-dim: rgba(0, 217, 255, 0.08);
-  --accent-border: rgba(0, 217, 255, 0.25);
-  --accent-hover: #00b8d9;
-  --accent-glow: rgba(0, 217, 255, 0.25);
-  --accent-text: #58e1ff;
+  /* Прежние алиасы — чтобы старые объявления не осиротели */
+  --font-display: var(--font-ui);
+  --font-body: var(--font-ui);
 
-  /* ── Secondary Accent (Electric Purple) ─────────────────── */
-  --purple: #a855f7;
-  --purple-bright: #c084fc;
-  --purple-dark: #9333ea;
-  --purple-dim: rgba(168, 85, 247, 0.08);
-  --purple-border: rgba(168, 85, 247, 0.25);
-  --purple-glow: rgba(168, 85, 247, 0.2);
+  /* ── Шкала размеров ─────────────────────────────────────── */
+  --fs-title: 20px;
+  --fs-heading: 15px;
+  --fs-body: 13px;
+  --fs-control: 13px;
+  --fs-caption: 11px;
+  --fs-mono: 12px;
 
-  /* ── Status Colors ──────────────────────────────────────── */
-  --green: #10b981;
-  --green-t: #34d399;
-  --red: #ef4444;
-  --red-t: #f87171;
-  --yellow: #f59e0b;
-  --yellow-t: #fbbf24;
-  --blue: #3b82f6;
-  --blue-t: #60a5fa;
-  --orange: #f97316;
-  --orange-t: #fb923c;
-  --teal: #14b8a6;
-  --teal-t: #2dd4bf;
+  --lh-title: 24px;
+  --lh-heading: 20px;
+  --lh-body: 18px;
+  --lh-control: 16px;
+  --lh-caption: 14px;
 
-  /* ── Semantic Status Colors ─────────────────────────────── */
-  --color-success: #4ade80;
-  --color-success-bg: rgba(34, 197, 94, 0.1);
-  --color-warning: #facc15;
-  --color-warning-bg: rgba(234, 179, 8, 0.1);
-  --color-error: #f87171;
-  --color-error-bg: rgba(239, 68, 68, 0.1);
-  --color-info: #60a5fa;
-  --color-info-bg: rgba(59, 130, 246, 0.1);
-  --color-neutral: #999;
-  --color-neutral-bg: rgba(156, 163, 175, 0.1);
+  /* ── Высоты контролов ───────────────────────────────────── */
+  --h-control: 28px;
+  --h-control-sm: 22px;
+  --h-row: 28px;
+  --h-toolbar: 52px;
+  --h-titlebar: 38px;
 
-  /* ── Card Status Colors ─────────────────────────────────── */
-  --color-card-free: #4ade80;
-  --color-card-free-bg: rgba(34, 197, 94, 0.1);
-  --color-card-in-use: #60a5fa;
-  --color-card-in-use-bg: rgba(59, 130, 246, 0.1);
-  --color-card-dead: #f87171;
-  --color-card-dead-bg: rgba(239, 68, 68, 0.1);
-  --color-card-archive: #999;
-  --color-card-archive-bg: rgba(156, 163, 175, 0.1);
+  /* ═══ СВЕТЛАЯ ТЕМА (база) ═══════════════════════════════ */
 
-  /* ── Card Network Colors ────────────────────────────────── */
-  --color-visa: #60a5fa;
-  --color-visa-bg: rgba(59, 130, 246, 0.15);
-  --color-mastercard: #f87171;
-  --color-mastercard-bg: rgba(239, 68, 68, 0.15);
-  --color-amex: #4ade80;
-  --color-amex-bg: rgba(34, 197, 94, 0.15);
-  --color-discover: #fb923c;
-  --color-discover-bg: rgba(249, 115, 22, 0.15);
+  /* ── Слои ───────────────────────────────────────────────── */
+  --bg: #ececec;
+  --surface: #f5f5f7;
+  --card: #ffffff;
+  --card-hi: #f9f9fb;
+  --inset: #f0f0f2;
+  --surface-hi: #ffffff;
 
-  /* ── Risk Level Colors ──────────────────────────────────── */
-  --color-risk-high: #f87171;
-  --color-risk-high-bg: rgba(239, 68, 68, 0.12);
-  --color-risk-medium: #facc15;
-  --color-risk-medium-bg: rgba(234, 179, 8, 0.12);
-  --color-risk-low: #4ade80;
-  --color-risk-low-bg: rgba(34, 197, 94, 0.12);
+  /* ── Границы ────────────────────────────────────────────── */
+  --border: rgba(0, 0, 0, 0.1);
+  --border-hi: rgba(0, 0, 0, 0.16);
+  --separator: rgba(0, 0, 0, 0.06);
+  --border-accent: rgba(10, 132, 255, 0.35);
 
-  /* ── Chart Colors ───────────────────────────────────────── */
-  --color-chart-revenue: #3b82f6;
-  --color-chart-profit: #22c55e;
+  /* ── Текст ──────────────────────────────────────────────── */
+  --text: #1d1d1f;
+  --text-2: rgba(0, 0, 0, 0.62);
+  --text-3: rgba(0, 0, 0, 0.42);
+  --muted: rgba(0, 0, 0, 0.42);
+  --dim: rgba(0, 0, 0, 0.28);
 
-  /* ── Heatmap Colors ─────────────────────────────────────── */
-  --color-heatmap-high: rgba(34, 197, 94, 0.65);
-  --color-heatmap-medium: rgba(234, 179, 8, 0.55);
-  --color-heatmap-low: rgba(239, 68, 68, 0.65);
-  --color-heatmap-no-data: var(--border);
+  /* ── Акцент (systemBlue) ────────────────────────────────── */
+  --accent: #0a84ff;
+  --accent-hover: #0071e3;
+  --accent-bright: #0071e3;
+  --accent-fg: #ffffff;
+  --accent-dim: rgba(10, 132, 255, 0.1);
+  --accent-border: rgba(10, 132, 255, 0.35);
+  --accent-text: #0071e3;
+  --selection: #0a84ff;
 
-  /* ── Delivery Rate Colors ───────────────────────────────── */
-  --color-delivery-high: #22c55e;
-  --color-delivery-medium: #eab308;
-  --color-delivery-low: #ef4444;
+  /* Вторичный акцент */
+  --purple: #af52de;
+  --purple-bright: #9f3fd0;
+  --purple-dark: #8944ab;
+  --purple-dim: rgba(175, 82, 222, 0.1);
+  --purple-border: rgba(175, 82, 222, 0.3);
 
-  /* ── Expiry Warning Colors ──────────────────────────────── */
-  --color-expiry-urgent: #f87171;
-  --color-expiry-warning: #facc15;
-  --color-expiry-normal: #4ade80;
+  /* ── Системные статусные цвета (Apple) ──────────────────── */
+  --green: #28cd41;
+  --green-t: #1faf35;
+  --red: #ff3b30;
+  --red-t: #e0271d;
+  --yellow: #ffcc00;
+  --yellow-t: #b38f00;
+  --blue: #0a84ff;
+  --blue-t: #0071e3;
+  --orange: #ff9500;
+  --orange-t: #e08600;
+  --teal: #59adc4;
+  --teal-t: #4592a8;
 
-  /* ── Dim Variants (rgba overlays) ───────────────────────── */
-  --red-dim: rgba(239, 68, 68, 0.12);
-  --green-dim: rgba(16, 185, 129, 0.12);
-  --blue-dim: rgba(59, 130, 246, 0.12);
-  --yellow-dim: rgba(245, 158, 11, 0.12);
-  --orange-dim: rgba(249, 115, 22, 0.12);
+  /* ── Семантические ──────────────────────────────────────── */
+  --color-success: #1faf35;
+  --color-success-bg: rgba(40, 205, 65, 0.12);
+  --color-warning: #b38f00;
+  --color-warning-bg: rgba(255, 204, 0, 0.14);
+  --color-error: #e0271d;
+  --color-error-bg: rgba(255, 59, 48, 0.1);
+  --color-info: #0071e3;
+  --color-info-bg: rgba(10, 132, 255, 0.1);
+  --color-neutral: rgba(0, 0, 0, 0.42);
+  --color-neutral-bg: rgba(0, 0, 0, 0.05);
 
-  /* ── Border Variants (subtle borders) ───────────────────── */
-  --red-border: rgba(239, 68, 68, 0.25);
-  --green-border: rgba(16, 185, 129, 0.25);
-  --blue-border: rgba(59, 130, 246, 0.25);
-  --yellow-border: rgba(245, 158, 11, 0.25);
-  --orange-border: rgba(249, 115, 22, 0.25);
+  /* ── Статусы карт ───────────────────────────────────────── */
+  --color-card-free: #1faf35;
+  --color-card-free-bg: rgba(40, 205, 65, 0.12);
+  --color-card-in-use: #0071e3;
+  --color-card-in-use-bg: rgba(10, 132, 255, 0.1);
+  --color-card-dead: #e0271d;
+  --color-card-dead-bg: rgba(255, 59, 48, 0.1);
+  --color-card-archive: rgba(0, 0, 0, 0.42);
+  --color-card-archive-bg: rgba(0, 0, 0, 0.05);
 
-  /* ── Overlay/Backdrop Variants ──────────────────────────── */
-  --overlay-dark: rgba(0, 0, 0, 0.65);
-  --overlay-darker: rgba(0, 0, 0, 0.85);
-  --overlay-darkest: rgba(0, 0, 0, 0.95);
-  --backdrop-blur: rgba(13, 17, 23, 0.8);
-  --backdrop-blur-strong: rgba(11, 15, 22, 0.82);
+  /* ── Платёжные системы ──────────────────────────────────── */
+  --color-visa: #1434cb;
+  --color-visa-bg: rgba(20, 52, 203, 0.1);
+  --color-mastercard: #eb001b;
+  --color-mastercard-bg: rgba(235, 0, 27, 0.1);
+  --color-amex: #007bc1;
+  --color-amex-bg: rgba(0, 123, 193, 0.1);
+  --color-discover: #ff6000;
+  --color-discover-bg: rgba(255, 96, 0, 0.1);
 
-  /* ── Glow Shadow Variants ───────────────────────────────── */
-  --shadow-glow-red: 0 0 16px rgba(239, 68, 68, 0.3);
-  --shadow-glow-green: 0 0 16px rgba(16, 185, 129, 0.3);
-  --shadow-glow-blue: 0 0 16px rgba(59, 130, 246, 0.3);
-  --shadow-glow-yellow: 0 0 16px rgba(245, 158, 11, 0.3);
-  --shadow-glow-orange: 0 0 16px rgba(249, 115, 22, 0.3);
-  --shadow-glow-purple: 0 0 16px rgba(168, 85, 247, 0.3);
+  /* ── Уровни риска ───────────────────────────────────────── */
+  --color-risk-high: #e0271d;
+  --color-risk-high-bg: rgba(255, 59, 48, 0.1);
+  --color-risk-medium: #b38f00;
+  --color-risk-medium-bg: rgba(255, 204, 0, 0.14);
+  --color-risk-low: #1faf35;
+  --color-risk-low-bg: rgba(40, 205, 65, 0.12);
 
-  /* ── Hover & Interactive ────────────────────────────────── */
-  --hover: rgba(255, 255, 255, 0.06);
-  --surface-hi: #1f2429;
-  --active-glow: 0 0 20px rgba(0, 217, 255, 0.15);
+  /* ── Графики ────────────────────────────────────────────── */
+  --color-chart-revenue: #0a84ff;
+  --color-chart-profit: #28cd41;
 
-  /* ── Spacing (4px grid) ─────────────────────────────────── */
+  --color-heatmap-high: rgba(40, 205, 65, 0.55);
+  --color-heatmap-medium: rgba(255, 204, 0, 0.5);
+  --color-heatmap-low: rgba(255, 59, 48, 0.5);
+  --color-heatmap-no-data: var(--separator);
+
+  --color-delivery-high: #28cd41;
+  --color-delivery-medium: #ffcc00;
+  --color-delivery-low: #ff3b30;
+
+  --color-expiry-urgent: #e0271d;
+  --color-expiry-warning: #b38f00;
+  --color-expiry-normal: #1faf35;
+
+  /* ── Приглушённые заливки ───────────────────────────────── */
+  --red-dim: rgba(255, 59, 48, 0.1);
+  --green-dim: rgba(40, 205, 65, 0.12);
+  --blue-dim: rgba(10, 132, 255, 0.1);
+  --yellow-dim: rgba(255, 204, 0, 0.14);
+  --orange-dim: rgba(255, 149, 0, 0.12);
+
+  --red-border: rgba(255, 59, 48, 0.3);
+  --green-border: rgba(40, 205, 65, 0.3);
+  --blue-border: rgba(10, 132, 255, 0.3);
+  --yellow-border: rgba(255, 204, 0, 0.35);
+  --orange-border: rgba(255, 149, 0, 0.3);
+
+  /* ── Оверлеи ────────────────────────────────────────────── */
+  --overlay-dark: rgba(0, 0, 0, 0.28);
+  --overlay-darker: rgba(0, 0, 0, 0.4);
+  --overlay-darkest: rgba(0, 0, 0, 0.55);
+  --backdrop-blur: rgba(255, 255, 255, 0.72);
+  --backdrop-blur-strong: rgba(255, 255, 255, 0.85);
+
+  /* ── Интерактив ─────────────────────────────────────────── */
+  --hover: rgba(0, 0, 0, 0.05);
+  --hover-row: rgba(0, 0, 0, 0.03);
+  --active-press: rgba(0, 0, 0, 0.09);
+  --focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.5);
+  --focus-ring-inset: inset 0 0 0 2px rgba(10, 132, 255, 0.5);
+
+  /* ── Отступы (4px сетка) ────────────────────────────────── */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -160,30 +196,41 @@
   --sp-10: 40px;
   --sp-12: 48px;
 
-  /* ── Border Radius ──────────────────────────────────────── */
-  --r-xs: 2px;
-  --r-sm: 4px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --r-xl: 16px;
-  --r-2xl: 24px;
+  /* ── Радиусы (мельче, чем были) ─────────────────────────── */
+  --r-xs: 3px;
+  --r-sm: 5px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 10px;
+  --r-2xl: 12px;
+  --r-window: 10px;
   --r-full: 9999px;
 
-  /* ── Breakpoints ────────────────────────────────────────── */
-  --bp-sm: 640px;
-  --bp-md: 768px;
-  --bp-lg: 1024px;
-  --bp-xl: 1280px;
-  --bp-2xl: 1536px;
+  /* ── Тени: глубина вместо свечения.
+     0.5px-контур — характерная деталь macOS на Retina. ───── */
+  --shadow-xs: 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  --shadow-window: 0 22px 60px rgba(0, 0, 0, 0.32), 0 0 0 0.5px rgba(0, 0, 0, 0.14);
 
-  /* ── Container Max Widths ───────────────────────────────── */
-  --container-sm: 640px;
-  --container-md: 768px;
-  --container-lg: 1024px;
-  --container-xl: 1280px;
-  --container-2xl: 1536px;
+  /* ── Стекло (для сайдбара под вибрэнси) ─────────────────── */
+  --glass-bg: rgba(242, 242, 247, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.07);
+  --glass-blur: 24px;
+  --glass-shadow: var(--shadow-md);
+  /* Сайдбар: чуть сильнее насыщен чем контент */
+  --sidebar-bg: rgba(238, 238, 243, 0.85);
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-item-active: rgba(0, 0, 0, 0.1);
+  --sidebar-item-active-text: #1d1d1f;
 
-  /* ── Z-Index Scale ──────────────────────────────────────── */
+  /* ── Переходы: только цвет и прозрачность ───────────────── */
+  --t-fast: 100ms ease-out;
+  --t-mid: 120ms ease-out;
+  --t-slow: 180ms ease-out;
+
+  /* ── Слои ───────────────────────────────────────────────── */
   --z-base: 0;
   --z-dropdown: 20;
   --z-sticky: 50;
@@ -191,107 +238,337 @@
   --z-toast: 900;
   --z-tooltip: 1000;
 
-  /* ── Modal Widths ───────────────────────────────────────── */
+  /* ── Ширины ─────────────────────────────────────────────── */
   --modal-sm: 420px;
   --modal-md: 560px;
   --modal-lg: 720px;
   --modal-xl: 900px;
 
-  /* ── Transitions ────────────────────────────────────────── */
-  --t-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
-  --t-mid: 220ms cubic-bezier(0.4, 0, 0.2, 1);
-  --t-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --sidebar-w: 200px;
+  --sidebar-w-collapsed: 48px;
 
-  /* ── Shadows ────────────────────────────────────────────── */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 24px rgba(0, 217, 255, 0.2);
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
 
-  /* ── Glassmorphism ─────────────────────────────────────── */
-  --glass-bg: rgba(22, 27, 34, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: 12px;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  --container-2xl: 1536px;
 
-  /* ── Glow Effects ──────────────────────────────────────── */
-  --glow-sm: 0 0 8px rgba(0, 217, 255, 0.3);
-  --glow-md: 0 0 16px rgba(0, 217, 255, 0.4);
-  --glow-lg: 0 0 32px rgba(0, 217, 255, 0.5);
-  --glow-xl: 0 0 48px rgba(0, 217, 255, 0.6);
+  /* ── Упразднённые эффекты ───────────────────────────────────
+     Оставлены как no-op, а не удалены: var() на несуществующий
+     токен даёт unset, что ломает вёрстку сильнее, чем none.
+     Физически удаляются на этапе 11 после вычистки мест. ──── */
+  --shadow-glow: none;
+  --glow-sm: none;
+  --glow-md: none;
+  --glow-lg: none;
+  --glow-xl: none;
+  --active-glow: none;
+  --accent-glow: transparent;
+  --purple-glow: transparent;
+  --shadow-glow-red: none;
+  --shadow-glow-green: none;
+  --shadow-glow-blue: none;
+  --shadow-glow-yellow: none;
+  --shadow-glow-orange: none;
+  --shadow-glow-purple: none;
 
-  /* ── Gradients ──────────────────────────────────────────── */
-  --gradient-accent: linear-gradient(135deg, #00d9ff 0%, #14f195 100%);
-  --gradient-purple: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-  --gradient-card: linear-gradient(145deg, #1c2128 0%, #161b22 100%);
-  --gradient-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.3) 100%);
+  --gradient-accent: var(--accent);
+  --gradient-purple: var(--purple);
+  --gradient-card: var(--card);
+  --gradient-overlay: transparent;
+  --gradient-border: var(--border);
 
-  /* ── Gradient Border ───────────────────────────────────── */
-  --gradient-border: linear-gradient(
-    135deg,
-    rgba(0, 217, 255, 0.5) 0%,
-    rgba(20, 241, 149, 0.5) 100%
-  );
-
-  /* ── Noise Texture ──────────────────────────────────────── */
-  --noise-opacity: 0.015;
-  --scanline-opacity: 0.02;
-}
-
-/* ── Light Theme ────────────────────────────────────────── */
-[data-theme='light'] {
-  /* Base Layers */
-  --bg: #ffffff;
-  --surface: #f6f8fa;
-  --card: #ffffff;
-  --card-hi: #f6f8fa;
-  --inset: #eef1f5;
-
-  /* Borders */
-  --border: #d0d7de;
-  --border-hi: #afb8c1;
-  --border-accent: rgba(0, 150, 200, 0.4);
-
-  /* Text */
-  --text: #1f2328;
-  --text-2: #57606a;
-  --text-3: #656d76;
-  --muted: #8c959f;
-  --dim: #afb8c1;
-
-  /* Interactive */
-  --hover: rgba(0, 0, 0, 0.04);
-  --surface-hi: #ffffff;
-
-  /* Accent (adjusted for light theme) */
-  --accent: #0969da;
-  --accent-bright: #0550ae;
-  --accent-dim: rgba(9, 105, 218, 0.1);
-  --accent-border: rgba(9, 105, 218, 0.3);
-  --accent-hover: #0860ca;
-  --accent-glow: rgba(9, 105, 218, 0.2);
-  --accent-text: #0969da;
-
-  /* Purple */
-  --purple: #8250df;
-  --purple-bright: #6639ba;
-  --purple-dim: rgba(130, 80, 223, 0.1);
-  --purple-border: rgba(130, 80, 223, 0.3);
-  --purple-glow: rgba(130, 80, 223, 0.15);
-
-  /* Shadows (lighter for light theme) */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.18);
-  --shadow-glow: 0 0 16px rgba(9, 105, 218, 0.15);
-
-  /* Noise (reduced for light theme) */
-  --noise-opacity: 0.008;
-  --scanline-opacity: 0.01;
+  --noise-opacity: 0;
+  --scanline-opacity: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ACCESSIBILITY — REDUCED MOTION
+   ТЁМНАЯ ТЕМА
+   ═══════════════════════════════════════════════════════════ */
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #1e1e1e;
+  --surface: #252527;
+  --card: #2c2c2e;
+  --card-hi: #323234;
+  --inset: #1c1c1e;
+  --surface-hi: #323234;
+
+  --border: rgba(255, 255, 255, 0.12);
+  --border-hi: rgba(255, 255, 255, 0.2);
+  --separator: rgba(255, 255, 255, 0.08);
+  --border-accent: rgba(10, 132, 255, 0.45);
+
+  --text: #f5f5f7;
+  --text-2: rgba(255, 255, 255, 0.66);
+  --text-3: rgba(255, 255, 255, 0.44);
+  --muted: rgba(255, 255, 255, 0.44);
+  --dim: rgba(255, 255, 255, 0.3);
+
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-bright: #409cff;
+  --accent-dim: rgba(10, 132, 255, 0.18);
+  --accent-border: rgba(10, 132, 255, 0.45);
+  --accent-text: #64b0ff;
+
+  --purple: #bf5af2;
+  --purple-bright: #d17ff5;
+  --purple-dim: rgba(191, 90, 242, 0.18);
+  --purple-border: rgba(191, 90, 242, 0.4);
+
+  /* Тёмные варианты системных цветов — ярче, для контраста */
+  --green: #32d74b;
+  --green-t: #4ae363;
+  --red: #ff453a;
+  --red-t: #ff6961;
+  --yellow: #ffd60a;
+  --yellow-t: #ffe14d;
+  --blue: #0a84ff;
+  --blue-t: #64b0ff;
+  --orange: #ff9f0a;
+  --orange-t: #ffb340;
+  --teal: #6ac4dc;
+  --teal-t: #8ad4e6;
+
+  --color-success: #32d74b;
+  --color-success-bg: rgba(50, 215, 75, 0.16);
+  --color-warning: #ffd60a;
+  --color-warning-bg: rgba(255, 214, 10, 0.16);
+  --color-error: #ff453a;
+  --color-error-bg: rgba(255, 69, 58, 0.16);
+  --color-info: #64b0ff;
+  --color-info-bg: rgba(10, 132, 255, 0.16);
+  --color-neutral: rgba(255, 255, 255, 0.44);
+  --color-neutral-bg: rgba(255, 255, 255, 0.08);
+
+  --color-card-free: #32d74b;
+  --color-card-free-bg: rgba(50, 215, 75, 0.16);
+  --color-card-in-use: #64b0ff;
+  --color-card-in-use-bg: rgba(10, 132, 255, 0.16);
+  --color-card-dead: #ff453a;
+  --color-card-dead-bg: rgba(255, 69, 58, 0.16);
+  --color-card-archive: rgba(255, 255, 255, 0.44);
+  --color-card-archive-bg: rgba(255, 255, 255, 0.08);
+
+  --color-visa: #5e8bff;
+  --color-visa-bg: rgba(94, 139, 255, 0.16);
+  --color-mastercard: #ff6961;
+  --color-mastercard-bg: rgba(255, 105, 97, 0.16);
+  --color-amex: #4aa8e0;
+  --color-amex-bg: rgba(74, 168, 224, 0.16);
+  --color-discover: #ff9f0a;
+  --color-discover-bg: rgba(255, 159, 10, 0.16);
+
+  --color-risk-high: #ff453a;
+  --color-risk-high-bg: rgba(255, 69, 58, 0.16);
+  --color-risk-medium: #ffd60a;
+  --color-risk-medium-bg: rgba(255, 214, 10, 0.16);
+  --color-risk-low: #32d74b;
+  --color-risk-low-bg: rgba(50, 215, 75, 0.16);
+
+  --color-chart-revenue: #0a84ff;
+  --color-chart-profit: #32d74b;
+
+  --color-heatmap-high: rgba(50, 215, 75, 0.6);
+  --color-heatmap-medium: rgba(255, 214, 10, 0.55);
+  --color-heatmap-low: rgba(255, 69, 58, 0.55);
+
+  --color-delivery-high: #32d74b;
+  --color-delivery-medium: #ffd60a;
+  --color-delivery-low: #ff453a;
+
+  --color-expiry-urgent: #ff453a;
+  --color-expiry-warning: #ffd60a;
+  --color-expiry-normal: #32d74b;
+
+  --red-dim: rgba(255, 69, 58, 0.16);
+  --green-dim: rgba(50, 215, 75, 0.16);
+  --blue-dim: rgba(10, 132, 255, 0.16);
+  --yellow-dim: rgba(255, 214, 10, 0.16);
+  --orange-dim: rgba(255, 159, 10, 0.16);
+
+  --red-border: rgba(255, 69, 58, 0.4);
+  --green-border: rgba(50, 215, 75, 0.4);
+  --blue-border: rgba(10, 132, 255, 0.4);
+  --yellow-border: rgba(255, 214, 10, 0.4);
+  --orange-border: rgba(255, 159, 10, 0.4);
+
+  --overlay-dark: rgba(0, 0, 0, 0.45);
+  --overlay-darker: rgba(0, 0, 0, 0.6);
+  --overlay-darkest: rgba(0, 0, 0, 0.75);
+  --backdrop-blur: rgba(30, 30, 30, 0.75);
+  --backdrop-blur-strong: rgba(30, 30, 30, 0.88);
+
+  --hover: rgba(255, 255, 255, 0.06);
+  --hover-row: rgba(255, 255, 255, 0.04);
+  --active-press: rgba(255, 255, 255, 0.11);
+
+  --shadow-xs: 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+  --shadow-window: 0 22px 60px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(0, 0, 0, 0.55);
+
+  --glass-bg: rgba(30, 30, 32, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --sidebar-bg: rgba(28, 28, 30, 0.88);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-item-active: rgba(255, 255, 255, 0.12);
+  --sidebar-item-active-text: #f5f5f7;
+}
+
+/* Светлая тема как явный выбор — значения совпадают с :root,
+   селектор нужен, чтобы перебить системный тёмный режим ниже. */
+[data-theme='light'] {
+  color-scheme: light;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   СИСТЕМНЫЙ РЕЖИМ
+   data-theme="system" → следуем настройке ОС.
+   Дублирование значений неизбежно: CSS не умеет
+   присваивать целые наборы переменных по условию.
+   ═══════════════════════════════════════════════════════════ */
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='system'] {
+    color-scheme: dark;
+
+    --bg: #1e1e1e;
+    --surface: #252527;
+    --card: #2c2c2e;
+    --card-hi: #323234;
+    --inset: #1c1c1e;
+    --surface-hi: #323234;
+
+    --border: rgba(255, 255, 255, 0.12);
+    --border-hi: rgba(255, 255, 255, 0.2);
+    --separator: rgba(255, 255, 255, 0.08);
+    --border-accent: rgba(10, 132, 255, 0.45);
+
+    --text: #f5f5f7;
+    --text-2: rgba(255, 255, 255, 0.66);
+    --text-3: rgba(255, 255, 255, 0.44);
+    --muted: rgba(255, 255, 255, 0.44);
+    --dim: rgba(255, 255, 255, 0.3);
+
+    --accent-hover: #409cff;
+    --accent-bright: #409cff;
+    --accent-dim: rgba(10, 132, 255, 0.18);
+    --accent-border: rgba(10, 132, 255, 0.45);
+    --accent-text: #64b0ff;
+
+    --purple: #bf5af2;
+    --purple-dim: rgba(191, 90, 242, 0.18);
+    --purple-border: rgba(191, 90, 242, 0.4);
+
+    --green: #32d74b;
+    --green-t: #4ae363;
+    --red: #ff453a;
+    --red-t: #ff6961;
+    --yellow: #ffd60a;
+    --yellow-t: #ffe14d;
+    --blue-t: #64b0ff;
+    --orange: #ff9f0a;
+    --orange-t: #ffb340;
+    --teal: #6ac4dc;
+    --teal-t: #8ad4e6;
+
+    --color-success: #32d74b;
+    --color-success-bg: rgba(50, 215, 75, 0.16);
+    --color-warning: #ffd60a;
+    --color-warning-bg: rgba(255, 214, 10, 0.16);
+    --color-error: #ff453a;
+    --color-error-bg: rgba(255, 69, 58, 0.16);
+    --color-info: #64b0ff;
+    --color-info-bg: rgba(10, 132, 255, 0.16);
+    --color-neutral: rgba(255, 255, 255, 0.44);
+    --color-neutral-bg: rgba(255, 255, 255, 0.08);
+
+    --color-card-free: #32d74b;
+    --color-card-free-bg: rgba(50, 215, 75, 0.16);
+    --color-card-in-use: #64b0ff;
+    --color-card-in-use-bg: rgba(10, 132, 255, 0.16);
+    --color-card-dead: #ff453a;
+    --color-card-dead-bg: rgba(255, 69, 58, 0.16);
+    --color-card-archive: rgba(255, 255, 255, 0.44);
+    --color-card-archive-bg: rgba(255, 255, 255, 0.08);
+
+    --color-visa: #5e8bff;
+    --color-visa-bg: rgba(94, 139, 255, 0.16);
+    --color-mastercard: #ff6961;
+    --color-mastercard-bg: rgba(255, 105, 97, 0.16);
+    --color-amex: #4aa8e0;
+    --color-amex-bg: rgba(74, 168, 224, 0.16);
+    --color-discover: #ff9f0a;
+    --color-discover-bg: rgba(255, 159, 10, 0.16);
+
+    --color-risk-high: #ff453a;
+    --color-risk-high-bg: rgba(255, 69, 58, 0.16);
+    --color-risk-medium: #ffd60a;
+    --color-risk-medium-bg: rgba(255, 214, 10, 0.16);
+    --color-risk-low: #32d74b;
+    --color-risk-low-bg: rgba(50, 215, 75, 0.16);
+
+    --color-chart-profit: #32d74b;
+    --color-heatmap-high: rgba(50, 215, 75, 0.6);
+    --color-heatmap-medium: rgba(255, 214, 10, 0.55);
+    --color-heatmap-low: rgba(255, 69, 58, 0.55);
+    --color-delivery-high: #32d74b;
+    --color-delivery-medium: #ffd60a;
+    --color-delivery-low: #ff453a;
+    --color-expiry-urgent: #ff453a;
+    --color-expiry-warning: #ffd60a;
+    --color-expiry-normal: #32d74b;
+
+    --red-dim: rgba(255, 69, 58, 0.16);
+    --green-dim: rgba(50, 215, 75, 0.16);
+    --blue-dim: rgba(10, 132, 255, 0.16);
+    --yellow-dim: rgba(255, 214, 10, 0.16);
+    --orange-dim: rgba(255, 159, 10, 0.16);
+
+    --red-border: rgba(255, 69, 58, 0.4);
+    --green-border: rgba(50, 215, 75, 0.4);
+    --blue-border: rgba(10, 132, 255, 0.4);
+    --yellow-border: rgba(255, 214, 10, 0.4);
+    --orange-border: rgba(255, 159, 10, 0.4);
+
+    --overlay-dark: rgba(0, 0, 0, 0.45);
+    --overlay-darker: rgba(0, 0, 0, 0.6);
+    --overlay-darkest: rgba(0, 0, 0, 0.75);
+    --backdrop-blur: rgba(30, 30, 30, 0.75);
+    --backdrop-blur-strong: rgba(30, 30, 30, 0.88);
+
+    --hover: rgba(255, 255, 255, 0.06);
+    --hover-row: rgba(255, 255, 255, 0.04);
+    --active-press: rgba(255, 255, 255, 0.11);
+
+    --shadow-xs: 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+    --shadow-window: 0 22px 60px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(0, 0, 0, 0.55);
+
+    --glass-bg: rgba(30, 30, 32, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --sidebar-bg: rgba(28, 28, 30, 0.88);
+    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-item-active: rgba(255, 255, 255, 0.12);
+    --sidebar-item-active-text: #f5f5f7;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ДОСТУПНОСТЬ
    ═══════════════════════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {
@@ -304,29 +581,17 @@
     scroll-behavior: auto !important;
   }
 
-  /* Preserve hover states for interaction feedback */
-  .btn:hover,
-  .btn:focus,
-  input:hover,
-  input:focus,
-  select:hover,
-  select:focus {
-    transition: none !important;
-  }
-
-  /* Keep essential animations for loading states */
+  /* Индикаторы загрузки — единственное, что продолжает двигаться:
+     без них не отличить «грузится» от «зависло». */
   .spinner,
   .spinner-xs,
-  .spinner-sm {
-    animation: spin 1s linear infinite !important;
+  .spinner-sm,
+  .float-spinner {
+    animation: spin 1s steps(12, end) infinite !important;
   }
 }
 
-/* ────────────────────────────────────────────────────────────
-   ACCESSIBILITY — Screen Reader Only Utilities
-   ──────────────────────────────────────────────────────────── */
-
-/* Visually hidden but accessible to screen readers */
+/* Только для скринридеров */
 .sr-only {
   position: absolute;
   left: -9999px;
@@ -335,7 +600,6 @@
   overflow: hidden;
 }
 
-/* Screen reader only, visible on focus (for skip links) */
 .sr-only-focusable:focus {
   position: static;
   left: auto;

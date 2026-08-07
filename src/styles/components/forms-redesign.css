@@ -1,65 +1,70 @@
 /* ═══════════════════════════════════════════════════════════
-   FORMS — CYBER-FINANCIAL TERMINAL
+   FORMS — NATIVE macOS
+   Имена классов сохранены полностью.
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Form Group ─────────────────────────────────────────── */
+/* ── Группа ─────────────────────────────────────────────── */
 .form-group {
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-4);
 }
 
 .form-group:last-child {
   margin-bottom: 0;
 }
 
-/* ── Form Label ─────────────────────────────────────────── */
+/* ── Подпись ────────────────────────────────────────────────
+   Без капса и разрядки: в macOS подписи полей пишутся
+   обычным регистром. */
 .form-label {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  font-weight: 500;
   color: var(--text-2);
-  margin-bottom: var(--sp-2);
-  font-family: 'Rajdhani', sans-serif;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  margin-bottom: 5px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .form-label.required::after {
   content: '*';
   color: var(--red-t);
-  margin-left: var(--sp-1);
+  margin-left: 3px;
 }
 
-/* ── Input Fields (Standard Height: 40px) ───────────────── */
+/* ── Поля ───────────────────────────────────────────────── */
 .input,
 .textarea,
 .select,
 .form-input {
   width: 100%;
-  height: 40px;
-  padding: var(--sp-2) var(--sp-4);
-  background: var(--inset);
+  height: var(--h-control);
+  padding: 0 8px;
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--text);
-  font-size: 13px;
-  font-family: 'Manrope', sans-serif;
-  transition: all var(--t-fast);
+  font-family: var(--font-ui);
+  font-size: var(--fs-control);
+  /* Лёгкая внутренняя тень: поле «утоплено» в поверхность */
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
   outline: none;
 }
 
-/* Small variant (32px) */
 .input-sm,
 .select-sm {
-  height: 32px;
-  padding: var(--sp-1) var(--sp-3);
-  font-size: 12px;
+  height: var(--h-control-sm);
+  padding: 0 6px;
+  font-size: var(--fs-caption);
 }
 
-/* Large variant (48px) */
 .input-lg,
 .select-lg {
-  height: 48px;
-  padding: var(--sp-3) var(--sp-5);
+  height: 32px;
+  padding: 0 10px;
   font-size: 14px;
 }
 
@@ -68,31 +73,26 @@
 .select:hover,
 .form-input:hover {
   border-color: var(--border-hi);
-  background: var(--surface);
 }
 
 .input:focus,
 .textarea:focus,
 .select:focus,
-.form-input:focus {
-  border-color: var(--accent-border);
-  background: var(--surface);
-  box-shadow: 0 0 0 3px var(--accent-dim);
-}
-
-/* Focus-visible for keyboard navigation only */
+.form-input:focus,
 .input:focus-visible,
 .textarea:focus-visible,
 .select:focus-visible,
 .form-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
 }
 
 .input::placeholder,
 .textarea::placeholder,
 .form-input::placeholder {
-  color: var(--muted);
+  color: var(--text-3);
+  font-style: normal;
 }
 
 .input:disabled,
@@ -102,412 +102,392 @@
   opacity: 0.5;
   cursor: not-allowed;
   background: var(--inset);
+  box-shadow: none;
 }
 
-/* ── Textarea ───────────────────────────────────────────── */
+/* ── Многострочное поле ─────────────────────────────────── */
 .textarea {
-  min-height: 100px;
-  resize: vertical;
-  font-family: 'Manrope', sans-serif;
-  line-height: 1.5;
   height: auto;
+  min-height: 64px;
+  padding: 6px 8px;
+  line-height: var(--lh-body);
+  resize: vertical;
 }
 
-/* ── Select Dropdown ────────────────────────────────────── */
+/* ── Выпадающий список ──────────────────────────────────────
+   Своя стрелка chevron: системная слишком крупная и не
+   попадает в стиль. */
 .select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%238b949e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  -webkit-appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right var(--sp-3) center;
-  padding-right: var(--sp-9);
-  cursor: pointer;
+  background-position: right 8px center;
+  cursor: default;
 }
 
-.select:focus {
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2300d9ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-/* ── Checkbox ───────────────────────────────────────────── */
+/* ── Чекбокс ────────────────────────────────────────────── */
 .checkbox-wrapper {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--sp-3);
-  cursor: pointer;
-  user-select: none;
+  gap: 6px;
 }
 
 .checkbox {
   appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--inset);
-  cursor: pointer;
-  transition: all var(--t-fast);
-  position: relative;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r-xs);
+  background: var(--card);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.05);
+  cursor: default;
+  position: relative;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .checkbox:hover {
-  border-color: var(--border-hi);
-  transform: scale(1.05);
+  border-color: var(--text-3);
 }
 
 .checkbox:checked {
   background: var(--accent);
   border-color: var(--accent);
-  animation: pulse var(--t-fast) cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
 }
 
 .checkbox:checked::after {
   content: '';
   position: absolute;
-  left: 5px;
-  top: 2px;
+  left: 4px;
+  top: 1px;
   width: 4px;
   height: 8px;
-  border: solid var(--bg);
-  border-width: 0 2px 2px 0;
+  border: solid #ffffff;
+  border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
-  animation: checkmark var(--t-fast) ease-out forwards;
 }
 
 .checkbox:focus {
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  outline: none;
 }
 
 .checkbox:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .checkbox-label {
-  font-size: 13px;
-  color: var(--text-2);
-  font-family: 'Manrope', sans-serif;
-  cursor: pointer;
+  font-size: var(--fs-body);
+  color: var(--text);
+  cursor: default;
 }
 
-/* ── Radio Button ───────────────────────────────────────── */
+/* ── Радиокнопка ────────────────────────────────────────── */
 .radio-wrapper {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--sp-3);
-  cursor: pointer;
-  user-select: none;
+  gap: 6px;
 }
 
 .radio {
   appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border);
-  border-radius: 50%;
-  background: var(--inset);
-  cursor: pointer;
-  transition: all var(--t-fast);
-  position: relative;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
+  border: 1px solid var(--border-hi);
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.05);
+  cursor: default;
+  position: relative;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .radio:hover {
-  border-color: var(--border-hi);
+  border-color: var(--text-3);
 }
 
 .radio:checked {
+  background: var(--accent);
   border-color: var(--accent);
+  box-shadow: none;
 }
 
 .radio:checked::after {
   content: '';
   position: absolute;
-  left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
-  background: var(--accent);
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
   border-radius: 50%;
+  background: #ffffff;
 }
 
 .radio:focus {
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  outline: none;
 }
 
 .radio:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .radio-label {
-  font-size: 13px;
-  color: var(--text-2);
-  font-family: 'Manrope', sans-serif;
-  cursor: pointer;
+  font-size: var(--fs-body);
+  color: var(--text);
+  cursor: default;
 }
 
-/* ── Toggle Switch ──────────────────────────────────────── */
+/* ── Переключатель ──────────────────────────────────────────
+   Единственный элемент с разрешённой анимацией: без движения
+   кружка непонятно, что состояние изменилось. */
 .toggle-wrapper {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  user-select: none;
+  gap: 8px;
 }
 
 .toggle {
   appearance: none;
-  width: 44px;
-  height: 24px;
-  background: var(--inset);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all var(--t-fast);
-  position: relative;
+  -webkit-appearance: none;
+  width: 26px;
+  height: 15px;
   flex-shrink: 0;
+  border-radius: var(--r-full);
+  background: rgba(0, 0, 0, 0.16);
+  border: none;
+  cursor: default;
+  position: relative;
+  transition: background-color 150ms ease-out;
+}
+
+[data-theme='dark'] .toggle {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .toggle::after {
   content: '';
   position: absolute;
-  left: 2px;
-  top: 2px;
-  width: 16px;
-  height: 16px;
-  background: var(--text-3);
+  top: 1.5px;
+  left: 1.5px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  transition: all var(--t-fast);
-}
-
-.toggle:hover {
-  border-color: var(--border-hi);
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  transition: transform 150ms ease-out;
 }
 
 .toggle:checked {
-  background: var(--accent-dim);
-  border-color: var(--accent-border);
+  background: var(--green);
 }
 
 .toggle:checked::after {
-  left: 22px;
-  background: var(--accent);
+  transform: translateX(11px);
 }
 
 .toggle:focus {
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  outline: none;
 }
 
 .toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .toggle-label {
-  font-size: 13px;
-  color: var(--text-2);
-  font-family: 'Manrope', sans-serif;
-  cursor: pointer;
-  font-weight: 500;
+  font-size: var(--fs-body);
+  color: var(--text);
+  cursor: default;
 }
 
-/* ── Input Group (with icon/button) ─────────────────────── */
+/* ── Составное поле ─────────────────────────────────────── */
 .input-group {
   display: flex;
-  gap: 0;
-  position: relative;
+  align-items: stretch;
 }
 
 .input-group .input {
-  border-radius: var(--r-md) 0 0 var(--r-md);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
   border-right: none;
 }
 
 .input-group-append {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 8px;
   background: var(--inset);
   border: 1px solid var(--border);
-  border-left: none;
-  border-radius: 0 var(--r-md) var(--r-md) 0;
-  color: var(--muted);
+  border-top-right-radius: var(--r-sm);
+  border-bottom-right-radius: var(--r-sm);
+  color: var(--text-3);
+  font-size: var(--fs-caption);
+  white-space: nowrap;
 }
 
 .input-group .input:focus + .input-group-append {
-  border-color: var(--accent-border);
+  border-color: var(--accent);
 }
 
-/* ── Form Error ─────────────────────────────────────────── */
-.form-error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: 12px;
+/* ── Ошибки и подсказки ─────────────────────────────────── */
+.form-error,
+.input-error {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-caption);
   color: var(--red-t);
-  font-family: 'Manrope', sans-serif;
-  animation: shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .input.error,
 .textarea.error,
 .select.error {
-  border-color: rgba(239, 68, 68, 0.5);
-  animation: shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-color: var(--red);
 }
 
 .input.error:focus,
 .textarea.error:focus,
 .select.error:focus {
   border-color: var(--red);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.4);
 }
 
-/* ── Form Helper Text ───────────────────────────────────── */
+.input-success {
+  border-color: var(--green);
+}
+
 .form-helper {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--muted);
-  font-family: 'Manrope', sans-serif;
-  line-height: 1.4;
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-caption);
+  color: var(--text-3);
 }
 
-/* ── Search Input (with icon) ───────────────────────────── */
+/* ── Поиск ──────────────────────────────────────────────────
+   Скруглённое поле со значком — узнаваемый вид поиска macOS. */
 .search-input-wrapper {
   position: relative;
-  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .search-input-wrapper .input {
-  padding-left: 38px;
+  padding-left: 26px;
+  border-radius: var(--r-full);
 }
 
 .search-input-icon {
   position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--muted);
+  left: 8px;
+  width: 12px;
+  height: 12px;
+  color: var(--text-3);
   pointer-events: none;
+  stroke-width: 1.5;
 }
 
 .search-input-wrapper .input:focus ~ .search-input-icon {
-  color: var(--accent-text);
+  color: var(--text-2);
 }
 
-/* ── File Upload ────────────────────────────────────────── */
+/* ── Загрузка файла ─────────────────────────────────────── */
 .file-upload {
   position: relative;
-  display: inline-block;
-  cursor: pointer;
 }
 
 .file-upload input[type='file'] {
   position: absolute;
+  width: 1px;
+  height: 1px;
   opacity: 0;
-  width: 0;
-  height: 0;
+  overflow: hidden;
 }
 
 .file-upload-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: var(--inset);
-  border: 1px dashed var(--border);
+  justify-content: center;
+  gap: 5px;
+  height: var(--h-control);
+  padding: 0 var(--sp-3);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--r-md);
-  color: var(--text-2);
-  font-size: 13px;
-  font-family: 'Manrope', sans-serif;
-  cursor: pointer;
-  transition: all var(--t-fast);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  font-size: var(--fs-control);
+  font-weight: 500;
+  cursor: default;
+  transition: background-color var(--t-fast);
 }
 
 .file-upload-label:hover {
-  border-color: var(--accent-border);
-  background: var(--accent-dim);
-  color: var(--accent-text);
+  background: var(--card-hi);
 }
 
 .file-upload-label:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
-/* ── Range Slider ───────────────────────────────────────── */
+/* ── Ползунок ───────────────────────────────────────────── */
 .range-slider {
   width: 100%;
-  height: 6px;
-  background: var(--inset);
-  border-radius: 3px;
-  outline: none;
+  height: 4px;
   appearance: none;
-  cursor: pointer;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: var(--r-full);
+  outline: none;
 }
 
 .range-slider::-webkit-slider-thumb {
   appearance: none;
-  width: 18px;
-  height: 18px;
-  background: var(--accent);
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  cursor: pointer;
-  transition: all var(--t-fast);
-  box-shadow: 0 2px 8px rgba(0, 217, 255, 0.3);
+  background: #ffffff;
+  border: none;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.25),
+    0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  cursor: default;
 }
 
 .range-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 217, 255, 0.4);
+  background: #fafafa;
 }
 
 .range-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  background: var(--accent);
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  cursor: pointer;
+  background: #ffffff;
   border: none;
-  transition: all var(--t-fast);
-  box-shadow: 0 2px 8px rgba(0, 217, 255, 0.3);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.25),
+    0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  cursor: default;
 }
 
 .range-slider::-moz-range-thumb:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 217, 255, 0.4);
+  background: #fafafa;
 }
 
 .range-slider:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* ── Input Error State ─────────────────────────────────── */
-.input-error {
-  border-color: var(--red);
-  animation: input-shake 0.4s ease;
-}
-
-@keyframes input-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20%,
-  60% {
-    transform: translateX(-4px);
-  }
-  40%,
-  80% {
-    transform: translateX(4px);
-  }
-}
-
-/* ── Input Success State ───────────────────────────────── */
-.input-success {
-  border-color: var(--color-success);
-  box-shadow: 0 0 0 3px var(--color-success-bg);
+  box-shadow: var(--focus-ring);
 }

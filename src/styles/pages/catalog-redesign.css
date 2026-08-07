@@ -67,7 +67,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -78,7 +78,7 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--accent-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   padding: 3px 8px;
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);
@@ -109,14 +109,14 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 4px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .catalog-stat-value {
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: -0.01em;
 }
 
@@ -128,7 +128,7 @@
   font-weight: 700;
   padding: 4px 10px;
   border-radius: var(--r-sm);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   border: 1px solid;
 }
 
@@ -161,7 +161,7 @@
   background: rgba(96, 165, 250, 0.12);
   border: 1px solid rgba(96, 165, 250, 0.25);
   color: var(--blue-t);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -183,7 +183,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all var(--t-fast);
   margin-bottom: -2px;
@@ -230,7 +230,7 @@
   right: 0;
   width: 100px;
   height: 100px;
-  background: radial-gradient(circle, rgba(0, 217, 255, 0.08), transparent 70%);
+  background: radial-gradient(circle, transparent, transparent 70%);
   pointer-events: none;
 }
 
@@ -241,14 +241,14 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .catalog-overview-value {
   font-size: 32px;
   font-weight: 700;
   color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: -0.02em;
   margin-bottom: 8px;
 }
@@ -256,7 +256,7 @@
 .catalog-overview-subtitle {
   font-size: 12px;
   color: var(--text-3);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Sync Progress Bar ──────────────────────────────────── */
@@ -279,14 +279,14 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sync-progress-value {
   font-size: 12px;
   font-weight: 700;
   color: var(--accent-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .sync-progress-track {
@@ -342,14 +342,14 @@
   border: 1px solid var(--accent-border);
   border-radius: var(--r-md);
   margin-bottom: 16px;
-  animation: slide-down 0.3s ease;
+  animation: none;
 }
 
 .catalog-bulk-text {
   font-size: 13px;
   color: var(--accent-text);
   font-weight: 600;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.02em;
 }
 

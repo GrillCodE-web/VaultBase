@@ -41,6 +41,7 @@ export default [
         prompt: 'readonly',
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
+        process: 'readonly',
       },
     },
     plugins: {
@@ -65,6 +66,40 @@ export default [
       react: {
         version: 'detect',
       },
+    },
+  },
+  {
+    // cc-sync-server — CommonJS под Node, а не браузерный ESM.
+    // Без этого блока каждый серверный файл давал ложные no-undef на
+    // require/module/__dirname, и вывод линтера по серверу нельзя было читать:
+    // настоящие ошибки терялись среди десятков ложных.
+    files: ['cc-sync-server/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'commonjs',
+      globals: {
+        require: 'readonly',
+        module: 'writable',
+        exports: 'writable',
+        process: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setImmediate: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        fetch: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'off',
     },
   },
 ]

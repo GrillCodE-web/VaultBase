@@ -1,26 +1,85 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
+
+const STORAGE_KEY = 'theme'
+const MODES = ['system', 'light', 'dark']
 
 /**
- * Theme management hook
- * Persists theme preference to localStorage and applies to document root
+ * Единый источник истины для темы.
+ *
+ * Раньше состояние жило в двух местах: App.jsx держал свой useState
+ * с ключом 'cc_theme', а этот хук — свой с ключом 'theme'. Кнопка в
+ * сайдбаре и переключатель в Настройках не знали друг о друге, поэтому
+ * переключение в одном месте перезаписывалось другим при следующем
+ * рендере. Модульный стор + useSyncExternalStore дают общее состояние
+ * без провайдера в дереве.
  */
+const listeners = new Set()
+
+const read = () => {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  return MODES.includes(saved) ? saved : 'system'
+}
+
+let current = read()
+
+/* Атрибут ставится сразу при загрузке модуля, до первого рендера:
+   иначе между монтированием и эффектом успевает мигнуть светлая
+   тема (:root в tokens-redesign.css — светлый). */
+const apply = mode => {
+  document.documentElement.setAttribute('data-theme', mode)
+}
+
+apply(current)
+
+const store = {
+  get: () => current,
+  set: next => {
+    const mode = MODES.includes(next) ? next : 'system'
+    if (mode === current) return
+    current = mode
+    try {
+      localStorage.setItem(STORAGE_KEY, mode)
+    } catch (err) {
+      // Приватный режим или переполненное хранилище: тема применится,
+      // но не переживёт перезапуск. Это не повод падать.
+      console.warn('[useTheme] Не удалось сохранить тему:', err)
+    }
+    apply(mode)
+    listeners.forEach(fn => fn())
+  },
+  subscribe: fn => {
+    listeners.add(fn)
+    return () => listeners.delete(fn)
+  },
+}
+
+/* Режим 'system' раскрашивается целиком на стороне CSS — см.
+   @media (prefers-color-scheme: dark) в tokens-redesign.css. JS
+   слушает matchMedia только чтобы обновить иконку переключателя. */
+const query = window.matchMedia?.('(prefers-color-scheme: dark)')
+query?.addEventListener('change', () => {
+  if (current === 'system') listeners.forEach(fn => fn())
+})
+
 export function useTheme() {
-  const [theme, setTheme] = useState(() => {
-    // Check localStorage first, fallback to dark
-    const saved = localStorage.getItem('theme')
-    return saved || 'dark'
-  })
+  const theme = useSyncExternalStore(store.subscribe, store.get, store.get)
 
-  useEffect(() => {
-    // Apply theme to document root
-    document.documentElement.setAttribute('data-theme', theme)
-    // Persist to localStorage
-    localStorage.setItem('theme', theme)
-  }, [theme])
+  const setTheme = useCallback(next => {
+    store.set(typeof next === 'function' ? next(store.get()) : next)
+  }, [])
 
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
-  }
+  /* Оставлено ради существующей семантики: переключает свет/тьму,
+     минуя 'system'. Для полного круга — cycleTheme. */
+  const toggleTheme = useCallback(() => {
+    store.set(store.get() === 'dark' ? 'light' : 'dark')
+  }, [])
 
-  return { theme, setTheme, toggleTheme }
+  const cycleTheme = useCallback(() => {
+    const i = MODES.indexOf(store.get())
+    store.set(MODES[(i + 1) % MODES.length])
+  }, [])
+
+  const resolvedTheme = theme === 'system' ? (query?.matches ? 'dark' : 'light') : theme
+
+  return { theme, resolvedTheme, setTheme, toggleTheme, cycleTheme, modes: MODES }
 }

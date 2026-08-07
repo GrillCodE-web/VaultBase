@@ -25,9 +25,9 @@ export const useOrdersStore = create((set, get) => ({
   // Actions
   setPage: page => set({ page }),
 
-  setFilters: filters =>
+  setFilters: next =>
     set(state => ({
-      filters: { ...state.filters, ...filters },
+      filters: typeof next === 'function' ? next(state.filters) : { ...state.filters, ...next },
       page: 1, // Reset to page 1 when filters change
     })),
 
@@ -107,6 +107,12 @@ export const useOrdersStore = create((set, get) => ({
       set({ loading: false })
       throw error
     }
+  },
+
+  patchOrderLocal: (id, updates) => {
+    set(state => ({
+      orders: state.orders.map(o => (o.id === id ? { ...o, ...updates } : o)),
+    }))
   },
 
   updateOrder: async (id, updates) => {

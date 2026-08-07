@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 // FIX P2-3: AbortController for fetch cancellation
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
@@ -1025,6 +1025,8 @@ export default function ProfileList({
   const [dupProfileGroups, setDupProfileGroups] = useState([])
   const [quickOrderProfile, setQuickOrderProfile] = useState(null)
   const [selectedIdx, setSelectedIdx] = useState(null)
+  const [selected, setSelected] = useState(new Set())
+  const [enrichProgress, setEnrichProgress] = useState(null)
   const tableBodyRef = useRef(null)
   const tableContainerRef = useRef(null)
   const deleteTimersRef = useRef(new Map()) // FIX P2-1: Track delete timers for cleanup
@@ -1087,13 +1089,14 @@ export default function ProfileList({
   // FIX FE-H02: Cleanup hover timer on unmount to prevent memory leak
   // FIX P2-1: Cleanup all delete timers on unmount
   useEffect(() => {
+    // Copy ref to a local variable inside the effect to avoid stale-ref warning
+    const timers = deleteTimersRef.current
     return () => {
       if (hoverTimer.current) {
         clearTimeout(hoverTimer.current)
         hoverTimer.current = null
       }
-      // Clear all pending delete timers - copy ref to avoid stale closure warning
-      const timers = deleteTimersRef.current
+      // Clear all pending delete timers
       timers.forEach(timerId => {
         clearTimeout(timerId)
       })
@@ -1333,6 +1336,48 @@ export default function ProfileList({
     }
   }
 
+  const toggleSelect = id => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selected.size === profiles.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(profiles.map(p => p.id)))
+    }
+  }
+
+  const handleBulkEnrich = async () => {
+    const ids = [...selected].filter(id => {
+      const p = profiles.find(pr => pr.id === id)
+      return p?.card_id
+    })
+    if (!ids.length) return
+    setEnrichProgress({ done: 0, total: ids.length })
+    let enriched = 0
+    for (const id of ids) {
+      const p = profiles.find(pr => pr.id === id)
+      if (!p?.card_id) continue
+      try {
+        await invoke('enrich_bin', { id: p.card_id })
+        enriched++
+      } catch {
+        /* skip */
+      }
+      setEnrichProgress({ done: enriched, total: ids.length })
+    }
+    setEnrichProgress(null)
+    setSelected(new Set())
+    toast(`BIN enriched: ${enriched} / ${ids.length}`, 'success')
+    load()
+  }
+
   const totalPages = getTotalPages(total)
 
   return (
@@ -1392,6 +1437,26 @@ export default function ProfileList({
         onSearch={() => load(1, { ...filter, search: searchInput })}
       />
 
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-accent/10 rounded-md mb-2">
+          <span className="text-xs text-muted">{selected.size} selected</span>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={handleBulkEnrich}
+            disabled={!!enrichProgress}
+          >
+            <SearchCode size={13} />
+            {enrichProgress
+              ? `Enriching ${enrichProgress.done}/${enrichProgress.total}...`
+              : 'BIN Enrich'}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>
+            <X size={13} /> Clear
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="panel p-0 overflow-x-auto">
         <div
@@ -1401,6 +1466,14 @@ export default function ProfileList({
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
+                <th className="bg-card w-8">
+                  <input
+                    type="checkbox"
+                    checked={profiles.length > 0 && selected.size === profiles.length}
+                    onChange={toggleSelectAll}
+                    className="accent-accent"
+                  />
+                </th>
                 <th className="bg-card"></th>
                 <th className="bg-card">{t('prof_col_profile')}</th>
                 <th className="bg-card">{t('prof_col_card')}</th>
@@ -1419,7 +1492,7 @@ export default function ProfileList({
               {loading && profiles.length === 0 && <SkeletonRows count={6} cols={12} />}
               {profiles.length === 0 && !loading && (
                 <EmptyState
-                  colSpan={12}
+                  colSpan={13}
                   icon={<User size={38} />}
                   title={t('no_profiles')}
                   subtitle={t('new_profile')}
@@ -1435,7 +1508,7 @@ export default function ProfileList({
                   {/* Spacer for virtual scroll offset */}
                   {rowVirtualizer.getVirtualItems().length > 0 && (
                     <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                      <td colSpan={12} className="p-0 border-none"></td>
+                      <td colSpan={13} className="p-0 border-none"></td>
                     </tr>
                   )}
 
@@ -1450,13 +1523,15 @@ export default function ProfileList({
                     const isSelected = selectedIdx === idx
 
                     return (
-                      <>
+                      <React.Fragment key={p.id}>
                         <ProfileRow
                           profile={p}
                           idx={idx}
                           isExpanded={isExpanded}
                           isDeleting={isDeleting}
                           isSelected={isSelected}
+                          isChecked={selected.has(p.id)}
+                          onToggleSelect={toggleSelect}
                           onRowClick={() => {
                             setSelectedIdx(idx)
                             setExpanded(isExpanded ? null : p.id)
@@ -1483,7 +1558,7 @@ export default function ProfileList({
                         />
                         {isExpanded && (
                           <tr key={`${p.id}-detail`}>
-                            <td colSpan={12} className="p-0">
+                            <td colSpan={13} className="p-0">
                               <ProfileDetailPanel
                                 profileId={p.id}
                                 onRefresh={load}
@@ -1492,7 +1567,7 @@ export default function ProfileList({
                             </td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     )
                   })}
 
@@ -1508,7 +1583,7 @@ export default function ProfileList({
                         }px`,
                       }}
                     >
-                      <td colSpan={12} className="p-0 border-none"></td>
+                      <td colSpan={13} className="p-0 border-none"></td>
                     </tr>
                   )}
                 </>

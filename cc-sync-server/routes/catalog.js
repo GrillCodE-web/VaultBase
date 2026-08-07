@@ -9,11 +9,26 @@ function getCatalogDb(readonly = true) {
   try {
     const Database = require('better-sqlite3');
     return new Database(dbPath, { readonly });
-  } catch { return null; }
+  } catch (e) {
+    // The file exists but could not be opened: corrupt/truncated DB (SQLITE_NOTADB),
+    // wrong permissions, or a write handle requested on a read-only mount. Callers
+    // degrade to an empty catalog, so surface the cause here or it is invisible.
+    console.error(`[catalog] cannot open catalog.db (readonly=${readonly}): ${e.message}`);
+    return null;
+  }
 }
 
 // Alias kept for existing GET routes
 function openCatalogDb() { return getCatalogDb(false); }
+
+/** Close a catalog handle on an error path without masking the original failure. */
+function closeQuietly(db) {
+  try {
+    db.close();
+  } catch (e) {
+    console.error(`[catalog] failed to close catalog.db handle: ${e.message}`);
+  }
+}
 
 const requireSecret = (req, res, next) => {
   const secret = process.env.SERVER_SECRET;
@@ -48,7 +63,7 @@ router.get('/items', (req, res) => {
 
     db.close();
     res.json({ items, total, page, per_page, pages: Math.ceil(total / per_page) });
-  } catch(e) { try { db.close(); } catch {} res.status(500).json({ items: [], total: 0, error: e.message }); }
+  } catch(e) { closeQuietly(db); res.status(500).json({ items: [], total: 0, error: e.message }); }
 });
 
 // FIX API-03: Add X-Content-Type-Options header to prevent MIME sniffing XSS
@@ -77,8 +92,12 @@ router.get('/shops', (req, res) => {
     }
 
     db.close();
-    res.json({ items, total, page, per_page, pages: Math.ceil(total / per_page) });
-  } catch(e) { try { db.close(); } catch {} res.status(500).json({ items: [], total: 0, error: e.message }); }
+    // Key is `shops`, not `items`: the empty-DB early return above already uses
+    // `{ shops: [] }`, and the Tauri client reads data["shops"] (main.rs:2739).
+    // While this returned `items`, shop catalog sync imported zero rows — the
+    // client got None on page 1 and broke out of the loop immediately.
+    res.json({ shops: items, total, page, per_page, pages: Math.ceil(total / per_page) });
+  } catch(e) { closeQuietly(db); res.status(500).json({ shops: [], total: 0, error: e.message }); }
 });
 
 // POST /api/catalog/items — add or update a catalog item (authenticated)

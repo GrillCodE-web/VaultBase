@@ -1,28 +1,104 @@
 # CC Manager Sync Server — API Documentation
 
-**Version:** 2.2.0
+**Version:** 2.5.0
 **Base URL:** `https://api.eulivehub.com`
 
 ## Authentication
 
-All API endpoints (except `/api/health`) require Bearer token authentication:
+Authentication is **per-endpoint**, not global. There are four tiers:
+
+**1. License token (`Authorization: Bearer <license-token>`)** — enforced by the
+`requireToken` middleware. Required by:
+
+- `POST /sync/*` (all sync routes)
+- `GET /api/bin/:bin`, `POST /api/bin`
+- `POST /footprint`, `POST /footprint/check`
 
 ```http
 Authorization: Bearer <your-license-token>
 ```
 
+**2. Admin session or HTTP Basic** — enforced by `requireAdmin`. Required by all
+routes under `<ADMIN_PATH>/api` and `<ADMIN_PATH>/upload`, and by the admin
+static panel.
+
+**3. Server secret (`X-Server-Secret: <SERVER_SECRET>`)** — required only by the
+catalog write endpoints `POST /api/catalog/items` and `POST /api/catalog/shops`.
+
+**4. No authentication.** These endpoints are publicly reachable:
+
+- `GET /` (landing page), `GET /favicon.svg`, `GET /health`
+- `GET /api/releases`, `GET /releases/*` (static release binaries)
+- `POST /activate`, `POST /verify`
+- `POST /invite/validate`
+- `GET /api/catalog/items`, `GET /api/catalog/shops`
+- `GET /version`, `GET /update`, `GET /update/check`
+- `GET|POST <ADMIN_PATH>/login`, `POST <ADMIN_PATH>/logout`
+
+Several unauthenticated endpoints are protected by rate limiting instead — see
+[Rate Limiting](#rate-limiting).
+
 ## Endpoints
 
-### Health Check
+### License Activation & Verification
+
+#### Activate License
 
 ```http
-GET /api/health
+POST /activate
+Content-Type: application/json
+```
+
+**Body:**
+
+```json
+{ "installation_id": "uuid-here", "activation_key": "KEY-FROM-ADMIN" }
 ```
 
 **Response:** `200 OK`
 
 ```json
-{ "status": "ok", "timestamp": "2026-03-25T12:00:00Z" }
+{ "token": "license-token-here", "role": "operator" }
+```
+
+- `role` is `"admin"` or `"operator"` and comes from the license record.
+- The desktop client stores it locally (config `license_role`) and applies it to the
+  current user.
+
+#### Verify License
+
+```http
+POST /verify
+Content-Type: application/json
+```
+
+**Body:**
+
+```json
+{ "token": "license-token-here" }
+```
+
+**Response:** `200 OK`
+
+```json
+{ "valid": true, "label": "My Device", "role": "operator" }
+```
+
+- Called on startup. If `role` changed on the server, the client updates the local role on
+  the next launch. A revoked license returns `{ "valid": false }`.
+
+---
+
+### Health Check
+
+```http
+GET /health
+```
+
+**Response:** `200 OK`
+
+```json
+{ "status": "ok", "uptime": 12345.67, "ts": 1774440000000 }
 ```
 
 ---
@@ -142,11 +218,45 @@ GET /admin/api/licenses
     "token": "abc12345...xyz89012", // Masked
     "label": "My Device",
     "is_active": 1,
+    "role": "operator", // admin | operator
     "created_at": "2026-03-01T00:00:00Z",
     "last_seen": "2026-03-25T12:00:00Z"
   }
 ]
 ```
+
+#### Create License
+
+```http
+POST /admin/api/licenses
+Content-Type: application/json
+```
+
+**Body:**
+
+```json
+{
+  "installation_id": "uuid-here",
+  "challenge": "CHALLENGE-CODE",
+  "label": "Client X",
+  "role": "operator"
+}
+```
+
+- `role` is optional; defaults to `"operator"`. Accepts `"admin"` or `"operator"`.
+
+**Response:** `200 OK` — `{ "ok": true, "activation_key": "KEY..." }`
+
+#### Update License (label / role)
+
+```http
+PATCH /admin/api/licenses/:id
+Content-Type: application/json
+```
+
+**Body:** `{ "label": "New label" }` and/or `{ "role": "admin" }`
+
+**Response:** `200 OK` — `{ "ok": true }`
 
 #### Rotate Token
 
@@ -185,7 +295,7 @@ Content-Type: application/json
 #### Export Licenses (CSV)
 
 ```http
-GET /admin/api/licenses/export
+GET /admin/api/licenses/export.csv
 Accept: text/csv
 ```
 
@@ -203,7 +313,7 @@ uuid-here,abc12345...xyz89012,My Device,1,2026-03-01,2026-03-25
 #### Check Footprint
 
 ```http
-POST /api/footprint/check
+POST /footprint/check
 Content-Type: application/json
 ```
 
@@ -229,7 +339,7 @@ Content-Type: application/json
 #### Save Footprint
 
 ```http
-POST /api/footprint
+POST /footprint
 Content-Type: application/json
 ```
 
@@ -256,8 +366,11 @@ Content-Type: application/json
 
 #### Generate Code
 
+Invite creation is an **admin** operation; it is not exposed on the public
+`/invite` router.
+
 ```http
-POST /api/invite/generate
+POST <ADMIN_PATH>/api/invites
 Content-Type: application/json
 ```
 
@@ -282,7 +395,7 @@ Content-Type: application/json
 #### Validate Code
 
 ```http
-POST /api/invite/validate
+POST /invite/validate
 Content-Type: application/json
 ```
 
@@ -309,20 +422,33 @@ Content-Type: application/json
 
 **Endpoint:** `wss://api.eulivehub.com/ws`
 
-**Authentication:**
+**Authentication:** the token is **not** sent as a subprotocol or header. The
+client must send an `auth` message as its first frame; every other message type
+is ignored until the server replies with `auth_ok`.
 
 ```javascript
-const ws = new WebSocket('wss://api.eulivehub.com/ws', licenseToken)
+const ws = new WebSocket('wss://api.eulivehub.com/ws')
+ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: licenseToken }))
 ```
 
-**Events:**
+**Messages:**
 
-| Event           | Direction       | Payload                                           |
-| --------------- | --------------- | ------------------------------------------------- |
-| `sync_request`  | Client → Server | `{ type: 'cards', since: timestamp }`             |
-| `sync_response` | Server → Client | `{ type: 'cards', items: [...] }`                 |
-| `sync_update`   | Server → Client | `{ type: 'card', action: 'update', data: {...} }` |
-| `heartbeat`     | Bidirectional   | `{ timestamp: number }`                           |
+| Type              | Direction       | Payload                                                |
+| ----------------- | --------------- | ------------------------------------------------------ |
+| `auth`            | Client → Server | `{ token: string }`                                    |
+| `auth_ok`         | Server → Client | `{ installation_id, group_id }`                        |
+| `auth_error`      | Server → Client | `{ error: 'missing_token' \| 'invalid_token' }`        |
+| `ping` / `pong`   | Bidirectional   | `{}`                                                   |
+| `full_pull`       | Client → Server | `{}` — requests all cards for the group                |
+| `full_data`       | Server → Client | `{ cards: [...] }`                                     |
+| `push`            | Client → Server | `{ cards: [...] }` — max 100 per message               |
+| `card_update`     | Server → Client | `{ cards, updated_by, updated_at }`                    |
+| `catalog_update`  | Server → Client | `{ ... }`                                              |
+| `refresh_group`   | Client → Server | `{}`                                                   |
+| `group_refreshed` | Server → Client | `{ group_id }`                                         |
+| `member_joined`   | Server → Client | `{ installation_id }`                                  |
+| `member_left`     | Server → Client | `{ installation_id }`                                  |
+| `error`           | Server → Client | `{ error: 'not_in_group' \| 'too_many_cards' \| ... }` |
 
 ---
 
@@ -387,19 +513,30 @@ const ws = new WebSocket('wss://api.eulivehub.com/ws', licenseToken)
 
 ## Rate Limiting
 
-| Endpoint           | Limit   | Window |
-| ------------------ | ------- | ------ |
-| `/api/catalog/*`   | 100 req | 1 min  |
-| `/api/bin/*`       | 30 req  | 1 min  |
-| `/api/footprint/*` | 50 req  | 1 min  |
-| `/admin/api/*`     | 20 req  | 1 min  |
+Rate limiting is applied per-endpoint, not per-router. Only the endpoints listed
+below are limited; the catalog, BIN and admin API routes have **no** rate limiter.
 
-**Headers:**
+| Endpoint                  | Limit   | Window |
+| ------------------------- | ------- | ------ |
+| `POST /footprint`         | 100 req | 1 min  |
+| `POST /footprint/check`   | 10 req  | 1 min  |
+| `POST /activate`          | 10 req  | 15 min |
+| `POST /verify`            | 60 req  | 15 min |
+| `POST /sync/group/join`   | 10 req  | 15 min |
+| `POST /sync/group/pair`   | 20 req  | 1 hour |
+| `POST <ADMIN_PATH>/login` | 10 req  | 15 min |
+
+The stricter limit on `/footprint/check` is deliberate: it is a cross-user lookup,
+so a loose limit would allow enumeration. Requests are keyed by license token when
+one is present, otherwise by client IP.
+
+**Headers:** limiters use the standard `RateLimit-*` headers; the legacy
+`X-RateLimit-*` headers are disabled.
 
 ```http
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1679745600
+RateLimit-Limit: 100
+RateLimit-Remaining: 95
+RateLimit-Reset: 42
 ```
 
 ---
@@ -418,6 +555,13 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 ---
 
 ## Changelog
+
+### v2.5.1 (2026-08-06)
+
+- Added `POST /activate` and `POST /verify` documentation
+- Added `role` (admin/operator) to licenses (migration v9); returned by activate/verify
+- Added `POST /admin/api/licenses` (create with role) and `PATCH /admin/api/licenses/:id`
+  (edit label and/or role)
 
 ### v2.2.0 (2026-03-25)
 

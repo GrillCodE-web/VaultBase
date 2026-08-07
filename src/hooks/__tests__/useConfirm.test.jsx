@@ -132,8 +132,8 @@ describe('useConfirm', () => {
 
     const bgColor = confirmButton.style.background
     expect(bgColor).toBeTruthy()
-    // Should contain red color (rgb(239, 68, 68) or #ef4444)
-    expect(bgColor).toMatch(/rgb\(239,\s*68,\s*68\)|#ef4444/i)
+    // Should contain the native red accent (rgb(255, 59, 48) or #ff3b30)
+    expect(bgColor).toMatch(/rgb\(255,\s*59,\s*48\)|#ff3b30/i)
   })
 
   it('accepts string as title shorthand', async () => {
@@ -317,8 +317,8 @@ describe('useConfirm', () => {
     const confirmButton = screen.getByRole('button', { name: 'Confirm' })
     const bgColor = confirmButton.style.background
 
-    // Should be blue, not red
-    expect(bgColor).toMatch(/#3b82f6|rgb\(59,\s*130,\s*246\)/i)
+    // Should be the native blue accent, not red
+    expect(bgColor).toMatch(/#0a84ff|rgb\(10,\s*132,\s*255\)/i)
   })
 
   it('handles empty options object', async () => {

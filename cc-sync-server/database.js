@@ -174,6 +174,41 @@ function migrate(db) {
       PRAGMA user_version = 7;
     `);
   }
+
+  // Multi-use invite codes: add max_uses and use_count columns
+  if (ver < 8) {
+    db.exec(`
+      ALTER TABLE invite_codes ADD COLUMN max_uses  INTEGER DEFAULT 1;
+      ALTER TABLE invite_codes ADD COLUMN use_count INTEGER DEFAULT 0;
+      UPDATE invite_codes SET use_count = is_used;
+      PRAGMA user_version = 8;
+    `);
+  }
+
+  // License-based roles: each license carries the role (admin/operator)
+  // that the desktop app applies locally after activation/verify.
+  if (ver < 9) {
+    db.exec(`
+      ALTER TABLE licenses ADD COLUMN role TEXT NOT NULL DEFAULT 'operator';
+      UPDATE licenses SET role = 'admin';
+      PRAGMA user_version = 9;
+    `);
+  }
 }
 
-module.exports = { getDb };
+/**
+ * Close the SQLite handle. Called during graceful shutdown so WAL content is
+ * checkpointed into the main database file before the process exits.
+ */
+function closeDb() {
+  if (!db) return;
+  try {
+    db.close();
+  } catch (e) {
+    console.error('[database] error closing SQLite handle:', e.message);
+  } finally {
+    db = null;
+  }
+}
+
+module.exports = { getDb, closeDb };

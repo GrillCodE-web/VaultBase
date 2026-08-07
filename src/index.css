@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   CC MANAGER — CYBER-FINANCIAL TERMINAL
-   Main stylesheet with redesigned components
+   VAULTBASE — NATIVE macOS
+   Точка входа: подключается из main.jsx и float.jsx.
+   Вся система стилей — в styles/index-redesign.css.
    ═══════════════════════════════════════════════════════════ */
 
 @import './styles/index-redesign.css';

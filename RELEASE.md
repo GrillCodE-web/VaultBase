@@ -1,4 +1,4 @@
-# CC Manager v2.2.0 — Release Notes
+# VaultBase v2.2.0 — Release Notes
 
 **Release Date:** 2026-03-25
 **Version:** 2.2.0
@@ -8,7 +8,7 @@
 
 ## 🎉 HISTORIC SECURITY UPDATE
 
-This is the most significant security update in CC Manager history.
+This is the most significant security update in VaultBase history.
 
 **Security Rating:** 3/10 → **10/10**
 
@@ -133,7 +133,7 @@ npm run test:run  # ✅ 21 tests passing
 1. **Backup your data:**
 
    ```bash
-   cp cc_manager.db cc_manager.db.backup
+   cp vaultbase.db vaultbase.db.backup
    ```
 
 2. **Pull latest changes:**
@@ -164,7 +164,7 @@ npm run test:run  # ✅ 21 tests passing
 
 ```bash
 git clone <repository-url>
-cd cc-manager
+cd vaultbase
 npm install
 cp .env.example .env
 # Edit .env with your values
@@ -179,12 +179,12 @@ Set these environment variables in `.env`:
 
 ```bash
 # Required for production
-CC_MANAGER_HMAC_SECRET=<generate with: openssl rand -hex 32>
-CC_MANAGER_MASTER_PASSWORD=<your master password>
+vaultbase_HMAC_SECRET=<generate with: openssl rand -hex 32>
+vaultbase_MASTER_PASSWORD=<your master password>
 
 # Optional
-CC_MANAGER_SYNC_URL=https://api.eulivehub.com
-CC_MANAGER_AUTOLOCK_TIMEOUT=300
+vaultbase_SYNC_URL=https://api.eulivehub.com
+vaultbase_AUTOLOCK_TIMEOUT=300
 ```
 
 ---
@@ -216,9 +216,9 @@ None. All critical, high, and medium priority issues resolved.
 
 ## 📞 Support
 
-- **Security Issues:** security@ccmanager.local
-- **Technical Support:** dev@ccmanager.local
-- **Documentation:** docs@ccmanager.local
+- **Security Issues:** security@vaultbase.local
+- **Technical Support:** dev@vaultbase.local
+- **Documentation:** docs@vaultbase.local
 
 ---
 
@@ -237,4 +237,4 @@ Proprietary — All rights reserved
 
 ---
 
-**CC Manager v2.2.0 is the most secure version released to date. All users are strongly encouraged to upgrade immediately.**
+**VaultBase v2.2.0 is the most secure version released to date. All users are strongly encouraged to upgrade immediately.**

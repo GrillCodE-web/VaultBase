@@ -15,6 +15,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useLang } from '../hooks/useLang.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
+import { EmptyState } from '../components/EmptyState.jsx'
 import { STATUS_COLORS } from '../constants/colors.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
@@ -197,9 +198,15 @@ export default function ActivityLog() {
 
       <div className="panel p-0 overflow-hidden">
         {entries.length === 0 && !loading ? (
-          <div className="py-10 px-6 text-center text-muted text-[13px]">
-            {search || entityFilter ? t('log_not_found') : t('log_empty')}
-          </div>
+          <EmptyState
+            icon={<RefreshCw size={38} />}
+            title={search || entityFilter ? t('log_not_found') : t('log_empty')}
+            subtitle={
+              search || entityFilter
+                ? t('log_try_different_filter') || 'Try different filter or search term'
+                : undefined
+            }
+          />
         ) : (
           <table className="tbl">
             <thead>

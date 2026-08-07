@@ -14,10 +14,11 @@ export async function apiCall(command, args = {}, options = {}) {
   let lastError
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    let timeoutId = null
     try {
       // Create timeout promise
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new NetworkError('Request timeout')), timeout)
+        timeoutId = setTimeout(() => reject(new NetworkError('Request timeout')), timeout)
       })
 
       // Race between invoke and timeout
@@ -41,6 +42,8 @@ export async function apiCall(command, args = {}, options = {}) {
 
       // Wait before retry
       await new Promise(resolve => setTimeout(resolve, retryDelay))
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
     }
   }
 

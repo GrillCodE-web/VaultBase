@@ -8,7 +8,7 @@ export function usePremiumToast() {
   const { success, error, warning, info, dismissAll } = useSmartToast()
 
   // CRUD операции
-  const successCreate = (entityName, count = 1) =>
+  const successCreate = (entityName, _count = 1) =>
     success(`${entityName} created successfully`, {
       groupKey: `create-${entityName}`,
     })

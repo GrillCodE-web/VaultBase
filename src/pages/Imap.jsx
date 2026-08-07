@@ -340,7 +340,6 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
 export default function Imap({ onNavigate: _onNavigate }) {
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
-  const { t } = useLang()
 
   // Data
   const [accounts, setAccounts] = useState([])
@@ -444,7 +443,11 @@ export default function Imap({ onNavigate: _onNavigate }) {
   useEffect(() => {
     loadAccounts()
     let unlistenFn = null
-    listen('imap_message_received', async () => {
+    // Событие называется new_imap_message — так его шлёт бэкенд
+    // (main.rs:1323 и main.rs:2034). Здесь раньше слушалось
+    // imap_message_received, которое не эмитит никто: список писем не
+    // обновлялся при получении новой почты.
+    listen('new_imap_message', async () => {
       await loadAccounts()
       if (selectedAccount) {
         loadMessages(selectedAccount.id, selectedFolder, msgPageRef.current, msgSearchRef.current)

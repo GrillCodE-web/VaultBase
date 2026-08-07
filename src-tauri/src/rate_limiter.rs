@@ -90,7 +90,7 @@ pub fn get_rate_limit_key(command: &str) -> u64 {
     use std::collections::hash_map::DefaultHasher;
 
     // Get installation ID for per-installation rate limiting
-    let installation_id = std::env::var("CC_MANAGER_INSTALLATION_ID")
+    let installation_id = std::env::var("vaultbase_INSTALLATION_ID")
         .unwrap_or_else(|_| "unknown".to_string());
 
     let mut hasher = DefaultHasher::new();

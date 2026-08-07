@@ -32,6 +32,8 @@ function Spinner() {
 export function ImportModal({ onClose, onImported }) {
   const { t } = useLang()
   const { toast } = usePremiumToast()
+  const modalRef = useRef(null)
+  const importTimerRef = useRef(null)
   const [step, setStep] = useState(1)
   const [raw, setRaw] = useState('')
   const [source, setSource] = useState('')
@@ -39,6 +41,8 @@ export function ImportModal({ onClose, onImported }) {
   const [preview, setPreview] = useState(null)
   const [mapping, setMapping] = useState([])
   const [result, setResult] = useState(null)
+
+  useFocusTrap(modalRef, true)
 
   const handlePreview = async () => {
     if (!raw.trim()) {
@@ -89,7 +93,7 @@ export function ImportModal({ onClose, onImported }) {
       })
       setResult(res)
       // FIX P1-13: Debounce onImported to prevent rapid refetch
-      setTimeout(() => onImported?.(), 300)
+      importTimerRef.current = setTimeout(() => onImported?.(), 300)
     } catch (e) {
       const error = handleError(e, 'ImportModal.handleImport')
       toast(getErrorMessage(error), 'error')
@@ -100,13 +104,14 @@ export function ImportModal({ onClose, onImported }) {
 
   const colCount = preview?.preview_rows?.[0]?.length ?? 0
   const expiryColIdx = preview ? mapping.findIndex(m => m === 'expiry_date') : -1
-  const modalRef = useRef(null)
-  useFocusTrap(modalRef, true)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = ''
+      if (importTimerRef.current) {
+        clearTimeout(importTimerRef.current)
+      }
     }
   }, [])
 

@@ -1,23 +1,34 @@
 /* ═══════════════════════════════════════════════════════════
-   CC MANAGER — CYBER-FINANCIAL TERMINAL REDESIGN
-   Main stylesheet that imports all redesigned components
+   VAULTBASE — NATIVE macOS
+   Главная таблица стилей
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Typography (Google Fonts) ──────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Спецификация CSS требует, чтобы @import шли до любых других
+   правил, иначе они отбрасываются. Поэтому @tailwind не может
+   стоять выше — порядок каскада задаётся через @layer.
 
-/* ── Design System ──────────────────────────────────────── */
+   Слой, объявленный раньше, имеет МЕНЬШИЙ приоритет независимо
+   от того, где в файле лежит его содержимое. Так preflight
+   Tailwind проигрывает нашему reset, а утилиты по-прежнему
+   перебивают всё остальное. */
+@layer tw-base, app, tw-utils;
+
+/* Шрифты не подключаются из сети: CSP приложения не содержит
+   font-src и не пропускает https в style-src. Используется
+   системный стек — см. --font-ui в tokens-redesign.css. */
+
+/* ── Дизайн-система ─────────────────────────────────────── */
 @import './tokens-redesign.css';
 @import './reset-redesign.css';
 @import './animations-redesign.css';
 @import './utilities-redesign.css';
 
-/* ── Layout (Redesigned) ────────────────────────────────── */
+/* ── Слои ───────────────────────────────────────────────── */
 @import './layout/sidebar-redesign.css';
 @import './layout/topbar-redesign.css';
 @import './layout/content-redesign.css';
 
-/* ── Components (Redesigned) ────────────────────────────── */
+/* ── Компоненты ─────────────────────────────────────────── */
 @import './components/buttons-redesign.css';
 @import './components/forms-redesign.css';
 @import './components/inline-elements.css';
@@ -28,7 +39,7 @@
 @import './components/panel-redesign.css';
 @import './components/theme-switcher.css';
 
-/* ── Pages (Redesigned) ─────────────────────────────────── */
+/* ── Страницы ───────────────────────────────────────────── */
 @import './pages/dashboard-redesign.css';
 @import './pages/dashboard-cards-redesign.css';
 @import './pages/auth-redesign.css';
@@ -38,6 +49,7 @@
 @import './pages/orders-redesign.css';
 @import './pages/shops-redesign.css';
 @import './pages/proxies-redesign.css';
+@import './pages/couriers-redesign.css';
 @import './pages/emails-redesign.css';
 @import './pages/imap-redesign.css';
 @import './pages/settings-redesign.css';
@@ -46,162 +58,68 @@
 @import './pages/onboarding-redesign.css';
 @import './pages/premium-enhancements.css';
 
-/* ── Tailwind (if used) ─────────────────────────────────── */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ── Tailwind ───────────────────────────────────────────── */
+@layer tw-base {
+  @tailwind base;
+}
 
-/* ── Global Overrides ───────────────────────────────────── */
+@tailwind components;
+
+@layer tw-utils {
+  @tailwind utilities;
+}
+
+/* ── Корень ─────────────────────────────────────────────── */
 #root {
   width: 100%;
   height: 100vh;
   overflow: hidden;
 }
 
-/* ── Noise & Scanline Effects (optional) ────────────────── */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: var(--z-dropdown);
-  opacity: var(--noise-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-}
+/* Шумовой оверлей и скан-линия удалены: декоративное движение
+   и текстура противоречат нативному облику. */
 
-body::after {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0, 217, 255, 0.1) 50%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: var(--z-sticky);
-  animation: scanline 8s linear infinite;
-  opacity: var(--scanline-opacity);
-}
-
-/* ── Smooth Transitions ─────────────────────────────────── */
-button,
-a,
-input,
-select,
-textarea,
-.btn,
-.panel,
-.card,
-.modal {
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ── Focus Styles ───────────────────────────────────────── */
+/* ── Фокус ──────────────────────────────────────────────────
+   Радиус здесь не задаётся намеренно. Пока стояло
+   `border-radius: var(--r-xs)`, любой элемент в фокусе терял
+   свою форму: у :focus-visible специфичность выше класса, и
+   поле ввода с --r-sm скруглялось до 3px. Кольцо строится на
+   box-shadow, который и так повторяет радиус самого элемента. */
 :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PREMIUM VISUAL EFFECTS
-   Cyber-Terminal enhancements for wow factor
-   ═══════════════════════════════════════════════════════════ */
+/* ── Градиентная рамка → обычная ────────────────────────── */
+.gradient-border-box {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
 
-/* ── Cyber Grid Background (optional ambient effect) ────── */
+/* Свечения упразднены — классы оставлены как no-op,
+   пока не вычищены точки использования (этап 11). */
+.glow-subtle,
+.glow-accent {
+  box-shadow: none;
+}
+
+.text-gradient {
+  color: var(--accent);
+  -webkit-text-fill-color: currentColor;
+}
+
 .cyber-grid-bg {
   position: relative;
 }
 
-.cyber-grid-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(0, 217, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 217, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.5;
-}
-
-.cyber-grid-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 50%, transparent 0%, var(--bg) 100%);
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* ── Gradient Border Box Utility ────────────────────────── */
-.gradient-border-box {
-  position: relative;
-  background: var(--card);
-  border-radius: var(--r-md);
-}
-
-.gradient-border-box::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  background: var(--gradient-border);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  border-radius: inherit;
-}
-
-/* ── Subtle Ambient Glow (for key UI elements) ─────────── */
-.glow-subtle {
-  box-shadow: 0 0 20px rgba(0, 217, 255, 0.08);
-}
-
-.glow-accent {
-  box-shadow: 0 0 24px rgba(0, 217, 255, 0.15);
-}
-
-/* ── Text Gradient Utility ──────────────────────────────── */
-.text-gradient {
-  background: var(--gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Floating Animation (for hero elements) ────────────── */
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
 .float {
-  animation: float 3s ease-in-out infinite;
+  animation: none;
 }
 
-/* ── Print Styles ───────────────────────────────────────── */
+/* ── Печать ─────────────────────────────────────────────── */
 @media print {
-  body::before,
-  body::after,
   .sidebar,
   .topbar,
   .modal-overlay,

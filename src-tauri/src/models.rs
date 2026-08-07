@@ -24,8 +24,10 @@ pub struct Card {
     pub country: Option<String>,
     pub created_at: String,
     // FIX P2-DOMAIN: Domain and IP from log parsing
-    pub domain: Option<String>,      // Shop domain (e.g., "tristatecamera.com")
-    pub ip_address: Option<String>,  // IP address from log
+    pub domain: Option<String>,
+    pub ip_address: Option<String>,
+    // Количество заказов по этой карте (через профиль)
+    pub orders_count: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -72,6 +74,8 @@ pub struct CardFilter {
     pub domain: Option<String>,
     // P2-QUARANTINE: Filter by quarantine status (cards < 14 days old)
     pub quarantine_status: Option<String>, // "all" | "available" | "quarantined"
+    // ROLES: restrict to cards assigned to specific user (None = all cards for admin)
+    pub owner_user_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -1164,6 +1168,211 @@ pub struct PaginatedCatalogShops {
     pub page: u32,
     pub per_page: u32,
     pub pages: u32,
+}
+
+// ─────────────────────────────────────────
+//  Users & Roles
+// ─────────────────────────────────────────
+
+/// Все доступные права (ключи для user_permissions)
+pub mod perms {
+    pub const VIEW_STATS_GLOBAL:   &str = "view_stats_global";
+    pub const VIEW_CARDS_POOL:     &str = "view_cards_pool";
+    pub const TAKE_CARDS:          &str = "take_cards";
+    pub const ADD_CARDS_MANUAL:    &str = "add_cards_manual";
+    pub const TRANSFER_CARDS:      &str = "transfer_cards";
+    pub const VIEW_OWN_CARDS_FULL: &str = "view_own_cards_full";
+    pub const CREATE_ORDERS:       &str = "create_orders";
+    pub const VIEW_ALL_ORDERS:     &str = "view_all_orders";
+    pub const MANAGE_USERS:        &str = "manage_users";
+    pub const MANAGE_PERMISSIONS:  &str = "manage_permissions";
+    pub const EXPORT_DATA:         &str = "export_data";
+    pub const VIEW_REPORTS:        &str = "view_reports";
+    pub const MANAGE_SHOPS:        &str = "manage_shops";
+    pub const MANAGE_EMAILS:       &str = "manage_emails";
+    pub const MANAGE_PROXIES:      &str = "manage_proxies";
+    pub const VIEW_COURIERS:       &str = "view_couriers";
+    pub const MANAGE_COURIERS:     &str = "manage_couriers";
+    pub const VIEW_PACKAGES:       &str = "view_packages";
+    pub const CREATE_PACKAGES:     &str = "create_packages";
+
+    /// Права оператора по умолчанию (без явного назначения)
+    pub const OPERATOR_DEFAULTS: &[&str] = &[
+        VIEW_CARDS_POOL,
+        TAKE_CARDS,
+        ADD_CARDS_MANUAL,
+        VIEW_OWN_CARDS_FULL,
+        CREATE_ORDERS,
+        VIEW_COURIERS,
+        VIEW_PACKAGES,
+        CREATE_PACKAGES,
+    ];
+
+    /// Все возможные права (для UI редактора)
+    pub const ALL: &[(&str, &str)] = &[
+        (VIEW_STATS_GLOBAL,   "Общая статистика"),
+        (VIEW_CARDS_POOL,     "Просмотр пула карт"),
+        (TAKE_CARDS,          "Брать карты из пула"),
+        (ADD_CARDS_MANUAL,    "Добавлять карты вручную"),
+        (TRANSFER_CARDS,      "Передавать карты"),
+        (VIEW_OWN_CARDS_FULL, "Полные данные своих карт"),
+        (CREATE_ORDERS,       "Создавать заказы"),
+        (VIEW_ALL_ORDERS,     "Видеть заказы всех"),
+        (MANAGE_USERS,        "Управление пользователями"),
+        (MANAGE_PERMISSIONS,  "Управление правами"),
+        (EXPORT_DATA,         "Экспорт данных"),
+        (VIEW_REPORTS,        "Аналитика и отчёты"),
+        (MANAGE_SHOPS,        "Управление магазинами"),
+        (MANAGE_EMAILS,       "Управление email-пулом"),
+        (MANAGE_PROXIES,      "Управление прокси"),
+        (VIEW_COURIERS,       "Просмотр курьеров (Stuffer)"),
+        (MANAGE_COURIERS,     "Добавление курьеров (Stuffer)"),
+        (VIEW_PACKAGES,       "Просмотр посылок (Stuffer)"),
+        (CREATE_PACKAGES,     "Создание посылок (Stuffer)"),
+    ];
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct User {
+    pub id: i64,
+    pub username: String,
+    pub display_name: Option<String>,
+    pub role: String,     // "admin" | "operator"
+    pub is_active: bool,
+    pub created_at: String,
+    pub last_seen: Option<String>,
+    pub created_by: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserSession {
+    pub id: i64,
+    pub user_id: i64,
+    pub token: String,
+    pub ip_address: Option<String>,
+    pub device_info: Option<String>,
+    pub created_at: String,
+    pub last_seen: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserPermissionEntry {
+    pub permission_key: String,
+    pub granted: bool,
+    pub is_default: bool, // true = из дефолтов роли, false = явно задано
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserWithPermissions {
+    pub user: User,
+    pub permissions: Vec<UserPermissionEntry>,
+    pub sessions: Vec<UserSession>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserActivity {
+    pub id: i64,
+    pub user_id: i64,
+    pub username: Option<String>,
+    pub display_name: Option<String>,
+    pub action_type: String,
+    pub entity_type: Option<String>,
+    pub entity_id: Option<String>,
+    pub details: Option<String>,
+    pub ip_address: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserStats {
+    pub user_id: i64,
+    pub username: String,
+    pub display_name: Option<String>,
+    pub role: String,
+    pub is_active: bool,
+    pub cards_taken: i64,
+    pub orders_created: i64,
+    pub orders_delivered: i64,
+    pub orders_declined: i64,
+    pub total_spent: f64,
+    pub tracking_count: i64,
+    pub cards_added_manual: i64,
+    pub last_seen: Option<String>,
+    pub active_sessions: i64,
+    pub last_ip: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserPeriodStats {
+    pub period: String,      // "today" | "7d" | "30d"
+    pub orders_created: i64,
+    pub orders_delivered: i64,
+    pub total_spent: f64,
+    pub cards_taken: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AdminOverview {
+    pub users: Vec<UserStats>,
+    pub today_orders: i64,
+    pub today_delivered: i64,
+    pub today_spent: f64,
+    pub total_cards_in_pool: i64,
+    pub total_cards_assigned: i64,
+    pub online_sessions: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CardAssignment {
+    pub card_id: i64,
+    pub user_id: i64,
+    pub username: String,
+    pub assigned_at: String,
+    pub assigned_by: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginInput {
+    pub username: String,
+    pub password: String,
+    pub ip_address: Option<String>,
+    pub device_info: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LoginResult {
+    pub token: String,
+    pub user_id: i64,
+    pub username: String,
+    pub display_name: Option<String>,
+    pub role: String,
+    pub permissions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateUserInput {
+    pub username: String,
+    pub password: String,
+    pub display_name: Option<String>,
+    pub role: String,
+}
+
+/// Активный пользователь в памяти (хранится в AppState)
+#[derive(Debug, Clone)]
+pub struct ActiveUser {
+    pub user_id: i64,
+    pub username: String,
+    pub role: String,
+    pub permissions: Vec<String>,
+    pub token: String,
+    pub ip_address: Option<String>,
+}
+
+impl ActiveUser {
+    pub fn is_admin(&self) -> bool { self.role == "admin" }
+    pub fn has_perm(&self, key: &str) -> bool {
+        self.is_admin() || self.permissions.iter().any(|p| p == key)
+    }
 }
 
 // ─────────────────────────────────────────

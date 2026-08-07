@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CC Manager icon generator.
+VaultBase icon generator.
 Source: ../icon.svg (rendered via macOS qlmanage)
 Output: src-tauri/icons/ — macOS squircle-masked PNGs + .icns + .ico
 
@@ -100,7 +100,7 @@ def apply_macos_mask_nonnumpy(img: Image.Image, padding_pct: float = 0.09) -> Im
 
 
 def main():
-    print("Generating CC Manager icons from icon.svg …")
+    print("Generating VaultBase icons from icon.svg …")
 
     if not os.path.exists(SVG_SRC):
         raise FileNotFoundError(f"icon.svg not found at {SVG_SRC}")

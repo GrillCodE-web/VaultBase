@@ -1,10 +1,12 @@
-# CC Manager
+# VaultBase
+
+> Русская версия этого файла: [README.ru.md](README.ru.md).
 
 A secure desktop CRM application for managing credit card operations with advanced encryption, IMAP integration, and real-time synchronization capabilities.
 
 ## Overview
 
-CC Manager is a cross-platform desktop application built with Tauri 2 that provides a comprehensive solution for credit card lifecycle management. It features end-to-end encryption, automated email parsing, risk assessment, and multi-device synchronization.
+VaultBase is a cross-platform desktop application built with Tauri 2 that provides a comprehensive solution for credit card lifecycle management. It features end-to-end encryption, automated email parsing, risk assessment, and multi-device synchronization.
 
 **Key Capabilities:**
 
@@ -28,7 +30,7 @@ CC Manager is a cross-platform desktop application built with Tauri 2 that provi
 ### Backend
 
 - **Rust** - Core application logic
-- **Tauri 2** - Desktop framework (156 commands)
+- **Tauri 2** - Desktop framework (~190 commands)
 - **SQLite** - Local database (15+ tables)
 - **rusqlite** - Database interface
 
@@ -62,13 +64,28 @@ CC Manager is a cross-platform desktop application built with Tauri 2 that provi
 - Transaction detection and categorization
 - Email-to-card linking
 
-### Security
+### Security & Access
 
-- Master password protection
+- License validation (challenge/activation key against the sync server)
+- Master password protection (unlocks the encrypted database)
+- Solo-mode auto-login after unlock — no separate login screen
+- License-driven roles: each license carries `admin` or `operator`, applied on the client after activation/verify
 - AES-256-GCM encryption for sensitive data
-- Secure key derivation with PBKDF2
+- Secure key derivation with PBKDF2 (600,000 iterations)
 - Encrypted database storage
-- License validation system
+- Auto-lock on inactivity
+
+### Login flow
+
+```
+1. Activate license   → challenge code exchanged for activation key (sync server)
+2. Master password    → derives the key that decrypts the database
+3. Auto-login         → single-user (solo) installs enter straight into the app;
+                         the role (admin/operator) comes from the license
+```
+
+The temporary admin password generated on first run is **never written to logs or files** —
+access is protected by the master password, so no password prompt is needed in solo mode.
 
 ### Synchronization
 
@@ -87,7 +104,7 @@ CC Manager is a cross-platform desktop application built with Tauri 2 that provi
 ## Project Structure
 
 ```
-cc-manager/
+vaultbase/
 ├── src/                      # Frontend source
 │   ├── components/          # React components (5 core components)
 │   ├── pages/               # Page-level components
@@ -111,16 +128,27 @@ cc-manager/
 │       └── pages/           # Page styles
 ├── src-tauri/               # Rust backend
 │   ├── src/
-│   │   ├── main.rs          # Entry point (156 Tauri commands)
-│   │   ├── database.rs      # SQLite operations (15+ tables)
+│   │   ├── main.rs          # Entry point (~190 Tauri commands)
+│   │   ├── database/        # SQLite operations, split by domain
+│   │   │   ├── _core.rs      # Connection, config, migrations glue
+│   │   │   ├── _cards.rs     # Cards
+│   │   │   ├── _orders.rs    # Orders + tracking
+│   │   │   ├── _profiles.rs  # Profiles + drops (delivery addresses)
+│   │   │   ├── _shops.rs     # Shops / catalog stats
+│   │   │   ├── _imap.rs      # IMAP accounts + parsed mail
+│   │   │   ├── _users.rs     # Users, sessions, roles, auto-login
+│   │   │   ├── _analytics.rs # Dashboard / risk stats
+│   │   │   └── _migrations.rs# Schema migrations
 │   │   ├── encryption.rs    # Crypto operations
 │   │   ├── imap.rs          # Email monitoring
 │   │   ├── smtp.rs          # Email sending
 │   │   ├── parser.rs        # Email parsing
 │   │   ├── sync.rs          # HTTP sync client
 │   │   ├── ws_sync.rs       # WebSocket sync
+│   │   ├── tracking.rs      # Carrier tracking (UPS/FedEx/USPS)
+│   │   ├── rate_limiter.rs  # Token-bucket rate limiting
 │   │   ├── models.rs        # Data models
-│   │   └── license.rs       # License validation
+│   │   └── license.rs       # License validation + role
 │   ├── Cargo.toml           # Rust dependencies
 │   └── tauri.conf.json      # Tauri configuration
 ├── public/                  # Static assets
@@ -141,7 +169,7 @@ cc-manager/
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd cc-manager
+cd vaultbase
 
 # Install frontend dependencies
 npm install
@@ -172,6 +200,23 @@ npm run tauri build
 ```
 
 Installers will be in `src-tauri/target/release/bundle/`.
+
+**Build Optimization:**
+
+The build process includes:
+
+- **Code Splitting:** Separate chunks for vendor, charts, UI components, and large pages
+- **Lazy Loading:** Page components loaded on-demand
+- **Minification:** esbuild minification for production
+- **Gzip Compression:** Optimized for distribution
+- **Bundle Analysis:** `dist/stats.html` shows detailed bundle breakdown
+
+**Bundle Size:**
+
+- Main chunk: ~49 KB (gzip: 15 KB)
+- Vendor chunk: ~1.1 MB (gzip: 356 KB)
+- Total JS: ~2.1 MB (gzip: ~600 KB)
+- CSS: ~269 KB (gzip: 43 KB)
 
 ## Code Quality Tools
 
@@ -314,7 +359,7 @@ Card status definitions with colors and labels (active, blocked, expired, etc.).
 
 - **Frontend (React)**: UI rendering, user interactions, state management
 - **Backend (Rust)**: Business logic, database operations, encryption, network I/O
-- **Communication**: Tauri IPC bridge with 156 commands
+- **Communication**: Tauri IPC bridge with ~190 commands
 
 ### Data Flow
 
@@ -341,11 +386,14 @@ User Action → React Component → Tauri Command → Rust Handler → SQLite
 
 ### Security Model
 
-1. Master password unlocks the application
-2. Derived key encrypts sensitive data (AES-256-GCM)
-3. Database stores encrypted blobs
-4. Keys never leave memory unencrypted
-5. Automatic lock on inactivity
+1. License activation gates access and assigns the role (admin/operator)
+2. Master password unlocks the application
+3. Derived key (PBKDF2, 600k iterations) encrypts sensitive data (AES-256-GCM)
+4. Database stores encrypted blobs
+5. Keys never leave memory unencrypted (zeroized on lock)
+6. Automatic lock on inactivity
+
+See [docs/AUTH_AND_ROLES.md](docs/AUTH_AND_ROLES.md) for the full auth/roles design.
 
 ## Contributing
 
@@ -394,37 +442,54 @@ npm run build
 
 ### Security Audit
 
-CC Manager underwent a comprehensive security audit in March 2026. **All 119 vulnerabilities have been fixed.**
+VaultBase underwent a security audit in March 2026, followed by further audits in
+August 2026. Substantial hardening has been done, but the project is **not** in a
+"zero known issues" state — see below.
 
-**Security Status:**
+**Status:**
 
-- **Rating:** 10/10 (improved from 3/10)
-- **Fixed:** 119 of 119 vulnerabilities (100%) ✅
-- **Critical:** 34/34 fixed (100%) ✅
-- **High:** 30/30 fixed (100%) ✅
-- **Medium:** 36/36 fixed (100%) ✅
-- **Low:** 19/19 fixed (100%) ✅
+- Extensive remediation completed across the Rust backend, React frontend and
+  sync server. Details: [SECURITY_AUDIT_FIXES.md](SECURITY_AUDIT_FIXES.md),
+  [SECURITY_AUDIT_COMPLETE.md](SECURITY_AUDIT_COMPLETE.md).
+- Findings from the August 2026 round, including a cross-user card-data exposure
+  and a password-hash migration that had never executed, are recorded in
+  [docs/AUDIT_2026-08-07.md](docs/AUDIT_2026-08-07.md).
+- **Open items requiring action** are listed in that same document — most
+  urgently, credential rotation on the live server.
 
-See [SECURITY_AUDIT_FIXES.md](SECURITY_AUDIT_FIXES.md) for detailed information.
-See [SECURITY_AUDIT_COMPLETE.md](SECURITY_AUDIT_COMPLETE.md) for completion summary.
+> **A note on the "119/119 vulnerabilities fixed (100%)" figure** that previously
+> appeared here and in several other documents: it does not reconcile with its own
+> sources and should not be relied on. [AUDIT_REPORT.md](AUDIT_REPORT.md) totals
+> 261+ findings (26 critical / 88 high / 126+ medium / 21 low), which matches
+> neither the total nor the 34/30/36/19 breakdown; and
+> `SECURITY_AUDIT_COMPLETE.md` contradicts itself, closing with "119 analysed, 86
+> fixed (72%)". The August 2026 audit then confirmed that at least one item marked
+> fixed — the bcrypt cost-factor migration — had never run once, because of a
+> string-slice bug that silently swallowed the parse failure. Treat security
+> posture as an ongoing process, not a completed score.
 
 **Documentation:**
 
-- [API Documentation](cc-sync-server/docs/API.md) — OpenAPI-style API reference
-- [Compliance](docs/COMPLIANCE.md) — GDPR and PCI DSS compliance
+- [CHECKLIST.md](CHECKLIST.md) — Full feature/status checklist (done / in progress / planned)
+- [ROADMAP.md](ROADMAP.md) — Planned work (extended Proxies, automation, UI redesign)
+- [docs/COURIERS_STUFFER.md](docs/COURIERS_STUFFER.md) — Couriers / Packages (Stuffer) integration
+- [Auth & Roles](docs/AUTH_AND_ROLES.md) — Login flow, master key, license roles
+- [API Documentation](cc-sync-server/docs/API.md) — Sync-server API reference
 - [Architecture](docs/ARCHITECTURE.md) — System architecture overview
-- [TypeScript Migration](docs/TYPESCRIPT_MIGRATION.md) — Step-by-step migration guide
-- [Component Refactoring](docs/COMPONENT_REFACTOR.md) — Large component splitting guide
+- [Compliance](docs/COMPLIANCE.md) — GDPR and PCI DSS compliance
 
 ### Security Features
 
 - **Encryption:** AES-256-GCM for sensitive data
-- **Password Hashing:** bcrypt with cost factor 14
+- **Password Hashing:** bcrypt with cost factor 14 (master password and all user
+  accounts; user accounts used cost 12 until August 2026)
 - **Key Derivation:** PBKDF2 with 600,000 iterations
 - **Rate Limiting:** Token bucket algorithm for sensitive operations
-- **Connection Pooling:** r2d2 with 4 concurrent connections
+- **Connection Pooling:** r2d2 with 8 concurrent connections
 - **Memory Safety:** zeroize for secure memory cleanup
 - **HMAC:** SHA-256 with secret key (no weak fallbacks)
+- **Permissions:** 15 enforced granular permissions on top of admin/operator
+  roles — see [docs/PERMISSIONS.md](docs/PERMISSIONS.md)
 
 ## License
 
@@ -432,7 +497,6 @@ Proprietary - All rights reserved
 
 ---
 
-**Version:** 2.2.0
+**Version:** 2.5.0
 **Built with:** Tauri 2 + React 18 + Rust
-**Security Rating:** 10/10 ✅
-**Security Audit:** 119/119 vulnerabilities fixed (100%)
+**Security:** see [docs/AUDIT_2026-08-07.md](docs/AUDIT_2026-08-07.md) for current status and open items

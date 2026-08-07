@@ -1,10 +1,30 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { getDb } = require('../database');
 
 const router = express.Router();
 
+// /verify validates a bearer-equivalent license token supplied in the body, so it
+// is brute-forceable and needs a limiter.
+//
+// Limit choice: the Tauri client (src-tauri/src/license.rs) calls /verify only in
+// verify_at_startup() and from retry_verify() behind the Settings "Retry
+// Connection" button — there is no polling loop. 60 requests per IP per 15 min is
+// therefore far above normal usage even for several installations sharing one NAT
+// egress IP, while still cutting online token guessing to a useless rate.
+//
+// Keyed on IP deliberately, NOT on the submitted token: keying on the token would
+// give an attacker a fresh bucket for every guess, defeating the limiter.
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'rate_limit_exceeded' },
+});
+
 // POST /verify
-router.post('/', (req, res) => {
+router.post('/', verifyLimiter, (req, res) => {
   const { token } = req.body || {};
 
   if (!token) {
@@ -13,7 +33,7 @@ router.post('/', (req, res) => {
 
   const db = getDb();
   const row = db.prepare(
-    'SELECT token, label, is_active FROM licenses WHERE token = ?'
+    'SELECT token, label, is_active, role FROM licenses WHERE token = ?'
   ).get(token);
 
   if (!row) {
@@ -27,7 +47,7 @@ router.post('/', (req, res) => {
     'UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?'
   ).run(token);
 
-  return res.json({ valid: true, label: row.label || '' });
+  return res.json({ valid: true, label: row.label || '', role: row.role || 'operator' });
 });
 
 module.exports = router;

@@ -5,7 +5,8 @@ use crate::database::Database;
 use crate::models::{Footprint, RiskWarning, SyncResult};
 
 // ✅ SECURE: Only HTTPS via Cloudflare
-const SERVER_URL: &str = "https://api.eulivehub.com";
+// Домен берётся из crate::endpoints — единственного места, где он задан.
+fn server_url() -> &'static str { crate::endpoints::server_base() }
 
 /// FIX B02: три разных исхода вместо Vec<> где [] = два разных состояния
 pub enum RiskCheckOutcome {
@@ -22,7 +23,7 @@ pub struct SyncClient;
 impl SyncClient {
     /// FIX B11: считаем онлайном только 2xx ответы
     pub fn check_server_online() -> bool {
-        match ureq::get(&format!("{}/", SERVER_URL))
+        match ureq::get(&format!("{}/", server_url()))
             .timeout(std::time::Duration::from_secs(5))
             .call()
         {
@@ -133,7 +134,7 @@ impl SyncClient {
         const BASE_DELAY_MS: u64 = 500;
 
         for attempt in 0..MAX_RETRIES {
-            match ureq::post(&format!("{}/footprint", SERVER_URL))
+            match ureq::post(&format!("{}/footprint", server_url()))
                 .set("Authorization", &format!("Bearer {}", token))
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(10))
@@ -218,7 +219,7 @@ impl SyncClient {
 
         let body = serde_json::json!({ "shop_domain": domain, "hashes": hashes });
 
-        let resp = ureq::post(&format!("{}/footprint/check", SERVER_URL))
+        let resp = ureq::post(&format!("{}/footprint/check", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(5))
@@ -303,7 +304,7 @@ impl SyncClient {
     }
 
     pub fn check_version() -> Option<(String, String)> {
-        let resp = ureq::get(&format!("{}/version", SERVER_URL))
+        let resp = ureq::get(&format!("{}/version", server_url()))
             .timeout(std::time::Duration::from_secs(5))
             .call()
             .ok()?;
@@ -334,7 +335,7 @@ impl SyncGroupClient {
     pub fn create_group(db: &Database, name: &str) -> Result<crate::models::SyncGroupInfo, String> {
         let token = Self::get_token(db).ok_or("no_token")?;
         let body = serde_json::json!({ "name": name });
-        let resp = ureq::post(&format!("{}/sync/group/create", SERVER_URL))
+        let resp = ureq::post(&format!("{}/sync/group/create", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(10))
@@ -360,7 +361,7 @@ impl SyncGroupClient {
 
     pub fn create_pair_code(db: &Database) -> Result<String, String> {
         let token = Self::get_token(db).ok_or("no_token")?;
-        let resp = ureq::post(&format!("{}/sync/group/pair", SERVER_URL))
+        let resp = ureq::post(&format!("{}/sync/group/pair", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(10))
@@ -378,7 +379,7 @@ impl SyncGroupClient {
     pub fn join_group(db: &Database, pair_code: &str) -> Result<crate::models::SyncGroupInfo, String> {
         let token = Self::get_token(db).ok_or("no_token")?;
         let body = serde_json::json!({ "code": pair_code.to_uppercase() });
-        let resp = ureq::post(&format!("{}/sync/group/join", SERVER_URL))
+        let resp = ureq::post(&format!("{}/sync/group/join", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(10))
@@ -428,7 +429,7 @@ impl SyncGroupClient {
             }
         };
         // Try to leave on server (best effort)
-        let _ = ureq::post(&format!("{}/sync/group/leave", SERVER_URL))
+        let _ = ureq::post(&format!("{}/sync/group/leave", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(5))
@@ -469,12 +470,11 @@ impl SyncGroupClient {
             }),
         };
 
-        // Build request body
+        // Build request body — notes НЕ отправляем открытым текстом (пойдут через E2E blob)
         let cards: Vec<serde_json::Value> = updates.iter().map(|u| {
             serde_json::json!({
                 "card_hash": u.card_hash,
                 "status": u.status,
-                "notes": u.notes,
                 "encrypted_data": u.encrypted_data,
             })
         }).collect();
@@ -486,7 +486,7 @@ impl SyncGroupClient {
         const BASE_DELAY_MS: u64 = 500;
 
         for attempt in 0..MAX_RETRIES {
-            match ureq::post(&format!("{}/sync/cards", SERVER_URL))
+            match ureq::post(&format!("{}/sync/cards", server_url()))
                 .set("Authorization", &format!("Bearer {}", token))
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(10))
@@ -550,6 +550,24 @@ impl SyncGroupClient {
                         synced: 0,
                         failed: updates.len() as u32,
                         message: "server_error_after_retry".into(),
+                        server_reached: true,
+                    });
+                }
+                // 4xx — ответ сервера, а не сбой сети: повтор ничего не изменит.
+                // ureq 2.x отдаёт любой не-2xx как Err(Status), поэтому без этой
+                // ветки 401 (токен отозван) и 404 (not_in_group) проваливались в
+                // Err(_) ниже и трижды ретраились как «сеть недоступна», а затем
+                // рапортовались с server_reached: false — отозванную лицензию
+                // было не отличить от оффлайна. Ср. sync_footprints, где ветка
+                // для 4xx есть.
+                Err(ureq::Error::Status(code, _)) => {
+                    let error_msg = format!("Server rejected push of {} cards: HTTP {}", updates.len(), code);
+                    let _ = db.log_event("sync.push_rejected", &error_msg, Some("sync"), None);
+                    eprintln!("[sync] {}", error_msg);
+                    return Ok(PushResult {
+                        synced: 0,
+                        failed: updates.len() as u32,
+                        message: format!("client_error_{}", code),
                         server_reached: true,
                     });
                 }

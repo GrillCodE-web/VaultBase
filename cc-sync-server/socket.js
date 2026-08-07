@@ -4,6 +4,55 @@ const { getDb } = require('./database');
 const activeConnections = new Map();
 const eventLog = [];
 
+const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
+const VALID_STATUSES = ['free', 'in_use', 'archive', 'declined', 'dead'];
+
+/** SQL expression computing the monotonic status weight of `col`. */
+function weightExpr(col) {
+  return Object.entries(STATUS_WEIGHT)
+    .map(([s, w]) => `${w} * (${col}='${s}')`)
+    .join(' + ');
+}
+
+/**
+ * Apply a batch of card updates atomically.
+ *
+ * The conflict resolver uses monotonic status weights (higher always wins), so a
+ * partially-applied batch can never be repaired by a later sync — the client
+ * believes it already pushed those rows. All writes therefore go through a single
+ * better-sqlite3 transaction. Transactions are synchronous: nothing inside the
+ * transaction callback may await.
+ *
+ * @returns {Array<{card_hash: string, status: string}>} rows that were written
+ */
+function applyCardPush(db, groupId, installationId, cards) {
+  const cur = weightExpr('status');
+  const inc = weightExpr('excluded.status');
+  const stmt = db.prepare(`
+    INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(card_hash, group_id) DO UPDATE SET
+      encrypted_data = CASE WHEN (${cur}) >= (${inc}) THEN sync_cards.encrypted_data ELSE excluded.encrypted_data END,
+      status         = CASE WHEN (${cur}) >= (${inc}) THEN sync_cards.status         ELSE excluded.status         END,
+      notes          = CASE WHEN (${cur}) >= (${inc}) THEN sync_cards.notes          ELSE excluded.notes          END,
+      updated_by     = excluded.updated_by,
+      updated_at     = CURRENT_TIMESTAMP
+  `);
+
+  return db.transaction(() => {
+    const written = [];
+    for (const card of cards) {
+      // FIX WS-VALIDATION-02: Strict validation of card_hash and status
+      if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
+      if (!card.status || !VALID_STATUSES.includes(card.status)) continue;
+      const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
+      stmt.run(card.card_hash, groupId, card.encrypted_data || null, card.status, notes, installationId);
+      written.push({ card_hash: card.card_hash, status: card.status });
+    }
+    return written;
+  })();
+}
+
 function logSocketEvent(type, data) {
   eventLog.push({ type, data: typeof data === 'object' ? JSON.stringify(data).slice(0, 200) : String(data), ts: new Date().toISOString() });
   if (eventLog.length > 100) eventLog.shift();
@@ -101,27 +150,13 @@ function initSocket(httpServer) {
         return;
       }
 
-      const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
-      const stmt = db.prepare(`
-        INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(card_hash, group_id) DO UPDATE SET
-          encrypted_data = CASE WHEN (${STATUS_WEIGHT.dead} * (status='dead') + ${STATUS_WEIGHT.declined} * (status='declined') + ${STATUS_WEIGHT.archive} * (status='archive') + ${STATUS_WEIGHT.in_use} * (status='in_use') + ${STATUS_WEIGHT.free} * (status='free')) >= (${STATUS_WEIGHT.dead} * (excluded.status='dead') + ${STATUS_WEIGHT.declined} * (excluded.status='declined') + ${STATUS_WEIGHT.archive} * (excluded.status='archive') + ${STATUS_WEIGHT.in_use} * (excluded.status='in_use') + ${STATUS_WEIGHT.free} * (excluded.status='free')) THEN sync_cards.encrypted_data ELSE excluded.encrypted_data END,
-          status = CASE WHEN (${STATUS_WEIGHT.dead} * (status='dead') + ${STATUS_WEIGHT.declined} * (status='declined') + ${STATUS_WEIGHT.archive} * (status='archive') + ${STATUS_WEIGHT.in_use} * (status='in_use') + ${STATUS_WEIGHT.free} * (status='free')) >= (${STATUS_WEIGHT.dead} * (excluded.status='dead') + ${STATUS_WEIGHT.declined} * (excluded.status='declined') + ${STATUS_WEIGHT.archive} * (excluded.status='archive') + ${STATUS_WEIGHT.in_use} * (excluded.status='in_use') + ${STATUS_WEIGHT.free} * (excluded.status='free')) THEN sync_cards.status ELSE excluded.status END,
-          notes = CASE WHEN (${STATUS_WEIGHT.dead} * (status='dead') + ${STATUS_WEIGHT.declined} * (status='declined') + ${STATUS_WEIGHT.archive} * (status='archive') + ${STATUS_WEIGHT.in_use} * (status='in_use') + ${STATUS_WEIGHT.free} * (status='free')) >= (${STATUS_WEIGHT.dead} * (excluded.status='dead') + ${STATUS_WEIGHT.declined} * (excluded.status='declined') + ${STATUS_WEIGHT.archive} * (excluded.status='archive') + ${STATUS_WEIGHT.in_use} * (excluded.status='in_use') + ${STATUS_WEIGHT.free} * (excluded.status='free')) THEN sync_cards.notes ELSE excluded.notes END,
-          updated_by = excluded.updated_by,
-          updated_at = CURRENT_TIMESTAMP
-      `);
-
-      const results = [];
-      for (const card of cards) {
-        // FIX WS-VALIDATION-02: Strict validation of card_hash and status
-        if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
-        if (!card.status || !['free', 'in_use', 'archive', 'declined', 'dead'].includes(card.status)) continue;
-        // Sanitize notes if present
-        const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
-        stmt.run(card.card_hash, socket.groupId, card.encrypted_data || null, card.status, notes, socket.installationId);
-        results.push({ card_hash: card.card_hash, status: card.status });
+      let results;
+      try {
+        results = applyCardPush(db, socket.groupId, socket.installationId, cards);
+      } catch (e) {
+        console.error('[socket] card push transaction failed:', e.message);
+        socket.emit('error', { message: 'push_failed' });
+        return;
       }
 
       // Broadcast to others in the group

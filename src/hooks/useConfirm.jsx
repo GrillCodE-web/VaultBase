@@ -45,7 +45,7 @@ export function ConfirmProvider({ children }) {
             ref={modalRef}
             className="bg-card rounded-xl p-6 w-full mx-4"
             style={{
-              border: `1px solid ${HEX_COLORS.border}`,
+              border: `1px solid var(--border)`,
               maxWidth: '360px',
               boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
             }}
@@ -67,7 +67,7 @@ export function ConfirmProvider({ children }) {
                 onMouseLeave={() => setCancelHover(false)}
                 className="rounded-lg px-4 py-2 text-sm cursor-pointer transition-colors text-text-2"
                 style={{
-                  border: `1px solid ${HEX_COLORS.border}`,
+                  border: `1px solid var(--border)`,
                   background: cancelHover ? 'var(--card-hi)' : 'transparent',
                 }}
               >

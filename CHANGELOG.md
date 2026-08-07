@@ -1,9 +1,186 @@
 # Changelog
 
-All notable changes to CC Manager will be documented in this file.
+All notable changes to VaultBase will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.5.2] — 2026-08-07
+
+### Исправлено — активация лицензии не работала в принципе
+
+- **Код активации больше не меняется между показом и отправкой.**
+  `format_as_challenge` содержит `OsRng.fill_bytes` — случайный nonce, поэтому
+  каждый вызов давал НОВЫЙ код. `get_challenge_code` показывал пользователю
+  один код, а `activate()` генерировал другой и отправлял его на сервер.
+  Сервер ищет лицензию по паре `(installation_id, challenge)`
+  (`routes/activate.js`), не находил её и отвечал 404 — в клиенте это
+  выглядело как `Error: server_error_404`. Активация не могла пройти никогда.
+  Теперь код генерируется один раз и хранится в конфиге как
+  `activation_challenge`; `activate()` берёт именно его.
+- Функция переименована в `generate_challenge` и сделана приватной, чтобы её
+  нельзя было вызвать в обход сохранения.
+
+### Изменено — боевой домен и авто-обновление
+
+- Клиент переведён с `api.eulivehub.com` (домен **не существует**, NXDOMAIN —
+  собранное приложение не активировалось бы вообще) на
+  `https://sec201-www.otpmanager.pro`. Адрес задаётся один раз в
+  `endpoints.rs`, переопределяется через `VAULTBASE_SERVER_URL`.
+- В CSP `connect-src` добавлен `wss://` — его не было вовсе, WebSocket-синхронизация
+  блокировалась бы движком.
+- `updater.endpoints` переведён на query-формат `?current_version={{current_version}}`:
+  `routes/update.js` читает версию из query, путь `{{target}}/{{arch}}` дал бы 404.
+- Сгенерирован новый ключ подписи апдейтера (прежний приватный ключ утерян —
+  подписать обновление было нечем).
+- `routes/update.js` собирает `platforms{}` из всех строк `release_files`.
+  Раньше отдавалась одна платформа, из-за чего обновлялась ровно одна ОС.
+- `routes/upload.js` принимает `.msi`, `.exe`, `.deb`, `.AppImage` — раньше
+  только macOS-расширения, Windows- и Linux-сборки залить было нельзя.
+
+### Добавлено — выпуск релизов
+
+- `scripts/deploy-server.py` — деплой сервера с бэкапом и авто-откатом.
+- `scripts/publish-release.py` — публикация сборок по SSH.
+- `scripts/upload-artifacts.py` — публикация по HTTP (для CI).
+- `scripts/release.py` — полный цикл: версия → сборка → заливка → CHANGELOG.
+- `.github/workflows/build-release.yml` — сборка 4 платформ по тегу `v*` +
+  автозаливка в панель. Бандл `updater` обязателен: без него Tauri не создаёт
+  `.sig` и авто-обновление молча не работает.
+- `docs/RELEASE.md` — как выпускать версии.
+
+## [Unreleased] — 2026-08-07
+
+### Security — August 2026 Audit
+
+- **Fixed:** cross-user `reveal_card` PAN/CVV exposure — ownership check via
+  `card_assignments`, denial logged as `security.reveal_denied`.
+- **Fixed:** bcrypt cost-factor auto-migration dead since March 2026
+  (`hash[4..7]` → `hash[4..6]`; `.unwrap_or(false)` was swallowing the parse failure).
+- **Fixed:** user accounts hashed at bcrypt cost 12 despite documented cost 14.
+  Unified to constant `BCRYPT_COST = 14`.
+- **Fixed:** card push retried 4xx (revoked token) as network error; added
+  explicit `Err(Status(code))` arm for 4xx in `push_card_updates`.
+- **Fixed:** catalog shop sync imported zero rows (`catalog.js` returned key
+  `items`, client read `shops`).
+- **Fixed:** IMAP new-mail event name mismatch (`new_imap_message` ≠ listener
+  `imap_message_received`).
+- **Fixed:** `errorHandler.js` had no `permission_denied` branch — raw Rust
+  error strings leaked into user-facing toasts (~20 sites).
+- **Fixed:** `Orders.jsx` `Promise.all` crash on operator permission denial →
+  `Promise.allSettled`.
+- **Added:** `endpoints.rs` — single overridable server URL
+  (`VAULTBASE_SERVER_URL`), replacing 7 hardcoded domain sites across 5 files.
+- **Added:** 60+ `require_user`/`require_admin` guards on previously-unguarded
+  Tauri commands (profiles, drops, IMAP/SMTP, card mutations, backups, activity
+  log, sync).
+- **Fixed:** nav shows proxies/couriers/my_stats only to users with the
+  required permissions.
+- **Fixed:** `UsersPage.jsx` removed 4 dead permission toggles, added 4 missing
+  real ones (couriers/packages group).
+- **Fixed:** ESLint config gave ~10 false `no-undef` errors per server file (browser
+  ESM globals on CommonJS).
+- **Fixed:** USPS tracking test expected `None` for a 21-digit number that the
+  implementation correctly accepts.
+- **Docs:** `PERMISSIONS.md`, `DEPLOYMENT_CONFIG.md`, `AUDIT_2026-08-07.md`;
+  corrected false "119/119 100%" completion claims across README, PROJECT_STATUS,
+  SECURITY_AUDIT_COMPLETE, CHANGELOG; rewrote auth claim in API.md.
+
+> **Errata on entries below:** Release 2.2.0 claims "119/119 vulnerabilities
+> fixed, Security: 10/10, PRODUCTION READY — 100% COMPLETE". These claims do not
+> reconcile with AUDIT_REPORT.md (261+ findings), and the August 2026 audit found
+> at least one item marked fixed that had never run. See
+> [docs/AUDIT_2026-08-07.md](docs/AUDIT_2026-08-07.md) for details. The entries
+> are preserved as written for historical accuracy.
+
+## [Unreleased] — 2026-08-06
+
+### Added — Couriers / Packages (Stuffer integration)
+
+- **New section "Couriers / Packages"** — the key functional gap from the audit is now
+  implemented (backend + UI), proxying the external Stuffer API in real time.
+- **Rust module `src-tauri/src/stuffer.rs`:** ureq HTTP client, serde models, error
+  handling for HTTP status codes and `{"error":...}` bodies, 15s timeout.
+- **8 Tauri commands:** `stuffer_get_config`, `stuffer_set_config`, `stuffer_list_couriers`,
+  `stuffer_list_available_couriers`, `stuffer_add_courier`, `stuffer_list_packages`,
+  `stuffer_get_labels`, `stuffer_create_package`.
+- **Permissions:** `view_couriers`, `manage_couriers`, `view_packages`, `create_packages`
+  (`models.rs`). View/create are operator defaults; adding couriers is admin/permission-gated.
+- **UI `src/pages/Couriers.jsx`:** tabs (My Couriers / Available / Packages), add courier,
+  packages table, label viewer with base64→PDF download, and a create-package form with
+  tracking numbers.
+- **Settings:** Stuffer API section (base URL + masked key). The API key is stored in
+  `config` as a secret and never returned to the frontend (only an `api_key_set` flag).
+- **i18n:** ~60 EN/RU keys; styles in `styles/pages/couriers-redesign.css`.
+- **Docs:** [docs/COURIERS_STUFFER.md](docs/COURIERS_STUFFER.md) (+ RU dub).
+- Verified: `cargo check`, `npm run lint`, `vite build`, `vitest` 317/317 all green. Read-only
+  endpoints (`couriers`, `available_couriers`, `packages`) validated against the **live**
+  Stuffer API; write endpoints verified against the documented contract only.
+
+### Changed — Authentication & Roles
+
+- **New login flow:** license activation → master password → auto-login. Solo-mode
+  (single-user) installs no longer show a separate username/password screen; the app
+  enters directly after the master key is entered.
+- **License-driven roles:** each license now carries a role (`admin` or `operator`).
+  The desktop client stores it (config `license_role`) on activation and refreshes it on
+  every license `verify`, so a role change on the server applies on the next launch.
+- **Sync server migration v9:** added a `role` column to the `licenses` table; existing
+  licenses default to `admin`, new ones default to `operator`. `/activate` and `/verify`
+  now return `role`; the admin panel can set/toggle a license role.
+
+### Security
+
+- **Admin password no longer written to disk or logs.** The first-run admin password is
+  now 32 random bytes that are never persisted (the previous `ADMIN_PASSWORD.txt` file was
+  removed). Access is protected by the master password instead.
+
+### Docs
+
+- Cleaned up stale/one-off documentation; refreshed README, PROJECT_STATUS, plans.
+- Added CHECKLIST.md, ROADMAP.md and docs/AUTH_AND_ROLES.md.
+
+---
+
+## [2.5.0] — 2026-08-06
+
+> Version note: the shipped build number in `package.json`, `Cargo.toml` and
+> `tauri.conf.json` is **2.5.0**. Earlier drafts of this changelog labelled this entry
+> 2.5.1; it has been corrected to match the build files.
+
+### 🚀 Final Optimization & Performance Improvements
+
+This release includes comprehensive performance optimizations and code cleanup before production deployment.
+
+### Added
+
+- **Enhanced Code Splitting:** Improved Vite configuration with dynamic chunk splitting for large page components
+- **Memory Cleanup:** Added proper cleanup for timers and async operations in ImportModal and ProfileModal
+- **Bundle Analysis:** Detailed bundle size reporting in `dist/stats.html`
+
+### Fixed
+
+- **ImportModal:** Added cleanup for setTimeout in handleImport to prevent memory leaks
+- **ProfileModal:** Added isMountedRef to prevent state updates after unmount
+- **App.jsx:** Removed unused focusableElements variable from GlobalSearch component
+- **Vite Config:** Fixed circular chunk dependency warning
+
+### Changed
+
+- **Build Optimization:** Improved chunk splitting strategy for better code distribution
+  - Vendor chunk: React, React-DOM (~1.1 MB)
+  - Charts chunk: Recharts (~248 KB)
+  - UI chunk: TanStack Virtual, Lucide icons (~16 KB)
+  - Pages components: Large page modules (~132 KB)
+  - Individual page chunks: Lazy-loaded on demand
+
+### Performance Metrics
+
+- **Main Bundle:** 49 KB (gzip: 15 KB)
+- **Total JS:** 2.1 MB (gzip: ~600 KB)
+- **CSS:** 269 KB (gzip: 43 KB)
+- **Build Time:** ~27 seconds
+- **Lazy Loading:** All page components loaded on-demand
 
 ## [2.3.0] — 2026-03-25
 
@@ -42,7 +219,7 @@ The landing page features an invite-only access system with download options for
 
 ### Rebranding
 
-- Application renamed from "CC Manager" to **"Meridian"**
+- Application renamed from "VaultBase" to **"Meridian"**
 - Landing page uses "Meridian" branding
 - Release documentation updated with new branding
 - Tagline: "Next-Generation Data Management"
@@ -85,7 +262,7 @@ The landing page features an invite-only access system with download options for
 
 **Security Rating:** 3/10 → **10/10** ✅
 
-This release represents the most comprehensive security update in CC Manager history. All 119 identified vulnerabilities have been fixed, bringing the security rating from 3/10 to 10/10.
+This release represents the most comprehensive security update in VaultBase history. All 119 identified vulnerabilities have been fixed, bringing the security rating from 3/10 to 10/10.
 
 ---
 
@@ -133,7 +310,7 @@ This release represents the most comprehensive security update in CC Manager his
 - **Password Zeroization** — Password bytes cleared after key derivation
 - **HMAC Secret** — Removed weak fallback to "unknown-install"
   - Now generates random session key in dev mode
-  - Production panics if `CC_MANAGER_HMAC_SECRET` not set
+  - Production panics if `vaultbase_HMAC_SECRET` not set
 - **Challenge Code** — 128 bits + random nonce (was 256→64 truncated)
 - **Time-based Challenge** — Unpredictability improved
 
@@ -934,7 +1111,7 @@ import { AnimatedButton, LoadingSpinner } from '../components'
 
 ### 🎉 Major Release - Comprehensive Codebase Modernization
 
-This release represents a complete overhaul of the CC Manager codebase with focus on code quality, maintainability, performance, and reliability.
+This release represents a complete overhaul of the VaultBase codebase with focus on code quality, maintainability, performance, and reliability.
 
 ---
 
@@ -1309,4 +1486,4 @@ import { ProfileRow } from './Profiles/ProfileRow.jsx'
 
 ---
 
-**Version 2.0.0 represents a complete modernization of the CC Manager codebase. The application is now more maintainable, performant, and reliable while preserving all existing functionality.**
+**Version 2.0.0 represents a complete modernization of the VaultBase codebase. The application is now more maintainable, performant, and reliable while preserving all existing functionality.**

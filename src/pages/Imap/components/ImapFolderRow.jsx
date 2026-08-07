@@ -1,9 +1,17 @@
+import React from 'react'
 import { ImapFolderIcon } from './ImapFolderIcon'
 
 /**
  * ImapFolderRow - Single folder row in the folder tree
  */
-export function ImapFolderRow({ acc, folder, s, selectedAccount, selectedFolder, onSelectFolder }) {
+export const ImapFolderRow = React.memo(function ImapFolderRow({
+  acc,
+  folder,
+  s,
+  selectedAccount,
+  selectedFolder,
+  onSelectFolder,
+}) {
   const folderStats = s?.folders?.find(f => f.name === folder)
   const unread = folderStats?.unread ?? 0
   const isActive = selectedAccount?.id === acc.id && selectedFolder === folder
@@ -20,4 +28,4 @@ export function ImapFolderRow({ acc, folder, s, selectedAccount, selectedFolder,
       {unread > 0 && <span className="unread-badge">{unread}</span>}
     </div>
   )
-}
+})

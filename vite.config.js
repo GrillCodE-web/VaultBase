@@ -38,10 +38,19 @@ export default defineConfig(async () => ({
         // vendor — React и другие библиотеки
         // charts — Recharts для дашборда
         // ui — Lucide иконки и TanStack Virtual
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          charts: ['recharts'],
-          ui: ['@tanstack/react-virtual'],
+        manualChunks: (id) => {
+          // Vendor libraries
+          if (id.includes('node_modules')) {
+            if (id.includes('react')) return 'vendor'
+            if (id.includes('recharts')) return 'charts'
+            if (id.includes('@tanstack')) return 'ui'
+            if (id.includes('lucide')) return 'icons'
+            return 'vendor'
+          }
+          // Large page components (separate from pages to avoid circular deps)
+          if (id.includes('pages/Cards/') || id.includes('pages/Orders/') || id.includes('pages/Profiles/')) {
+            return 'pages-components'
+          }
         },
       },
     },

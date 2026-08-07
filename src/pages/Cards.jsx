@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { Archive, Upload, RefreshCw, CreditCard, Zap } from 'lucide-react'
+import { Archive, Upload, RefreshCw, CreditCard, Zap, FileText } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang.jsx'
 import { usePremiumToast } from '../hooks/usePremiumToast.js'
@@ -20,6 +20,7 @@ import { CardSidePanel } from './Cards/CardSidePanel.jsx'
 import { CardShopUsagePanel } from './Cards/CardShopUsagePanel.jsx'
 import { CardTimelinePanel } from './Cards/CardTimelinePanel.jsx'
 import { useCardsStore } from '../store/cards.js'
+import { exportCardsToPDF } from '../utils/pdfExport.js'
 import { useUIStore } from '../store/ui.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     exportCards,
     handleSyncUpdate,
     handleFullSync,
+    revealCard,
   } = useCardsStore()
 
   // UI store
@@ -190,6 +192,12 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // Load cards when filters or page change
   // ★ Insight: AbortController предотвращает race conditions при быстром переключении фильтров
   // Предыдущий запрос отменяется, ответ игнорируется если сигнал прерван
+  // ★ Insight: fetchCardsRef и errorLoadRef предотвращают пересоздание useEffect при каждом изменении store
+  const fetchCardsRef = useRef(fetchCards)
+  const errorLoadRef = useRef(errorLoad)
+  fetchCardsRef.current = fetchCards
+  errorLoadRef.current = errorLoad
+
   useEffect(() => {
     // AbortController доступен глобально в современных браузерах и Node.js
     const controller = new globalThis.AbortController()
@@ -197,14 +205,14 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
     const loadCards = async () => {
       try {
-        await fetchCards(false, controller?.signal ?? null)
+        await fetchCardsRef.current(false, controller?.signal ?? null)
         if (!cancelled) {
           // Данные уже обновлены в store, дополнительного state update не нужно
         }
       } catch (e) {
         if (!cancelled && e.name !== 'AbortError') {
           console.error('[Cards] Load error:', e)
-          errorLoad('Cards')
+          errorLoadRef.current('Cards')
         }
       }
     }
@@ -214,12 +222,13 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       cancelled = true
       controller?.abort()
     }
-  }, [fetchCards, errorLoad])
+  }, [filters, page]) // Re-fetch when filters or page change
 
   // Load filter metadata on mount
   useEffect(() => {
     fetchFilterMeta()
-  }, [fetchFilterMeta])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Debounced search: update filter when user stops typing
   useEffect(() => {
@@ -567,6 +576,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
         setFilter={setFilters}
         setPage={setPage}
         onNavigate={onNavigate}
+        revealCard={revealCard}
         t={t}
         toast={toast}
       />
@@ -591,6 +601,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       setFilters,
       setPage,
       onNavigate,
+      revealCard,
       t,
       toast,
     ]
@@ -615,7 +626,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // overscan 10 — баланс между производительностью и UX (меньше белых полос)
   const useVirtualCards = !groupByBank && cards.length > 50
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
   const rowVirtualizer = useVirtualizer({
     count: useVirtualCards ? cards.length : 0,
     getScrollElement: () => parentRef.current,
@@ -657,6 +667,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                   setFilter={setFilters}
                   setPage={setPage}
                   onNavigate={onNavigate}
+                  revealCard={revealCard}
                   t={t}
                   toast={toast}
                 />
@@ -782,6 +793,34 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           >
             {t('cc_group_by_bank')}
           </button>
+          <button
+            onClick={() => {
+              const carderCols = [
+                'card_number',
+                'expiry',
+                'cvv',
+                'holder',
+                'billing',
+                'zip',
+                'city',
+                'state',
+                'country',
+                'phone',
+                'status',
+                'actions',
+              ]
+              setVisibleCols(carderCols)
+              try {
+                localStorage.setItem('cc_columns_visible', JSON.stringify(carderCols))
+              } catch {
+                /* ignore */
+              }
+            }}
+            className="btn btn-ghost btn-sm"
+            title={t('cards_carder_view') || 'Carder View'}
+          >
+            {t('cards_carder_view') || 'Carder View'}
+          </button>
           <div className="relative">
             <button
               onClick={() => setShowColPicker(v => !v)}
@@ -875,7 +914,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             </button>
             {enrichProgress ? (
               <span className="text-[12px] text-muted inline-flex items-center gap-1\.5">
-                <RefreshCw size={12} className="spin" />
+                <RefreshCw size={12} className="animate-spin" />
                 {enrichProgress.done} / {enrichProgress.total}
               </span>
             ) : (
@@ -893,6 +932,15 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             </button>
             <button onClick={() => handleExport('csv')} className="btn btn-b btn-sm">
               {t('export_csv')}
+            </button>
+            <button
+              onClick={() => {
+                const selectedCards = cards.filter(c => selected.includes(c.id))
+                if (selectedCards.length) exportCardsToPDF(selectedCards)
+              }}
+              className="btn btn-b btn-sm"
+            >
+              <FileText size={12} /> PDF
             </button>
             <button onClick={handleBulkDelete} className="btn btn-r btn-sm">
               {t('btn_delete')}

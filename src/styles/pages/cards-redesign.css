@@ -15,8 +15,8 @@
 .card-row:hover {
   box-shadow:
     0 0 0 1px var(--border-hi),
-    0 4px 24px rgba(0, 217, 255, 0.08),
-    0 8px 48px rgba(0, 217, 255, 0.04);
+    0 4px 24px transparent,
+    0 8px 48px transparent;
   transform: translateY(-1px) scale(1.005);
 }
 
@@ -35,7 +35,7 @@
     var(--color-success) 100%
   );
   background-size: 100% 200%;
-  animation: gradient-flow 3s ease-in-out infinite;
+  animation: none;
   opacity: 0.8;
 }
 
@@ -69,7 +69,7 @@
     var(--color-info) 100%
   );
   background-size: 100% 200%;
-  animation: gradient-flow 3s ease-in-out infinite;
+  animation: none;
   opacity: 0.8;
 }
 
@@ -93,7 +93,7 @@
     var(--color-error) 100%
   );
   background-size: 100% 200%;
-  animation: gradient-flow 3s ease-in-out infinite;
+  animation: none;
   opacity: 0.8;
 }
 
@@ -168,7 +168,7 @@
     rgba(245, 158, 11, 0.7) 100%
   );
   background-size: 100% 200%;
-  animation: gradient-flow 3s ease-in-out infinite;
+  animation: none;
   opacity: 0.8;
   border-radius: 2px;
 }
@@ -181,10 +181,10 @@
 
 /* Domain column styling */
 td .filter-link-badge.domain-badge {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), transparent);
   border: 1px solid rgba(99, 102, 241, 0.3);
   color: var(--indigo-t);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   padding: 3px 8px;
   max-width: 180px;
@@ -194,14 +194,14 @@ td .filter-link-badge.domain-badge {
 }
 
 td .filter-link-badge.domain-badge:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), transparent);
   border-color: rgba(99, 102, 241, 0.5);
   box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
 }
 
 /* Row flash animation */
 .row-flash {
-  animation: row-flash-animation 0.6s ease;
+  animation: none;
 }
 
 @keyframes row-flash-animation {
@@ -216,7 +216,7 @@ td .filter-link-badge.domain-badge:hover {
 
 /* ── Card Number Display ────────────────────────────────── */
 .card-number {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -243,7 +243,7 @@ td .filter-link-badge.domain-badge:hover {
   border-radius: 4px;
   font-size: 10px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.08em;
   border: 1px solid;
   transition: all var(--t-fast);
@@ -251,7 +251,7 @@ td .filter-link-badge.domain-badge:hover {
 
 .bin-badge:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 217, 255, 0.15);
+  box-shadow: 0 2px 8px transparent;
 }
 
 /* ── Card Network Badge (Glassmorphism) ────────────────── */
@@ -263,7 +263,7 @@ td .filter-link-badge.domain-badge:hover {
   border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.05em;
   transition: all var(--t-fast);
   /* Glassmorphism base */
@@ -326,7 +326,7 @@ td .filter-link-badge.domain-badge:hover {
   border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   border: 1px solid;
 }
 
@@ -363,7 +363,7 @@ td .filter-link-badge.domain-badge:hover {
 
 /* ── Expiry Display ─────────────────────────────────────── */
 .card-expiry {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   display: inline-flex;
@@ -381,7 +381,7 @@ td .filter-link-badge.domain-badge:hover {
 
 .card-expiry.critical {
   color: var(--red-t);
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: none;
 }
 
 .card-expiry.expired {
@@ -401,7 +401,7 @@ td .filter-link-badge.domain-badge:hover {
   box-shadow: var(--shadow-lg);
   min-width: 200px;
   z-index: var(--z-dropdown);
-  animation: dropdown-fade-in var(--t-fast) ease;
+  animation: none;
   overflow: hidden;
 }
 
@@ -432,7 +432,7 @@ td .filter-link-badge.domain-badge:hover {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .card-action-item {
@@ -446,14 +446,14 @@ td .filter-link-badge.domain-badge:hover {
   text-align: left;
   color: var(--text-2);
   font-size: 13px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: all var(--t-fast);
   border-left: 2px solid transparent;
 }
 
 .card-action-item:hover {
-  background: rgba(0, 217, 255, 0.05);
+  background: transparent;
   color: var(--text);
   border-left-color: var(--accent);
 }
@@ -500,14 +500,14 @@ td .filter-link-badge.domain-badge:hover {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .shop-usage-count {
   font-size: 12px;
   font-weight: 700;
   color: var(--accent-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Card Timeline ──────────────────────────────────────── */
@@ -562,7 +562,7 @@ td .filter-link-badge.domain-badge:hover {
 .timeline-event-date {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   margin-bottom: var(--sp-1);
 }
 
@@ -570,7 +570,7 @@ td .filter-link-badge.domain-badge:hover {
   font-size: 13px;
   color: var(--text-2);
   line-height: 1.5;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .timeline-event-shop {
@@ -581,7 +581,7 @@ td .filter-link-badge.domain-badge:hover {
 .timeline-event-amount {
   font-weight: 700;
   color: var(--accent-text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Bulk Actions Toolbar ───────────────────────────────── */
@@ -594,7 +594,7 @@ td .filter-link-badge.domain-badge:hover {
   border: 1px solid var(--accent-border);
   border-radius: var(--r-lg);
   margin-bottom: var(--sp-4);
-  animation: slide-in-right 0.3s ease;
+  animation: none;
   box-shadow: 0 4px 16px var(--accent-glow);
 }
 
@@ -602,7 +602,7 @@ td .filter-link-badge.domain-badge:hover {
   font-size: 13px;
   color: var(--accent-text);
   font-weight: 700;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
@@ -612,7 +612,7 @@ td .filter-link-badge.domain-badge:hover {
 .bulk-actions-count {
   font-size: 16px;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .bulk-actions-buttons {
@@ -661,20 +661,20 @@ td .filter-link-badge.domain-badge:hover {
   font-weight: 700;
   color: var(--text);
   margin-bottom: var(--sp-2);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .import-text {
   font-size: 13px;
   color: var(--text-3);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .import-formats {
   margin-top: var(--sp-3);
   font-size: 11px;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Card Details Modal ─────────────────────────────────── */
@@ -697,21 +697,21 @@ td .filter-link-badge.domain-badge:hover {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .card-detail-value {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .card-detail-value.mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.02em;
 }
 
@@ -740,12 +740,12 @@ td .filter-link-badge.domain-badge:hover {
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.3);
   color: var(--green-t);
-  animation: copy-blink 0.5s ease;
+  animation: none;
 }
 
 /* ── Copy Feedback Animation ────────────────────────────── */
 .cell-copied {
-  animation: cell-copy-flash 0.4s ease;
+  animation: none;
 }
 
 @keyframes cell-copy-flash {
@@ -760,7 +760,7 @@ td .filter-link-badge.domain-badge:hover {
 
 /* Enhanced field copy feedback with flash and glow */
 .field-copy-feedback {
-  animation: field-copied-flash 0.6s ease;
+  animation: none;
 }
 
 @keyframes field-copied-flash {
@@ -778,7 +778,7 @@ td .filter-link-badge.domain-badge:hover {
 
 /* Copy button success state with ring */
 .copy-btn.copied {
-  animation: copy-success-pulse 0.5s ease;
+  animation: none;
 }
 
 @keyframes copy-success-pulse {
@@ -805,7 +805,7 @@ td .filter-link-badge.domain-badge:hover {
   max-height: 400px;
   overflow-y: auto;
   z-index: var(--z-modal);
-  animation: modal-in 0.15s ease;
+  animation: none;
   padding: var(--sp-2) 0;
 }
 
@@ -820,7 +820,7 @@ td .filter-link-badge.domain-badge:hover {
 }
 
 .column-option:hover {
-  background: rgba(0, 217, 255, 0.05);
+  background: transparent;
   border-left-color: var(--accent);
 }
 
@@ -844,7 +844,7 @@ td .filter-link-badge.domain-badge:hover {
 .column-option-label {
   font-size: 13px;
   color: var(--text-2);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   font-weight: 500;
 }
 
@@ -885,7 +885,7 @@ td .filter-link-badge.domain-badge:hover {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.02em;
 }
 
@@ -893,7 +893,7 @@ td .filter-link-badge.domain-badge:hover {
   font-size: 12px;
   font-weight: 700;
   color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   margin-left: auto;
 }
 

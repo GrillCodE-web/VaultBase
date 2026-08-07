@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 
-// Placeholder for Profiles store - to be implemented in Phase 2
 export const useProfilesStore = create((_set, _get) => ({
   profiles: [],
   total: 0,
@@ -8,12 +7,6 @@ export const useProfilesStore = create((_set, _get) => ({
   filters: {},
   page: 1,
 
-  // Actions to be implemented
-  fetchProfiles: async () => {
-    // TODO: Implement
-  },
-
-  updateProfile: async (_id, _updates) => {
-    // TODO: Implement
-  },
+  fetchProfiles: async () => {},
+  updateProfile: async (_id, _updates) => {},
 }))

@@ -1,799 +1,514 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>CC Manager — Admin</title>
-<meta name="robots" content="noindex,nofollow"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>VaultBase — Панель управления</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="shortcut icon" href="/favicon.svg"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0b0c0e;
-  --surface:#111316;
-  --surface2:#161820;
-  --border:#1e2127;
-  --border2:#252830;
-  --muted:#3a3d45;
-  --subtle:#6b6f7a;
-  --text:#e8e9ec;
-  --text2:#a8aab4;
-  --accent:#d4b896;
-  --accent2:#8b7355;
-  --green:#6ba87a;
-  --green-bg:rgba(107,168,122,.12);
-  --green-border:rgba(107,168,122,.25);
-  --red:#c0635a;
-  --red-bg:rgba(192,99,90,.12);
-  --red-border:rgba(192,99,90,.25);
-  --yellow:#c9a84c;
-  --yellow-bg:rgba(201,168,76,.12);
-  --yellow-border:rgba(201,168,76,.25);
-  --blue:#5b8fd4;
-  --blue-bg:rgba(91,143,212,.1);
-  --r:7px;
+  --bg:#0d0f14;
+  --surface:#13161e;
+  --surface2:#1a1e2a;
+  --border:#ffffff10;
+  --accent:#6c63ff;
+  --accent2:#00d4aa;
+  --danger:#ff4d6d;
+  --warn:#f7b731;
+  --text:#e8eaf0;
+  --muted:#6b7280;
+  --radius:12px;
+  --sidebar:260px;
 }
-html,body{height:100%}
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:'DM Mono',monospace;
-  font-size:13px;
-  line-height:1.6;
-  display:flex;
-  overflow:hidden;
-}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
 
-/* noise */
-body::before{
-  content:'';
-  position:fixed;inset:0;z-index:0;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-  background-size:180px 180px;
-  pointer-events:none;opacity:.5;
-}
-
-/* ── Sidebar ── */
-#sidebar{
-  width:210px;min-height:100vh;background:var(--surface);
+.sidebar{
+  width:var(--sidebar);min-width:var(--sidebar);
+  background:var(--surface);
   border-right:1px solid var(--border);
   display:flex;flex-direction:column;
   position:fixed;top:0;left:0;bottom:0;z-index:100;
 }
-.logo{
-  padding:24px 20px 20px;border-bottom:1px solid var(--border);
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo .mark{width:28px;height:28px;flex-shrink:0;border-radius:7px}
+.sidebar-logo .brand{
+  font-size:18px;font-weight:700;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:-.3px;
+}
+.sidebar-logo .version{font-size:11px;color:var(--muted);margin-top:3px}
+.nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-item{
   display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:8px;
+  font-size:13px;color:var(--muted);
+  cursor:pointer;transition:.15s;margin-bottom:2px;
 }
-.logo-mark{
-  width:30px;height:30px;background:var(--accent);border-radius:6px;
-  display:grid;place-items:center;flex-shrink:0;
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:linear-gradient(135deg,#6c63ff22,#00d4aa11);color:var(--text);font-weight:600}
+.nav-item.active .nav-icon{color:var(--accent)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.nav-sep{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;padding:12px 12px 4px;text-transform:uppercase}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+.logout-btn{
+  width:100%;margin-top:12px;padding:8px;cursor:pointer;
+  background:transparent;border:1px solid var(--border);border-radius:7px;
+  color:var(--muted);font-size:12px;font-family:inherit;
+  transition:border-color .15s,color .15s;
 }
-.logo-mark svg{width:16px;height:16px;}
-.logo-name{
-  font-family:'Instrument Serif',serif;
-  font-size:16px;color:var(--text);
-}
-.logo-sub{font-size:9px;color:var(--subtle);letter-spacing:.1em;text-transform:uppercase;margin-top:1px;}
+.logout-btn:hover{border-color:#ff5470;color:#ff5470}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#6b7280;margin-right:6px}
+.status-dot.ok{background:var(--accent2)}
+.status-text{font-size:12px;color:var(--muted)}
 
-nav{flex:1;padding:10px 0;overflow-y:auto;}
-nav a{
-  display:flex;align-items:center;gap:9px;
-  padding:9px 20px;color:var(--subtle);
-  text-decoration:none;font-size:12px;
-  transition:.15s;cursor:pointer;
-  border-left:2px solid transparent;
-  letter-spacing:.02em;
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{
+  height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;border-bottom:1px solid var(--border);
+  background:var(--surface);position:sticky;top:0;z-index:50;
 }
-nav a:hover{background:rgba(255,255,255,.03);color:var(--text2);}
-nav a.active{
-  background:rgba(212,184,150,.06);
-  color:var(--accent);
-  border-left-color:var(--accent);
+.page-title{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;
+  border:none;transition:.15s;
 }
-nav a .ico{font-size:13px;width:18px;text-align:center;flex-shrink:0;}
-nav a .nav-badge{
-  margin-left:auto;background:var(--accent);color:var(--bg);
-  font-size:9px;padding:1px 5px;border-radius:8px;font-weight:500;
-}
-.sidebar-footer{
-  padding:14px 20px;border-top:1px solid var(--border);
-}
-.online-dot{
-  display:inline-block;width:6px;height:6px;border-radius:50%;
-  background:var(--green);margin-right:6px;
-  animation:pulse 2s infinite;
-}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.sidebar-url{font-size:10px;color:var(--muted);margin-top:4px;word-break:break-all;}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#5a52e0}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{background:#1e2333}
+.btn-danger{background:#ff4d6d22;color:var(--danger);border:1px solid #ff4d6d44}
+.btn-danger:hover{background:#ff4d6d33}
+.btn-success{background:#00d4aa22;color:var(--accent2);border:1px solid #00d4aa44}
+.btn-success:hover{background:#00d4aa33}
+.btn-sm{padding:5px 11px;font-size:12px}
 
-/* ── Main ── */
-#main{
-  margin-left:210px;flex:1;
-  display:flex;flex-direction:column;
-  min-height:100vh;
-  position:relative;z-index:1;
-}
-#topbar{
-  height:52px;background:var(--surface);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 28px;position:sticky;top:0;z-index:50;
-}
-.topbar-title{font-family:'Instrument Serif',serif;font-size:17px;color:var(--text);}
-.topbar-right{display:flex;align-items:center;gap:14px;}
-.refresh-btn{
-  background:none;border:1px solid var(--border);color:var(--subtle);
-  padding:4px 12px;border-radius:var(--r);font-size:11px;
-  cursor:pointer;transition:.15s;font-family:'DM Mono',monospace;
-  letter-spacing:.04em;
-}
-.refresh-btn:hover{border-color:var(--accent2);color:var(--accent);}
-.last-ref{font-size:11px;color:var(--muted);letter-spacing:.03em;}
+.content{padding:28px;flex:1}
+.page{display:none}
+.page.active{display:block}
 
-#content{padding:28px;flex:1;overflow-y:auto;height:calc(100vh - 52px);}
-
-/* ── Sections ── */
-.section{display:none}.section.active{display:block}
-
-/* ── Stat cards ── */
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:28px}
 .stat-card{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:18px 20px;position:relative;overflow:hidden;
+  border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;
 }
 .stat-card::before{
-  content:'';position:absolute;top:0;left:0;width:2px;height:100%;
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));opacity:.6;
 }
-.stat-card.c-green::before{background:var(--green);}
-.stat-card.c-accent::before{background:var(--accent);}
-.stat-card.c-blue::before{background:var(--blue);}
-.stat-card.c-yellow::before{background:var(--yellow);}
-.stat-card.c-red::before{background:var(--red);}
-.s-label{font-size:9px;color:var(--subtle);text-transform:uppercase;letter-spacing:.12em;}
-.s-value{font-size:26px;font-weight:400;font-family:'Instrument Serif',serif;
-  line-height:1.2;margin-top:4px;color:var(--text);}
-.s-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.stat-label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.stat-value{font-size:32px;font-weight:800;letter-spacing:-1px;line-height:1}
+.stat-sub{font-size:12px;color:var(--muted);margin-top:6px}
+.stat-card.accent .stat-value{color:var(--accent)}
+.stat-card.success .stat-value{color:var(--accent2)}
+.stat-card.danger .stat-value{color:var(--danger)}
+.stat-card.warn .stat-value{color:var(--warn)}
 
-/* ── Panel ── */
-.panel{
+.card{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);margin-bottom:20px;overflow:hidden;
+  border-radius:var(--radius);overflow:hidden;margin-bottom:20px;
 }
-.panel-header{
-  background:var(--surface2);padding:12px 20px;
+.card-header{
+  padding:16px 20px;border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
-  border-bottom:1px solid var(--border);
 }
-.ph-title{
-  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--subtle);display:flex;align-items:center;gap:8px;
+.card-title{font-size:15px;font-weight:700}
+.card-body{padding:20px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  padding:10px 14px;text-align:left;
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);
 }
-.ph-actions{display:flex;gap:8px;align-items:center;}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+.code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2)}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-green{background:#00d4aa22;color:var(--accent2)}
+.badge-red{background:#ff4d6d22;color:var(--danger)}
+.badge-grey{background:#ffffff12;color:var(--muted)}
+.badge-purple{background:#6c63ff22;color:var(--accent)}
+.badge-warn{background:#f7b73122;color:var(--warn)}
 
-/* ── Table ── */
-.data-table{width:100%;border-collapse:collapse;}
-.data-table thead th{
-  background:var(--surface2);color:var(--subtle);
-  font-size:9px;text-transform:uppercase;letter-spacing:.1em;
-  padding:9px 14px;border-bottom:1px solid var(--border);
-  font-weight:500;white-space:nowrap;
-}
-.data-table tbody td{
-  padding:10px 14px;border-bottom:1px solid var(--border);
-  vertical-align:middle;
-}
-.data-table tbody tr:last-child td{border-bottom:none;}
-.data-table tbody tr:hover{background:rgba(255,255,255,.018);}
-.mono{font-family:'DM Mono',monospace;font-size:11px;color:var(--subtle);}
+.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.chart-title{font-size:14px;font-weight:700;margin-bottom:16px;color:var(--text)}
+.chart-wrap{height:180px;position:relative}
 
-/* ── Badges ── */
-.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:10px;letter-spacing:.04em;}
-.b-active{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
-.b-revoked{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
-.b-used{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border);}
-.b-unused{background:rgba(107,111,122,.12);color:var(--subtle);border:1px solid var(--border);}
-.b-never{background:rgba(107,111,122,.08);color:var(--muted);border:1px solid var(--border);}
-.b-live{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
-.b-draft{background:rgba(107,111,122,.08);color:var(--muted);border:1px solid var(--border);}
-
-/* ── Buttons ── */
-.btn{
-  padding:5px 12px;font-size:11px;border-radius:var(--r);
-  border:1px solid var(--border);cursor:pointer;
-  transition:.15s;font-family:'DM Mono',monospace;
-  letter-spacing:.04em;white-space:nowrap;
-  background:transparent;color:var(--text2);
-}
-.btn:hover{border-color:var(--accent2);color:var(--accent);}
-.btn.danger{color:var(--red);border-color:var(--red-border);}
-.btn.danger:hover{background:var(--red-bg);}
-.btn.success{color:var(--green);border-color:var(--green-border);}
-.btn.success:hover{background:var(--green-bg);}
-.btn.warn{color:var(--yellow);border-color:var(--yellow-border);}
-.btn.warn:hover{background:var(--yellow-bg);}
-.btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:500;}
-.btn.primary:hover{background:#e0c8a8;}
-.btn.sm{padding:3px 8px;font-size:10px;}
-
-/* ── Inputs ── */
-input,select,textarea{
+.form-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.inp{
   background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);padding:8px 12px;border-radius:var(--r);
-  font-size:12px;outline:none;transition:.15s;
-  font-family:'DM Mono',monospace;
+  border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;
+  outline:none;transition:.15s;
 }
-input:focus,select:focus,textarea:focus{border-color:var(--accent2);}
-input::placeholder{color:var(--muted);}
-label{font-size:9px;color:var(--subtle);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:5px;}
-.form-group{display:flex;flex-direction:column;gap:0;flex:1;min-width:120px;}
-.form-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.inp:focus{border-color:var(--accent)}
+.inp-sm{padding:6px 10px;font-size:12px}
 
-/* ── Code display ── */
-.code-pill{
-  font-family:'DM Mono',monospace;
-  font-size:14px;letter-spacing:.15em;
-  color:var(--accent);background:var(--surface2);
-  border:1px solid var(--border);
-  padding:10px 18px;border-radius:var(--r);
-  text-align:center;cursor:pointer;
-  transition:.15s;display:block;
-}
-.code-pill:hover{border-color:var(--accent2);background:rgba(212,184,150,.05);}
-.code-hint{font-size:9px;color:var(--muted);letter-spacing:.04em;display:block;margin-top:4px;}
-
-/* ── Search bar ── */
-.search-bar{
-  display:flex;gap:8px;padding:12px 20px;
-  background:var(--surface2);border-bottom:1px solid var(--border);
-}
-.search-bar input{flex:1;}
-
-/* ── Activity feed ── */
-.feed-item{
-  display:flex;gap:10px;padding:10px 20px;
-  border-bottom:1px solid var(--border);align-items:flex-start;
-}
-.feed-item:last-child{border-bottom:none;}
-.feed-dot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex-shrink:0;}
-.fd-fp{background:var(--blue);}
-.fd-verify{background:var(--green);}
-.fd-invite{background:var(--accent);}
-.fd-other{background:var(--muted);}
-.feed-meta{font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:.02em;}
-
-/* ── Mini chart ── */
-.chart-bars{display:flex;gap:3px;align-items:flex-end;height:48px;padding:0 20px 0;}
-.chart-bar{
-  flex:1;background:rgba(212,184,150,.2);border-radius:2px 2px 0 0;
-  transition:.3s;min-width:8px;cursor:default;
-}
-.chart-bar:hover{background:var(--accent);}
-.chart-labels{display:flex;gap:3px;padding:4px 20px 14px;}
-.chart-labels span{flex:1;text-align:center;font-size:9px;color:var(--muted);}
-
-/* ── Progress bar ── */
-.fp-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
-.fp-name{width:50px;font-size:10px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em;}
-.fp-bar-wrap{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
-.fp-bar{height:100%;border-radius:2px;transition:.4s;}
-.fp-count{font-size:10px;color:var(--muted);width:40px;text-align:right;}
-
-/* ── Upload drop zone ── */
-.drop-zone{
-  border:1px dashed var(--border);border-radius:var(--r);
-  padding:28px;text-align:center;cursor:pointer;transition:.2s;
-  margin-bottom:18px;position:relative;
-}
-.drop-zone:hover,.drop-zone.drag{border-color:var(--accent2);background:rgba(212,184,150,.03);}
-.drop-zone-icon{font-size:24px;margin-bottom:8px;}
-.drop-zone-label{font-size:12px;color:var(--text2);margin-bottom:3px;}
-.drop-zone-sub{font-size:11px;color:var(--muted);}
-.drop-filename{margin-top:10px;font-size:12px;color:var(--green);display:none;}
-
-/* ── Upload progress ── */
-.upload-progress{display:none;margin-bottom:14px;}
-.upload-progress-bar-wrap{background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-top:6px;}
-.upload-progress-bar{height:100%;background:var(--accent);transition:.1s;width:0%;}
-
-/* ── Modal ── */
 .modal-overlay{
-  display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
-  z-index:1000;align-items:center;justify-content:center;
+  display:none;position:fixed;inset:0;background:#00000080;
+  z-index:200;align-items:center;justify-content:center;
 }
-.modal-overlay.show{display:flex;}
+.modal-overlay.open{display:flex}
 .modal{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);width:460px;max-width:95vw;
-  overflow:hidden;animation:fadeUp .2s ease;
+  border-radius:16px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;
 }
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.modal-header{
-  background:var(--surface2);padding:14px 20px;
-  display:flex;justify-content:space-between;align-items:center;
-  border-bottom:1px solid var(--border);
-}
-.modal-title{font-family:'Instrument Serif',serif;font-size:16px;}
-.modal-close{background:none;border:none;color:var(--subtle);font-size:16px;cursor:pointer;padding:2px 4px;}
-.modal-close:hover{color:var(--text);}
-.modal-body{padding:20px;}
-.modal-footer{
-  padding:14px 20px;border-top:1px solid var(--border);
-  display:flex;justify-content:flex-end;gap:8px;
-}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:16px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.5px}
+.form-group .inp{width:100%}
 
-/* ── Confirm ── */
-#confirm-overlay{
-  display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
-  z-index:2000;align-items:center;justify-content:center;
-}
-#confirm-overlay.show{display:flex;}
-#confirm-box{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:24px;max-width:340px;width:90%;
-  animation:fadeUp .15s ease;
-}
-#confirm-box h4{font-family:'Instrument Serif',serif;font-size:16px;margin-bottom:8px;}
-#confirm-box p{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.7;}
-#confirm-box .actions{display:flex;gap:8px;justify-content:flex-end;}
-
-/* ── Toast ── */
-.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px}
 .toast{
-  padding:10px 16px;border-radius:var(--r);font-size:12px;
-  display:flex;align-items:center;gap:8px;max-width:300px;
-  animation:fadeUp .2s ease;letter-spacing:.03em;
-}
-.toast.ok   {background:var(--surface);color:var(--green);border:1px solid var(--green-border);}
-.toast.err  {background:var(--surface);color:var(--red);border:1px solid var(--red-border);}
-.toast.info {background:var(--surface);color:var(--subtle);border:1px solid var(--border);}
-.toast.warn {background:var(--surface);color:var(--yellow);border:1px solid var(--yellow-border);}
-
-/* ── Misc ── */
-.divider{height:1px;background:var(--border);}
-.empty{padding:36px;text-align:center;color:var(--muted);font-size:12px;letter-spacing:.04em;}
-.copy-btn{
-  cursor:pointer;padding:1px 5px;border-radius:3px;
-  color:var(--muted);font-size:9px;
   background:var(--surface2);border:1px solid var(--border);
-  transition:.1s;font-family:'DM Mono',monospace;
+  border-radius:10px;padding:12px 18px;font-size:13px;
+  display:flex;align-items:center;gap:10px;animation:slideIn .2s ease;
 }
-.copy-btn:hover{background:var(--accent);color:var(--bg);border-color:var(--accent);}
-.info-box{
+.toast.success{border-color:#00d4aa44;color:var(--accent2)}
+.toast.error{border-color:#ff4d6d44;color:var(--danger)}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.loader{display:inline-block;width:16px;height:16px;border:2px solid #ffffff20;border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-text{font-size:14px}
+.activity-list{display:flex;flex-direction:column;gap:1px}
+.activity-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.activity-desc{font-size:13px;color:var(--text)}
+.activity-time{font-size:11px;color:var(--muted);margin-top:2px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#ffffff18;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#ffffff30}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:none}
+  .main{margin-left:0}
+  .charts-row{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:1fr 1fr}
+}
+.connection-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:20px;font-size:12px;
   background:var(--surface2);border:1px solid var(--border);
-  border-radius:var(--r);padding:14px 18px;margin-top:14px;
-  font-size:11px;color:var(--subtle);line-height:1.8;
 }
-.info-box strong{color:var(--text2);}
-code{
-  font-family:'DM Mono',monospace;font-size:11px;
-  background:var(--surface2);padding:1px 5px;border-radius:3px;
-  color:var(--accent2);
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--accent2);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hint{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+.section-hint{
+  font-size:12px;color:var(--muted);margin-bottom:16px;padding:10px 14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  border-left:3px solid var(--accent);line-height:1.5;
 }
 </style>
 </head>
 <body>
 
-<!-- ── Sidebar ── -->
-<div id="sidebar">
-  <div class="logo">
-    <div class="logo-mark">
-      <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="#0b0c0e"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="#0b0c0e" opacity=".5"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="#0b0c0e" opacity=".5"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="#0b0c0e" opacity=".25"/></svg>
-    </div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <img class="mark" src="/favicon.svg" width="28" height="28" alt=""/>
     <div>
-      <div class="logo-name">CC Manager</div>
-      <div class="logo-sub">Admin Panel</div>
+      <div class="brand">VaultBase</div>
+      <div class="version">Панель управления v2</div>
     </div>
   </div>
-  <nav>
-    <a class="active" data-sec="dashboard"><span class="ico">◈</span> Dashboard</a>
-    <a data-sec="invites"><span class="ico">✦</span> Invite Codes <span class="nav-badge" id="nb-inv">0</span></a>
-    <a data-sec="licenses"><span class="ico">◆</span> Licenses <span class="nav-badge" id="nb-lic">0</span></a>
-    <a data-sec="releases"><span class="ico">▲</span> Releases</a>
-    <a data-sec="footprints"><span class="ico">◎</span> Footprints</a>
-    <a data-sec="lic-analytics"><span class="ico">◈</span> License Analytics</a>
-    <a data-sec="activity"><span class="ico">⌁</span> Activity</a>
-    <a data-sec="connections"><span class="ico">◉</span> Live Connections</a>
-    <a data-sec="events"><span class="ico">⊕</span> Socket Events</a>
+  <nav class="nav">
+    <div class="nav-sep">Обзор</div>
+    <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard',this)">
+      <span class="nav-icon">◈</span> Дашборд
+    </div>
+    <div class="nav-item" data-page="activity" onclick="navigate('activity',this)">
+      <span class="nav-icon">⚡</span> Активность
+    </div>
+    <div class="nav-sep">Управление</div>
+    <div class="nav-item" data-page="licenses" onclick="navigate('licenses',this)">
+      <span class="nav-icon">🔑</span> Лицензии
+    </div>
+    <div class="nav-item" data-page="invites" onclick="navigate('invites',this)">
+      <span class="nav-icon">✉</span> Инвайт-коды
+    </div>
+    <div class="nav-item" data-page="sync" onclick="navigate('sync',this)">
+      <span class="nav-icon">⇄</span> Синхронизация
+    </div>
+    <div class="nav-sep">Релизы</div>
+    <div class="nav-item" data-page="versions" onclick="navigate('versions',this)">
+      <span class="nav-icon">📦</span> Версии / Файлы
+    </div>
+    <div class="nav-sep">Отладка</div>
+    <div class="nav-item" data-page="footprints" onclick="navigate('footprints',this)">
+      <span class="nav-icon">🖨</span> Фингерпринты
+    </div>
+    <div class="nav-item" data-page="connections" onclick="navigate('connections',this)">
+      <span class="nav-icon">🔌</span> Подключения
+    </div>
+    <div class="nav-item" data-page="audit" onclick="navigate('audit',this)">
+      <span class="nav-icon">📋</span> Журнал
+    </div>
   </nav>
   <div class="sidebar-footer">
-    <div style="display:flex;align-items:center;font-size:11px;color:var(--green);">
-      <span class="online-dot"></span>Online
+    <div class="status-text">
+      <span class="status-dot" id="srv-dot"></span>
+      <span id="srv-status">Проверка...</span>
     </div>
-    <div class="sidebar-url" id="footer-host">—</div>
+    <button type="button" class="logout-btn" onclick="logout()">Выйти</button>
   </div>
-</div>
+</aside>
 
-<!-- ── Main ── -->
-<div id="main">
-  <div id="topbar">
-    <div class="topbar-title" id="page-title">Dashboard</div>
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="page-title" id="topbar-title">Дашборд</span>
+    </div>
     <div class="topbar-right">
-      <span class="last-ref" id="last-ref">—</span>
-      <button class="refresh-btn" onclick="refreshAll()">↻ Refresh</button>
+      <div class="connection-badge">
+        <span class="pulse" id="live-pulse" style="background:var(--muted)"></span>
+        <span id="live-count">0 онлайн</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="refreshAll()">↺ Обновить</button>
     </div>
   </div>
-  <div id="content">
 
-    <!-- ═══════════════ DASHBOARD ═══════════════ -->
-    <div class="section active" id="section-dashboard">
-      <div class="stat-grid">
-        <div class="stat-card c-accent">
-          <div class="s-label">Invite Codes</div>
-          <div class="s-value" id="s-inv-active">—</div>
-          <div class="s-sub" id="s-inv-sub">available</div>
-        </div>
-        <div class="stat-card c-green">
-          <div class="s-label">Active Licenses</div>
-          <div class="s-value" id="s-active">—</div>
-          <div class="s-sub" id="s-active-sub"></div>
-        </div>
-        <div class="stat-card c-blue">
-          <div class="s-label">Footprints 7d</div>
-          <div class="s-value" id="s-fp7d">—</div>
-          <div class="s-sub">last 7 days</div>
-        </div>
-        <div class="stat-card c-yellow">
-          <div class="s-label">Version</div>
-          <div class="s-value" id="s-version">—</div>
-          <div class="s-sub">latest live</div>
-        </div>
-        <div class="stat-card c-red">
-          <div class="s-label">Revoked</div>
-          <div class="s-value" id="s-revoked">—</div>
-          <div class="s-sub">licenses</div>
-        </div>
+  <div class="content">
+
+    <!-- ДАШБОРД -->
+    <div class="page active" id="page-dashboard">
+      <div class="section-hint">📊 Общая сводка по системе. Данные обновляются автоматически каждые 30 сек. Статистика берётся с бэкенда (Node.js API).</div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card accent"><div class="stat-label">Активные лицензии</div><div class="stat-value" id="s-active">—</div></div>
+        <div class="stat-card danger"><div class="stat-label">Отозванные</div><div class="stat-value" id="s-revoked">—</div></div>
+        <div class="stat-card success"><div class="stat-label">Фингерпринты (7д)</div><div class="stat-value" id="s-fp7">—</div></div>
+        <div class="stat-card"><div class="stat-label">Всего фингерпринтов</div><div class="stat-value" id="s-fptotal">—</div></div>
+        <div class="stat-card warn"><div class="stat-label">Инвайты активные</div><div class="stat-value" id="s-inv-active">—</div></div>
+        <div class="stat-card"><div class="stat-label">Инвайты использованы</div><div class="stat-value" id="s-inv-used">—</div></div>
+        <div class="stat-card accent"><div class="stat-label">Всего активаций</div><div class="stat-value" id="s-inv-uses">—</div></div>
+        <div class="stat-card accent"><div class="stat-label">Версия приложения</div><div class="stat-value" style="font-size:20px" id="s-version">—</div></div>
+        <div class="stat-card success"><div class="stat-label">Группы синхр.</div><div class="stat-value" id="s-groups">—</div></div>
+        <div class="stat-card"><div class="stat-label">Клиенты онлайн</div><div class="stat-value" id="s-live">—</div><div class="stat-sub" id="s-live-sub"></div></div>
       </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-        <div class="panel">
-          <div class="panel-header">
-            <div class="ph-title">Footprints — 7 days</div>
-          </div>
-          <div style="padding-top:16px;">
-            <div class="chart-bars" id="chart-bars"></div>
-            <div class="chart-labels" id="chart-labels"></div>
-          </div>
-          <div class="divider"></div>
-          <div style="padding:14px 20px;" id="fp-breakdown"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Фингерпринты — последние 7 дней</div>
+          <div class="chart-wrap"><canvas id="chartFpDay"></canvas></div>
         </div>
-        <div class="panel">
-          <div class="panel-header">
-            <div class="ph-title">Recent Licenses</div>
-            <button class="btn sm" onclick="showSec('licenses')">View all →</button>
-          </div>
-          <table class="data-table">
-            <thead><tr><th>Label</th><th>Status</th><th>Last Seen</th></tr></thead>
-            <tbody id="dash-lic"></tbody>
-          </table>
+        <div class="chart-card">
+          <div class="chart-title">По типу хеша</div>
+          <div class="chart-wrap"><canvas id="chartFpType"></canvas></div>
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════ INVITES ═══════════════ -->
-    <div class="section" id="section-invites">
-      <div class="panel" style="margin-bottom:20px;">
-        <div class="panel-header">
-          <div class="ph-title">Generate Invite Codes</div>
-        </div>
-        <div style="padding:20px;">
-          <div class="form-row">
-            <div class="form-group" style="flex:2">
-              <label>Label (optional — who is this for?)</label>
-              <input id="inv-label" placeholder="e.g. John Doe, Team Beta"/>
-            </div>
-            <div class="form-group" style="flex:0.7">
-              <label>Quantity</label>
-              <input id="inv-count" type="number" value="1" min="1" max="50"/>
-            </div>
-            <div class="form-group" style="flex:1">
-              <label>Expires in (days, blank = never)</label>
-              <input id="inv-expires" type="number" placeholder="e.g. 7" min="1"/>
-            </div>
+    <!-- АКТИВНОСТЬ -->
+    <div class="page" id="page-activity">
+      <div class="section-hint">⚡ Лента событий: сохранение фингерпринтов, проверки лицензий, использование инвайтов. Данные агрегируются из нескольких таблиц БД на бэкенде.</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Последние события</div>
+          <div style="display:flex;gap:8px">
+            <select class="inp inp-sm" id="activityFilter" onchange="loadActivity()">
+              <option value="all">Все</option>
+              <option value="footprint">Фингерпринты</option>
+              <option value="verify">Проверки</option>
+              <option value="invite">Инвайты</option>
+            </select>
           </div>
-          <button class="btn primary" onclick="generateInvites()" style="padding:8px 20px;">
-            Generate Codes
-          </button>
+        </div>
+        <div class="card-body">
+          <div class="activity-list" id="activity-list">
+            <div class="empty"><div class="empty-icon">⚡</div><div class="empty-text">Загрузка...</div></div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Generated codes preview -->
-      <div id="inv-result" style="display:none;margin-bottom:20px;">
-        <div class="panel">
-          <div class="panel-header">
-            <div class="ph-title">Generated</div>
-            <button class="btn sm" onclick="copyAllCodes()">Copy All</button>
-          </div>
-          <div id="inv-result-list" style="padding:16px;display:flex;flex-direction:column;gap:8px;"></div>
-        </div>
-      </div>
-
-      <!-- All invites table -->
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">All Invite Codes</div>
-          <div class="ph-actions">
-            <button class="btn sm" onclick="filterInvites('all')" id="fi-all" style="color:var(--accent);border-color:var(--accent2);">All</button>
-            <button class="btn sm" onclick="filterInvites('unused')" id="fi-unused">Unused</button>
-            <button class="btn sm" onclick="filterInvites('used')" id="fi-used">Used</button>
-            <a href="/admin/api/invites/export.csv" class="btn sm">Export CSV</a>
+    <!-- ЛИЦЕНЗИИ -->
+    <div class="page" id="page-licenses">
+      <div class="section-hint">🔑 Управление лицензиями клиентов. Каждая лицензия привязана к Installation ID десктоп-приложения. Через API бэкенда можно создать, отозвать или удалить лицензию. Ключ активации генерируется автоматически из Installation ID + Challenge.</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Лицензии</div>
+          <div style="display:flex;gap:8px">
+            <input class="inp inp-sm" id="lic-search" placeholder="Поиск..." oninput="filterLicenses()" style="width:200px">
+            <button class="btn btn-primary btn-sm" onclick="openAddLicense()">+ Добавить</button>
+            <a href="#" id="lic-csv" class="btn btn-ghost btn-sm">⬇ CSV</a>
           </div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
+        <div class="table-wrap">
+          <table>
             <thead><tr>
-              <th style="padding-left:20px">Code</th>
-              <th>Label</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Used At</th>
-              <th>Expires</th>
-              <th>Actions</th>
+              <th>Installation ID</th><th>Метка</th><th>Challenge</th>
+              <th>Роль</th><th>Статус</th><th>Создана</th><th>Последний вход</th><th>Действия</th>
             </tr></thead>
-            <tbody id="inv-tbody">
-              <tr><td colspan="7" class="empty">Loading…</td></tr>
-            </tbody>
+            <tbody id="lic-tbody"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════ LICENSES ═══════════════ -->
-    <div class="section" id="section-licenses">
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">License Management</div>
-          <div class="ph-actions">
-            <a href="/admin/api/licenses/export.csv" class="btn sm">Export CSV</a>
-            <button class="btn primary" onclick="openAddLic()">+ New License</button>
+    <!-- ИНВАЙТ-КОДЫ -->
+    <div class="page" id="page-invites">
+      <div class="section-hint">✉ Инвайт-коды для доступа к скачиванию приложения. По умолчанию код на 1 использование, но можно задать любое количество (max_uses=0 — безлимитный). Счётчик использований (use_count) отображается в таблице. Можно сбросить счётчик кнопкой «Сбросить».</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Инвайт-коды</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="openCreateInvite()">+ Сгенерировать</button>
+            <a href="#" id="inv-csv" class="btn btn-ghost btn-sm">⬇ CSV</a>
           </div>
         </div>
-        <div class="search-bar">
-          <input type="text" id="lic-search" placeholder="Search label or installation ID…" oninput="filterLicenses()"/>
-          <select id="lic-filter" onchange="filterLicenses()" style="width:110px">
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="revoked">Revoked</option>
-          </select>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
+        <div class="table-wrap">
+          <table>
             <thead><tr>
-              <th style="padding-left:20px">Installation ID</th>
-              <th>Label</th>
-              <th>Token</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Last Seen</th>
-              <th>Actions</th>
+              <th>Код</th><th>Метка</th><th>Статус</th>
+              <th>Активаций</th><th>Лимит</th><th>Истекает</th><th>Создан</th><th>Действия</th>
             </tr></thead>
-            <tbody id="lic-tbody">
-              <tr><td colspan="7" class="empty">Loading…</td></tr>
-            </tbody>
+            <tbody id="inv-tbody"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════ RELEASES ═══════════════ -->
-    <div class="section" id="section-releases">
-      <div class="panel" style="margin-bottom:20px;">
-        <div class="panel-header">
-          <div class="ph-title">Upload New Release</div>
-          <a href="/update" target="_blank" class="btn sm">/update JSON ↗</a>
+    <!-- ГРУППЫ СИНХРОНИЗАЦИИ -->
+    <div class="page" id="page-sync">
+      <div class="section-hint">⇄ Группы синхронизации объединяют несколько устройств для обмена данными через WebSocket. Бэкенд хранит sync_groups, sync_group_members и sync_cards. Каждая группа имеет уникальный ключ шифрования.</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Группы синхронизации</div>
+          <button class="btn btn-primary btn-sm" onclick="openCreateGroup()">+ Новая группа</button>
         </div>
-        <div style="padding:20px;">
-          <input type="file" id="file-inp" style="display:none" accept="*" onchange="onFile(this)"/>
-          <div class="drop-zone" id="drop-zone"
-            ondragover="dzDrag(event,true)" ondragleave="dzDrag(event,false)"
-            ondrop="dzDrop(event)">
-            <div class="drop-zone-icon">⬡</div>
-            <div class="drop-zone-label" id="dz-label">Drop .dmg here</div>
-            <div class="drop-zone-sub">or click to browse — max 500 MB</div>
-            <div class="drop-filename" id="drop-fn" style="margin-top:8px;color:#6ba87a;font-size:12px;display:none;"></div>
-          </div>
-          <button type="button" class="btn" style="width:100%;margin-top:0;border-top:none;border-radius:0 0 7px 7px;padding:9px;"
-            onclick="document.getElementById('file-inp').click()">
-            ↑ Browse file…
-          </button>
-          <div class="form-row" style="margin-bottom:14px;">
-            <div class="form-group" style="flex:0.6">
-              <label>Version</label>
-              <input id="up-ver" placeholder="1.2.0"/>
-            </div>
-            <div class="form-group">
-              <label>File Type</label>
-              <select id="up-ftype" onchange="onFileTypeChange()">
-                <option value="installer-dmg">macOS Installer (.dmg)</option>
-                <option value="installer-app">macOS App (.app)</option>
-                <option value="updater">Tauri Updater (.tar.gz)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Platform</label>
-              <select id="up-plat">
-                <option value="darwin-aarch64">Apple Silicon</option>
-                <option value="darwin-x86_64">Intel</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex:0.5;justify-content:flex-end;">
-              <label>Publish immediately</label>
-              <div style="display:flex;align-items:center;gap:8px;height:36px;">
-                <input type="checkbox" id="up-publish" style="width:14px;height:14px;accent-color:var(--accent)"/>
-                <span style="font-size:11px;color:var(--text2)">Live after upload</span>
-              </div>
-            </div>
-          </div>
-          <div class="form-row" style="margin-bottom:14px;">
-            <div class="form-group" style="flex:1">
-              <label>Release Notes</label>
-              <textarea id="up-notes" rows="2" style="width:100%;resize:vertical" placeholder="What's new…"></textarea>
-            </div>
-          </div>
-          <div class="form-group" id="sig-row" style="margin-bottom:18px;">
-            <label>Tauri Signature (.sig file content) — only for Updater type</label>
-            <textarea id="up-sig" rows="2" style="width:100%;resize:vertical;font-size:11px;" placeholder="Paste contents of the .sig file…"></textarea>
-          </div>
-          <div class="upload-progress" id="up-prog">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--subtle);">
-              <span>Uploading…</span><span id="up-pct">0%</span>
-            </div>
-            <div class="upload-progress-bar-wrap">
-              <div class="upload-progress-bar" id="up-bar"></div>
-            </div>
-          </div>
-          <button class="btn primary" id="up-btn" onclick="uploadRelease()" style="padding:9px 24px;">
-            Upload Release
-          </button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">All Releases</div>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
+        <div class="table-wrap">
+          <table>
             <thead><tr>
-              <th style="padding-left:20px">Version</th>
-              <th>Type</th>
-              <th>Platform</th>
-              <th>Size</th>
-              <th>Signature</th>
-              <th>Status</th>
-              <th>Published</th>
-              <th>Actions</th>
+              <th>ID</th><th>Название</th><th>Участники</th><th>Карточки (хеши)</th><th>Создана</th><th>Действия</th>
             </tr></thead>
-            <tbody id="rel-tbody">
-              <tr><td colspan="7" class="empty">Loading…</td></tr>
-            </tbody>
+            <tbody id="sync-tbody"></tbody>
           </table>
         </div>
       </div>
-
-      <div class="info-box">
-        <strong>Build flow:</strong> run <code>npm run tauri build</code> → upload <code>.dmg.tar.gz</code> + paste <code>.sig</code> content → Publish.<br/>
-        <strong>Updater key:</strong> generate with <code>npx tauri signer generate -w ~/.tauri/cc-manager.key</code>
-      </div>
-    </div>
-
-    <!-- ═══════════════ FOOTPRINTS ═══════════════ -->
-    <div class="section" id="section-footprints">
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">Footprint Explorer</div>
-          <span style="font-size:10px;color:var(--muted)" id="fp-count-label"></span>
+      <div class="card" id="sync-members-card" style="display:none">
+        <div class="card-header">
+          <div class="card-title">Участники группы: <span id="sync-members-name">—</span></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="openAddMember()">+ Добавить</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sync-members-card').style.display='none'">Закрыть</button>
+          </div>
         </div>
-        <div class="search-bar">
-          <input type="text" id="fp-domain" placeholder="Filter by shop domain…" oninput="filterFP()"/>
-          <select id="fp-type" onchange="filterFP()">
-            <option value="all">All types</option>
-            <option value="email">email</option>
-            <option value="ip">ip</option>
-            <option value="drop">drop</option>
-            <option value="bin">bin</option>
-            <option value="phone">phone</option>
-          </select>
-          <button class="btn" onclick="loadFP(true)">Load All</button>
-        </div>
-        <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
-          <table class="data-table">
-            <thead style="position:sticky;top:0;z-index:1"><tr>
-              <th style="padding-left:20px">Shop Domain</th>
-              <th>Type</th>
-              <th>Hash</th>
-              <th>Token</th>
-              <th>Created</th>
-            </tr></thead>
-            <tbody id="fp-tbody">
-              <tr><td colspan="5" class="empty">Enter a domain or click Load All</td></tr>
-            </tbody>
-          </table>
+        <div class="card-body">
+          <div id="sync-members-list"></div>
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════ CONNECTIONS ═══════════════ -->
-    <div class="section" id="section-connections">
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">Live Connections <span id="conn-count" style="font-size:11px;color:var(--green);margin-left:8px;"></span></div>
-          <button class="btn sm" onclick="loadConnections()">↻ Refresh</button>
+    <!-- ВЕРСИИ / ФАЙЛЫ -->
+    <div class="page" id="page-versions">
+      <div class="section-hint">📦 Управление релизами. Загружай файлы установщиков (installer/portable/updater) для каждой платформы. Бэкенд сохраняет файл в /releases/, создаёт запись в release_files. Файлы с пометкой «Опубликован» отдаются через API скачивания после ввода инвайт-кода на фронтенде (pub-www).</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Файлы релизов</div>
+          <button class="btn btn-primary btn-sm" onclick="openUploadVersion()">↑ Загрузить</button>
         </div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
+        <div class="table-wrap">
+          <table>
             <thead><tr>
-              <th style="padding-left:20px">Socket ID</th>
-              <th>Installation ID</th>
-              <th>Group</th>
-              <th>Connected Since</th>
-              <th>Last Event</th>
-              <th>IP</th>
+              <th>Версия</th><th>Тип файла</th><th>Платформа</th>
+              <th>Заметки</th><th>Опубликован</th><th>Скачать</th><th>Действия</th>
             </tr></thead>
-            <tbody id="conn-tbody">
-              <tr><td colspan="6" class="empty">Loading…</td></tr>
-            </tbody>
+            <tbody id="ver-tbody"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════ SOCKET EVENTS ═══════════════ -->
-    <div class="section" id="section-events">
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">Recent Socket Events</div>
-          <button class="btn sm" onclick="loadEvents()">↻ Refresh</button>
+    <!-- ФИНГЕРПРИНТЫ -->
+    <div class="page" id="page-footprints">
+      <div class="section-hint">🖨 Все сохранённые фингерпринты (хеши). Десктоп-приложение отправляет их на бэкенд через API. Можно фильтровать по домену или переключить на вид «по доменам» для агрегации.</div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Фингерпринты</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="inp inp-sm" id="fp-view" onchange="loadFootprints()">
+              <option value="list">Список</option>
+              <option value="domains">По доменам</option>
+            </select>
+            <input class="inp inp-sm" id="fp-domain" placeholder="Фильтр по домену..." style="width:200px">
+            <button class="btn btn-ghost btn-sm" onclick="loadFootprints()">Найти</button>
+          </div>
         </div>
-        <div id="events-feed" style="max-height:560px;overflow-y:auto">
-          <div class="empty">Loading…</div>
+        <div class="table-wrap">
+          <table id="fp-table">
+            <thead id="fp-thead"><tr>
+              <th>Домен</th><th>Тип хеша</th><th>Хеш</th>
+              <th>Токен юзера</th><th>Создан</th>
+            </tr></thead>
+            <tbody id="fp-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════ ACTIVITY ═══════════════ -->
-    <div class="section" id="section-lic-analytics">
-      <div class="stat-grid" id="la-stats">
-        <div class="stat-card c-accent">
-          <div class="s-label">Total Licenses</div>
-          <div class="s-value" id="la-total">—</div>
-        </div>
-        <div class="stat-card c-green">
-          <div class="s-label">Active</div>
-          <div class="s-value" id="la-active">—</div>
-        </div>
-        <div class="stat-card c-red">
-          <div class="s-label">Inactive</div>
-          <div class="s-value" id="la-inactive">—</div>
-        </div>
+    <!-- ПОДКЛЮЧЕНИЯ -->
+    <div class="page" id="page-connections">
+      <div class="section-hint">🔌 Живые WebSocket-подключения клиентов к бэкенду и лог событий. Используй авто-обновление для мониторинга в реальном времени.</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="conn-autorefresh" onchange="toggleConnAutoRefresh(this.checked)"> Авто-обновление (5 сек)
+        </label>
       </div>
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">Recent Licenses</div>
-          <div class="ph-actions">
-            <button class="btn sm" onclick="loadLicenseAnalytics()">↻</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">WebSocket подключения</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadConnections()">↺</button>
+          </div>
+          <div class="card-body">
+            <div id="conn-list"><div class="empty"><div class="empty-text">Загрузка...</div></div></div>
           </div>
         </div>
-        <div id="la-table-wrap">
-          <div class="empty">Loading…</div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Лог событий</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadEvents()">↺</button>
+          </div>
+          <div class="card-body">
+            <div id="events-list"><div class="empty"><div class="empty-text">Загрузка...</div></div></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="section" id="section-activity">
-      <div class="panel">
-        <div class="panel-header">
-          <div class="ph-title">Activity Log</div>
-          <div class="ph-actions">
-            <button class="btn sm" id="at-all" onclick="setActTab('all',this)" style="color:var(--accent);border-color:var(--accent2);">All</button>
-            <button class="btn sm" id="at-fp" onclick="setActTab('footprint',this)">Footprints</button>
-            <button class="btn sm" id="at-inv" onclick="setActTab('invite',this)">Invites</button>
-            <button class="btn sm" id="at-ver" onclick="setActTab('verify',this)">Verifies</button>
-            <button class="btn sm" onclick="loadActivity()">↻</button>
+    <!-- ЖУРНАЛ -->
+    <div class="page" id="page-audit">
+      <div class="section-hint">📋 Журнал аудита: ротации токенов, изменения лицензий и другие административные действия. Данные берутся из таблицы audit_log на бэкенде.</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Журнал аудита</div>
+          <div style="display:flex;gap:8px">
+            <select class="inp inp-sm" id="audit-filter" onchange="loadAudit()">
+              <option value="">Все действия</option>
+              <option value="token_rotation">Ротация токенов</option>
+              <option value="license">Лицензии</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadAudit()">↺</button>
           </div>
         </div>
-        <div id="activity-feed" style="max-height:560px;overflow-y:auto">
-          <div class="empty">Loading…</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Действие</th><th>Детали</th><th>Время</th></tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -801,874 +516,823 @@ code{
   </div>
 </div>
 
-<!-- ── Modals ── -->
+<!-- МОДАЛКИ -->
 
-<!-- Add License -->
-<div class="modal-overlay" id="modal-lic">
+<div class="modal-overlay" id="modal-addlic">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">New License</div>
-      <button class="modal-close" onclick="closeModal('modal-lic')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group" style="flex:2">
-          <label>Installation ID</label>
-          <input id="m-inst" placeholder="Paste machine UUID from app"/>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Challenge Code</label>
-          <input id="m-chal" placeholder="F146-E06C-AA55-CEC5" maxlength="19"
-            style="letter-spacing:.1em;text-transform:uppercase"
-            oninput="this.value=this.value.toUpperCase()"/>
-        </div>
-        <div class="form-group" style="flex:2">
-          <label>Label</label>
-          <input id="m-label" placeholder="John Doe — Beta"/>
-        </div>
-      </div>
-      <div id="m-key-result" style="display:none;margin-top:16px;">
-        <label style="margin-bottom:8px;">Activation Key — click to copy</label>
-        <div class="code-pill" id="m-key-val" onclick="copyKey()">
-          ————————————————
-          <span class="code-hint">click to copy</span>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-lic')">Cancel</button>
-      <button class="btn primary" onclick="submitAddLic()">Generate Key</button>
-    </div>
-  </div>
-</div>
-
-<!-- View Token -->
-<div class="modal-overlay" id="modal-token">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">License Token</div>
-      <button class="modal-close" onclick="closeModal('modal-token')">✕</button>
-    </div>
-    <div class="modal-body">
-      <label>Installation ID</label>
-      <div class="mono" style="background:var(--surface2);padding:8px 12px;border-radius:var(--r);
-        margin-bottom:14px;word-break:break-all;border:1px solid var(--border);" id="tok-id"></div>
-      <label>Bearer Token</label>
-      <div class="code-pill" id="tok-val" onclick="copyToken()" style="font-size:12px;letter-spacing:.05em;text-align:left;padding:10px 14px;word-break:break-all;"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-token')">Close</button>
-      <button class="btn primary" onclick="copyToken()">Copy Token</button>
-    </div>
-  </div>
-</div>
-
-<!-- Edit Label -->
-<div class="modal-overlay" id="modal-edit">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Edit Label</div>
-      <button class="modal-close" onclick="closeModal('modal-edit')">✕</button>
+      <div class="modal-title">Добавить лицензию</div>
+      <button class="modal-close" onclick="closeModal('modal-addlic')">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label>Label</label>
-        <input id="edit-label" placeholder="Name or description"/>
+        <label class="form-label">Installation ID</label>
+        <input class="inp" id="add-iid" placeholder="напр. ABC123XYZ">
+        <div class="hint">Уникальный ID установки десктоп-приложения</div>
       </div>
-      <input type="hidden" id="edit-id"/>
-      <input type="hidden" id="edit-type"/>
+      <div class="form-group">
+        <label class="form-label">Challenge</label>
+        <input class="inp" id="add-challenge" placeholder="CHALLENGE-CODE">
+        <div class="hint">Код-запрос из приложения для генерации ключа активации</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Метка (необязательно)</label>
+        <input class="inp" id="add-label" placeholder="Имя клиента, заметка...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Роль</label>
+        <select class="inp" id="add-role">
+          <option value="operator" selected>Оператор</option>
+          <option value="admin">Админ</option>
+        </select>
+        <div class="hint">Роль применяется в приложении после активации лицензии</div>
+      </div>
+      <div id="add-result" style="font-size:13px;color:var(--accent2);margin-top:8px;display:none"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-edit')">Cancel</button>
-      <button class="btn primary" onclick="submitEdit()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-addlic')">Отмена</button>
+      <button class="btn btn-primary" onclick="addLicense()">Создать</button>
     </div>
   </div>
 </div>
 
-<!-- Confirm -->
-<div id="confirm-overlay">
-  <div id="confirm-box">
-    <h4 id="conf-title">Confirm</h4>
-    <p id="conf-msg"></p>
-    <div class="actions">
-      <button class="btn" onclick="confResolve(false)">Cancel</button>
-      <button class="btn danger" id="conf-ok" onclick="confResolve(true)">Delete</button>
+<div class="modal-overlay" id="modal-invites">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Сгенерировать инвайт-коды</div>
+      <button class="modal-close" onclick="closeModal('modal-invites')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Количество (1–50)</label>
+        <input class="inp" id="inv-count" type="number" min="1" max="50" value="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Метка (необязательно)</label>
+        <input class="inp" id="inv-label" placeholder="Название пачки...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Макс. использований (0 = безлимит, по умолч. 1)</label>
+        <input class="inp" id="inv-maxuses" type="number" min="0" value="1" placeholder="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Срок жизни в днях (пусто = бессрочно)</label>
+        <input class="inp" id="inv-expires" type="number" min="1" placeholder="напр. 30">
+      </div>
+      <div id="inv-result" style="margin-top:12px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-invites')">Отмена</button>
+      <button class="btn btn-primary" onclick="createInvites()">Сгенерировать</button>
     </div>
   </div>
 </div>
 
-<div class="toast-wrap" id="toasts"></div>
+<div class="modal-overlay" id="modal-group">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Создать группу синхронизации</div>
+      <button class="modal-close" onclick="closeModal('modal-group')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Название группы</label>
+        <input class="inp" id="grp-name" placeholder="Моя группа">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-group')">Отмена</button>
+      <button class="btn btn-primary" onclick="createGroup()">Создать</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-addmember">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Добавить участника в группу</div>
+      <button class="modal-close" onclick="closeModal('modal-addmember')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Installation ID</label>
+        <input class="inp" id="addmember-iid" placeholder="Installation ID клиента">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-addmember')">Отмена</button>
+      <button class="btn btn-primary" onclick="addMemberToGroup()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-upload">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Загрузить файл релиза</div>
+      <button class="modal-close" onclick="closeModal('modal-upload')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Версия</label>
+        <input class="inp" id="upl-version" placeholder="напр. 1.2.3">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Тип файла</label>
+        <select class="inp" id="upl-filetype">
+          <option value="updater">updater</option>
+          <option value="installer">installer</option>
+          <option value="portable">portable</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Платформа</label>
+        <select class="inp" id="upl-platform">
+          <option value="windows-x86_64">windows-x86_64</option>
+          <option value="darwin-aarch64">darwin-aarch64</option>
+          <option value="darwin-x86_64">darwin-x86_64</option>
+          <option value="linux-x86_64">linux-x86_64</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Подпись (signature)</label>
+        <input class="inp" id="upl-sig" placeholder="base64 подпись">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Заметки к релизу (необязательно)</label>
+        <textarea class="inp" id="upl-notes" rows="3" placeholder="Что нового в этой версии..."></textarea>
+        <div class="hint">Эти заметки будут показаны пользователю на странице скачивания как changelog</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Файл</label>
+        <input type="file" id="upl-file" class="inp">
+      </div>
+      <div id="upl-progress" style="display:none;margin-top:8px;font-size:13px;color:var(--accent2)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-upload')">Отмена</button>
+      <button class="btn btn-primary" onclick="uploadVersion()">Загрузить</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
 
 <script>
-'use strict';
-const API = '/admin/api';
-let allLic = [], allInv = [], allFP = [], actTab = 'all';
-let confCb = null;
+// Derived from the current URL so the panel keeps working if ADMIN_PATH changes.
+const ADMIN_BASE = location.pathname.replace(/\/(index\.html)?$/, '');
+const API = ADMIN_BASE + '/api';
+let chartDay = null, chartType = null;
+let allLicenses = [];
+let connAutoRefreshTimer = null;
+let currentSyncGroupId = null;
 
-// ── Nav ───────────────────────────────────────────────────────────────────────
-const SEC_TITLES = {
-  dashboard:'Dashboard', invites:'Invite Codes',
-  licenses:'Licenses', releases:'Releases',
-  footprints:'Footprints', activity:'Activity Log',
-  connections:'Live Connections', events:'Socket Events',
-  'lic-analytics':'License Analytics',
+const pageNames = {
+  dashboard:'Дашборд',activity:'Активность',licenses:'Лицензии',
+  invites:'Инвайт-коды',sync:'Синхронизация',versions:'Версии / Файлы',
+  footprints:'Фингерпринты',connections:'Подключения',audit:'Журнал'
 };
-document.querySelectorAll('nav a').forEach(a =>
-  a.addEventListener('click', () => showSec(a.dataset.sec))
-);
-function showSec(id) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
-  document.getElementById('section-' + id)?.classList.add('active');
-  document.querySelector(`[data-sec="${id}"]`)?.classList.add('active');
-  document.getElementById('page-title').textContent = SEC_TITLES[id] || id;
-  if (id === 'invites')       loadInvites();
-  if (id === 'footprints')    loadFP(false);
-  if (id === 'activity')      loadActivity();
-  if (id === 'releases')      loadReleases();
-  if (id === 'connections')   loadConnections();
-  if (id === 'events')        loadEvents();
-  if (id === 'lic-analytics') loadLicenseAnalytics();
+function navigate(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('topbar-title').textContent = pageNames[page] || page;
+  loadPage(page);
+}
+function loadPage(page) {
+  if (connAutoRefreshTimer) { clearInterval(connAutoRefreshTimer); connAutoRefreshTimer = null; }
+  if (page==='dashboard') loadDashboard();
+  else if (page==='activity') loadActivity();
+  else if (page==='licenses') loadLicenses();
+  else if (page==='invites') loadInvites();
+  else if (page==='sync') loadSyncGroups();
+  else if (page==='versions') loadVersions();
+  else if (page==='footprints') loadFootprints();
+  else if (page==='connections') { loadConnections(); loadEvents(); }
+  else if (page==='audit') loadAudit();
+}
+function refreshAll() {
+  const active = document.querySelector('.nav-item.active');
+  if (active) { const page = active.dataset.page; loadPage(page); }
 }
 
-// ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
-  if (body !== undefined) opts.body = JSON.stringify(body);
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    credentials: 'same-origin',
+  };
+  if (body) opts.body = JSON.stringify(body);
   const r = await fetch(API + path, opts);
-  const json = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(json.error || r.statusText);
-  return json;
+
+  // Session expired or revoked — send the operator back to the login form
+  // instead of surfacing a bare 401 in every widget on the page.
+  if (r.status === 401) {
+    location.replace(ADMIN_BASE + '/login?next=' +
+      encodeURIComponent(location.pathname));
+    return { ok: false, status: 401, data: null };
+  }
+
+  const text = await r.text();
+  try { return { ok: r.ok, status: r.status, data: JSON.parse(text) }; }
+  catch { return { ok: r.ok, status: r.status, data: text }; }
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-function toast(msg, type = 'info') {
+async function logout() {
+  try {
+    await fetch(ADMIN_BASE + '/logout', { method: 'POST', credentials: 'same-origin' });
+  } catch (e) {
+    // Network failure still clears client state; the cookie expires server-side.
+    console.warn('logout request failed', e);
+  }
+  location.replace(ADMIN_BASE + '/login');
+}
+const GET = p => api('GET', p);
+const POST = (p, b) => api('POST', p, b);
+const DEL = p => api('DELETE', p);
+const PATCH = (p, b) => api('PATCH', p, b);
+
+function toast(msg, type='success') {
   const el = document.createElement('div');
-  el.className = `toast ${type === 'success' ? 'ok' : type === 'error' ? 'err' : type}`;
+  el.className = 'toast ' + type;
   el.textContent = msg;
-  document.getElementById('toasts').appendChild(el);
-  setTimeout(() => el.style.opacity = '0', 3200);
+  document.getElementById('toast-container').appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
 
-// ── Confirm ───────────────────────────────────────────────────────────────────
-function confirm2(title, msg, okLabel = 'Delete') {
-  return new Promise(resolve => {
-    confCb = resolve;
-    document.getElementById('conf-title').textContent = title;
-    document.getElementById('conf-msg').textContent = msg;
-    document.getElementById('conf-ok').textContent = okLabel;
-    document.getElementById('confirm-overlay').classList.add('show');
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+function fmt(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
+         d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+}
+function ago(dt) {
+  if (!dt) return '—';
+  const s = Math.floor((Date.now() - new Date(dt)) / 1000);
+  if (s < 60) return s + ' сек назад';
+  if (s < 3600) return Math.floor(s/60) + ' мин назад';
+  if (s < 86400) return Math.floor(s/3600) + ' ч назад';
+  return Math.floor(s/86400) + ' д назад';
+}
+function short(s, n=16) { return s && s.length > n ? s.slice(0,n)+'…' : (s||'—'); }
+
+async function checkHealth() {
+  try {
+    const r = await fetch('/health');
+    const d = await r.json();
+    document.getElementById('srv-dot').className = 'status-dot ok';
+    document.getElementById('srv-status').textContent = 'Сервер онлайн · ' + Math.round(d.uptime)+' сек';
+  } catch {
+    document.getElementById('srv-dot').className = 'status-dot';
+    document.getElementById('srv-status').textContent = 'Сервер недоступен';
+  }
+}
+
+async function updateLiveBadge() {
+  try {
+    const { data } = await GET('/connections');
+    const n = data.total || 0;
+    document.getElementById('live-count').textContent = n + ' онлайн';
+    document.getElementById('live-pulse').style.background = n > 0 ? 'var(--accent2)' : 'var(--muted)';
+  } catch {}
+}
+
+async function loadDashboard() {
+  const [{ data: s }, { data: gstats }, { data: connData }] = await Promise.all([
+    GET('/stats'), GET('/groups/stats'), GET('/connections'),
+  ]);
+  document.getElementById('s-active').textContent   = s.active_licenses ?? '—';
+  document.getElementById('s-revoked').textContent  = s.revoked_licenses ?? '—';
+  document.getElementById('s-fp7').textContent      = s.footprints_7d ?? '—';
+  document.getElementById('s-fptotal').textContent  = s.total_footprints ?? '—';
+  document.getElementById('s-inv-active').textContent = s.invite_active ?? '—';
+  document.getElementById('s-inv-used').textContent   = s.invite_used ?? '—';
+  document.getElementById('s-inv-uses').textContent   = s.invite_total_uses ?? '—';
+  document.getElementById('s-version').textContent    = s.version || '—';
+  document.getElementById('s-groups').textContent   = gstats?.total ?? '—';
+  const live = connData?.total ?? 0;
+  document.getElementById('s-live').textContent = live;
+  document.getElementById('s-live-sub').textContent = live > 0 ? 'клиентов подключено' : 'нет подключений';
+
+  const labels = (s.fp_by_day || []).map(d => d.date.slice(5));
+  const counts = (s.fp_by_day || []).map(d => d.count);
+  if (chartDay) chartDay.destroy();
+  chartDay = new Chart(document.getElementById('chartFpDay'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: counts, backgroundColor: '#6c63ff66', borderColor: '#6c63ff', borderWidth: 1.5, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b7280', font: { size: 11 } }, grid: { color: '#ffffff08' } },
+        y: { ticks: { color: '#6b7280', font: { size: 11 } }, grid: { color: '#ffffff08' }, beginAtZero: true }
+      }
+    }
+  });
+
+  const ftypes = (s.fp_by_type || []).map(d => d.type);
+  const fcounts = (s.fp_by_type || []).map(d => d.count);
+  if (chartType) chartType.destroy();
+  chartType = new Chart(document.getElementById('chartFpType'), {
+    type: 'doughnut',
+    data: {
+      labels: ftypes.length ? ftypes : ['Нет данных'],
+      datasets: [{ data: fcounts.length ? fcounts : [1],
+        backgroundColor: ['#6c63ff','#00d4aa','#f7b731','#ff4d6d','#818cf8'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: '#6b7280', font: { size: 11 }, padding: 10 } } }
+    }
   });
 }
-function confResolve(v) {
-  document.getElementById('confirm-overlay').classList.remove('show');
-  if (confCb) { confCb(v); confCb = null; }
-}
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
-async function loadStats() {
-  try {
-    const s = await api('GET', '/stats');
-    document.getElementById('s-inv-active').textContent = s.invite_active ?? '—';
-    document.getElementById('s-inv-sub').textContent    = `${s.invite_used ?? 0} used of ${s.invite_total ?? 0}`;
-    document.getElementById('s-active').textContent     = s.active_licenses;
-    document.getElementById('s-active-sub').textContent = `of ${(s.active_licenses + (s.revoked_licenses||0))} total`;
-    document.getElementById('s-fp7d').textContent       = fmt(s.footprints_7d);
-    document.getElementById('s-version').textContent    = s.version;
-    document.getElementById('s-revoked').textContent    = s.revoked_licenses ?? '—';
-    document.getElementById('nb-inv').textContent       = s.invite_active ?? '0';
-    document.getElementById('nb-lic').textContent       = s.active_licenses ?? '0';
-    document.getElementById('footer-host').textContent  = window.location.host;
-    document.getElementById('last-ref').textContent     = new Date().toLocaleTimeString();
-    if (s.fp_by_day)  renderChart(s.fp_by_day);
-    if (s.fp_by_type) renderBreakdown(s.fp_by_type);
-  } catch(e) { toast('Stats failed: ' + e.message, 'error'); }
-}
-
-function renderChart(days) {
-  const max = Math.max(...days.map(d => d.count), 1);
-  document.getElementById('chart-bars').innerHTML = days.map(d => {
-    const pct = Math.max(4, Math.round(d.count / max * 100));
-    return `<div class="chart-bar" style="height:${pct}%" title="${d.date}: ${d.count}"></div>`;
-  }).join('');
-  document.getElementById('chart-labels').innerHTML = days.map(d => {
-    const dt = new Date(d.date);
-    return `<span>${dt.toLocaleDateString('en',{weekday:'short'})}</span>`;
-  }).join('');
-}
-
-function renderBreakdown(types) {
-  const total = types.reduce((s,t) => s + t.count, 0) || 1;
-  const colors = {email:'#5b8fd4',ip:'#6ba87a',drop:'#9b7acc',bin:'#c9a84c',phone:'#c0635a'};
-  document.getElementById('fp-breakdown').innerHTML = types.map(t => `
-    <div class="fp-row">
-      <div class="fp-name">${esc(t.type)}</div>
-      <div class="fp-bar-wrap">
-        <div class="fp-bar" style="width:${Math.round(t.count/total*100)}%;background:${colors[t.type]||'var(--muted)'}"></div>
+async function loadActivity() {
+  const type = document.getElementById('activityFilter')?.value || 'all';
+  const { data } = await GET('/activity?type=' + type);
+  const el = document.getElementById('activity-list');
+  if (!data || !data.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">⚡</div><div class="empty-text">Нет событий</div></div>';
+    return;
+  }
+  const typeColors = { footprint_saved: 'var(--accent)', verify: 'var(--accent2)', invite_used: 'var(--warn)' };
+  el.innerHTML = data.map(a => `
+    <div class="activity-item">
+      <span class="activity-dot" style="background:${typeColors[a.event_type]||'var(--muted)'}"></span>
+      <div>
+        <div class="activity-desc">${a.description}</div>
+        <div class="activity-time">${ago(a.created_at)} · ${a.event_type.replace(/_/g,' ')}</div>
       </div>
-      <div class="fp-count">${fmt(t.count)}</div>
     </div>
-  `).join('') || '<div style="color:var(--muted);font-size:11px">No data</div>';
+  `).join('');
 }
 
-// ── Invites ───────────────────────────────────────────────────────────────────
-let invFilter = 'all';
-
-async function loadInvites() {
-  try {
-    allInv = await api('GET', '/invites');
-    renderInvites(allInv);
-  } catch(e) { toast('Invites failed: ' + e.message, 'error'); }
-}
-
-function filterInvites(f) {
-  invFilter = f;
-  ['all','unused','used'].forEach(k => {
-    const el = document.getElementById('fi-' + k);
-    if (!el) return;
-    el.style.color = k === f ? 'var(--accent)' : '';
-    el.style.borderColor = k === f ? 'var(--accent2)' : '';
-  });
-  const filtered = f === 'all' ? allInv
-    : f === 'used' ? allInv.filter(i => i.is_used)
-    : allInv.filter(i => !i.is_used);
-  renderInvites(filtered);
-}
-
-function renderInvites(rows) {
-  const tbody = document.getElementById('inv-tbody');
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No invite codes yet</td></tr>';
-    return;
-  }
-  const now = Date.now();
-  tbody.innerHTML = rows.map(r => {
-    const expired = r.expires_at && new Date(r.expires_at) < now;
-    let statusBadge = r.is_used
-      ? '<span class="badge b-used">Used</span>'
-      : expired
-        ? '<span class="badge b-revoked">Expired</span>'
-        : '<span class="badge b-active">Available</span>';
-    return `<tr>
-      <td style="padding-left:20px">
-        <span class="mono" style="color:var(--accent);font-size:12px;letter-spacing:.08em">${esc(r.code)}</span>
-        <button class="copy-btn" style="margin-left:6px" onclick="copyText('${esc(r.code)}','Code copied')">⎘</button>
-      </td>
-      <td style="font-size:12px;color:var(--text2)">${esc(r.label || '—')}</td>
-      <td>${statusBadge}</td>
-      <td class="mono" style="font-size:10px">${r.created_at ? r.created_at.slice(0,10) : '—'}</td>
-      <td class="mono" style="font-size:10px">${r.used_at ? r.used_at.slice(0,16) : '—'}</td>
-      <td class="mono" style="font-size:10px;${expired?'color:var(--red)':''}">${r.expires_at ? r.expires_at.slice(0,10) : '∞'}</td>
-      <td>
-        <div style="display:flex;gap:4px;">
-          <button class="btn sm" onclick="openEdit('inv','${esc(r.code)}','${esc(r.label||'')}')">Edit</button>
-          ${r.is_used ? `<button class="btn sm warn" onclick="resetInvite('${esc(r.code)}')">Reset</button>` : ''}
-          <button class="btn sm danger" onclick="deleteInvite('${esc(r.code)}')">Delete</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-async function generateInvites() {
-  const label = document.getElementById('inv-label').value.trim();
-  const count = parseInt(document.getElementById('inv-count').value) || 1;
-  const expires_days = document.getElementById('inv-expires').value.trim() || null;
-  try {
-    const res = await api('POST', '/invites', { label, count, expires_days });
-    toast(`Generated ${res.codes.length} code${res.codes.length > 1 ? 's' : ''}`, 'success');
-
-    // Show generated codes
-    const result = document.getElementById('inv-result');
-    result.style.display = '';
-    document.getElementById('inv-result-list').innerHTML = res.codes.map(c => `
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="code-pill" onclick="copyText('${esc(c)}','Copied')" style="flex:1;font-size:15px;">${esc(c)}</div>
-        <button class="btn sm" onclick="copyText('${esc(c)}','Copied')">Copy</button>
-      </div>
-    `).join('');
-    window._lastCodes = res.codes;
-
-    loadInvites(); loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-function copyAllCodes() {
-  if (!window._lastCodes) return;
-  copyText(window._lastCodes.join('\n'), 'All codes copied');
-}
-
-async function deleteInvite(code) {
-  const ok = await confirm2('Delete Invite Code', `Delete code ${code}? This cannot be undone.`);
-  if (!ok) return;
-  try {
-    await api('DELETE', '/invites/' + encodeURIComponent(code));
-    toast('Code deleted', 'warn');
-    loadInvites(); loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-async function resetInvite(code) {
-  const ok = await confirm2('Reset Invite Code', `Mark ${code} as unused again? The person who used it may re-use it.`, 'Reset');
-  if (!ok) return;
-  try {
-    await api('POST', '/invites/' + encodeURIComponent(code) + '/reset');
-    toast('Code reset', 'info');
-    loadInvites();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-// ── Licenses ──────────────────────────────────────────────────────────────────
 async function loadLicenses() {
-  try {
-    allLic = await api('GET', '/licenses');
-    renderLicenses(allLic);
-    renderDashLic(allLic);
-  } catch(e) { toast('Licenses failed', 'error'); }
+  const { data } = await GET('/licenses');
+  allLicenses = data || [];
+  renderLicenses(allLicenses);
 }
-
-function renderLicenses(rows) {
-  const tbody = document.getElementById('lic-tbody');
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No licenses yet</td></tr>';
-    return;
-  }
-  tbody.innerHTML = rows.map(r => `<tr>
-    <td style="padding-left:20px">
-      <span class="mono">${esc(r.installation_id.slice(0,20))}…</span>
-      <button class="copy-btn" onclick="copyText('${esc(r.installation_id)}','ID copied')">⎘</button>
-    </td>
-    <td>
-      <span style="font-size:12px">${esc(r.label || '—')}</span>
-    </td>
-    <td>
-      ${r.token
-        ? `<button class="btn sm" onclick="viewToken('${esc(r.installation_id)}','${esc(r.token)}')">View Token</button>`
-        : `<span class="mono" style="font-size:10px">Not activated</span>`}
-    </td>
-    <td>
-      <span class="badge ${r.is_active ? 'b-active' : 'b-revoked'}">
-        ${r.is_active ? 'Active' : 'Revoked'}
-      </span>
-    </td>
-    <td class="mono" style="font-size:10px">${r.created_at ? r.created_at.slice(0,10) : '—'}</td>
-    <td class="mono" style="font-size:10px">${r.last_seen ? timeAgo(r.last_seen) : '<span class="badge b-never">Never</span>'}</td>
-    <td>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;">
-        <button class="btn sm" onclick="openEdit('lic','${esc(r.installation_id)}','${esc(r.label||'')}')">Edit</button>
-        ${r.is_active
-          ? `<button class="btn sm danger" onclick="licAction('${esc(r.installation_id)}','revoke')">Revoke</button>`
-          : `<button class="btn sm success" onclick="licAction('${esc(r.installation_id)}','restore')">Restore</button>`
-        }
-        <button class="btn sm danger" onclick="deleteLic('${esc(r.installation_id)}')">Delete</button>
-      </div>
-    </td>
-  </tr>`).join('');
-}
-
-function renderDashLic(rows) {
-  document.getElementById('dash-lic').innerHTML = rows.slice(0,8).map(r => `
-    <tr>
-      <td style="padding-left:14px;font-size:12px">${esc(r.label || '—')}</td>
-      <td><span class="badge ${r.is_active ? 'b-active' : 'b-revoked'}" style="font-size:9px">${r.is_active?'Active':'Revoked'}</span></td>
-      <td class="mono" style="font-size:10px">${r.last_seen ? timeAgo(r.last_seen) : 'Never'}</td>
-    </tr>
-  `).join('') || '<tr><td colspan="3" class="empty">No licenses</td></tr>';
-}
-
 function filterLicenses() {
   const q = document.getElementById('lic-search').value.toLowerCase();
-  const f = document.getElementById('lic-filter').value;
-  renderLicenses(allLic.filter(r =>
-    (!q || r.installation_id.toLowerCase().includes(q) || (r.label||'').toLowerCase().includes(q)) &&
-    (f === 'all' || (f === 'active' && r.is_active) || (f === 'revoked' && !r.is_active))
+  renderLicenses(allLicenses.filter(r =>
+    (r.installation_id||'').toLowerCase().includes(q) ||
+    (r.label||'').toLowerCase().includes(q)
   ));
 }
-
-function openAddLic() {
-  document.getElementById('m-inst').value = '';
-  document.getElementById('m-chal').value = '';
-  document.getElementById('m-label').value = '';
-  document.getElementById('m-key-result').style.display = 'none';
-  openModal('modal-lic');
-}
-
-async function submitAddLic() {
-  const installation_id = document.getElementById('m-inst').value.trim();
-  const challenge = document.getElementById('m-chal').value.trim().toUpperCase();
-  const label = document.getElementById('m-label').value.trim();
-  if (!installation_id || challenge.length < 4) return toast('Installation ID and Challenge required', 'error');
-  try {
-    const res = await api('POST', '/licenses', { installation_id, challenge, label });
-    const el = document.getElementById('m-key-val');
-    el.childNodes[0].textContent = res.activation_key;
-    document.getElementById('m-key-result').style.display = '';
-    toast('License created', 'success');
-    loadLicenses(); loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-function viewToken(id, token) {
-  document.getElementById('tok-id').textContent = id;
-  document.getElementById('tok-val').textContent = token;
-  openModal('modal-token');
-}
-function copyToken() { copyText(document.getElementById('tok-val').textContent, 'Token copied'); }
-function copyKey() {
-  const t = document.getElementById('m-key-val').childNodes[0].textContent.trim();
-  copyText(t, 'Key copied');
-}
-
-async function licAction(id, action) {
-  if (action === 'revoke') {
-    const ok = await confirm2('Revoke License', `Revoke access for ${id.slice(0,20)}…?`, 'Revoke');
-    if (!ok) return;
-  }
-  try {
-    await api('POST', `/licenses/${encodeURIComponent(id)}/${action}`);
-    toast(`License ${action}d`, action === 'revoke' ? 'warn' : 'success');
-    loadLicenses(); loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-async function deleteLic(id) {
-  const ok = await confirm2('Delete License', `Permanently delete license for ${id.slice(0,20)}…?`);
-  if (!ok) return;
-  try {
-    await api('DELETE', `/licenses/${encodeURIComponent(id)}`);
-    toast('License deleted', 'warn');
-    loadLicenses(); loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-// ── Edit modal ────────────────────────────────────────────────────────────────
-function openEdit(type, id, label) {
-  document.getElementById('edit-type').value = type;
-  document.getElementById('edit-id').value = id;
-  document.getElementById('edit-label').value = label;
-  openModal('modal-edit');
-}
-
-async function submitEdit() {
-  const type  = document.getElementById('edit-type').value;
-  const id    = document.getElementById('edit-id').value;
-  const label = document.getElementById('edit-label').value.trim();
-  try {
-    if (type === 'lic') {
-      await api('PATCH', `/licenses/${encodeURIComponent(id)}`, { label });
-      loadLicenses();
-    } else {
-      await api('PATCH', `/invites/${encodeURIComponent(id)}`, { label });
-      loadInvites();
-    }
-    toast('Saved', 'success');
-    closeModal('modal-edit');
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-// ── Releases ──────────────────────────────────────────────────────────────────
-let selFile = null;
-
-const DZ_LABELS = {
-  'installer-dmg': 'Drop .dmg here',
-  'installer-app': 'Drop .app here',
-  'updater':       'Drop .tar.gz here',
-};
-
-function onFileTypeChange() {
-  const ft = document.getElementById('up-ftype').value;
-  document.getElementById('dz-label').textContent = DZ_LABELS[ft] || 'Drop file here';
-  // Show/hide signature field — only needed for updater
-  const sigRow = document.getElementById('sig-row');
-  if (sigRow) sigRow.style.display = ft === 'updater' ? '' : 'none';
-}
-
-function dzDrag(e, on) {
-  e.preventDefault();
-  document.getElementById('drop-zone').classList.toggle('drag', on);
-}
-function dzDrop(e) {
-  e.preventDefault();
-  dzDrag(e, false);
-  const f = e.dataTransfer.files[0];
-  if (f) setFile(f);
-}
-function onFile(inp) { if (inp.files[0]) setFile(inp.files[0]); }
-function setFile(f) {
-  selFile = f;
-  const fn = document.getElementById('drop-fn');
-  fn.textContent = '✓ ' + f.name + '  (' + (f.size/1024/1024).toFixed(1) + ' MB)';
-  fn.style.display = 'block';
-  const el = document.getElementById('drop-fn');
-  el.textContent = `✓ ${f.name}  (${(f.size/1024/1024).toFixed(1)} MB)`;
-  el.style.display = '';
-  const m = f.name.match(/[_-](\d+\.\d+\.\d+)[_-]/);
-  if (m && !document.getElementById('up-ver').value)
-    document.getElementById('up-ver').value = m[1];
-}
-
-async function uploadRelease() {
-  if (!selFile) return toast('Select a file first', 'error');
-  const version = document.getElementById('up-ver').value.trim();
-  if (!version) return toast('Version required', 'error');
-
-  const btn = document.getElementById('up-btn');
-  btn.disabled = true; btn.textContent = 'Uploading…';
-  document.getElementById('up-prog').style.display = '';
-
-  return new Promise(resolve => {
-    const form = new FormData();
-    form.append('file', selFile);
-    form.append('version', version);
-    form.append('notes', document.getElementById('up-notes').value.trim());
-    form.append('platform', document.getElementById('up-plat').value);
-    form.append('file_type', document.getElementById('up-ftype').value);
-    form.append('signature', document.getElementById('up-sig').value.trim());
-    form.append('publish', document.getElementById('up-publish').checked ? '1' : '0');
-
-    const xhr = new XMLHttpRequest();
-    xhr.upload.onprogress = e => {
-      if (e.lengthComputable) {
-        const p = Math.round(e.loaded / e.total * 100);
-        document.getElementById('up-bar').style.width = p + '%';
-        document.getElementById('up-pct').textContent = p + '%';
-      }
-    };
-    xhr.onload = () => {
-      document.getElementById('up-prog').style.display = 'none';
-      btn.disabled = false; btn.textContent = 'Upload Release';
-      try {
-        const r = JSON.parse(xhr.responseText);
-        if (xhr.status === 200 && r.ok) {
-          toast(`v${r.version} uploaded${r.needs_signature ? ' — add signature!' : ''}`, 'success');
-          selFile = null;
-          document.getElementById('drop-fn').style.display = 'none';
-          document.getElementById('file-inp').value = '';
-          document.getElementById('up-sig').value = '';
-          document.getElementById('up-ver').value = '';
-          document.getElementById('up-notes').value = '';
-          loadReleases(); loadStats();
-        } else toast('Upload failed: ' + (r.error || xhr.statusText), 'error');
-      } catch(e) { toast('Upload error', 'error'); }
-      resolve();
-    };
-    xhr.onerror = () => {
-      document.getElementById('up-prog').style.display = 'none';
-      btn.disabled = false; btn.textContent = 'Upload Release';
-      toast('Network error', 'error');
-      resolve();
-    };
-    xhr.open('POST', '/admin/upload');
-    xhr.send(form);
-  });
-}
-
-async function loadReleases() {
-  try {
-    const rows = await api('GET', '/versions');
-    const tbody = document.getElementById('rel-tbody');
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No releases yet</td></tr>';
-      return;
-    }
-    const typeLabel = {
-      'updater':       '<span style="color:var(--subtle);font-size:10px;letter-spacing:.06em">UPDATER</span>',
-      'installer-dmg': '<span style="color:var(--blue);font-size:10px;letter-spacing:.06em">DMG</span>',
-      'installer-app': '<span style="color:var(--accent);font-size:10px;letter-spacing:.06em">APP</span>',
-    };
-    tbody.innerHTML = rows.map(r => {
-      const mb = r.file_size ? (r.file_size/1024/1024).toFixed(1)+' MB' : '—';
-      const hasSig = !!r.signature, hasUrl = !!r.download_url;
-      const ft = r.file_type || 'updater';
-      const needsSig = ft === 'updater'; // only updater requires sig for Tauri
-      return `<tr>
-        <td style="padding-left:20px">
-          <span style="font-family:'Instrument Serif',serif;font-size:16px;color:var(--text)">${esc(r.version)}</span>
-        </td>
-        <td>${typeLabel[ft] || esc(ft)}</td>
-        <td><span class="badge b-never">${esc(r.platform||'darwin-aarch64')}</span></td>
-        <td class="mono" style="font-size:11px">${mb}</td>
-        <td>
-          ${hasSig
-            ? `<span style="color:var(--green);font-size:11px;">✓ Signed</span>`
-            : needsSig
-              ? `<button class="btn sm warn" onclick="addSig('${esc(r.version)}','${ft}')">Add Sig</button>`
-              : `<span style="color:var(--muted);font-size:10px">—</span>`}
-        </td>
-        <td>
-          ${r.is_published
-            ? '<span class="badge b-live">Live</span>'
-            : '<span class="badge b-draft">Draft</span>'}
-        </td>
-        <td class="mono" style="font-size:10px">${r.published_at ? r.published_at.slice(0,10) : '—'}</td>
-        <td>
-          <div style="display:flex;gap:4px;">
-            ${r.is_published
-              ? `<button class="btn sm warn" onclick="togglePub('${esc(r.version)}','${ft}',false)">Unpublish</button>`
-              : `<button class="btn sm success" onclick="togglePub('${esc(r.version)}','${ft}',true)">Publish</button>`}
-            ${hasUrl ? `<a href="${esc(r.download_url)}" target="_blank" class="btn sm">↓</a>` : ''}
-            <button class="btn sm danger" onclick="deleteRelease('${esc(r.version)}','${ft}')">Delete</button>
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
-  } catch(e) { toast('Releases failed: ' + e.message, 'error'); }
-}
-
-async function togglePub(version, file_type, pub) {
-  if (pub) {
-    const ok = await confirm2('Publish Release', `Publish v${version} (${file_type})? It will be live immediately.`, 'Publish');
-    if (!ok) return;
-  }
-  try {
-    await fetch('/admin/upload/publish', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ version, file_type, publish: pub }),
-    });
-    toast(pub ? `v${version} (${file_type}) is live!` : `v${version} (${file_type}) unpublished`, pub ? 'success' : 'info');
-    loadReleases(); loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-async function addSig(version, file_type = 'updater') {
-  const sig = prompt(`Paste .sig file content for v${version}:`);
-  if (!sig?.trim()) return;
-  try {
-    await fetch('/admin/upload/signature', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ version, file_type, signature: sig.trim() }),
-    });
-    toast('Signature saved', 'success');
-    loadReleases();
-  } catch(e) { toast('Error', 'error'); }
-}
-
-async function deleteRelease(version, file_type = 'updater') {
-  const ok = await confirm2('Delete Release', `Permanently delete v${version} (${file_type}) and its file?`);
-  if (!ok) return;
-  try {
-    await api('DELETE', `/versions/${encodeURIComponent(version)}?file_type=${encodeURIComponent(file_type)}`);
-    toast(`v${version} (${file_type}) deleted`, 'warn');
-    loadReleases(); loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-}
-
-// ── Footprints ────────────────────────────────────────────────────────────────
-async function loadFP(all) {
-  const domain = document.getElementById('fp-domain').value.trim();
-  if (!all && !domain) return;
-  try {
-    const url = domain ? `/footprints?domain=${encodeURIComponent(domain)}` : '/footprints';
-    allFP = await api('GET', url);
-    document.getElementById('fp-count-label').textContent = `${allFP.length} records`;
-    renderFP(allFP);
-  } catch(e) { toast('Footprints failed', 'error'); }
-}
-
-function filterFP() {
-  const domain = document.getElementById('fp-domain').value.toLowerCase();
-  const type = document.getElementById('fp-type').value;
-  const filtered = allFP.filter(f =>
-    (!domain || f.shop_domain.includes(domain)) &&
-    (type === 'all' || f.hash_type === type)
-  );
-  renderFP(filtered);
-  document.getElementById('fp-count-label').textContent = `${filtered.length} / ${allFP.length}`;
-  if (domain && allFP.length === 0) loadFP(false);
-}
-
-function renderFP(rows) {
-  const tbody = document.getElementById('fp-tbody');
+function renderLicenses(rows) {
+  const tb = document.getElementById('lic-tbody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">No footprints found</td></tr>';
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-text">Нет лицензий</div></div></td></tr>';
     return;
   }
-  const typeC = {email:'#5b8fd4',ip:'#6ba87a',drop:'#9b7acc',bin:'#c9a84c',phone:'#c0635a'};
-  tbody.innerHTML = rows.slice(0,500).map(r => `<tr>
-    <td style="padding-left:20px;color:var(--blue);font-size:12px">${esc(r.shop_domain)}</td>
-    <td><span style="font-size:10px;color:${typeC[r.hash_type]||'var(--subtle)'};letter-spacing:.06em;text-transform:uppercase">${esc(r.hash_type)}</span></td>
-    <td><span class="mono">${esc(r.hash_value.slice(0,28))}…</span>
-      <button class="copy-btn" onclick="copyText('${esc(r.hash_value)}','Copied')">⎘</button></td>
-    <td class="mono" style="font-size:10px">${esc(r.user_token.slice(0,12))}…</td>
-    <td class="mono" style="font-size:10px">${r.created_at ? r.created_at.slice(0,16) : '—'}</td>
-  </tr>`).join('');
-}
-
-// ── Activity ──────────────────────────────────────────────────────────────────
-async function loadActivity() {
-  try {
-    const rows = await api('GET', `/activity?type=${actTab}`);
-    const feed = document.getElementById('activity-feed');
-    if (!rows.length) { feed.innerHTML = '<div class="empty">No activity yet</div>'; return; }
-    feed.innerHTML = rows.map(r => {
-      const dot = r.event_type?.includes('footprint') ? 'fd-fp'
-                : r.event_type?.includes('invite') ? 'fd-invite'
-                : r.event_type?.includes('verify') ? 'fd-verify' : 'fd-other';
-      return `<div class="feed-item">
-        <div class="feed-dot ${dot}"></div>
-        <div>
-          <div style="font-size:12px;color:var(--text2)">${esc(r.description || r.event_type)}</div>
-          <div class="feed-meta">${r.created_at ? r.created_at.slice(0,19).replace('T',' ') : '—'}
-            ${r.user_token ? ` · <span class="mono" style="font-size:10px;color:var(--accent2)">${r.user_token.slice(0,12)}…</span>` : ''}</div>
+  tb.innerHTML = rows.map(r => `
+    <tr>
+      <td><span class="code" title="${r.installation_id}" onclick="copyText('${r.installation_id}')" style="cursor:pointer">${short(r.installation_id, 20)}</span></td>
+      <td>
+        <span class="lic-label" data-id="${r.installation_id}" style="cursor:pointer;border-bottom:1px dashed #ffffff30;padding-bottom:1px"
+          onclick="editLicenseLabel(this,'${r.installation_id}','${(r.label||'').replace(/'/g,"\\'")}')">
+          ${r.label || '<span style="color:var(--muted)">нажми для ввода</span>'}
+        </span>
+      </td>
+      <td><span class="code">${r.challenge || '—'}</span></td>
+      <td>
+        <span class="badge ${r.role === 'admin' ? 'badge-green':'badge-grey'}" style="cursor:pointer" title="Нажми чтобы сменить роль"
+          onclick="toggleLicenseRole('${r.installation_id}','${r.role === 'admin' ? 'operator' : 'admin'}')">
+          ${r.role === 'admin' ? 'Админ' : 'Оператор'}
+        </span>
+      </td>
+      <td><span class="badge ${r.is_active ? 'badge-green':'badge-red'}">${r.is_active ? 'Активна':'Отозвана'}</span></td>
+      <td style="color:var(--muted);font-size:12px">${fmt(r.created_at)}</td>
+      <td style="color:var(--muted);font-size:12px">${r.last_seen ? ago(r.last_seen) : '—'}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          ${r.is_active
+            ? `<button class="btn btn-danger btn-sm" onclick="revokeLicense('${r.installation_id}')">Отозвать</button>`
+            : `<button class="btn btn-success btn-sm" onclick="restoreLicense('${r.installation_id}')">Восстановить</button>`}
+          <button class="btn btn-ghost btn-sm" onclick="rotateToken('${r.installation_id}')" title="Выдать новый токен; старый перестанет работать">Ротация</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteLicense('${r.installation_id}')">Удалить</button>
         </div>
-      </div>`;
-    }).join('');
-  } catch(e) {
-    document.getElementById('activity-feed').innerHTML = '<div class="empty">Activity endpoint loading…</div>';
+      </td>
+    </tr>
+  `).join('');
+}
+async function editLicenseLabel(el, id, current) {
+  const inp = document.createElement('input');
+  inp.className = 'inp inp-sm';
+  inp.value = current;
+  inp.style.width = '130px';
+  el.replaceWith(inp);
+  inp.focus();
+  inp.select();
+  const save = async () => {
+    const label = inp.value.trim();
+    const { ok } = await PATCH(`/licenses/${encodeURIComponent(id)}`, { label });
+    if (ok) { toast('Метка сохранена'); loadLicenses(); }
+    else { toast('Ошибка сохранения', 'error'); loadLicenses(); }
+  };
+  inp.addEventListener('blur', save);
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') { inp.removeEventListener('blur',save); save(); } if (e.key==='Escape') loadLicenses(); });
+}
+async function toggleLicenseRole(id, newRole) {
+  if (!confirm(`Сменить роль лицензии на «${newRole === 'admin' ? 'Админ' : 'Оператор'}»?`)) return;
+  const { ok, data } = await PATCH(`/licenses/${encodeURIComponent(id)}`, { role: newRole });
+  if (ok) { toast('Роль обновлена'); loadLicenses(); }
+  else { toast((data && data.error) || 'Ошибка', 'error'); }
+}
+function openAddLicense() {
+  document.getElementById('add-iid').value = '';
+  document.getElementById('add-challenge').value = '';
+  document.getElementById('add-label').value = '';
+  document.getElementById('add-role').value = 'operator';
+  document.getElementById('add-result').style.display = 'none';
+  openModal('modal-addlic');
+}
+async function addLicense() {
+  const installation_id = document.getElementById('add-iid').value.trim();
+  const challenge = document.getElementById('add-challenge').value.trim();
+  const label = document.getElementById('add-label').value.trim();
+  const role = document.getElementById('add-role').value;
+  if (!installation_id || !challenge) { toast('Заполни обязательные поля', 'error'); return; }
+  const { ok, data } = await POST('/licenses', { installation_id, challenge, label, role });
+  if (!ok) { toast(data.error || 'Ошибка', 'error'); return; }
+  const res = document.getElementById('add-result');
+  res.style.display = 'block';
+  res.innerHTML = `Ключ активации: <span class="code">${data.activation_key}</span>`;
+  toast('Лицензия создана');
+  loadLicenses();
+}
+async function revokeLicense(id) {
+  if (!confirm('Отозвать лицензию?')) return;
+  const { ok } = await POST(`/licenses/${id}/revoke`);
+  if (ok) { toast('Лицензия отозвана'); loadLicenses(); }
+}
+async function restoreLicense(id) {
+  const { ok } = await POST(`/licenses/${id}/restore`);
+  if (ok) { toast('Лицензия восстановлена'); loadLicenses(); }
+}
+async function deleteLicense(id) {
+  if (!confirm('Удалить лицензию навсегда?')) return;
+  const { ok } = await DEL(`/licenses/${id}`);
+  if (ok) { toast('Удалено'); loadLicenses(); }
+}
+async function rotateToken(id) {
+  if (!confirm('Выдать новый токен?\n\nСтарый токен немедленно перестанет работать — клиент на этой установке потребует повторной активации.')) return;
+  const { ok, data } = await POST(`/licenses/${encodeURIComponent(id)}/rotate-token`);
+  if (!ok) { toast((data && data.error) || 'Не удалось выполнить ротацию', 'error'); return; }
+  // Shown once: the plaintext token is not retrievable from any later response.
+  copyText(data.new_token);
+  toast('Токен обновлён и скопирован в буфер обмена');
+  loadLicenses();
+}
+
+async function loadInvites() {
+  const { data } = await GET('/invites');
+  const tb = document.getElementById('inv-tbody');
+  if (!data || !data.length) {
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-text">Нет инвайт-кодов</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(r => {
+    const useCount = r.use_count ?? 0;
+    const maxUses  = r.max_uses  ?? 1;
+    const limitStr = maxUses === 0 ? '∞' : maxUses;
+    const isExhausted = maxUses > 0 && useCount >= maxUses;
+    return `
+    <tr>
+      <td><span class="code" title="${r.code}" onclick="copyText('${r.code}')" style="cursor:pointer">${r.code}</span></td>
+      <td>${r.label || '<span style="color:var(--muted)">—</span>'}</td>
+      <td><span class="badge ${isExhausted ? 'badge-grey':'badge-green'}">${isExhausted ? 'Исчерпан':'Активен'}</span></td>
+      <td style="font-weight:600;color:${useCount>0?'var(--accent2)':'var(--muted)'}">${useCount}</td>
+      <td style="color:var(--muted);font-size:12px">${limitStr}</td>
+      <td style="color:var(--muted);font-size:12px">${r.expires_at ? fmt(r.expires_at) : '∞'}</td>
+      <td style="color:var(--muted);font-size:12px">${fmt(r.created_at)}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="copyText('${r.code}')">Копировать</button>
+          ${useCount > 0 ? `<button class="btn btn-success btn-sm" onclick="resetInvite('${r.code}')">Сбросить</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteInvite('${r.code}')">Удалить</button>
+        </div>
+      </td>
+    </tr>
+  `;}).join('');
+}
+function openCreateInvite() {
+  document.getElementById('inv-count').value = 1;
+  document.getElementById('inv-label').value = '';
+  document.getElementById('inv-maxuses').value = 1;
+  document.getElementById('inv-expires').value = '';
+  document.getElementById('inv-result').style.display = 'none';
+  openModal('modal-invites');
+}
+async function createInvites() {
+  const count = parseInt(document.getElementById('inv-count').value) || 1;
+  const label = document.getElementById('inv-label').value.trim();
+  const max_uses = parseInt(document.getElementById('inv-maxuses').value) || 1;
+  const expires_days = document.getElementById('inv-expires').value.trim();
+  const body = { count, label, max_uses };
+  if (expires_days) body.expires_days = parseInt(expires_days);
+  const { ok, data } = await POST('/invites', body);
+  if (!ok) { toast('Ошибка создания инвайтов', 'error'); return; }
+  const res = document.getElementById('inv-result');
+  res.style.display = 'block';
+  res.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Сгенерированные коды:</div>' +
+    data.codes.map(c => `<div class="code" style="margin:2px 0;cursor:pointer" onclick="copyText('${c}')">${c}</div>`).join('');
+  toast(`${data.codes.length} код(ов) создано`);
+  loadInvites();
+}
+async function resetInvite(code) {
+  const { ok } = await POST(`/invites/${code}/reset`);
+  if (ok) { toast('Сброшен в активный'); loadInvites(); }
+}
+async function deleteInvite(code) {
+  if (!confirm('Удалить инвайт-код?')) return;
+  const { ok } = await DEL(`/invites/${code}`);
+  if (ok) { toast('Удалено'); loadInvites(); }
+}
+
+async function loadSyncGroups() {
+  const { data } = await GET('/sync-groups');
+  const tb = document.getElementById('sync-tbody');
+  if (!data || !data.length) {
+    tb.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-text">Нет групп синхронизации</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(g => `
+    <tr>
+      <td><span class="code" onclick="copyText('${g.id}')" style="cursor:pointer" title="${g.id}">${short(g.id, 12)}</span></td>
+      <td>${g.name || '—'}</td>
+      <td><span class="badge badge-purple">${g.members?.length || 0}</span></td>
+      <td><span style="color:var(--muted);font-size:12px">${g.card_count || 0} хешей</span></td>
+      <td style="color:var(--muted);font-size:12px">${fmt(g.created_at)}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="viewGroupMembers('${g.id}','${g.name || 'Группа'}',${JSON.stringify(g.members||[]).replace(/"/g,'&quot;')})">Участники</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSyncGroup('${g.id}')">Удалить</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+function viewGroupMembers(groupId, groupName, members) {
+  currentSyncGroupId = groupId;
+  document.getElementById('sync-members-name').textContent = groupName;
+  const card = document.getElementById('sync-members-card');
+  card.style.display = 'block';
+  const list = document.getElementById('sync-members-list');
+  if (!members || !members.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Пока нет участников</div></div>';
+    return;
+  }
+  list.innerHTML = members.map(m => `
+    <div class="activity-item" style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="code" onclick="copyText('${m.installation_id}')" style="cursor:pointer">${m.installation_id}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Присоединился: ${fmt(m.joined_at)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removeMember('${groupId}','${m.installation_id}')">Убрать</button>
+    </div>
+  `).join('');
+}
+async function removeMember(groupId, iid) {
+  if (!confirm('Убрать участника из группы?')) return;
+  const { ok } = await DEL(`/sync-groups/${groupId}/members/${iid}`);
+  if (ok) { toast('Участник убран'); loadSyncGroups(); document.getElementById('sync-members-card').style.display='none'; }
+}
+function openAddMember() {
+  document.getElementById('addmember-iid').value = '';
+  openModal('modal-addmember');
+}
+async function addMemberToGroup() {
+  const installation_id = document.getElementById('addmember-iid').value.trim();
+  if (!installation_id) { toast('Введи Installation ID', 'error'); return; }
+  const { ok, data } = await POST(`/sync-groups/${currentSyncGroupId}/members`, { installation_id });
+  if (!ok) { toast(data?.error || 'Ошибка', 'error'); return; }
+  toast('Участник добавлен');
+  closeModal('modal-addmember');
+  loadSyncGroups();
+}
+function openCreateGroup() {
+  document.getElementById('grp-name').value = '';
+  openModal('modal-group');
+}
+async function createGroup() {
+  const name = document.getElementById('grp-name').value.trim() || 'Новая группа';
+  const { ok, data } = await POST('/sync-groups', { name });
+  if (!ok) { toast('Ошибка', 'error'); return; }
+  toast('Группа создана — ключ: ' + (data?.group_key ? data.group_key.slice(0,16)+'...' : 'ok'));
+  closeModal('modal-group');
+  loadSyncGroups();
+}
+async function deleteSyncGroup(id) {
+  if (!confirm('Удалить группу и все её данные?')) return;
+  const { ok } = await DEL(`/sync-groups/${id}`);
+  if (ok) { toast('Удалено'); loadSyncGroups(); document.getElementById('sync-members-card').style.display='none'; }
+}
+
+async function loadVersions() {
+  const { data } = await GET('/versions');
+  const tb = document.getElementById('ver-tbody');
+  if (!data || !data.length) {
+    tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-text">Нет релизов</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(v => `
+    <tr>
+      <td><span class="badge badge-purple">${v.version}</span></td>
+      <td>${v.file_type || '—'}</td>
+      <td style="color:var(--muted);font-size:12px">${v.platform || '—'}</td>
+      <td style="color:var(--muted);font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(v.notes||'').replace(/"/g,'&quot;')}">${v.notes || '<span style="opacity:.4">—</span>'}</td>
+      <td style="color:var(--muted);font-size:12px">${fmt(v.published_at)}</td>
+      <td>${v.download_url ? `<a href="${v.download_url}" class="btn btn-ghost btn-sm">⬇</a>` : '—'}</td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="deleteVersion('${v.version}','${v.file_type}')">Удалить</button>
+      </td>
+    </tr>
+  `).join('');
+}
+function openUploadVersion() {
+  document.getElementById('upl-version').value = '';
+  document.getElementById('upl-sig').value = '';
+  document.getElementById('upl-notes').value = '';
+  document.getElementById('upl-file').value = '';
+  document.getElementById('upl-progress').style.display = 'none';
+  openModal('modal-upload');
+}
+async function uploadVersion() {
+  const version = document.getElementById('upl-version').value.trim();
+  const file_type = document.getElementById('upl-filetype').value;
+  const platform = document.getElementById('upl-platform').value;
+  const signature = document.getElementById('upl-sig').value.trim();
+  const notes = document.getElementById('upl-notes').value.trim();
+  const file = document.getElementById('upl-file').files[0];
+  if (!version || !file) { toast('Версия и файл обязательны', 'error'); return; }
+  const prog = document.getElementById('upl-progress');
+  prog.style.display = 'block'; prog.textContent = 'Загрузка...';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('version', version);
+  fd.append('file_type', file_type);
+  fd.append('platform', platform);
+  if (signature) fd.append('signature', signature);
+  if (notes) fd.append('notes', notes);
+  try {
+    // Upload is mounted under the admin path, not a fixed '/admin' prefix.
+    const r = await fetch(ADMIN_BASE + '/upload', {
+      method: 'POST', body: fd, credentials: 'same-origin',
+    });
+    if (r.status === 401) {
+      location.replace(ADMIN_BASE + '/login?next=' + encodeURIComponent(location.pathname));
+      return;
+    }
+    const d = await r.json();
+    if (!r.ok) { prog.textContent = 'Ошибка: ' + (d.error||'неизвестная'); return; }
+    prog.textContent = 'Загружено! URL: ' + (d.download_url || '');
+    toast('Релиз загружен');
+    loadVersions();
+  } catch(e) { prog.textContent = 'Ошибка сети'; }
+}
+async function deleteVersion(version, file_type) {
+  if (!confirm('Удалить этот файл релиза?')) return;
+  const { ok } = await DEL(`/versions/${version}?file_type=${file_type}`);
+  if (ok) { toast('Удалено'); loadVersions(); }
+}
+
+async function loadFootprints() {
+  const domain = document.getElementById('fp-domain')?.value.trim() || '';
+  const view = document.getElementById('fp-view')?.value || 'list';
+  const url = '/footprints' + (domain ? '?domain=' + encodeURIComponent(domain) : '');
+  const { data } = await GET(url);
+  const tb = document.getElementById('fp-tbody');
+  const thead = document.getElementById('fp-thead');
+  if (!data || !data.length) {
+    thead.innerHTML = '<tr><th>Домен</th><th>Тип хеша</th><th>Хеш</th><th>Токен юзера</th><th>Создан</th></tr>';
+    tb.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-text">Нет фингерпринтов</div></div></td></tr>';
+    return;
+  }
+  if (view === 'domains') {
+    const map = {};
+    data.forEach(r => {
+      if (!map[r.shop_domain]) map[r.shop_domain] = { count: 0, types: new Set(), last: r.created_at };
+      map[r.shop_domain].count++;
+      map[r.shop_domain].types.add(r.hash_type);
+      if (r.created_at > map[r.shop_domain].last) map[r.shop_domain].last = r.created_at;
+    });
+    thead.innerHTML = '<tr><th>Домен</th><th>Кол-во хешей</th><th>Типы хешей</th><th>Последний</th></tr>';
+    tb.innerHTML = Object.entries(map)
+      .sort((a,b) => b[1].count - a[1].count)
+      .map(([dom, info]) => `
+        <tr>
+          <td onclick="document.getElementById('fp-domain').value='${dom}';document.getElementById('fp-view').value='list';loadFootprints()" style="cursor:pointer;color:var(--accent)">${dom}</td>
+          <td><span class="badge badge-purple">${info.count}</span></td>
+          <td style="font-size:12px;color:var(--muted)">${[...info.types].join(', ')}</td>
+          <td style="color:var(--muted);font-size:12px">${ago(info.last)}</td>
+        </tr>
+      `).join('');
+  } else {
+    thead.innerHTML = '<tr><th>Домен</th><th>Тип хеша</th><th>Хеш</th><th>Токен юзера</th><th>Создан</th></tr>';
+    tb.innerHTML = data.slice(0, 500).map(r => `
+      <tr>
+        <td style="cursor:pointer;color:var(--accent)" onclick="document.getElementById('fp-domain').value='${r.shop_domain}';loadFootprints()">${r.shop_domain || '—'}</td>
+        <td><span class="badge badge-purple">${r.hash_type || '—'}</span></td>
+        <td><span class="code" title="${r.hash}">${short(r.hash, 24)}</span></td>
+        <td><span class="code">${short(r.user_token, 16)}</span></td>
+        <td style="color:var(--muted);font-size:12px">${fmt(r.created_at)}</td>
+      </tr>
+    `).join('');
   }
 }
 
-function setActTab(tab, btn) {
-  actTab = tab;
-  ['all','fp','inv','ver'].forEach(k => {
-    const el = document.getElementById('at-' + k);
-    if (el) { el.style.color = ''; el.style.borderColor = ''; }
-  });
-  btn.style.color = 'var(--accent)';
-  btn.style.borderColor = 'var(--accent2)';
-  loadActivity();
-}
-
-// ── Live Connections ──────────────────────────────────────────────────────────
 async function loadConnections() {
-  try {
-    const data = await api('GET', '/connections');
-    const list = data.connections || [];
-    document.getElementById('conn-count').textContent = list.length ? list.length + ' online' : 'none';
-    const tbody = document.getElementById('conn-tbody');
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No active connections</td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.map(c =>
-      '<tr>' +
-      '<td style="padding-left:20px"><span class="mono" style="font-size:11px;color:var(--accent)">' + esc(c.socket_id.slice(0,8)) + '</span></td>' +
-      '<td class="mono" style="font-size:10px">' + (c.installation_id ? esc(c.installation_id.slice(0,20)) + '&hellip;' : '<span style="color:var(--muted)">—</span>') + '</td>' +
-      '<td class="mono" style="font-size:10px">' + (c.group_id ? esc(c.group_id.slice(0,8)) + '&hellip;' : '<span style="color:var(--muted)">—</span>') + '</td>' +
-      '<td class="mono" style="font-size:10px">' + (c.connected_at ? timeAgo(c.connected_at) : '—') + '</td>' +
-      '<td style="font-size:10px;color:var(--subtle)">' + (c.last_event ? esc(c.last_event) : '<span style="color:var(--muted)">—</span>') + '</td>' +
-      '<td class="mono" style="font-size:10px;color:var(--muted)">' + esc(c.ip || '—') + '</td>' +
-      '</tr>'
-    ).join('');
-  } catch(e) {
-    const tbody = document.getElementById('conn-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty">Failed to load connections</td></tr>';
+  const { data } = await GET('/connections');
+  const el = document.getElementById('conn-list');
+  const list = data.connections || [];
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🔌</div><div class="empty-text">Нет активных подключений</div></div>';
+    return;
   }
+  el.innerHTML = list.map(c => `
+    <div class="activity-item">
+      <span class="activity-dot pulse" style="background:var(--accent2)"></span>
+      <div>
+        <div class="activity-desc code">${c.socket_id}</div>
+        <div class="activity-time">${c.installation_id || 'неизвестно'}</div>
+      </div>
+    </div>
+  `).join('');
 }
-
-// ── Socket Events ─────────────────────────────────────────────────────────────
 async function loadEvents() {
-  try {
-    const data = await api('GET', '/events');
-    const events = (data.events || []).slice(0, 20);
-    const feed = document.getElementById('events-feed');
-    if (!events.length) { feed.innerHTML = '<div class="empty">No socket events yet</div>'; return; }
-    feed.innerHTML = events.map(ev => {
-      const dot = ev.type === 'connect' ? 'fd-verify'
-                : ev.type === 'disconnect' ? 'fd-other'
-                : ev.type === 'sync:push' ? 'fd-fp'
-                : 'fd-invite';
-      return '<div class="feed-item">' +
-        '<div class="feed-dot ' + dot + '"></div>' +
-        '<div>' +
-        '<div style="font-size:12px;color:var(--text2)">' + esc(ev.type) + '</div>' +
-        '<div class="feed-meta">' + (ev.ts ? ev.ts.slice(0,19).replace('T',' ') : '—') +
-        ' <span class="mono" style="font-size:10px;color:var(--subtle)">' + esc(ev.data || '') + '</span>' +
-        '</div></div></div>';
-    }).join('');
-  } catch(e) {
-    const feed = document.getElementById('events-feed');
-    if (feed) feed.innerHTML = '<div class="empty">Failed to load events</div>';
+  const { data } = await GET('/events');
+  const el = document.getElementById('events-list');
+  const events = data.events || [];
+  if (!events.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Нет событий</div></div>';
+    return;
+  }
+  el.innerHTML = events.map(e => `
+    <div class="activity-item">
+      <span class="activity-dot" style="background:var(--accent)"></span>
+      <div>
+        <div class="activity-desc">${e.event || e.type || JSON.stringify(e)}</div>
+        <div class="activity-time">${e.ts ? ago(e.ts) : ''}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleConnAutoRefresh(enabled) {
+  if (connAutoRefreshTimer) { clearInterval(connAutoRefreshTimer); connAutoRefreshTimer = null; }
+  if (enabled) {
+    connAutoRefreshTimer = setInterval(() => { loadConnections(); loadEvents(); }, 5000);
   }
 }
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-document.querySelectorAll('.modal-overlay').forEach(m =>
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); })
-);
-document.getElementById('confirm-overlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) confResolve(false);
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
-    confResolve(false);
-  }
-});
-
-function copyText(t, msg = 'Copied!') {
-  navigator.clipboard.writeText(t).then(() => toast(msg, 'success')).catch(() => toast('Copy failed', 'error'));
-}
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function fmt(n) { return Number(n).toLocaleString(); }
-function timeAgo(d) {
-  const m = Math.floor((Date.now() - new Date(d)) / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return m + 'm ago';
-  const h = Math.floor(m/60);
-  if (h < 24) return h + 'h ago';
-  return Math.floor(h/24) + 'd ago';
-}
-
-// ── License Analytics ─────────────────────────────────────────────────────────
-async function loadLicenseAnalytics() {
+async function loadAudit() {
+  const filter = document.getElementById('audit-filter')?.value || '';
+  const tb = document.getElementById('audit-tbody');
   try {
-    const d = await api('GET', '/licenses/analytics');
-    document.getElementById('la-total').textContent   = d.total   ?? 0;
-    document.getElementById('la-active').textContent  = d.active  ?? 0;
-    document.getElementById('la-inactive').textContent = d.inactive ?? 0;
-
-    const wrap = document.getElementById('la-table-wrap');
-    if (!d.recent || d.recent.length === 0) {
-      wrap.innerHTML = '<div class="empty">No licenses found.</div>';
+    tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px"><div class="loader"></div></td></tr>';
+    const { data: events } = await GET('/events');
+    const evts = events?.events || [];
+    if (!evts.length) {
+      tb.innerHTML = '<tr><td colspan="3"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Нет записей аудита</div></div></td></tr>';
       return;
     }
-    const rows = d.recent.map(r => {
-      const shortId = (r.installation_id || '').slice(0, 8);
-      const label   = r.label ? `<span style="color:var(--text2)">${r.label}</span>` : '<span style="color:var(--muted)">—</span>';
-      const badge   = r.is_active
-        ? '<span class="badge b-active">active</span>'
-        : '<span class="badge b-revoked">inactive</span>';
-      const ts = r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : '—';
-      return `<tr>
-        <td class="mono">${shortId}…</td>
-        <td>${label}</td>
-        <td>${badge}</td>
-        <td class="mono">${ts}</td>
-      </tr>`;
-    }).join('');
-    wrap.innerHTML = `<table class="data-table">
-      <thead><tr>
-        <th>Installation ID</th><th>Label</th><th>Status</th><th>Created</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    tb.innerHTML = evts.map(e => `
+      <tr>
+        <td><span class="badge badge-purple">${e.event || e.type || 'событие'}</span></td>
+        <td style="font-size:12px;color:var(--muted);max-width:300px;word-break:break-all">${JSON.stringify(e).slice(0,120)}</td>
+        <td style="color:var(--muted);font-size:12px">${e.ts ? ago(e.ts) : '—'}</td>
+      </tr>
+    `).join('');
   } catch(e) {
-    document.getElementById('la-table-wrap').innerHTML = `<div class="empty" style="color:var(--red)">Error: ${e.message}</div>`;
+    tb.innerHTML = `<tr><td colspan="3" style="color:var(--danger);padding:16px">${e.message}</td></tr>`;
   }
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-async function refreshAll() {
-  await Promise.all([loadStats(), loadLicenses()]);
-  toast('Refreshed', 'info');
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Скопировано!'); }
+  catch { toast('Ошибка копирования', 'error'); }
 }
-loadStats();
-loadLicenses();
-loadLicenseAnalytics();
-loadConnections();
-loadEvents();
-setInterval(refreshAll, 30000);
-setInterval(loadLicenseAnalytics, 60000);
-setInterval(loadConnections, 10000);
-setInterval(loadEvents, 5000);
+
+// CSV export links are plain navigations, so their URLs are bound here rather
+// than hardcoded — same reason as ADMIN_BASE.
+document.getElementById('lic-csv').href = API + '/licenses/export.csv';
+document.getElementById('inv-csv').href = API + '/invites/export.csv';
+
+checkHealth();
+updateLiveBadge();
+loadDashboard();
+setInterval(checkHealth, 30000);
+setInterval(updateLiveBadge, 15000);
 </script>
 </body>
 </html>

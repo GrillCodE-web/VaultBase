@@ -5,14 +5,19 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LangProvider, useLang } from './hooks/useLang'
 import { SmartToastProvider, useToast } from './hooks/useSmartToast'
 import { ConfirmProvider } from './hooks/useConfirm'
+import { AuthProvider, useAuth } from './hooks/useAuth'
+import { useIdleTimer } from './hooks/useIdleTimer'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useTheme } from './hooks/useTheme'
 import { HEX_COLORS } from './constants/colors.js'
+import { isUnauthorizedError } from './utils/errorHandler.js'
 import { escapeHtml } from './utils/escape.js'
 
 // Auth screens — loaded immediately (shown before app)
 import Login from './pages/Login'
+import UserLogin from './pages/UserLogin'
 import Activate from './pages/Activate'
 
 // App pages — lazy loaded to improve startup time
@@ -25,22 +30,27 @@ const Catalog = lazy(() => import('./pages/Catalog'))
 const Shops = lazy(() => import('./pages/Shops'))
 const ProxyList = lazy(() => import('./pages/Proxies'))
 const Imap = lazy(() => import('./pages/Imap'))
+const Couriers = lazy(() => import('./pages/Couriers'))
 const ActivityLog = lazy(() => import('./pages/ActivityLog'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Updates = lazy(() => import('./pages/Updates'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
+const UsersPage = lazy(() => import('./pages/UsersPage'))
+const MyStats = lazy(() => import('./pages/MyStats'))
 
 import {
   LayoutDashboard,
   CreditCard,
   Users,
+  UserCog,
+  BarChart2,
   ShoppingCart,
   Store,
   Shield,
+  Truck,
   Inbox,
   ClipboardList,
   Settings as SettingsIcon,
-  Lock,
   Globe,
   AlertTriangle,
   BookOpen,
@@ -51,7 +61,18 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  Monitor,
+  LogOut,
 } from 'lucide-react'
+
+// ─── Theme labels ─────────────────────────────────────────────
+const THEME_LABEL = {
+  system: 'Appearance: System',
+  light: 'Appearance: Light',
+  dark: 'Appearance: Dark',
+}
+
+const THEME_SHORT = { system: 'System', light: 'Light', dark: 'Dark' }
 
 // ─── Safe JSON parse ──────────────────────────────────────────
 const safeParseJSON = (str, fallback) => {
@@ -80,11 +101,14 @@ const PAGE_MAP = {
   catalog: Catalog,
   shops: Shops,
   proxies: ProxyList,
+  couriers: Couriers,
   imap: Imap,
   activity_log: ActivityLog,
   updates: Updates,
   settings: Settings,
   onboarding: Onboarding,
+  users: UsersPage,
+  my_stats: MyStats,
 }
 
 // ─── Global Search ────────────────────────────────────────────
@@ -114,9 +138,6 @@ function GlobalSearch({ onClose, onNavigate }) {
 
     const handleTabKey = e => {
       if (e.key !== 'Tab') return
-
-      // eslint-disable-next-line no-unused-vars -- Used for focus management reference
-      const focusableElements = [inputRef.current, lastFocusRef.current].filter(Boolean)
 
       if (e.shiftKey) {
         // Shift + Tab
@@ -148,14 +169,18 @@ function GlobalSearch({ onClose, onNavigate }) {
       try {
         const r = await invoke('global_search', { query })
         setResults(r)
-      } catch {
-        // Ignore search errors - user can retry by typing
+      } catch (e) {
+        if (isUnauthorizedError(e)) {
+          // Session expired - will be handled by parent component
+          onClose()
+        }
+        // Ignore other search errors - user can retry by typing
       } finally {
         setLoading(false)
       }
     }, 300)
     return () => clearTimeout(timerRef.current)
-  }, [query])
+  }, [query, onClose])
 
   const handleKey = e => {
     if (e.key === 'Escape') onClose()
@@ -305,9 +330,23 @@ function RevokedScreen() {
 
 // ─── Main Shell ───────────────────────────────────────────────
 
-function MainShell({ offlineMode, setOfflineMode }) {
+function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   const { t, lang, setLang } = useLang()
   const { toast, info: toastInfo } = useToast()
+  const { currentUser, logout, isAdmin, hasPerm } = useAuth()
+
+  // Handle 401 unauthorized errors globally
+  const handleUnauthorized = useCallback(async () => {
+    toast('Сессия истекла. Пожалуйста, войдите снова.', 'error')
+    await logout()
+    onSessionTimeout?.()
+  }, [logout, onSessionTimeout, toast])
+
+  useIdleTimer({
+    onIdle: onSessionTimeout,
+    timeoutMs: 30 * 60 * 1000,
+    enabled: !!currentUser && !!onSessionTimeout,
+  })
 
   // FIX P2-STATUS-01: WS sync connection status
   const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting, group_id? }
@@ -344,6 +383,11 @@ function MainShell({ offlineMode, setOfflineMode }) {
     ],
     shops: [{ key: 'list', label: t('shops') }],
     proxies: [{ key: 'list', label: t('proxy_manager') }],
+    couriers: [
+      { key: 'assigned', label: t('couriers_tab_assigned') },
+      { key: 'available', label: t('couriers_tab_available') },
+      { key: 'packages', label: t('couriers_tab_packages') },
+    ],
     imap: [
       { key: 'accounts', label: t('nav_imap') },
       { key: 'messages', label: t('nav_imap') },
@@ -354,7 +398,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
     settings: [],
     drops: [],
   }
-  const [theme, setTheme] = useState(() => localStorage.getItem('cc_theme') || 'dark')
+  const { theme, cycleTheme } = useTheme()
   const [page, setPage] = useState('dashboard')
   const [pageProps, setPageProps] = useState({})
   const [activeTab, setActiveTab] = useState('list')
@@ -387,17 +431,20 @@ function MainShell({ offlineMode, setOfflineMode }) {
   const handlePageChange = useCallback(p => {
     setPage(p)
     setPageProps({})
-    setActiveTab('list')
+    setActiveTab(p === 'couriers' ? 'assigned' : 'list')
   }, [])
 
   const loadBadges = useCallback(async () => {
     try {
       const b = await invoke('get_sidebar_badges')
       setBadges(b)
-    } catch {
+    } catch (e) {
+      if (isUnauthorizedError(e)) {
+        handleUnauthorized()
+      }
       // Silently fail - badges will retry on next interval
     }
-  }, [])
+  }, [handleUnauthorized])
 
   useEffect(() => {
     loadBadges()
@@ -406,7 +453,12 @@ function MainShell({ offlineMode, setOfflineMode }) {
   }, [loadBadges])
 
   useEffect(() => {
-    const done = localStorage.getItem('onboarding_done')
+    let done
+    try {
+      done = !!localStorage.getItem('onboarding_done')
+    } catch {
+      done = false
+    }
     if (!done) {
       invoke('get_cards', { page: 1, perPage: 1 })
         .then(r => {
@@ -414,15 +466,12 @@ function MainShell({ offlineMode, setOfflineMode }) {
         })
         .catch(e => {
           // FIX FE-H05: Log error instead of silently ignoring
-          console.error('[App] Failed to check cards for onboarding:', e)
+          if (import.meta.env.DEV) console.error('[App] Failed to check cards for onboarding:', e)
         })
     }
   }, [])
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('cc_theme', theme)
-  }, [theme])
+  // Атрибут data-theme и localStorage — забота useTheme.
 
   // Live region announcement for IMAP updates
   const [imapAnnouncement, setImapAnnouncement] = useState('')
@@ -479,7 +528,9 @@ function MainShell({ offlineMode, setOfflineMode }) {
           unlistenFns = [unlisten1, unlisten2]
         }
       } catch (error) {
-        console.error('[App] Failed to setup server event listeners:', error)
+        if (isMounted && import.meta.env.DEV) {
+          console.error('[App] Failed to setup server event listeners:', error)
+        }
       }
     }
 
@@ -492,7 +543,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
           try {
             fn()
           } catch (e) {
-            console.error('[App] Error cleaning up event listener:', e)
+            if (import.meta.env.DEV) console.error('[App] Error cleaning up event listener:', e)
           }
         }
       })
@@ -500,6 +551,25 @@ function MainShell({ offlineMode, setOfflineMode }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Admin live notifications: card taken / order created by operator
+  useEffect(() => {
+    if (!isAdmin) return
+    let fns = []
+    Promise.all([
+      listen('admin:card_taken', e => {
+        const p = e.payload
+        toast(`Оператор ${p.username} взял карту #${p.card_id}`, 'info')
+      }),
+      listen('admin:order_created', e => {
+        const p = e.payload
+        toast(`${p.username} создал заказ #${p.order_id}`, 'info')
+      }),
+    ]).then(unlisten => {
+      fns = unlisten
+    })
+    return () => fns.forEach(fn => fn?.())
+  }, [isAdmin, toast])
 
   // Global keyboard shortcuts using new system
   const keyboardShortcuts = [
@@ -623,6 +693,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
 
   const handleLock = async () => {
     try {
+      await logout()
       await invoke('lock')
     } catch {
       // Lock command failed - user can retry manually
@@ -644,7 +715,7 @@ function MainShell({ offlineMode, setOfflineMode }) {
       key: 'cards',
       icon: CreditCard,
       page: 'cards',
-      label: 'CC',
+      label: 'Cards',
       badgeKey: 'expiring_cards',
       badgeColor: 'y',
     },
@@ -664,9 +735,26 @@ function MainShell({ offlineMode, setOfflineMode }) {
       badgeKey: 'pending_orders',
       badgeColor: 'y',
     },
-    { key: 'catalog', icon: BookOpen, page: 'catalog', label: 'Catalog', badgeKey: null },
+    { key: 'catalog', icon: BookOpen, page: 'catalog', label: t('nav_catalog'), badgeKey: null },
+    // shops остаётся видимым всем: get_shops требует лишь входа — справочник
+    // нужен при оформлении заказа. Правом закрыты только правки внутри.
     { key: 'shops', icon: Store, page: 'shops', label: t('nav_shops'), badgeKey: null },
-    { key: 'proxies', icon: Shield, page: 'proxies', label: t('nav_proxies'), badgeKey: null },
+    // proxies целиком под manage_proxies: без права даже список не грузится,
+    // страница была бы пустой с ошибкой при каждом заходе.
+    ...(hasPerm('manage_proxies')
+      ? [{ key: 'proxies', icon: Shield, page: 'proxies', label: t('nav_proxies'), badgeKey: null }]
+      : []),
+    ...(hasPerm('view_couriers') || hasPerm('view_packages')
+      ? [
+          {
+            key: 'couriers',
+            icon: Truck,
+            page: 'couriers',
+            label: t('nav_couriers'),
+            badgeKey: null,
+          },
+        ]
+      : []),
     { key: 'imap', icon: Inbox, page: 'imap', label: t('nav_imap'), badgeKey: 'unread_imap' },
     {
       key: 'activity_log',
@@ -675,6 +763,33 @@ function MainShell({ offlineMode, setOfflineMode }) {
       label: t('nav_activity_log'),
       badgeKey: null,
     },
+    ...(isAdmin
+      ? [
+          {
+            key: 'users',
+            icon: UserCog,
+            page: 'users',
+            label: t('nav_users'),
+            badgeKey: null,
+          },
+        ]
+      : []),
+    // «Моя статистика» построена на трёх командах под require_admin()
+    // (get_users_stats, get_user_period_stats, get_user_activity_log), поэтому
+    // у оператора страница всегда была пустой и молча. Показываем только тем,
+    // кто реально получит данные; полноценная статистика оператора требует
+    // отдельных команд — см. docs/PERMISSIONS.md.
+    ...(isAdmin
+      ? [
+          {
+            key: 'my_stats',
+            icon: BarChart2,
+            page: 'my_stats',
+            label: t('nav_my_stats'),
+            badgeKey: null,
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -792,6 +907,9 @@ function MainShell({ offlineMode, setOfflineMode }) {
         className={`sidebar${sidebarExpanded ? ' expanded' : ''}`}
         aria-label="Main navigation"
       >
+        {/* macOS: drag region + traffic lights offset */}
+        <div className="sidebar-drag-region" data-tauri-drag-region />
+
         <div className="sidebar-logo">
           CC
           {sidebarExpanded && <span className="sidebar-logo-text">Manager</span>}
@@ -889,11 +1007,54 @@ function MainShell({ offlineMode, setOfflineMode }) {
           <span className="sbi-label">{t('nav_settings')}</span>
         </button>
 
-        {/* Lock */}
+        {/* Current user badge */}
+        {currentUser && (
+          <div
+            className="sbi"
+            style={{ cursor: 'default', gap: sidebarExpanded ? 8 : 0 }}
+            title={`${currentUser.display_name || currentUser.username} (${currentUser.role})`}
+          >
+            <div
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                flexShrink: 0,
+                background:
+                  currentUser.role === 'admin' ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 10,
+                color: currentUser.role === 'admin' ? '#3b82f6' : '#22c55e',
+              }}
+            >
+              {(currentUser.display_name || currentUser.username)[0].toUpperCase()}
+            </div>
+            {sidebarExpanded && (
+              <span
+                style={{
+                  fontSize: 12,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {currentUser.display_name || currentUser.username}
+              </span>
+            )}
+            <span className="sbi-tip">
+              {currentUser.display_name || currentUser.username} · {currentUser.role}
+            </span>
+          </div>
+        )}
+
+        {/* Lock / Logout */}
         <button className="sbi" onClick={handleLock} aria-label={t('sidebar_lock') || 'Lock'}>
-          <Lock size={16} aria-hidden="true" />
-          <span className="sbi-tip">{t('sidebar_lock') || 'Lock'}</span>
-          <span className="sbi-label">{t('sidebar_lock') || 'Lock'}</span>
+          <LogOut size={16} aria-hidden="true" />
+          <span className="sbi-tip">Выйти и заблокировать</span>
+          <span className="sbi-label">Выйти</span>
         </button>
 
         {/* Lang */}
@@ -907,20 +1068,24 @@ function MainShell({ offlineMode, setOfflineMode }) {
           <span className="sbi-label">Lang: {lang.toUpperCase()}</span>
         </button>
 
-        {/* Theme toggle */}
+        {/* Theme toggle — цикл «Система → Светлая → Тёмная».
+            Иконка показывает текущий режим, а не следующий: так
+            кнопка читается как индикатор состояния. */}
         <button
           className="sbi"
-          onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={cycleTheme}
+          title={THEME_LABEL[theme]}
+          aria-label={THEME_LABEL[theme]}
         >
-          {theme === 'dark' ? (
-            <Sun size={16} aria-hidden="true" />
-          ) : (
+          {theme === 'system' ? (
+            <Monitor size={16} aria-hidden="true" />
+          ) : theme === 'dark' ? (
             <Moon size={16} aria-hidden="true" />
+          ) : (
+            <Sun size={16} aria-hidden="true" />
           )}
-          <span className="sbi-tip">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-          <span className="sbi-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          <span className="sbi-tip">{THEME_LABEL[theme]}</span>
+          <span className="sbi-label">{THEME_SHORT[theme]}</span>
         </button>
 
         {/* Expand/Collapse toggle */}
@@ -1023,12 +1188,9 @@ function MainShell({ offlineMode, setOfflineMode }) {
                 </div>
               }
             >
-              <PageComponent
-                key={page}
-                onNavigate={handleNavigate}
-                activeTab={activeTab}
-                {...pageProps}
-              />
+              <div key={page} className="page-enter">
+                <PageComponent onNavigate={handleNavigate} activeTab={activeTab} {...pageProps} />
+              </div>
             </Suspense>
           </ErrorBoundary>
         </main>
@@ -1042,9 +1204,11 @@ function MainShell({ offlineMode, setOfflineMode }) {
 function AppInner() {
   const [view, setView] = useState('checking')
   const [offlineMode, setOfflineMode] = useState(false)
+  const { resumeSession, autoLogin, logout } = useAuth()
 
   useEffect(() => {
     let unlistenFns = []
+    let isMounted = true
 
     Promise.all([
       listen('show_activate', () => setView('activate')),
@@ -1055,7 +1219,14 @@ function AppInner() {
       listen('license_revoked', () => setView('revoked')),
       listen('app_locked', () => setView('auth')),
     ]).then(fns => {
-      unlistenFns = fns
+      if (isMounted) {
+        unlistenFns = fns
+      } else {
+        // Component unmounted before listeners registered — clean up immediately
+        fns.forEach(fn => {
+          if (typeof fn === 'function') fn()
+        })
+      }
     })
 
     // Fallback if no event arrives within 3s
@@ -1086,6 +1257,7 @@ function AppInner() {
     }, 3000)
 
     return () => {
+      isMounted = false
       unlistenFns.forEach(fn => {
         if (typeof fn === 'function') fn()
       })
@@ -1101,8 +1273,25 @@ function AppInner() {
     } catch {
       // Config read failed - continue without always_on_top
     }
+    // Try to resume existing session from localStorage
+    const existing = await resumeSession()
+    if (existing) {
+      setView('app')
+      seedCatalogIfEmpty()
+      return
+    }
+    // Solo mode: single admin user → auto-login, no login screen (old flow: license → master key → app)
+    const auto = await autoLogin()
+    if (auto) {
+      setView('app')
+      seedCatalogIfEmpty()
+    } else {
+      setView('user_login')
+    }
+  }
+
+  const handleUserLoggedIn = () => {
     setView('app')
-    // Auto-seed catalog on first run (background, silent)
     seedCatalogIfEmpty()
   }
 
@@ -1138,8 +1327,25 @@ function AppInner() {
   if (view === 'activate') return <Activate onActivated={() => setView('auth')} />
   if (view === 'revoked') return <RevokedScreen />
   if (view === 'auth') return <Login onUnlocked={handleUnlocked} />
+  if (view === 'user_login') return <UserLogin onLoggedIn={handleUserLoggedIn} />
 
-  return <MainShell offlineMode={offlineMode} setOfflineMode={setOfflineMode} />
+  const handleSessionTimeout = async () => {
+    await logout()
+    try {
+      await invoke('lock')
+    } catch {
+      /* already locked */
+    }
+    setView('auth')
+  }
+
+  return (
+    <MainShell
+      offlineMode={offlineMode}
+      setOfflineMode={setOfflineMode}
+      onSessionTimeout={handleSessionTimeout}
+    />
+  )
 }
 
 export default function App() {
@@ -1148,7 +1354,9 @@ export default function App() {
       <LangProvider>
         <SmartToastProvider>
           <ConfirmProvider>
-            <AppInner />
+            <AuthProvider>
+              <AppInner />
+            </AuthProvider>
           </ConfirmProvider>
         </SmartToastProvider>
       </LangProvider>

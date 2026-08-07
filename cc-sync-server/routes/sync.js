@@ -27,6 +27,13 @@ const pairLimiter = rateLimit({
 const router = express.Router();
 router.use(requireToken);
 
+const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
+
+/** SQL expression computing the monotonic status weight of `col`. */
+const weightExpr = (col) => Object.entries(STATUS_WEIGHT)
+  .map(([s, w]) => `${w} * (${col}='${s}')`)
+  .join(' + ');
+
 function generateGroupKey() {
   return crypto.randomBytes(32).toString('hex');
 }
@@ -63,7 +70,7 @@ router.post('/group/create', (req, res) => {
   db.prepare('INSERT INTO sync_groups (id, name, created_by, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)')
     .run(group_id, name || 'Sync Group', installation_id);
 
-  // Store group_key encrypted by user's token (simple XOR-based placeholder — real encryption on client)
+  // group_key хранится на сервере в открытом виде; реальное шифрование данных выполняется на клиенте
   db.prepare(`
     INSERT INTO sync_group_members (group_id, installation_id, group_key_encrypted, joined_at)
     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -219,11 +226,6 @@ router.post('/cards', (req, res) => {
   const { cards } = req.body || {};
   if (!Array.isArray(cards)) return res.status(400).json({ error: 'cards array required' });
 
-  const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
-  const weightExpr = (col) => Object.entries(STATUS_WEIGHT)
-    .map(([s, w]) => `${w} * (${col}='${s}')`)
-    .join(' + ');
-
   const stmt = db.prepare(`
     INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -238,11 +240,24 @@ router.post('/cards', (req, res) => {
       updated_at = CURRENT_TIMESTAMP
   `);
 
-  const updated = [];
-  for (const card of cards) {
-    if (!card.card_hash || !card.status) continue;
-    stmt.run(card.card_hash, member.group_id, card.encrypted_data || null, card.status, card.notes || null, installation_id);
-    updated.push({ card_hash: card.card_hash, status: card.status });
+  // The conflict resolver uses monotonic status weights (higher always wins), so a
+  // partially-applied batch can never be repaired by a later sync — the client
+  // believes it already pushed those rows. All writes go through one transaction.
+  // better-sqlite3 transactions are synchronous; nothing inside may await.
+  let updated;
+  try {
+    updated = db.transaction(() => {
+      const written = [];
+      for (const card of cards) {
+        if (!card.card_hash || !card.status) continue;
+        stmt.run(card.card_hash, member.group_id, card.encrypted_data || null, card.status, card.notes || null, installation_id);
+        written.push({ card_hash: card.card_hash, status: card.status });
+      }
+      return written;
+    })();
+  } catch (e) {
+    console.error('[sync/cards] batch transaction failed:', e.message);
+    return res.status(500).json({ error: 'push_failed' });
   }
 
   // Broadcast via socket.io

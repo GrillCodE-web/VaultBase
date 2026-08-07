@@ -7,6 +7,15 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
+    exclude: [
+      'node_modules/',
+      'dist/',
+      'e2e/**',
+      '**/playwright/**',
+      // Server-side suites use Node's built-in test runner, not vitest.
+      // Run them with: npm test --prefix cc-sync-server
+      'cc-sync-server/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

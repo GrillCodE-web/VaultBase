@@ -1,7 +1,27 @@
-# CC Manager — Architecture Documentation
+# VaultBase — Architecture Documentation
 
-**Version:** 2.2.0
-**Last Updated:** 2026-03-25
+**Version:** 2.5.0
+**Last Updated:** 2026-08-06
+
+> Russian version: [ARCHITECTURE.ru.md](ARCHITECTURE.ru.md).
+
+---
+
+## Access & Auth flow
+
+```
+┌────────────┐   activation key   ┌──────────────┐   master password   ┌──────────────┐
+│  Activate  │ ─────────────────► │  Master key  │ ──────────────────► │  Auto-login  │
+│  license   │  (role from server)│  unlock DB   │  derive AES key     │  (solo mode) │
+└────────────┘                    └──────────────┘                     └──────────────┘
+      │                                                                        │
+      └── config license_role (admin/operator), refreshed on every /verify ────┘
+```
+
+- **Role** is carried by the license (server side) and applied on the client at
+  activate/verify time. In solo mode (single local user) there is no login screen — the app
+  enters directly after the master password.
+- Full details: [AUTH_AND_ROLES.md](AUTH_AND_ROLES.md).
 
 ---
 
@@ -14,7 +34,7 @@
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
 │  │   React 18  │  │   Tauri 2   │  │      Rust Backend       │  │
 │  │   Frontend  │◄─┤    IPC      │◄─┤  ┌───────────────────┐  │  │
-│  │  (15 pages) │  │   Bridge    │  │  │   SQLite (rusqlite)│  │  │
+│  │  (12 nav +  │  │   Bridge    │  │  │   SQLite (rusqlite)│  │  │
 │  └─────────────┘  └─────────────┘  │  │   15+ tables       │  │  │
 │         │                          │  └───────────────────┘  │  │
 │         │                          │  ┌───────────────────┐  │  │
@@ -55,11 +75,12 @@ src/
 │   ├── EmptyState.jsx  # Empty state component
 │   └── Skeleton*.jsx   # Loading skeletons
 ├── pages/              # Page-level components
+│   ├── DashboardRedesigned.jsx # Analytics dashboard (old Dashboard.jsx removed)
 │   ├── Cards.jsx       # Cards management (962 lines)
 │   ├── Orders.jsx      # Orders management (1704 lines)
-│   ├── Profiles.jsx    # Profiles management (1578 lines)
+│   ├── Profiles.jsx    # Profiles + drops (1578 lines)
 │   ├── Imap.jsx        # Email integration (2063 lines)
-│   ├── Dashboard.jsx   # Analytics dashboard
+│   ├── Drops.jsx       # Stub — drops live inside Profiles (88 lines)
 │   ├── Settings.jsx    # Application settings
 │   └── ...
 ├── hooks/              # Custom React hooks
@@ -104,7 +125,7 @@ App.jsx (Root)
 │   │   └── LicenseSection
 │   └── GlobalSearch
 ├── Page Router
-│   ├── Dashboard
+│   ├── DashboardRedesigned
 │   │   └── Recharts components
 │   ├── Cards
 │   │   ├── CardFilters
@@ -163,8 +184,20 @@ User Action → Component → Store Action → Tauri Command → Rust Handler
 
 ```
 src-tauri/src/
-├── main.rs           # Entry point + Tauri commands (156 commands)
-├── database.rs       # SQLite operations (4100+ lines)
+├── main.rs           # Entry point + Tauri commands (190 commands)
+├── database/         # SQLite operations, split by domain (11 submodules)
+│   ├── mod.rs        # Database struct + impl wrapper
+│   ├── _core.rs      # Connection, pool, config, encryption glue
+│   ├── _cards.rs     # Cards
+│   ├── _orders.rs    # Orders + tracking
+│   ├── _profiles.rs  # Profiles + drops (delivery addresses)
+│   ├── _shops.rs     # Shops / catalog stats
+│   ├── _imap.rs      # IMAP accounts + parsed mail
+│   ├── _users.rs     # Users, sessions, roles, auto-login
+│   ├── _analytics.rs # Dashboard / risk stats
+│   ├── _misc.rs      # Misc operations
+│   ├── _helpers.rs   # Helper functions
+│   └── _migrations.rs# Schema migrations
 ├── encryption.rs     # Crypto operations (AES-256-GCM, PBKDF2)
 ├── license.rs        # License validation + challenge-response
 ├── sync.rs           # HTTP sync client
@@ -172,34 +205,59 @@ src-tauri/src/
 ├── imap.rs           # Email monitoring + parsing
 ├── smtp.rs           # Email sending (lettre)
 ├── parser.rs         # Email parser (card detection)
-├── models.rs         # Data structures
+├── tracking.rs       # Carrier tracking (UPS/FedEx/USPS, 17track fallback)
+├── stuffer.rs        # Stuffer API client (couriers / packages)
+├── models.rs         # Data structures + permissions
 └── rate_limiter.rs   # Rate limiting (token bucket)
 ```
 
-### Database Schema (15+ tables)
+### Database Schema (27 tables)
+
+Defined in `src-tauri/src/database/_migrations.rs`.
 
 ```sql
 -- Core tables
-cards              -- Card records (encrypted fields)
-card_meta          -- Card metadata (BIN, country, bank)
-transactions       -- Transaction history
-emails             -- Parsed email data
-email_accounts     -- IMAP account configs (encrypted)
-smtp_accounts      -- SMTP account configs (encrypted)
+credit_cards       -- Card records (encrypted fields)
+card_assignments   -- Card-to-user assignments
+bin_cache          -- BIN lookup cache (bank, country, level)
+
+-- Email
+imap_accounts      -- IMAP account configs (encrypted)
+imap_messages      -- Fetched IMAP messages
+smtp_configs       -- SMTP account configs (encrypted)
+sent_emails        -- Outbound email log
+email_pool         -- Reusable email addresses
 
 -- Organization
 profiles           -- Customer profiles
+profile_templates  -- Reusable profile presets
+drops              -- Drop addresses
 orders             -- Order records
+order_templates    -- Reusable order presets
 shops              -- Shop/merchant data
+shop_products      -- Products per shop
+shop_footprints    -- Per-shop footprint hashes
 proxies            -- Proxy configurations
+proxy_shop_bindings -- Proxy-to-shop pinning
 
--- System
+-- Catalog (synced from server)
+catalog_items      -- Catalog item cache
+catalog_shops      -- Catalog shop cache
+
+-- Users & system
+users              -- Local user accounts
+user_permissions   -- Per-user permission grants
+user_sessions      -- Active sessions
+user_activity      -- Per-user activity trail
+activity_log       -- Application activity log
+automation_config  -- Automation settings
 config             -- App settings (key-value)
-sync_log           -- Sync tracking
-audit_log          -- Security audit trail
-sessions           -- Active sessions
-invite_codes       -- Invite code management
 ```
+
+The sync server keeps a separate SQLite schema (`cc-sync-server/database.js`):
+`licenses`, `invite_codes`, `footprints`, `versions`, `release_files`,
+`audit_log`, `sync_groups`, `sync_group_members`, `sync_cards`,
+`sync_pair_codes`.
 
 ### Security Layers
 
@@ -218,7 +276,7 @@ invite_codes       -- Invite code management
 ├─────────────────────────────────────────┤
 │         Database Layer                  │
 │  - WAL mode (concurrent reads)          │
-│  - Connection pooling (r2d2, 4 conn)    │
+│  - Connection pooling (r2d2, 8 conn)    │
 │  - Foreign keys enforced                │
 │  - Integrity checks                     │
 └─────────────────────────────────────────┘
@@ -252,20 +310,32 @@ cc-sync-server/
 
 ### API Endpoints
 
-| Endpoint                             | Method    | Auth  | Rate Limit |
-| ------------------------------------ | --------- | ----- | ---------- |
-| /api/health                          | GET       | No    | None       |
-| /api/catalog/items                   | GET       | Yes   | 100/min    |
-| /api/catalog/shops                   | GET       | Yes   | 100/min    |
-| /api/bin/:bin                        | GET       | Yes   | 30/min     |
-| /api/bin                             | POST      | Yes   | 30/min     |
-| /api/footprint/check                 | POST      | Yes   | 50/min     |
-| /api/footprint                       | POST      | Yes   | 50/min     |
-| /api/invite/generate                 | POST      | Yes   | 20/min     |
-| /api/invite/validate                 | POST      | Yes   | 20/min     |
-| /admin/api/licenses                  | GET       | Basic | 20/min     |
-| /admin/api/licenses/:id/rotate-token | POST      | Basic | 20/min     |
-| /ws                                  | WebSocket | Token | N/A        |
+| Endpoint                             | Method    | Auth   | Rate Limit |
+| ------------------------------------ | --------- | ------ | ---------- |
+| /health                              | GET       | No     | None       |
+| /api/releases                        | GET       | No     | None       |
+| /activate                            | POST      | No     | 10/15min   |
+| /verify                              | POST      | No     | 60/15min   |
+| /invite/validate                     | POST      | No     | None       |
+| /api/catalog/items                   | GET       | No     | None       |
+| /api/catalog/shops                   | GET       | No     | None       |
+| /api/catalog/items                   | POST      | Secret | None       |
+| /api/catalog/shops                   | POST      | Secret | None       |
+| /api/bin/:bin                        | GET       | Token  | None       |
+| /api/bin                             | POST      | Token  | None       |
+| /footprint                           | POST      | Token  | 100/min    |
+| /footprint/check                     | POST      | Token  | 10/min     |
+| /sync/cards                          | GET/POST  | Token  | None       |
+| /sync/group/join                     | POST      | Token  | 10/15min   |
+| /sync/group/pair                     | POST      | Token  | 20/hour    |
+| /admin/api/licenses                  | GET       | Admin  | None       |
+| /admin/api/licenses/:id/rotate-token | POST      | Admin  | None       |
+| /admin/api/invites                   | POST      | Admin  | None       |
+| /ws                                  | WebSocket | Token  | N/A        |
+
+Auth column: **Token** = `Authorization: Bearer <license-token>`; **Admin** =
+signed session cookie or HTTP Basic; **Secret** = `X-Server-Secret` header.
+Admin routes live under the configurable `ADMIN_PATH` prefix, not `/admin`.
 
 ---
 
@@ -360,7 +430,7 @@ npm run build
 
 ### Database Optimization
 
-- Connection pooling (r2d2, 4 concurrent)
+- Connection pooling (r2d2, 8 concurrent)
 - WAL mode for concurrent reads
 - Composite indexes on frequently queried columns
 - Query optimization (JOINs instead of N+1)

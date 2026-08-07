@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import React from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { RotateCcw, AlertTriangle } from 'lucide-react'
+import { RotateCcw, AlertTriangle, Pencil, Check, X } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { STATUS_COLORS } from '../../constants/colors'
 import { ORDER_STATUS_CSS } from '../../constants/status'
@@ -71,6 +71,86 @@ function NeedsAttentionBadge({ order }) {
   return null
 }
 
+// ─── InlineTrackingCell ──────────────────────────────────────
+function InlineTrackingCell({ orderId, value, onSaved }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef(null)
+
+  const startEdit = e => {
+    e.stopPropagation()
+    setDraft(value ?? '')
+    setEditing(true)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  const cancel = e => {
+    e?.stopPropagation?.()
+    setEditing(false)
+  }
+
+  const save = async e => {
+    e?.stopPropagation?.()
+    if (saving) return
+    setSaving(true)
+    try {
+      await invoke('update_order_tracking', {
+        id: orderId,
+        trackingNumber: draft.trim() || null,
+        carrier: null,
+      })
+      onSaved?.(draft.trim() || null)
+      setEditing(false)
+    } catch (err) {
+      console.error('[InlineTrackingCell] save failed:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onKeyDown = e => {
+    if (e.key === 'Enter') save(e)
+    else if (e.key === 'Escape') cancel(e)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          className="input input-sm font-mono text-[10px] w-28"
+          placeholder="tracking #"
+          disabled={saving}
+        />
+        <button className="btn btn-ghost btn-sm text-green-t" onClick={save} disabled={saving}>
+          <Check size={11} />
+        </button>
+        <button className="btn btn-ghost btn-sm text-muted" onClick={cancel}>
+          <X size={11} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1 group" onClick={e => e.stopPropagation()}>
+      <span className="font-mono text-[10px] text-muted">{value ?? '—'}</span>
+      <button
+        className="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={startEdit}
+        title="Edit tracking number"
+        aria-label="Edit tracking number"
+      >
+        <Pencil size={10} />
+      </button>
+    </div>
+  )
+}
+
 /**
  * OrderRow — мемоизированный компонент строки заказа
  *
@@ -89,6 +169,7 @@ export const OrderRow = React.memo(
     showStatusMenu,
     onRepeat,
     onDelete,
+    onTrackingUpdate,
     StatusMenuComponent,
     TimelineComponent,
   }) {
@@ -151,7 +232,13 @@ export const OrderRow = React.memo(
           <td className="text-blue-t mono text-right whitespace-nowrap">
             {order.total_amount != null ? `$${order.total_amount.toFixed(2)}` : '—'}
           </td>
-          <td className="font-mono text-[10px] text-muted">{order.tracking_number ?? '—'}</td>
+          <td>
+            <InlineTrackingCell
+              orderId={order.id}
+              value={order.tracking_number}
+              onSaved={val => onTrackingUpdate?.(order.id, val)}
+            />
+          </td>
           <td className="text-[11px] text-muted">{order.carrier ?? '—'}</td>
           <td className="text-[11px] text-muted">{order.proxy_label ?? '—'}</td>
           <td className="text-[11px] text-muted">{order.email_addr ?? '—'}</td>

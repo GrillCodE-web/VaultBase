@@ -1,123 +1,131 @@
 /* ═══════════════════════════════════════════════════════════
-   MODAL — CYBER-FINANCIAL TERMINAL
+   MODAL — NATIVE macOS
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Modal Overlay ──────────────────────────────────────── */
+/* ── Подложка ───────────────────────────────────────────────
+   Легче прежней: macOS не затемняет фон почти до чёрного. */
 .modal-overlay {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
-  background: var(--overlay-darker);
-  backdrop-filter: blur(4px);
+  background: var(--overlay-dark);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: var(--z-modal);
-  transition: opacity var(--t-mid);
 }
 
-@supports not (backdrop-filter: blur(8px)) {
+@supports not (backdrop-filter: blur(6px)) {
   .modal-overlay {
-    background: var(--overlay-darkest);
+    background: var(--overlay-darker);
   }
 }
 
-/* ── Modal Container ────────────────────────────────────── */
+/* ── Окно ───────────────────────────────────────────────── */
 .modal {
   background: var(--card);
-  border: 1px solid var(--border-hi);
-  border-radius: var(--r-lg);
+  border: none;
+  border-radius: var(--r-xl);
   width: 100%;
-  max-width: var(--modal-size, 600px);
-  max-height: calc(100vh - 40px);
+  max-width: var(--modal-size, 560px);
+  max-height: calc(100vh - 60px);
   overflow-y: auto;
-  padding: var(--sp-6);
+  padding: var(--sp-5);
   box-shadow: var(--shadow-lg);
   position: relative;
-  transition:
-    transform var(--t-fast),
-    opacity var(--t-fast);
 }
 
-.modal::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--gradient-accent);
-  opacity: 0.3;
-}
+/* Акцентная полоса сверху удалена */
 
-/* ── Modal Header ───────────────────────────────────────── */
+/* ── Шапка ──────────────────────────────────────────────── */
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--sp-4) var(--sp-6);
-  border-bottom: 1px solid var(--border);
+  padding: 0 0 var(--sp-3) 0;
+  border-bottom: 1px solid var(--separator);
 }
 
-/* ── Modal Title ────────────────────────────────────────── */
-.modal-title {
-  font-size: 18px;
-  font-weight: 700;
+.modal-header__title {
+  font-size: var(--fs-heading);
+  line-height: var(--lh-heading);
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: var(--sp-6);
+  font-family: var(--font-ui);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* ── Заголовок ──────────────────────────────────────────── */
+.modal-title {
+  font-size: var(--fs-heading);
+  line-height: var(--lh-heading);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--sp-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-family: 'Rajdhani', sans-serif;
-  letter-spacing: 0.02em;
-  padding-bottom: var(--sp-4);
-  border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+  letter-spacing: -0.01em;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--separator);
 }
 
-.modal-title::before {
-  content: '';
-  width: 4px;
-  height: 20px;
-  background: var(--gradient-accent);
-  border-radius: 2px;
-  margin-right: var(--sp-3);
-}
+/* Декоративная полоска перед заголовком удалена */
 
-/* ── Modal Close Button ─────────────────────────────────── */
+/* ── Кнопка закрытия ────────────────────────────────────── */
 .modal-close {
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   color: var(--text-3);
-  width: 32px;
-  height: 32px;
+  width: var(--h-control);
+  height: var(--h-control);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  transition: all var(--t-fast);
+  border-radius: var(--r-md);
+  cursor: default;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .modal-close:hover {
   background: var(--hover);
-  border-color: var(--border-hi);
   color: var(--text);
 }
 
-/* ── Modal Body ─────────────────────────────────────────── */
-.modal-body {
-  margin-bottom: var(--sp-6);
+.modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
-/* ── Modal Footer ───────────────────────────────────────── */
+.modal-close svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.5;
+}
+
+/* ── Тело ───────────────────────────────────────────────── */
+.modal-body {
+  margin-top: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+/* ── Футер ──────────────────────────────────────────────────
+   Кнопки справа, подтверждающая крайняя правая — соглашение
+   macOS. */
 .modal-footer {
   display: flex;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   justify-content: flex-end;
-  padding-top: var(--sp-5);
-  border-top: 1px solid var(--border);
+  align-items: center;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--separator);
 }
 
 /* ── Global Search Overlay ──────────────────────────────── */
@@ -134,7 +142,7 @@
   padding-top: 100px;
   background: var(--overlay-darker);
   backdrop-filter: blur(12px);
-  animation: overlay-fade var(--t-mid) ease;
+  animation: none;
 }
 
 /* ── Search Box ─────────────────────────────────────────── */
@@ -147,8 +155,8 @@
   overflow: hidden;
   box-shadow:
     var(--shadow-lg),
-    0 0 60px rgba(0, 217, 255, 0.15);
-  animation: modal-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    0 0 60px transparent;
+  animation: none;
   position: relative;
 }
 
@@ -185,7 +193,7 @@
   outline: none;
   font-size: 16px;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   font-weight: 500;
 }
 
@@ -207,7 +215,7 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -232,13 +240,13 @@
   background: transparent;
   border: none;
   color: var(--text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
   transition: all var(--t-fast);
   border-left: 2px solid transparent;
 }
 
 .search-result-row:hover {
-  background: rgba(0, 217, 255, 0.05);
+  background: transparent;
   border-left-color: var(--accent);
 }
 
@@ -247,7 +255,7 @@
   color: var(--muted);
   width: 50px;
   flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -268,7 +276,7 @@
   color: var(--text-3);
   margin-left: auto;
   flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .search-empty {
@@ -276,7 +284,7 @@
   text-align: center;
   font-size: 14px;
   color: var(--muted);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Search Footer ──────────────────────────────────────── */
@@ -289,7 +297,7 @@
   background: var(--surface);
   font-size: 11px;
   color: var(--text-3);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .search-kbd {
@@ -298,7 +306,7 @@
   border-radius: 4px;
   padding: 3px var(--sp-2);
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--text-2);
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -335,7 +343,7 @@
   color: var(--text-2);
   line-height: 1.6;
   margin-bottom: var(--sp-6);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ── Toast Notifications ────────────────────────────────── */
@@ -361,7 +369,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--sp-3);
-  animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: none;
   pointer-events: all;
   position: relative;
   overflow: hidden;
@@ -417,7 +425,7 @@
   font-weight: 600;
   color: var(--text);
   margin-bottom: var(--sp-1);
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
   letter-spacing: 0.01em;
 }
 
@@ -425,7 +433,7 @@
   font-size: 12px;
   color: var(--text-3);
   line-height: 1.4;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .toast-progress {
@@ -454,19 +462,19 @@
    ═══════════════════════════════════════════════════════════ */
 
 .overlay-enter {
-  animation: overlay-fade-in var(--t-mid) ease-out;
+  animation: none;
 }
 
 .overlay-leave {
-  animation: overlay-fade-out var(--t-mid) ease-out;
+  animation: none;
 }
 
 .modal-enter {
-  animation: modal-enter-in var(--t-mid) ease-out;
+  animation: none;
 }
 
 .modal-leave {
-  animation: modal-leave-out var(--t-mid) ease-out;
+  animation: none;
 }
 
 @keyframes overlay-fade-in {
@@ -510,134 +518,172 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FLOAT WINDOW (INLINE STYLE REPLACEMENTS)
+   FLOAT WINDOW — HUD-панель поверх всех окон
    ═══════════════════════════════════════════════════════════ */
 
 .float-window {
   position: relative;
-  width: 380px;
-  background: rgba(11, 15, 22, 0.82);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  width: 100%;
+  /* Скруглённое окно без системной рамки: decorations: false.
+     Радиус рисуем сами, поэтому окно и должно быть прозрачным. */
+  border-radius: var(--r-window);
+  background: var(--card);
   color: var(--text);
   display: flex;
   flex-direction: column;
   height: 100vh;
+  overflow: hidden;
+  box-shadow: var(--shadow-window);
 }
 
+/* Полупрозрачность только там, где система реально даёт
+   размытие подложки. Иначе — сплошной фон. */
+[data-vibrancy='on'] .float-window {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* ── Шапка: она же зона перетаскивания ──────────────────── */
 .float-header {
-  padding: var(--sp-3) var(--sp-4);
-  background: rgba(17, 21, 32, 0.75);
-  border-bottom: 1px solid var(--border);
+  padding: 0 var(--sp-3);
+  height: var(--h-titlebar);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--surface);
+  border-bottom: 1px solid var(--separator);
+  flex-shrink: 0;
 }
 
-.float-tabs {
+/* ── Табы: segmented control ────────────────────────────── */
+.float-tabs,
+.float-tabs-bar {
   display: flex;
-  gap: var(--sp-2);
+  gap: 1px;
+  padding: 2px;
+  margin: var(--sp-2) var(--sp-3) 0;
+  background: var(--inset);
+  border-radius: var(--r-md);
+  flex-shrink: 0;
 }
 
 .ftab {
+  flex: 1;
+  height: 22px;
   background: transparent;
   border: none;
-  color: var(--text-3);
-  padding: var(--sp-2) var(--sp-3);
-  font-size: 11px;
-  cursor: pointer;
-  border-radius: var(--r-sm);
-  transition: all var(--t-fast);
+  color: var(--text-2);
+  padding: 0 8px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  cursor: default;
+  border-radius: var(--r-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .ftab:hover {
-  background: var(--hover);
   color: var(--text);
 }
 
 .ftab.active {
-  background: var(--accent-dim);
-  color: var(--accent-text);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+
+.ftab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .float-content {
   flex: 1;
   overflow: auto;
   min-height: 0;
-  padding: var(--sp-3) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
 }
 
 .float-footer {
   display: flex;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-3);
-  border-top: 1px solid var(--border);
-  background: rgba(17, 21, 32, 0.75);
+  gap: 6px;
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--separator);
+  background: var(--surface);
+  flex-shrink: 0;
 }
 
+/* ── Строка поля ────────────────────────────────────────── */
 .float-field {
   display: flex;
   align-items: center;
-  padding: var(--sp-2) 0;
+  height: 26px;
   gap: var(--sp-2);
+  border-bottom: 1px solid var(--separator);
+}
+
+.float-field:last-child {
+  border-bottom: none;
 }
 
 .float-lbl {
-  font-size: 11px;
-  color: var(--muted);
-  min-width: 80px;
+  font-size: var(--fs-caption);
+  color: var(--text-3);
+  min-width: 76px;
+  flex-shrink: 0;
 }
 
 .float-val {
   flex: 1;
   text-align: right;
-  margin-right: var(--sp-6);
-  font-size: 12px;
-  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* ── Кнопка копирования ─────────────────────────────────── */
 .float-copy {
   background: transparent;
   border: none;
   color: var(--text-3);
-  cursor: pointer;
-  padding: var(--sp-1);
+  cursor: default;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--r-xs);
-  font-size: 14px;
-  transition: all var(--t-fast);
+  font-size: 12px;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .float-copy:hover {
   background: var(--hover);
-  color: var(--accent-text);
-}
-
-/* Resize handle for float window */
-.float-resize-handle {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  z-index: var(--z-dropdown);
-  background: transparent;
-  cursor: grab;
-}
-
-.float-resize-handle:active {
-  cursor: grabbing;
-}
-
-/* Modal close button hover and focus states */
-.modal-close-btn {
-  transition: all var(--t-fast);
-}
-
-.modal-close-btn:hover {
-  background: var(--hover);
   color: var(--text);
 }
 
-.modal-close-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* Подтверждение копирования — сменой цвета, без анимации */
+.float-copy.copied {
+  color: var(--green-t);
+}
+
+/* Ресайз выполняется системой (resizable: true),
+   собственная ручка больше не нужна. */
+.float-resize-handle {
+  display: none;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -718,29 +764,8 @@
   background: var(--red-t);
 }
 
-/* Risk badge variants */
-.risk-badge {
-  padding: 2px var(--sp-2);
-  border-radius: var(--r-full);
-}
-
-.risk-safe {
-  color: var(--color-success);
-  background: var(--color-success-bg);
-  border: 1px solid rgba(34, 197, 94, 0.25);
-}
-
-.risk-warning {
-  color: var(--color-warning);
-  background: var(--color-warning-bg);
-  border: 1px solid rgba(234, 179, 8, 0.25);
-}
-
-.risk-high {
-  color: var(--color-error);
-  background: var(--color-error-bg);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-}
+/* Значок риска и его варианты живут в badges-redesign.css —
+   здесь была вторая копия с захардкоженными rgba. */
 
 /* Card health indicators */
 .health-fresh {

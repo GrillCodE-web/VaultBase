@@ -1,7 +1,9 @@
+import React from 'react'
+
 /**
  * ImapEmailRow - Single email row in the virtualized list
  */
-export function ImapEmailRow({ msg, ActionBadge }) {
+export const ImapEmailRow = React.memo(function ImapEmailRow({ msg, ActionBadge }) {
   return (
     <>
       <div className="flex justify-between items-start gap-1">
@@ -35,4 +37,4 @@ export function ImapEmailRow({ msg, ActionBadge }) {
       )}
     </>
   )
-}
+})

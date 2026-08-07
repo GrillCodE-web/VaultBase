@@ -1,17 +1,24 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 export function useCopyFlash() {
   const [flashKey, setFlashKey] = useState(null)
+  const timerRef = useRef(null)
 
   const flash = useCallback((key, text) => {
-    // FIX FE-H05: Log clipboard errors instead of silently ignoring
     if (text) {
       navigator.clipboard.writeText(text).catch(e => {
-        console.error('[useCopyFlash] Failed to copy:', e)
+        if (import.meta.env.DEV) console.error('[useCopyFlash] Failed to copy:', e)
       })
     }
     setFlashKey(key)
-    setTimeout(() => setFlashKey(null), 300)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setFlashKey(null), 300)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
   }, [])
 
   return { flash, isFlashing: key => flashKey === key }
