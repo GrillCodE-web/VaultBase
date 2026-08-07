@@ -85,11 +85,25 @@ pub fn start(app: AppHandle, handle: Arc<WsSyncHandle>) {
 
 fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
     while running.load(Ordering::Relaxed) {
+        // Для подключения достаточно ТОКЕНА ЛИЦЕНЗИИ. Группа необязательна:
+        // соло-оператор — полноценный сценарий, ему тоже нужны события
+        // сервера (обновления, отзыв лицензии, admin-уведомления).
+        // Сервер это уже поддерживает: в socket.js членство в группе
+        // проверяется как `if (member)`, соединение принимается по одному
+        // токену. Раньше здесь требовалась пара (token, group_id), поэтому
+        // без группы цикл молча спал и статус навсегда застывал на
+        // «Connecting…» — при живом и доступном сервере.
         let (token, group_id) = {
             let c = creds.read().unwrap_or_else(|e| e.into_inner());
-            match (c.token.clone(), c.group_id.clone()) {
-                (Some(t), Some(g)) if !t.is_empty() && !g.is_empty() => (t, g),
+            match c.token.clone() {
+                Some(t) if !t.is_empty() => {
+                    (t, c.group_id.clone().unwrap_or_default())
+                }
                 _ => {
+                    // Токена нет — лицензия ещё не активирована. Ждём.
+                    let _ = app.emit("ws_sync:status", serde_json::json!({
+                        "connected": false, "connecting": false, "reason": "no_license"
+                    }));
                     std::thread::sleep(Duration::from_secs(RECONNECT_SECS));
                     continue;
                 }
@@ -162,9 +176,14 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                         return;
                     }
                     // Check if credentials changed (e.g., user left group)
+                    // group_id сравниваем нормализованно: при работе без группы
+                    // здесь пустая строка, а в creds — None. Прямое сравнение
+                    // Some("") == None даёт false и рвало бы соединение
+                    // соло-оператору на каждой итерации.
                     let still_valid = {
                         let c = creds.read().unwrap_or_else(|e| e.into_inner());
-                        c.token.as_deref() == Some(&token) && c.group_id.as_deref() == Some(&group_id)
+                        let cur_group = c.group_id.clone().unwrap_or_default();
+                        c.token.as_deref() == Some(&token) && cur_group == group_id
                     };
                     if !still_valid { let _ = socket.close(None); break; }
 

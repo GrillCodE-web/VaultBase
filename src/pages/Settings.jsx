@@ -645,10 +645,10 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Stuffer API — панель скрыта без manage_couriers: stuffer_set_config
-            закрыт этим правом на бэкенде (main.rs), и без него сохранение
-            всегда падало бы с permission_denied уже после ввода ключа. */}
-        {hasPerm('manage_couriers') && (
+        {/* Stuffer API. Гейт по manage_couriers (право нужно для
+            stuffer_set_config на бэкенде), но админ проходит всегда — иначе
+            при рассинхроне прав раздел исчезал и ключ было негде ввести. */}
+        {(isAdmin || hasPerm('manage_couriers')) && (
           <div className="panel">
             <div className="ptitle">
               <Truck size={13} className="inline mr-1.5" />
