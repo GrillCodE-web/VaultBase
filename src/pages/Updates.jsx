@@ -242,7 +242,12 @@ export default function Updates() {
     }
   }, [])
 
-  // ── Download ───────────────────────────────────────────────
+  // ── Download AND install in one action ─────────────────────
+  // Кнопка называется «Скачать» и пользователь ждёт, что обновление
+  // установится само. Раньше эта функция ТОЛЬКО качала, а установку прятала
+  // во вторую кнопку — из-за чего казалось, что «скачал, а ничего не
+  // произошло». Теперь скачивание и установка идут одним потоком:
+  // downloadAndInstall() — атомарный метод плагина, после него relaunch().
   const handleDownloadAndInstall = async () => {
     if (!updateAvailable) return
     setDownloadState('downloading')
@@ -250,7 +255,7 @@ export default function Updates() {
     try {
       let downloaded = 0
       let total = 0
-      await updateAvailable.download(event => {
+      await updateAvailable.downloadAndInstall(event => {
         if (event.event === 'Started') {
           total = event.data.contentLength ?? 0
         } else if (event.event === 'Progress') {
@@ -260,28 +265,16 @@ export default function Updates() {
           setDownloadProgress(100)
         }
       })
-      setDownloadState('ready')
-    } catch (e) {
-      setDownloadState('idle')
-      const error = handleError(e, 'Updates.handleDownload')
-      toast(t('upd_download_failed') + ': ' + getErrorMessage(error), 'error')
-    }
-  }
-
-  // ── Install + relaunch ─────────────────────────────────────
-  const handleInstall = async () => {
-    if (!updateAvailable) return
-    try {
-      // Remember this version so after relaunch we don't re-show the banner
+      // Скачано и установлено — запоминаем версию, чтобы после перезапуска
+      // не показать баннер снова, и перезапускаем приложение.
       sessionStorage.setItem(INSTALLED_VER_KEY, updateAvailable.version)
       setDownloadState('installed')
-      await updateAvailable.install()
+      toast(t('upd_installing') || 'Устанавливаю обновление, перезапуск…', 'success')
       await relaunch()
     } catch (e) {
-      sessionStorage.removeItem(INSTALLED_VER_KEY)
-      setDownloadState('ready')
-      const error = handleError(e, 'Updates.handleInstall')
-      toast(t('upd_install_failed') + ': ' + getErrorMessage(error), 'error')
+      setDownloadState('idle')
+      const error = handleError(e, 'Updates.handleDownloadAndInstall')
+      toast(t('upd_download_failed') + ': ' + getErrorMessage(error), 'error')
     }
   }
 
@@ -372,10 +365,10 @@ export default function Updates() {
                   {t('upd_downloading')} {downloadProgress}%
                 </span>
               )}
-              {downloadState === 'ready' && (
-                <button className="btn btn-g btn-sm" onClick={handleInstall}>
-                  <RefreshCw size={13} /> {t('upd_restart_install')}
-                </button>
+              {downloadState === 'installed' && (
+                <span className="text-[12px] text-muted">
+                  {t('upd_installing') || 'Устанавливаю…'}
+                </span>
               )}
               {/* Dismiss — snoozes for this session */}
               {downloadState !== 'downloading' && (

@@ -452,6 +452,51 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     return () => clearInterval(id)
   }, [loadBadges])
 
+  // ── Глобальная проверка обновлений ─────────────────────────
+  // Раньше обновления проверялись ТОЛЬКО на странице Updates.jsx — если
+  // пользователь там не был, он не видел ни баннера, ни уведомления, ни
+  // точки в меню. Теперь проверка идёт из App при старте и раз в 6 часов:
+  // ставит бейдж на пункт «Обновления» (Bell) и показывает тост один раз
+  // на версию. Тихо игнорируем ошибки — скорее всего нет интернета.
+  const [updateReady, setUpdateReady] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    const checkForUpdate = async () => {
+      try {
+        const { check } = await import('@tauri-apps/plugin-updater')
+        const update = await check()
+        if (cancelled || !update?.available) return
+        setUpdateReady(true)
+        // Тост один раз на версию — чтобы не повторялся каждые 6 часов.
+        const notifiedKey = 'vb_update_notified'
+        let notified = null
+        try {
+          notified = sessionStorage.getItem(notifiedKey)
+        } catch {
+          /* ignore */
+        }
+        if (notified !== update.version) {
+          toastInfo((t('upd_available_toast') || 'Доступно обновление') + ` ${update.version}`, {
+            groupKey: 'app_update',
+          })
+          try {
+            sessionStorage.setItem(notifiedKey, update.version)
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch (e) {
+        console.error('[App] update check failed:', e?.message || e)
+      }
+    }
+    checkForUpdate()
+    const id = setInterval(checkForUpdate, 6 * 60 * 60 * 1000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [t, toastInfo])
+
   useEffect(() => {
     let done
     try {
@@ -710,7 +755,14 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       label: t('nav_dashboard'),
       badgeKey: null,
     },
-    { key: 'updates', icon: Bell, page: 'updates', label: t('nav_updates'), badgeKey: null },
+    {
+      key: 'updates',
+      icon: Bell,
+      page: 'updates',
+      label: t('nav_updates'),
+      badgeKey: null,
+      dot: updateReady,
+    },
     {
       key: 'cards',
       icon: CreditCard,
@@ -926,7 +978,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
               return ia - ib
             })
           : NAV_DEFS
-        ).map(({ key, icon: Icon, page: p, label, badgeKey, badgeColor }) => {
+        ).map(({ key, icon: Icon, page: p, label, badgeKey, badgeColor, dot }) => {
           const active = page === p
           const count = badgeKey ? (badges[badgeKey] ?? 0) : 0
           const DIVIDERS_AFTER = new Set(['updates', 'orders', 'imap'])
@@ -975,6 +1027,14 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
                   <span className={`sbi-badge${badgeColor ? ` ${badgeColor}` : ''}`}>
                     {count > 99 ? '99+' : count}
                   </span>
+                )}
+                {/* Точка «доступно обновление» — без числа, зелёная. */}
+                {dot && !count && (
+                  <span
+                    className="sbi-badge g"
+                    aria-label={t('upd_available_toast') || 'Доступно обновление'}
+                    style={{ minWidth: 8, width: 8, height: 8, padding: 0, borderRadius: '50%' }}
+                  />
                 )}
               </button>
               {DIVIDERS_AFTER.has(key) && <div className="sidebar-divider" />}
