@@ -145,7 +145,11 @@ def ensure_env(r, dry):
 
 
 def patch_nginx(r, dry):
-    """Снять блокировку раздачи релизов. /health оставляем закрытым."""
+    """Снять блокировку раздачи релизов и поднять лимит загрузки.
+
+    /health оставляем закрытым (защита от info-leak). Идемпотентно: повторный
+    запуск ничего не ломает.
+    """
     conf = r.read(NGINX_CONF)
     original = conf
     # Вырезаем именно блоки-заглушки для releases, не трогая остальное.
@@ -155,10 +159,17 @@ def patch_nginx(r, dry):
             "\n",
             conf,
         )
+    # Лимит тела запроса. AppImage-сборка ~85 МБ, а дефолт был 50m — заливка
+    # артефактов в панель падала с 413 Request Entity Too Large. 200m даёт
+    # запас и под будущие .dmg. Правим существующую директиву; если её нет —
+    # patch_nginx оставит как есть (в конфиге она уже присутствует).
+    conf = re.sub(r"client_max_body_size\s+\d+m\s*;",
+                  "client_max_body_size 200m;", conf)
+
     if conf == original:
-        log("  nginx: блокировок releases не найдено (уже снято?)")
+        log("  nginx: изменений не требуется (releases открыты, лимит 200m)")
         return False
-    log("  nginx: снимаю 'return 404' с /api/releases и /releases/")
+    log("  nginx: снимаю 404 с /releases и ставлю client_max_body_size 200m")
     if dry:
         return False
     r.write(NGINX_CONF, conf)
