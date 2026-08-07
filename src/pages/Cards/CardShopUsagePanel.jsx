@@ -32,8 +32,8 @@ export function CardShopUsagePanel({ cardId, onClose }) {
       ) : (
         <div className="flex flex-col gap-2">
           {shops.map(s => (
-            <div key={s.shop_id} className="shop-usage-item">
-              <div className="shop-usage-name">{s.shop_name}</div>
+            <div key={s.shop_id} className="card-shop-usage-item">
+              <div className="card-shop-usage-name">{s.shop_name}</div>
               <div className="shop-usage-domain">{s.shop_domain}</div>
               <div className="shop-usage-meta">
                 <span>

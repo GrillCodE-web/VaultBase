@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useAuth } from '../hooks/useAuth'
+import { getDeliveryRateColor } from '../constants/colors.js'
 import {
+  Users,
   CreditCard,
   ShoppingCart,
   TrendingUp,
   CheckCircle,
   XCircle,
   Truck,
-  BarChart2,
   Calendar,
+  Activity,
+  Shield,
 } from 'lucide-react'
 
 function fmtMoney(v) {
@@ -38,485 +41,458 @@ const ACTION_ICONS = {
   'card.taken': '💳',
   'card.transferred': '↔️',
   'card.add_manual': '➕',
+  'card.status_changed': '🔄',
+  'order.created': '🛒',
 }
 
-function StatCard({ icon, label, value, sub, color }) {
-  return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '16px 18px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-      }}
-    >
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: 8, color: color ?? 'var(--muted)' }}
-      >
-        {icon}
-        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: color ?? 'var(--text)', lineHeight: 1 }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{sub}</div>}
-    </div>
-  )
+/**
+ * Конверсия считается от ЗАВЕРШЁННЫХ заказов (доставлено + отказ), а не от
+ * всех: заказы «в пути» качество не характеризуют и занижали бы показатель
+ * у активных операторов. Тот же принцип, что и в OperatorsTable дашборда
+ * (DashboardRedesigned.jsx) — держим формулу одинаковой в обоих местах,
+ * иначе цифры по одному оператору будут расходиться между страницами.
+ */
+function withDerived(u) {
+  const delivered = u.orders_delivered || 0
+  const declined = u.orders_declined || 0
+  const finished = delivered + declined
+  return {
+    ...u,
+    conversion: finished > 0 ? (delivered / finished) * 100 : null,
+    avgCheck: delivered > 0 ? (u.total_spent || 0) / delivered : 0,
+  }
 }
 
 export default function MyStats() {
   const { currentUser } = useAuth()
-  const [stats, setStats] = useState(null)
-  const [period, setPeriod] = useState([])
+  const [users, setUsers] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
+  const [periodStats, setPeriodStats] = useState([])
   const [activity, setActivity] = useState([])
-  const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
 
-  useEffect(() => {
-    if (!currentUser) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- стандартный паттерн loading-флага перед fetch
+  // ── Общий список пользователей + общая лента активности ──────────────
+  const loadOverview = useCallback(async () => {
     setLoading(true)
-    Promise.all([
-      invoke('get_users_stats')
-        .then(r => r.find(u => u.user_id === currentUser.user_id))
-        .catch(() => null),
-      invoke('get_user_period_stats', { userId: currentUser.user_id }).catch(() => []),
-      invoke('get_user_activity_log', { userId: currentUser.user_id, limit: 50, offset: 0 }).catch(
-        () => []
-      ),
-      invoke('get_my_card_assignments').catch(() => []),
-    ]).then(([s, p, a, ca]) => {
-      setStats(s)
-      setPeriod(p)
+    try {
+      const [u, a] = await Promise.all([
+        invoke('get_users_stats').catch(() => []),
+        // user_id не передан -> get_user_activity_log отдаёт всех
+        // пользователей разом (см. database/_users.rs), это и есть общая
+        // лента активности команды, а не только текущего юзера.
+        invoke('get_user_activity_log', { userId: null, limit: 100, offset: 0 }).catch(() => []),
+      ])
+      setUsers(u.map(withDerived))
       setActivity(a)
-      setAssignments(ca)
+      setSelectedId(prev => prev ?? u[0]?.user_id ?? currentUser?.user_id ?? null)
+    } finally {
       setLoading(false)
-    })
+    }
   }, [currentUser])
 
-  if (loading)
+  useEffect(() => {
+    loadOverview()
+  }, [loadOverview])
+
+  // ── По периодам для выбранного оператора ──────────────────────────────
+  useEffect(() => {
+    if (!selectedId) return
+    let cancelled = false
+    setDetailLoading(true)
+    invoke('get_user_period_stats', { userId: selectedId })
+      .catch(() => [])
+      .then(p => {
+        if (!cancelled) setPeriodStats(p)
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId])
+
+  const selected = useMemo(
+    () => users.find(u => u.user_id === selectedId) ?? null,
+    [users, selectedId]
+  )
+
+  const team = useMemo(() => {
+    const active = users.filter(u => u.is_active)
+    return active.reduce(
+      (acc, u) => ({
+        operators: acc.operators + 1,
+        online: acc.online + (u.active_sessions > 0 ? 1 : 0),
+        cards: acc.cards + (u.cards_taken || 0),
+        orders: acc.orders + (u.orders_created || 0),
+        delivered: acc.delivered + (u.orders_delivered || 0),
+        declined: acc.declined + (u.orders_declined || 0),
+        spent: acc.spent + (u.total_spent || 0),
+      }),
+      { operators: 0, online: 0, cards: 0, orders: 0, delivered: 0, declined: 0, spent: 0 }
+    )
+  }, [users])
+
+  const teamConversion =
+    team.delivered + team.declined > 0
+      ? (team.delivered / (team.delivered + team.declined)) * 100
+      : null
+
+  if (loading) {
     return (
-      <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
-        {/* Header skeleton */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              animation: 'pulse 2s infinite',
-            }}
-          />
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                height: 24,
-                borderRadius: 8,
-                background: 'var(--surface)',
-                marginBottom: 8,
-                animation: 'pulse 2s infinite',
-              }}
-            />
-            <div
-              style={{
-                height: 16,
-                borderRadius: 6,
-                background: 'var(--surface)',
-                width: '60%',
-                animation: 'pulse 2s infinite',
-              }}
-            />
+      <div className="content">
+        <div className="ph">
+          <div className="ph-title">
+            <Users size={14} /> Общая статистика
           </div>
         </div>
-
-        {/* Stats grid skeleton */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div
-              key={i}
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                padding: '16px 18px',
-                height: 120,
-                animation: 'pulse 2s infinite',
-              }}
-            />
-          ))}
+        <div className="panel" style={{ padding: 40, textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto' }} />
         </div>
-
-        {/* Tabs skeleton */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {[1, 2, 3].map(i => (
-            <div
-              key={i}
-              style={{
-                height: 32,
-                width: 100,
-                borderRadius: 6,
-                background: 'var(--surface)',
-                animation: 'pulse 2s infinite',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Content skeleton */}
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: 20,
-            height: 300,
-            animation: 'pulse 2s infinite',
-          }}
-        />
       </div>
     )
-
-  const convRate =
-    stats && stats.orders_created > 0
-      ? ((stats.orders_delivered / stats.orders_created) * 100).toFixed(1) + '%'
-      : '—'
+  }
 
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            background: 'rgba(59,130,246,0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 22,
-            fontWeight: 700,
-            color: 'var(--accent-blue)',
-          }}
-        >
-          {(currentUser?.display_name || currentUser?.username || '?')[0].toUpperCase()}
-        </div>
+    <div className="content">
+      <div className="ph">
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
-            {currentUser?.display_name || currentUser?.username}
-          </h1>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
-            Ваша личная статистика
+          <div className="ph-title">
+            <Users size={14} /> Общая статистика
+            <span className="text-muted text-[14px] font-normal">
+              {' '}
+              {team.operators} {team.operators === 1 ? 'пользователь' : 'пользователей'}
+              {team.online > 0 && ` · ${team.online} в сети`}
+            </span>
           </div>
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 2,
-          marginBottom: 20,
-          borderBottom: '1px solid var(--border)',
-        }}
-      >
-        {[
-          { key: 'overview', label: 'Обзор' },
-          { key: 'periods', label: 'По периодам' },
-          { key: 'cards', label: 'Мои карты' },
-          { key: 'activity', label: 'Активность' },
-        ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            style={{
-              padding: '9px 18px',
-              border: 'none',
-              background: 'none',
-              cursor: 'pointer',
-              fontSize: 13,
-              color: activeTab === t.key ? 'var(--accent-blue)' : 'var(--muted)',
-              borderBottom:
-                activeTab === t.key ? '2px solid var(--accent-blue)' : '2px solid transparent',
-              fontWeight: activeTab === t.key ? 600 : 400,
-              marginBottom: -1,
-            }}
-          >
-            {t.label}
-            {t.key === 'cards' && assignments.length > 0 && (
-              <span
-                style={{
-                  marginLeft: 6,
-                  fontSize: 11,
-                  background: 'var(--accent-blue)',
-                  color: 'white',
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                }}
-              >
-                {assignments.length}
-              </span>
-            )}
+        <div className="ph-actions">
+          <button onClick={loadOverview} className="btn btn-ghost btn-sm">
+            {loading ? '⟳' : '↺'} Обновить
           </button>
-        ))}
+        </div>
       </div>
 
-      {/* Overview */}
-      {activeTab === 'overview' && stats && (
-        <div>
+      {/* Сводка по всей команде */}
+      <div className="stat-bar-grid mb-3">
+        <div className="stat-card">
+          <div className="stat-card-label">Карт взято</div>
+          <div className="stat-card-value">{team.cards}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Заказов</div>
+          <div className="stat-card-value">{team.orders}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Доставлено</div>
+          <div className="stat-card-value text-green-t">{team.delivered}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Отказов</div>
+          <div className="stat-card-value text-red-t">{team.declined}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Конверсия команды</div>
           <div
+            className="stat-card-value"
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 12,
-              marginBottom: 20,
+              color: teamConversion !== null ? getDeliveryRateColor(teamConversion) : undefined,
             }}
           >
-            <StatCard
-              icon={<CreditCard size={16} />}
-              label="Карт взято всего"
-              value={stats.cards_taken}
-              color="var(--accent-blue)"
-            />
-            <StatCard
-              icon={<ShoppingCart size={16} />}
-              label="Заказов создано"
-              value={stats.orders_created}
-              color="var(--accent-green)"
-            />
-            <StatCard
-              icon={<TrendingUp size={16} />}
-              label="Потрачено всего"
-              value={fmtMoney(stats.total_spent)}
-              color="var(--accent-yellow)"
-            />
-            <StatCard icon={<Truck size={16} />} label="Треков" value={stats.tracking_count} />
+            {teamConversion !== null ? `${teamConversion.toFixed(1)}%` : '—'}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            <StatCard
-              icon={<CheckCircle size={16} />}
-              label="Доставлено"
-              value={stats.orders_delivered}
-              color="var(--accent-green)"
-            />
-            <StatCard
-              icon={<XCircle size={16} />}
-              label="Отказов"
-              value={stats.orders_declined}
-              color="var(--accent-red)"
-            />
-            <StatCard
-              icon={<BarChart2 size={16} />}
-              label="Конверсия"
-              value={convRate}
-              sub="delivered / created"
-            />
-            <StatCard
-              icon={<CreditCard size={16} />}
-              label="Добавлено вручную"
-              value={stats.cards_added_manual}
-            />
-          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Оборот</div>
+          <div className="stat-card-value">{fmtMoney(team.spent)}</div>
+        </div>
+      </div>
 
-          {/* Last seen / IP */}
+      <div className="stats-split-layout">
+        {/* Список операторов — кликабельная таблица */}
+        <div className="panel p-0 overflow-hidden">
           <div
-            style={{
-              marginTop: 20,
-              padding: '14px 18px',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-            }}
+            className="px-4 py-3 text-[13px] font-semibold text-text-2"
+            style={{ borderBottom: '1px solid var(--border)' }}
           >
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: 12,
-              }}
-            >
-              Сессия
-            </div>
-            <div style={{ display: 'flex', gap: 32 }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
-                  Последний вход
-                </div>
-                <div style={{ fontSize: 14 }}>{fmtDate(stats.last_seen)}</div>
+            Пользователи
+          </div>
+          <div className="overflow-x-auto">
+            <table className="tbl w-full">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th className="text-right">Заказов</th>
+                  <th className="text-right">Конверсия</th>
+                  <th className="text-right">Оборот</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users
+                  .slice()
+                  .sort((a, b) => b.orders_delivered - a.orders_delivered)
+                  .map(u => (
+                    <tr
+                      key={u.user_id}
+                      onClick={() => setSelectedId(u.user_id)}
+                      className={u.user_id === selectedId ? 'row-selected' : ''}
+                      style={{ cursor: 'pointer', opacity: u.is_active ? 1 : 0.5 }}
+                    >
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="status-dot"
+                            style={{
+                              background:
+                                u.active_sessions > 0 ? 'var(--green-t)' : 'var(--border)',
+                            }}
+                          />
+                          <div>
+                            <div className="text-text-1">{u.display_name || u.username}</div>
+                            <div className="text-[10px] text-muted flex items-center gap-1">
+                              {u.role === 'admin' && <Shield size={9} />}
+                              {u.role === 'admin' ? 'админ' : 'оператор'}
+                              {!u.is_active && ' · отключён'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="text-right">{u.orders_created || 0}</td>
+                      <td className="text-right">
+                        {u.conversion === null ? (
+                          <span className="text-muted">—</span>
+                        ) : (
+                          <span
+                            style={{ color: getDeliveryRateColor(u.conversion), fontWeight: 600 }}
+                          >
+                            {u.conversion.toFixed(1)}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-right mono">{fmtMoney(u.total_spent)}</td>
+                    </tr>
+                  ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted" style={{ padding: 32 }}>
+                      Нет пользователей
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Детальная карточка выбранного пользователя */}
+        <div className="panel">
+          {!selected ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <Users />
               </div>
-              {stats.last_ip && (
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
-                    IP-адрес
-                  </div>
-                  <div style={{ fontSize: 14, fontFamily: 'monospace' }}>{stats.last_ip}</div>
-                </div>
-              )}
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
-                  Активных сессий (1ч)
-                </div>
+              <div className="empty-state-title">Выберите пользователя</div>
+              <div className="empty-state-text">Кликните по строке в списке слева</div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-3">
                 <div
+                  className="flex items-center justify-center"
                   style={{
-                    fontSize: 14,
-                    color: stats.active_sessions > 0 ? 'var(--accent-green)' : 'var(--muted)',
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: 'var(--color-info-bg)',
+                    color: 'var(--blue-t)',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    flexShrink: 0,
                   }}
                 >
-                  {stats.active_sessions}
+                  {(selected.display_name || selected.username || '?')[0].toUpperCase()}
+                </div>
+                <div>
+                  <div className="text-[15px] font-semibold">
+                    {selected.display_name || selected.username}
+                  </div>
+                  <div className="text-[12px] text-muted">
+                    {selected.role === 'admin' ? 'Администратор' : 'Оператор'} · @
+                    {selected.username}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Periods */}
-      {activeTab === 'periods' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {period.map(p => (
-            <div
-              key={p.period}
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                padding: '16px 20px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <Calendar size={15} style={{ color: 'var(--accent-blue)' }} />
-                <span style={{ fontWeight: 600, fontSize: 15 }}>
-                  {PERIOD_MAP[p.period] ?? p.period}
-                </span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+              <div className="tabs mb-3">
                 {[
-                  { label: 'Карт взято', value: p.cards_taken, color: 'var(--accent-blue)' },
-                  { label: 'Заказов', value: p.orders_created, color: 'var(--text)' },
-                  { label: 'Доставлено', value: p.orders_delivered, color: 'var(--accent-green)' },
-                  { label: 'Сумма', value: fmtMoney(p.total_spent), color: 'var(--accent-yellow)' },
-                  {
-                    label: 'Конверсия',
-                    value:
-                      p.orders_created > 0
-                        ? ((p.orders_delivered / p.orders_created) * 100).toFixed(0) + '%'
-                        : '—',
-                    color: 'var(--muted)',
-                  },
-                ].map((item, idx) => (
-                  <div key={idx}>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>
-                      {item.label}
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: item.color }}>
-                      {item.value}
-                    </div>
-                  </div>
+                  { key: 'overview', label: 'Обзор' },
+                  { key: 'periods', label: 'По периодам' },
+                ].map(tb => (
+                  <button
+                    key={tb.key}
+                    className={`tab${activeTab === tb.key ? ' active' : ''}`}
+                    onClick={() => setActiveTab(tb.key)}
+                  >
+                    {tb.label}
+                  </button>
                 ))}
               </div>
-            </div>
-          ))}
-          {period.length === 0 && (
-            <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>Нет данных</p>
-          )}
-        </div>
-      )}
 
-      {/* My cards */}
-      {activeTab === 'cards' && (
-        <div>
-          {assignments.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 60 }}>
-              <CreditCard size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
-              <p>Вы ещё не взяли ни одной карты из пула</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {assignments.map(ca => (
-                <div
-                  key={ca.card_id}
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    padding: '12px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                  }}
-                >
-                  <CreditCard size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 13 }}>
-                      Card #{ca.card_id}
-                    </span>
+              {activeTab === 'overview' && (
+                <>
+                  <div className="stat-bar-grid mb-3">
+                    <div className="stat-card">
+                      <div className="stat-card-label flex items-center gap-1">
+                        <CreditCard size={11} /> Карт взято
+                      </div>
+                      <div className="stat-card-value">{selected.cards_taken}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-card-label flex items-center gap-1">
+                        <ShoppingCart size={11} /> Заказов
+                      </div>
+                      <div className="stat-card-value">{selected.orders_created}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-card-label flex items-center gap-1">
+                        <TrendingUp size={11} /> Потрачено
+                      </div>
+                      <div className="stat-card-value">{fmtMoney(selected.total_spent)}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-card-label flex items-center gap-1">
+                        <Truck size={11} /> Треков
+                      </div>
+                      <div className="stat-card-value">{selected.tracking_count}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-card-label flex items-center gap-1">
+                        <CheckCircle size={11} /> Доставлено
+                      </div>
+                      <div className="stat-card-value text-green-t">
+                        {selected.orders_delivered}
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-card-label flex items-center gap-1">
+                        <XCircle size={11} /> Отказов
+                      </div>
+                      <div className="stat-card-value text-red-t">{selected.orders_declined}</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    Взята: {fmtDate(ca.assigned_at)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Activity */}
-      {activeTab === 'activity' && (
-        <div>
-          {activity.length === 0 ? (
-            <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>
-              Активности нет
-            </p>
-          ) : (
-            activity.map(a => (
-              <div
-                key={a.id}
-                style={{
-                  display: 'flex',
-                  gap: 12,
-                  padding: '10px 0',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
-                <span style={{ fontSize: 18, flexShrink: 0 }}>
-                  {ACTION_ICONS[a.action_type] ?? '📋'}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: 'var(--text)' }}>{a.action_type}</div>
-                  {a.details && (
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{a.details}</div>
+                  <div className="panel-inset">
+                    <div className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
+                      Сессия
+                    </div>
+                    <div className="flex gap-8">
+                      <div>
+                        <div className="text-[11px] text-muted mb-1">Последний вход</div>
+                        <div className="text-[13px]">{fmtDate(selected.last_seen)}</div>
+                      </div>
+                      {selected.last_ip && (
+                        <div>
+                          <div className="text-[11px] text-muted mb-1">IP-адрес</div>
+                          <div className="text-[13px] mono">{selected.last_ip}</div>
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-[11px] text-muted mb-1">Активных сессий (1ч)</div>
+                        <div
+                          className="text-[13px]"
+                          style={{
+                            color: selected.active_sessions > 0 ? 'var(--green-t)' : 'var(--muted)',
+                          }}
+                        >
+                          {selected.active_sessions}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'periods' && (
+                <div className="flex flex-col gap-3">
+                  {detailLoading && <div className="spinner" style={{ margin: '20px auto' }} />}
+                  {!detailLoading &&
+                    periodStats.map(p => (
+                      <div key={p.period} className="panel-inset">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Calendar size={13} className="text-blue-t" />
+                          <span className="text-[14px] font-semibold">
+                            {PERIOD_MAP[p.period] ?? p.period}
+                          </span>
+                        </div>
+                        <div className="stat-bar-grid">
+                          <div>
+                            <div className="text-[11px] text-muted mb-1">Карт взято</div>
+                            <div className="text-[18px] font-bold text-blue-t">{p.cards_taken}</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] text-muted mb-1">Заказов</div>
+                            <div className="text-[18px] font-bold">{p.orders_created}</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] text-muted mb-1">Доставлено</div>
+                            <div className="text-[18px] font-bold text-green-t">
+                              {p.orders_delivered}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] text-muted mb-1">Сумма</div>
+                            <div className="text-[18px] font-bold">{fmtMoney(p.total_spent)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  {!detailLoading && periodStats.length === 0 && (
+                    <p className="text-muted text-center" style={{ padding: 32 }}>
+                      Нет данных
+                    </p>
                   )}
                 </div>
-                <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{fmtDate(a.created_at)}</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Общая лента активности команды */}
+      <div className="panel mt-3">
+        <div className="flex items-center gap-2 mb-3">
+          <Activity size={13} className="text-blue-t" />
+          <span className="text-[13px] font-semibold text-text-2">Активность команды</span>
+        </div>
+        {activity.length === 0 ? (
+          <p className="text-muted text-center" style={{ padding: 32 }}>
+            Активности нет
+          </p>
+        ) : (
+          <div className="activity-feed">
+            {activity.map(a => (
+              <div key={a.id} className="activity-feed-item">
+                <span className="activity-feed-icon">{ACTION_ICONS[a.action_type] ?? '📋'}</span>
+                <div className="flex-1">
+                  <div className="text-[13px]">
+                    <span className="font-semibold">{a.display_name || a.username}</span>{' '}
+                    <span className="text-muted">{a.action_type}</span>
+                  </div>
+                  {a.details && <div className="text-[12px] text-muted">{a.details}</div>}
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-[12px] text-muted">{fmtDate(a.created_at)}</div>
                   {a.ip_address && (
-                    <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                      {a.ip_address}
-                    </div>
+                    <div className="text-[11px] text-muted mono">{a.ip_address}</div>
                   )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

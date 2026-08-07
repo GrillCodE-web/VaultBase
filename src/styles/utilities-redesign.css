@@ -595,37 +595,8 @@
 }
 
 /* ── Dropdown Menu ──────────────────────────────────────── */
-.dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: var(--card);
-  border: 1px solid var(--border-hi);
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-  z-index: var(--z-modal);
-  min-width: 180px;
-  padding: 4px 0;
-}
-
-.dropdown-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text);
-  text-align: left;
-}
-
-.dropdown-item:hover {
-  background: var(--surface);
-}
+/* .dropdown-menu / .dropdown-item удалены отсюда как мёртвый
+   дубликат — единственный источник теперь pages/premium-enhancements.css */
 
 /* ── Capitalize ─────────────────────────────────────────── */
 .capitalize {
@@ -1431,7 +1402,7 @@
 }
 
 /* ── Badge Variants ─────────────────────────────────────── */
-.badge-primary {
+.badge-mini {
   font-size: 9px;
   color: var(--green-t);
   background: rgba(34, 197, 94, 0.1);
@@ -2228,13 +2199,14 @@
 }
 
 /* ── Spinner ────────────────────────────────────────────── */
+/* animation убран — единственный источник анимации теперь
+   tokens-redesign.css (spin 1s steps(12) с !important) */
 .spinner {
   width: 40px;
   height: 40px;
   border-radius: 50%;
   border: 2px solid var(--accent);
   border-top-color: transparent;
-  animation: spin 0.8s linear infinite;
 }
 
 .spinner-sm {
@@ -2243,7 +2215,6 @@
   border-radius: 50%;
   border: 2px solid var(--accent);
   border-top-color: transparent;
-  animation: spin 0.8s linear infinite;
   flex-shrink: 0;
 }
 

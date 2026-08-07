@@ -789,12 +789,12 @@ function PremiumStatCard({
           <Icon size={22} />
         </div>
 
-        <div className="stat-card-label">{label}</div>
+        <div className="dashboard-stat-label">{label}</div>
 
-        <div className="stat-card-value">{value}</div>
+        <div className="dashboard-stat-value">{value}</div>
 
         {subtext && (
-          <div className={`stat-card-sub ${trendClass}`}>
+          <div className={`dashboard-stat-sub ${trendClass}`}>
             {trend && <span className="trend-indicator">{trendIcon}</span>}
             {subtext}
           </div>

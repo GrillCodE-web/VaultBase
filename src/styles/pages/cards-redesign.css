@@ -484,7 +484,7 @@ td .filter-link-badge.domain-badge:hover {
   margin-bottom: var(--sp-4);
 }
 
-.shop-usage-item {
+.card-shop-usage-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -492,11 +492,11 @@ td .filter-link-badge.domain-badge:hover {
   border-bottom: 1px solid var(--border);
 }
 
-.shop-usage-item:last-child {
+.card-shop-usage-item:last-child {
   border-bottom: none;
 }
 
-.shop-usage-name {
+.card-shop-usage-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
@@ -527,24 +527,29 @@ td .filter-link-badge.domain-badge:hover {
   opacity: 0.3;
 }
 
+/* Полное определение перенесено из orders-redesign.css (канон),
+   т.к. cards-redesign.css импортируется РАНЬШЕ orders-redesign.css
+   в index-redesign.css — см. пункт 9 задачи по устранению коллизий. */
 .timeline-event {
   position: relative;
-  padding-bottom: var(--sp-4);
+  padding-bottom: var(--sp-6);
+  margin-bottom: var(--sp-4);
 }
 
 .timeline-event:last-child {
   padding-bottom: 0;
+  margin-bottom: 0;
 }
 
 .timeline-event::before {
   content: '';
   position: absolute;
-  left: -19px;
-  top: 4px;
-  width: 10px;
-  height: 10px;
+  left: -21px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
   background: var(--accent);
-  border: 2px solid var(--card);
+  border: 3px solid var(--card);
   border-radius: 50%;
   box-shadow: 0 0 0 2px var(--accent-dim);
 }

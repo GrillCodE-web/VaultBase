@@ -67,6 +67,7 @@
 @import './pages/activity-log-redesign.css' layer(app);
 @import './pages/catalog-redesign.css' layer(app);
 @import './pages/onboarding-redesign.css' layer(app);
+@import './pages/stats-redesign.css' layer(app);
 @import './pages/premium-enhancements.css' layer(app);
 
 /* ── Tailwind ───────────────────────────────────────────── */

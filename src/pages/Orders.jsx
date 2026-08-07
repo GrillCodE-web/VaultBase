@@ -1070,7 +1070,7 @@ function CreateOrderModal({ onCreated, onClose }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 text-[12px]">
                         <span className="text-text font-medium">{d.recipient_name}</span>
-                        {d.is_primary && <span className="badge-primary">primary</span>}
+                        {d.is_primary && <span className="badge-mini">primary</span>}
                       </div>
                       <div className="text-[11px] text-muted">
                         {d.address}, {d.city}

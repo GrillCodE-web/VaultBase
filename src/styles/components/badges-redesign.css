@@ -613,12 +613,5 @@
   white-space: nowrap;
 }
 
-/* ── Flag Pill (for shop flags) ─────────────────────────── */
-.flag-pill {
-  display: inline-flex;
-  padding: 2px 7px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  white-space: nowrap;
-}
+/* .flag-pill удалён отсюда — единственный источник теперь
+   pages/shops-redesign.css (более полное определение) */

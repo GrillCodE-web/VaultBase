@@ -109,13 +109,8 @@
 }
 
 /* ── Status Dot ─────────────────────────────────────────── */
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-  animation: none;
-}
+/* .status-dot удалён отсюда — канон 8px теперь только в
+   components/badges-redesign.css */
 
 .dot-green {
   background: var(--green-t);

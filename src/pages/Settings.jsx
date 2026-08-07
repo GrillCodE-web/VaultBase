@@ -247,8 +247,12 @@ export default function Settings() {
 
   const saveStufferConfig = async () => {
     try {
+      // apiKey шлём строкой, а не null. Tauri v2 при десериализации аргумента
+      // отвергает явный null для Option<String> ("invalid type: null, expected
+      // a string"); пустая строка проходит, а бэкенд трактует её как «ключ не
+      // трогать» (main.rs: if !key.trim().is_empty()).
       await invoke('stuffer_set_config', {
-        apiKey: stufferKey.trim() ? stufferKey.trim() : null,
+        apiKey: stufferKey.trim(),
         baseUrl: stufferUrl.trim(),
       })
       if (stufferKey.trim()) setStufferKeySet(true)

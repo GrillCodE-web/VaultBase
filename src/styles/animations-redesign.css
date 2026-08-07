@@ -670,10 +670,10 @@
   animation: none;
 }
 
-/* Spinner */
-.spinner {
-  animation: spin 0.8s linear infinite;
-}
+/* Spinner: свойство animation убрано отсюда — этот файл не
+   определял геометрию .spinner, только анимацию (дубликат).
+   Единственный источник анимации — tokens-redesign.css
+   (spin 1s steps(12) с !important). */
 
 /* ── Reduced Motion Support ─────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
