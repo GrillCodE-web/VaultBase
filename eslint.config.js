@@ -58,6 +58,16 @@ export default [
       'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // Правила из нового eslint-plugin-react-hooks (React Compiler).
+      // Они появились при обновлении плагина и разом дали 30 ошибок на
+      // коде, который не менялся, — это замечания к качеству, а не поломки.
+      // Держим как warn: блокировать сборку из-за них нельзя, но и прятать
+      // не стоит — их надо расшить отдельной задачей (17 мест setState
+      // внутри useEffect, 7 обращений к ref в рендере).
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/incompatible-library': 'warn',
+      'react-hooks/immutability': 'warn',
       'react-refresh/only-export-components': 'warn',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-console': ['warn', { allow: ['warn', 'error'] }],

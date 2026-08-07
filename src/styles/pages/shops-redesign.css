@@ -251,45 +251,16 @@
   border-radius: 2px;
 }
 
-/* ── Stat Card (detail panel) ───────────────────────────── */
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 14px 16px;
-  text-align: center;
-  transition: all var(--t-fast);
-}
-
-.stat-card:hover {
-  background: var(--card-hi);
-  border-color: var(--border-hi);
-}
-
-.stat-card-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 8px;
-  font-family: var(--font-mono);
-}
-
-.stat-card-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  font-family: var(--font-ui);
-  letter-spacing: -0.01em;
-}
-
-.stat-card-sub {
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 4px;
-  font-family: var(--font-ui);
-}
+/* ── Stat Card (detail panel) ─────────────────────────────
+   Общие правила .stat-card / -label / -value / -sub живут в
+   components/panel-redesign.css. Здесь они были продублированы
+   один в один, но файл страницы импортируется ПОЗЖЕ — и потому
+   перебивал дашборд: там .stat-card-value задан 32px моноширинным
+   (pages/dashboard-cards-redesign.css), а выигрывала эта копия —
+   20px системным шрифтом. Проверено в браузере.
+   Дубликат удалён. Если магазинам понадобится свой вид, задавайте
+   его вложенным селектором вроде `.shops-page .stat-card-value`,
+   а не переопределением глобального класса. */
 
 /* ── Stat Bar Item ──────────────────────────────────────── */
 .stat-bar-item {

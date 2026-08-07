@@ -52,24 +52,28 @@ jobs:
             label: macos-arm64
             bundles: dmg,app,updater
 
-          # macOS Intel — produces .dmg (x86_64)
-          - os: macos-13
-            target: x86_64-apple-darwin
-            label: macos-x64
-            bundles: dmg,app,updater
+          # macOS Intel убран: раннеры macos-13 стоят в очереди по 20+ минут
+          # (Apple Silicon давно основная платформа), а Intel-Mac'и с 2020 года
+          # не выпускаются. Вернуть — добавить сюда обратно:
+          #   - os: macos-13
+          #     target: x86_64-apple-darwin
+          #     label: macos-x64
+          #     bundles: dmg,app,updater
 
     name: Build · ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
 
     steps:
       # ─── Checkout ────────────────────────────────────────────────────
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ─── Node.js ─────────────────────────────────────────────────────
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          # 22 — актуальная LTS. На 20 раннеры GitHub уже ругаются
+          # (deprecation с 2025-09) и принудительно поднимают до 24.
+          node-version: '22'
           cache: 'npm'
 
       # ─── Rust ────────────────────────────────────────────────────────
@@ -133,7 +137,6 @@ jobs:
             - Windows x64: `.msi` (MSI installer) / `_x64-setup.exe` (NSIS)
             - Linux x64: `.deb` (Debian/Ubuntu) / `.AppImage` (универсальный)
             - macOS Apple Silicon (M1/M2/M3/M4): `.dmg`
-            - macOS Intel: `.dmg`
           # false, а не true: с releaseDraft релиз оставался ЧЕРНОВИКОМ и на
           # странице Releases были видны только авто-архивы исходников
           # (Source code zip/tar.gz), которые GitHub создаёт для любого тега
@@ -147,7 +150,7 @@ jobs:
 
       # ─── Upload artifacts (also available without a release tag) ─────
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vaultbase-${{ matrix.label }}
           path: |
@@ -172,10 +175,10 @@ jobs:
     if: ${{ github.event_name == 'push' || inputs.publish_to_panel }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Скачать все артефакты
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
