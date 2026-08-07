@@ -126,7 +126,11 @@ jobs:
             - Linux x64: `.deb` (Debian/Ubuntu) / `.AppImage` (универсальный)
             - macOS Apple Silicon (M1/M2/M3/M4): `.dmg`
             - macOS Intel: `.dmg`
-          releaseDraft: true
+          # false, а не true: с releaseDraft релиз оставался ЧЕРНОВИКОМ и на
+          # странице Releases были видны только авто-архивы исходников
+          # (Source code zip/tar.gz), которые GitHub создаёт для любого тега
+          # сам. Установщики лежали в черновике и выглядели как «сборок нет».
+          releaseDraft: false
           prerelease: false
           # Бандл `updater` обязателен: без него Tauri не создаёт .sig-подписи,
           # и встроенное авто-обновление молча не работает (проверено на локальной
