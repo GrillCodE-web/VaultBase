@@ -13,7 +13,7 @@ export const ru = {
   nav_activity_log: 'Лог активности',
   nav_settings: 'Настройки',
   nav_users: 'Пользователи',
-  nav_my_stats: 'Моя статистика',
+  nav_my_stats: 'Общая статистика',
   nav_catalog: 'Каталог',
 
   // Common

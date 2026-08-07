@@ -139,6 +139,36 @@ export function handleError(error, context = '') {
     }
   }
 
+  // Ошибки интеграции Stuffer. Ветка стоит ДО общих проверок на
+  // `invalid`/`validation`: текст ошибки Stuffer-сервера подставляется
+  // дословно и часто содержит слово "invalid", из-за чего пользователь видел
+  // бессмысленное «Validation failed. Please check your input.» вместо
+  // настоящей причины — например, что API-ключ вообще не задан.
+  if (message.startsWith('stuffer_')) {
+    let human
+    if (message.includes('not_configured')) {
+      human = 'Stuffer не настроен: укажите API-ключ в Настройках.'
+    } else if (message.includes('network_error')) {
+      human = 'Нет связи со Stuffer API. Проверьте интернет и base URL.'
+    } else if (/stuffer_http_(401|403)/.test(message)) {
+      human = 'Stuffer отклонил API-ключ. Проверьте его в Настройках.'
+    } else if (message.includes('stuffer_http_404')) {
+      human = 'Stuffer: адрес не найден. Проверьте base URL в Настройках.'
+    } else {
+      // stuffer_api_error:<код>: <текст сервера> — показываем как есть,
+      // это единственный источник правды о том, что не понравилось Stuffer.
+      const detail = message.split(':').slice(1).join(':').trim()
+      human = detail ? `Stuffer: ${detail}` : 'Ошибка Stuffer API.'
+    }
+    return {
+      type: 'StufferError',
+      code: 'STUFFER_ERROR',
+      message: human,
+      details: { originalMessage: message },
+      context,
+    }
+  }
+
   if (message.includes('card_owned_by_another_user')) {
     return {
       type: 'PermissionError',
