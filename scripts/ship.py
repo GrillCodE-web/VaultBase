@@ -23,6 +23,7 @@
 Окружение:
     GITHUB_TOKEN  токен с правами repo (для опроса статуса сборки и скачивания)
     VPS_HOST / VPS_USER / VPS_PASS      для заливки на сервер
+
 """
 import argparse
 import io
