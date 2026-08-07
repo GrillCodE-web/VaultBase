@@ -1,0 +1,30 @@
+# Пример локальной Rust-цепочки. Скопируйте в rust-toolchain.toml,
+# если она вам нужна — сам rust-toolchain.toml в .gitignore.
+#
+# ЗАЧЕМ ФАЙЛ НЕ В РЕПОЗИТОРИИ
+#
+# Он фиксирует цепочку для ВСЕХ платформ сразу. С каналом
+# stable-x86_64-pc-windows-gnu сборки macOS и Linux в CI падают ещё
+# на `cargo metadata`:
+#
+#   error: target tuple in channel name 'stable-x86_64-pc-windows-gnu'
+#
+# Раньше файл лежал в git и ронял три платформы из четырёх.
+#
+# КОГДА ОН НУЖЕН ЛОКАЛЬНО
+#
+# Если на Windows-машине недоступна MSVC-цепочка — например, повреждена
+# C:\ProgramData\Package Cache и VC++ Redist не регистрируется
+# (ошибка 1392 / 0x80070570), из-за чего установщик Visual Studio
+# откатывает транзакцию вместе с Windows SDK. Без SDK линковка через
+# link.exe невозможна.
+#
+# GNU-цепочка линкуется через MinGW и не требует ни VS, ни SDK.
+# Файл нужен именно в src-tauri/: Tauri CLI вызывает cargo сам,
+# без флага +toolchain, и иначе возьмёт MSVC.
+#
+# Требуется MSYS2 mingw64 в PATH:
+#   export PATH="/c/msys64/mingw64/bin:$PATH"
+
+[toolchain]
+channel = "stable-x86_64-pc-windows-gnu"

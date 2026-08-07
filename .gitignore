@@ -36,3 +36,9 @@ coverage/
 .secrets/
 *.key
 !*.key.pub
+
+# Локальная Rust-цепочка. НЕ коммитить: файл фиксирует
+# stable-x86_64-pc-windows-gnu, и в CI macOS/Linux падали с
+# "target tuple in channel name". Каждый разработчик держит свой,
+# пример — src-tauri/rust-toolchain.toml.example
+src-tauri/rust-toolchain.toml
