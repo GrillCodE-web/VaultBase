@@ -76,7 +76,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://sec201-www.otpmanager.pro/update?current_version={{current_version}}"],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJDMTNGMUQxM0IwRDRFQTgKUldTb1RnMDcwZkVUTEVqa0dWWFl4UFhONzhia3o4cmlMY0J6WGNIeEo4dXhqd3ZMUk9vSzhFdTkK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhBQzQzMkUzMUI1RUY2QUYKUldTdjlsNGI0ekxFaWp6dW41b0kwMkJUdFdPdmJld2RPejBrQTdZTms5dmlZaFV6cnY1U2xTSlMK"
     }
   }
 }
