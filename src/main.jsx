@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { HEX_COLORS } from './constants/colors.js'
+import { purgeCacheOnVersionChange } from './utils/cacheBuster.js'
 import './index.css'
 
 class ErrorBoundary extends React.Component {
@@ -43,8 +44,15 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>
-)
+// Сначала проверяем смену версии сборки: если WebView2 держит старый
+// кеш фронта, чистим его и перезагружаемся ДО монтирования React.
+// При перезагрузке функция вернёт true — тогда React не монтируем,
+// страница всё равно вот-вот перезагрузится.
+purgeCacheOnVersionChange().then(reloading => {
+  if (reloading) return
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  )
+})

@@ -1,10 +1,21 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
+import { readFileSync } from "node:fs";
 
 const host = process.env.TAURI_DEV_HOST;
 
+// Версия сборки из package.json — вшивается в бандл как __APP_VERSION__.
+// По ней cacheBuster.js понимает, что установлена новая сборка, и чистит
+// кеш WebView2 (см. src/utils/cacheBuster.js).
+const pkgVersion = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8")
+).version;
+
 export default defineConfig(async () => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkgVersion),
+  },
   plugins: [
     react(),
     visualizer({

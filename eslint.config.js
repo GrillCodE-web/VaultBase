@@ -22,6 +22,8 @@ export default [
         window: 'readonly',
         document: 'readonly',
         navigator: 'readonly',
+        caches: 'readonly',
+        __APP_VERSION__: 'readonly',
         console: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',

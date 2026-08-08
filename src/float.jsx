@@ -10,6 +10,7 @@ import { Lock } from 'lucide-react'
 import { ORDER_STATUS_CSS } from './constants/status.js'
 // HEX_COLORS imported but not used - reserved for future color picker feature
 import { handleError, getErrorMessage } from './utils/errorHandler.js'
+import { purgeCacheOnVersionChange } from './utils/cacheBuster.js'
 import './index.css'
 
 // ─── Copy button ──────────────────────────────────────────────
@@ -600,8 +601,12 @@ function ProfileFloat() {
   )
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <LangProvider>
-    <ProfileFloat />
-  </LangProvider>
-)
+// Флоат-окно делит кеш WebView2 с главным окном — тот же сброс по версии.
+purgeCacheOnVersionChange().then(reloading => {
+  if (reloading) return
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <LangProvider>
+      <ProfileFloat />
+    </LangProvider>
+  )
+})
