@@ -48,8 +48,15 @@ pub fn endpoint(path: &str) -> String {
     }
 }
 
-/// URL socket.io. Если `VAULTBASE_SYNC_WS_URL` не задан, выводится из базы:
+/// URL сырого WebSocket-сервера `/ws` (ws-tauri.js). Если
+/// `VAULTBASE_SYNC_WS_URL` не задан, выводится из базы:
 /// `https://` → `wss://`, `http://` → `ws://`.
+///
+/// Именно `/ws`, а НЕ `/socket.io/`: клиент использует голый tungstenite,
+/// а socket.io v4 требует engine.io handshake (polling → sid → upgrade),
+/// которого tungstenite не делает — сервер отвечал 400 и WS не подключался.
+/// Сервер поднимает оба (`/ws` и `/socket.io/`); сырой `/ws` — простой
+/// JSON-протокол без рукопожатия.
 pub fn ws_url() -> &'static str {
     WS_URL.get_or_init(|| {
         if let Ok(explicit) = std::env::var("VAULTBASE_SYNC_WS_URL") {
@@ -64,7 +71,7 @@ pub fn ws_url() -> &'static str {
         } else {
             format!("wss://{}", base)
         };
-        format!("{}/socket.io/?EIO=4&transport=websocket", ws_base)
+        format!("{}/ws", ws_base)
     })
 }
 
@@ -85,6 +92,6 @@ mod tests {
     fn ws_url_is_websocket_scheme() {
         let u = ws_url();
         assert!(u.starts_with("wss://") || u.starts_with("ws://"), "got {u}");
-        assert!(u.contains("/socket.io/"), "got {u}");
+        assert!(u.ends_with("/ws"), "got {u}");
     }
 }

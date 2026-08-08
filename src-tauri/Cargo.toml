@@ -1,6 +1,6 @@
 [package]
 name = "vaultbase"
-version = "2.8.0"
+version = "2.9.0"
 description = "VaultBase — Desktop CRM for credit card operations"
 authors = []
 edition = "2021"

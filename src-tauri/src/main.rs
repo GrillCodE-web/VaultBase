@@ -1943,8 +1943,12 @@ fn start_background_threads(handle: tauri::AppHandle) {
         let mut consecutive_failures = 0u32;
         const MAX_FAILURES_BEFORE_PAUSE: u32 = 5; // Pause after 5 consecutive failures
 
+        // Небольшая стартовая пауза, чтобы приложение успело разблокироваться
+        // (ввод мастер-пароля), а sleep(120) перенесён в КОНЕЦ цикла — иначе
+        // первая проверка online была только через 2 минуты, и всё это время
+        // в UI висел OFFLINE при живом сервере.
+        std::thread::sleep(std::time::Duration::from_secs(5));
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(120));
             if let Some(st) = STATE.get() {
                 let db_locked = st.db.lock().map(|d| d.is_locked()).unwrap_or(true);
                 if !db_locked {
@@ -1999,6 +2003,9 @@ fn start_background_threads(handle: tauri::AppHandle) {
                     }
                 }
             }
+            // Пауза между проверками — в конце цикла, чтобы первая проверка
+            // онлайна прошла сразу после старта (см. коммент выше).
+            std::thread::sleep(std::time::Duration::from_secs(120));
         }
     });
 

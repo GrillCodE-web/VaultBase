@@ -117,12 +117,13 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
         let ws_url = crate::endpoints::ws_url();
         match connect(ws_url) {
             Ok((mut socket, _)) => {
-                // FIX WS-TOKEN-01: Sanitize token before sending (prevent injection)
+                // Сырой /ws протокол (ws-tauri.js): auth первым фреймом как
+                // {"type":"auth","token":"..."}. Не socket.io (40{...}) —
+                // сервер /ws парсит JSON напрямую.
                 let token_sanitized = token.chars()
                     .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
                     .collect::<String>();
-                // Socket.io connect packet with auth token
-                let auth_msg = format!(r#"40{{"token":"{}"}}"#, token_sanitized);
+                let auth_msg = serde_json::json!({ "type": "auth", "token": token_sanitized }).to_string();
                 if socket.send(Message::Text(auth_msg)).is_err() {
                     std::thread::sleep(Duration::from_secs(RECONNECT_SECS));
                     continue;
@@ -141,8 +142,10 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                 };
 
                 if should_pull {
-                    // Event name must match socket.js `socket.on('sync:full_pull')`.
-                    let full_pull = r#"42["sync:full_pull",{}]"#.to_string();
+                    // /ws протокол: {"type":"full_pull"}. Сервер вернёт full_data
+                    // только если клиент в группе — иначе error:not_in_group,
+                    // который мы молча игнорируем (соло-режим без группы).
+                    let full_pull = serde_json::json!({ "type": "full_pull" }).to_string();
                     let _ = socket.send(Message::Text(full_pull));
                     if let Ok(mut last_pull) = LAST_FULL_PULL.write() {
                         *last_pull = Some(now);
@@ -191,28 +194,24 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                         Ok(Message::Text(text)) => {
                             last_activity = Instant::now();
                             missed_pings = 0; // Reset on any message received
-                            // Socket.io heartbeat: server sends "2" (ping), respond with "3" (pong)
-                            if text == "2" {
-                                let _ = socket.send(Message::Text("3".to_string()));
-                                continue;
-                            }
-                            // Socket.io event frame: "42[\"event\",{...}]"
-                            if let Some(json_str) = text.strip_prefix("42") {
-                                if let Ok(arr) = serde_json::from_str::<Vec<serde_json::Value>>(json_str) {
-                                    if arr.len() >= 2 {
-                                        let event_name = arr[0].as_str().unwrap_or("").to_string();
-                                        let data = arr[1].clone();
-                                        if let Some(state) = crate::STATE.get() {
-                                            if let Ok(db) = state.db.lock() {
-                                                if let Some(pool) = db.pool.as_ref() {
-                                                    handle_socketio_event(&app, pool, &event_name, &data);
-                                                }
-                                            }
+                            // /ws протокол: все сообщения — JSON-объекты с полем
+                            // "type". Разбираем и передаём в обработчик.
+                            if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&text) {
+                                let mtype = msg["type"].as_str().unwrap_or("");
+                                // Сервер шлёт {"type":"ping"} каждые 30с — отвечаем pong.
+                                if mtype == "ping" {
+                                    let pong = serde_json::json!({ "type": "pong" }).to_string();
+                                    let _ = socket.send(Message::Text(pong));
+                                    continue;
+                                }
+                                if let Some(state) = crate::STATE.get() {
+                                    if let Ok(db) = state.db.lock() {
+                                        if let Some(pool) = db.pool.as_ref() {
+                                            handle_ws_message(&app, pool, mtype, &msg);
                                         }
                                     }
                                 }
                             }
-                            // Ignore socket.io handshake ("0...") and connect ("40...") frames
                         }
                         Ok(Message::Ping(p)) => {
                             last_activity = Instant::now();
@@ -262,13 +261,27 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
 }
 
 // ─────────────────────────────────────────
-//  Event handler
+//  Event handler — сырой /ws протокол (ws-tauri.js)
 // ─────────────────────────────────────────
 
-fn handle_socketio_event(app: &AppHandle, pool: &crate::database::DbPool, event_name: &str, data: &serde_json::Value) {
-    match event_name {
-        "card:update" | "sync:full_data" => {
-            let cards = match data["cards"].as_array() {
+fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &str, msg: &serde_json::Value) {
+    match mtype {
+        // {"type":"auth_ok","installation_id":...,"group_id":...}
+        "auth_ok" => {
+            // Соединение подтверждено. Ничего не делаем — статус уже "connected".
+        }
+        // {"type":"auth_error","error":"invalid_token"|"missing_token"}
+        "auth_error" => {
+            let err = msg["error"].as_str().unwrap_or("");
+            eprintln!("[ws_sync] auth_error: {err}");
+            // invalid_token = лицензия отозвана/невалидна — сообщаем UI.
+            if err == "invalid_token" {
+                let _ = app.emit("license_revoked", ());
+            }
+        }
+        // {"type":"card_update"|"full_data","cards":[...],"updated_by":...}
+        "card_update" | "full_data" => {
+            let cards = match msg["cards"].as_array() {
                 Some(c) => c.clone(),
                 None => return,
             };
@@ -279,28 +292,30 @@ fn handle_socketio_event(app: &AppHandle, pool: &crate::database::DbPool, event_
             }
             apply_card_updates(pool, &cards);
 
-            let event = if event_name == "sync:full_data" { "sync:full_data" } else { "sync:card_update" };
+            let event = if mtype == "full_data" { "sync:full_data" } else { "sync:card_update" };
             let _ = app.emit(event, serde_json::json!({
                 "cards": cards,
-                "updated_by": data["updated_by"].as_str().unwrap_or(""),
+                "updated_by": msg["updated_by"].as_str().unwrap_or(""),
             }));
         }
 
-        "group:member_joined" => {
+        "member_joined" => {
             let _ = app.emit("sync:member_joined", serde_json::json!({
-                "installation_id": data["installation_id"].as_str().unwrap_or("")
+                "installation_id": msg["installation_id"].as_str().unwrap_or("")
             }));
         }
 
-        "group:member_left" => {
+        "member_left" => {
             let _ = app.emit("sync:member_left", serde_json::json!({
-                "installation_id": data["installation_id"].as_str().unwrap_or("")
+                "installation_id": msg["installation_id"].as_str().unwrap_or("")
             }));
         }
 
+        // {"type":"catalog_update","payload":{"type":"item"|"shop","data":{...}}}
         "catalog_update" => {
-            let update_type = data["type"].as_str().unwrap_or("");
-            let item_data = &data["data"];
+            let payload = &msg["payload"];
+            let update_type = payload["type"].as_str().unwrap_or("");
+            let item_data = &payload["data"];
             if update_type == "item" {
                 if let Some(name) = item_data["name"].as_str() {
                     let input = models::CatalogItemInput {
@@ -336,6 +351,10 @@ fn handle_socketio_event(app: &AppHandle, pool: &crate::database::DbPool, event_
                 }
             }
         }
+
+        // {"type":"error","error":"not_in_group"|...} — молча игнорируем:
+        // соло-режим без группы получит not_in_group на full_pull, это норма.
+        "error" | "pong" | "group_refreshed" => {}
 
         _ => {}
     }
