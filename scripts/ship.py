@@ -124,12 +124,35 @@ def write_changelog(version, notes):
     log(f"  CHANGELOG: добавлен раздел [{version}]")
 
 
+class _AuthDroppingRedirect(urllib.request.HTTPRedirectHandler):
+    """При редиректе на ДРУГОЙ хост убирает заголовок Authorization.
+
+    GitHub отдаёт zip артефакта как 302 на подписанный Azure-Blob URL, где
+    авторизация уже в самом адресе (SAS). Если протащить туда Bearer-токен
+    GitHub, Azure видит два конфликтующих способа аутентификации и отвечает
+    401. urllib по умолчанию НЕ снимает заголовки при кросс-хостовом
+    редиректе — снимаем сами."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None:
+            from urllib.parse import urlsplit
+            if urlsplit(newurl).hostname != urlsplit(req.full_url).hostname:
+                new.headers.pop("Authorization", None)
+        return new
+
+
+_opener = urllib.request.build_opener(_AuthDroppingRedirect)
+
+
 def api(path, token, raw=False):
+    # Абсолютный URL пропускаем как есть (для follow-up вызовов), иначе — к API.
+    url = path if path.startswith("http") else f"https://api.github.com{path}"
     req = urllib.request.Request(
-        f"https://api.github.com{path}",
+        url,
         headers={"Authorization": f"Bearer {token}", "User-Agent": UA,
                  "Accept": "application/vnd.github+json"})
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with _opener.open(req, timeout=120) as r:
         return r.read() if raw else json.loads(r.read().decode())
 
 
