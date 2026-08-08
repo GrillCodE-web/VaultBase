@@ -205,34 +205,87 @@ def download_artifacts(slug, run_id, token, dest):
     return dest
 
 
+def auto_notes(prev_tag):
+    """Собрать заметки из git-коммитов с прошлого тега.
+
+    Если тег есть — берём subject-строки коммитов после него, выкидывая
+    служебные (release:/Merge). Если тега нет или коммитов нет — общий текст.
+    Это позволяет запускать ship без --notes: заметки берутся из истории."""
+    rng = f"{prev_tag}..HEAD" if prev_tag else "HEAD"
+    raw = git("log", rng, "--pretty=%s", "--no-merges", quiet=True, check=False)
+    lines = []
+    for ln in raw.splitlines():
+        ln = ln.strip()
+        if not ln or ln.startswith(("release:", "Merge ", "Revert ")):
+            continue
+        lines.append(ln)
+    if not lines:
+        return "Обновление VaultBase: мелкие исправления."
+    # Убираем дубли, сохраняя порядок; максимум 15 пунктов.
+    seen, uniq = set(), []
+    for ln in lines:
+        if ln not in seen:
+            seen.add(ln)
+            uniq.append(ln)
+    return "\n".join(f"- {ln}" for ln in uniq[:15])
+
+
+def latest_tag():
+    """Последний семвер-тег vX.Y.Z по возрастанию версий, или None."""
+    raw = git("tag", "-l", "v*", quiet=True, check=False)
+    tags = []
+    for t in raw.split():
+        m = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", t)
+        if m:
+            tags.append((tuple(map(int, m.groups())), t))
+    return max(tags)[1] if tags else None
+
+
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description="Выпуск версии. Без аргументов — полный авто-режим: "
+                    "патч-версия, коммит всех изменений, заметки из git, "
+                    "ожидание сборки и публикация.")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--version", help="точная версия, напр. 2.5.4")
-    g.add_argument("--patch", action="store_true", help="+1 к патчу")
+    g.add_argument("--patch", action="store_true", help="+1 к патчу (по умолчанию)")
     g.add_argument("--minor", action="store_true")
     g.add_argument("--major", action="store_true")
     ap.add_argument("--notes", default="")
     ap.add_argument("--notes-file")
     ap.add_argument("--commit-all", action="store_true",
-                    help="закоммитить все текущие изменения")
+                    help="закоммитить все изменения (в авто-режиме включено)")
+    ap.add_argument("--no-commit", action="store_true",
+                    help="НЕ коммитить автоматически (требовать чистое дерево)")
     ap.add_argument("--no-wait", action="store_true", help="не ждать CI")
     ap.add_argument("--no-publish", action="store_true", help="не заливать на сервер")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
+    # ── Авто-режим ─────────────────────────────────────────────────────
+    # Если не указан ни один способ поднять версию — считаем это «просто
+    # выпусти как надо»: патч + коммит всех изменений. Явные флаги (включая
+    # --no-commit) отключают соответствующую часть авто-режима.
+    bump_given = a.version or a.patch or a.minor or a.major
+    auto = not bump_given
+    commit_all = (a.commit_all or auto) and not a.no_commit
+
+    if auto:
+        log("Авто-режим: патч-версия, коммит изменений, заметки из git.\n")
+
+    # Заметки: явные > файл > авто из git-истории.
     notes = a.notes
     if a.notes_file:
         notes = open(os.path.join(ROOT, a.notes_file), encoding="utf-8").read()
     if not notes.strip():
-        notes = "Обновление VaultBase."
+        notes = auto_notes(latest_tag())
 
     # ── 1. Состояние дерева ────────────────────────────────────────────
     dirty = git("status", "--porcelain", quiet=True)
-    if dirty and not a.commit_all and not a.dry_run:
+    if dirty and not commit_all and not a.dry_run:
         log("Есть незакоммиченные изменения:")
         log("  " + dirty.replace("\n", "\n  ")[:800])
-        die("закоммить их или запусти с --commit-all")
+        die("закоммить их, убери --no-commit, или запусти без флагов (авто-режим сам закоммитит)")
 
     cur = read_versions()
     if len(set(cur.values())) != 1:
