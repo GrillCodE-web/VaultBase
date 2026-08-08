@@ -315,6 +315,59 @@
   overflow: hidden;
 }
 
+/* ── Атмосфера Obsidian Terminal ─────────────────────────────
+   Тонкая зернистость + едва заметный радиальный «подсвет» сверху,
+   чтобы почти-чёрный фон не был мёртво-плоским. Только тёмная
+   тема; pointer-events:none — слой чисто декоративный. SVG-шум
+   инлайном, без сетевого запроса (CSP это позволяет для data:). */
+[data-theme='dark'] body::before,
+[data-theme='dark'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme='dark'] body::before {
+  background:
+    radial-gradient(120% 80% at 50% -20%, rgba(0, 179, 230, 0.06), transparent 60%),
+    radial-gradient(90% 60% at 100% 0%, rgba(0, 147, 184, 0.04), transparent 55%);
+}
+
+[data-theme='dark'] body::after {
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='system'] body::before,
+  [data-theme='system'] body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  [data-theme='system'] body::before {
+    background:
+      radial-gradient(120% 80% at 50% -20%, rgba(0, 179, 230, 0.06), transparent 60%),
+      radial-gradient(90% 60% at 100% 0%, rgba(0, 147, 184, 0.04), transparent 55%);
+  }
+  [data-theme='system'] body::after {
+    opacity: 0.028;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+  }
+}
+
+/* Контент приложения — над декоративными слоями фона. */
+#root {
+  position: relative;
+  z-index: 1;
+}
+
 /* ── Фокус ──────────────────────────────────────────────────
    Радиус здесь не задаётся намеренно: у :focus-visible
    специфичность выше класса, и поле ввода с --r-sm скруглялось

@@ -15,15 +15,16 @@
   color-scheme: light dark;
 
   /* ── Типографика ──────────────────────────────────────────
-     Системный шрифт выбран намеренно: нативное приложение
-     обязано выглядеть частью ОС. Плюс CSP приложения не
-     пропускает внешние шрифты (нет font-src). */
+     OBSIDIAN TERMINAL. Geist — характерный гротеск (не Inter,
+     не системный), геометрия с тёплыми деталями. Geist Mono —
+     на ВСЕ числовые поля: таблично выравнивает колонки цифр.
+     Оба self-hosted (public/fonts), см. fonts.css. Системные
+     имена оставлены как fallback до первого swap. */
   --font-ui:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'Inter Variable',
-    Inter, 'Noto Sans', 'DejaVu Sans', sans-serif;
+    'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'DejaVu Sans', sans-serif;
 
   --font-mono:
-    ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Mono', Consolas, 'JetBrains Mono',
+    'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Mono', Consolas,
     'DejaVu Sans Mono', monospace;
 
   /* Прежние алиасы — чтобы старые объявления не осиротели */
@@ -74,15 +75,16 @@
   --muted: rgba(0, 0, 0, 0.42);
   --dim: rgba(0, 0, 0, 0.28);
 
-  /* ── Акцент (systemBlue) ────────────────────────────────── */
-  --accent: #0a84ff;
-  --accent-hover: #0071e3;
-  --accent-bright: #0071e3;
+  /* ── Акцент (voltage cyan — подпись Obsidian Terminal,
+     намеренно НЕ systemBlue) ──────────────────────────────── */
+  --accent: #0093b8;
+  --accent-hover: #007a99;
+  --accent-bright: #00b3e6;
   --accent-fg: #ffffff;
-  --accent-dim: rgba(10, 132, 255, 0.1);
-  --accent-border: rgba(10, 132, 255, 0.35);
-  --accent-text: #0071e3;
-  --selection: #0a84ff;
+  --accent-dim: rgba(0, 147, 184, 0.1);
+  --accent-border: rgba(0, 147, 184, 0.4);
+  --accent-text: #007a99;
+  --selection: rgba(0, 147, 184, 0.28);
 
   /* Вторичный акцент */
   --purple: #af52de;
@@ -146,7 +148,7 @@
   --color-risk-low-bg: rgba(40, 205, 65, 0.12);
 
   /* ── Графики ────────────────────────────────────────────── */
-  --color-chart-revenue: #0a84ff;
+  --color-chart-revenue: #00b3e6;
   --color-chart-profit: #28cd41;
 
   --color-heatmap-high: rgba(40, 205, 65, 0.55);
@@ -202,14 +204,15 @@
   --sp-10: 40px;
   --sp-12: 48px;
 
-  /* ── Радиусы (мельче, чем были) ─────────────────────────── */
-  --r-xs: 3px;
-  --r-sm: 5px;
-  --r-md: 6px;
-  --r-lg: 8px;
-  --r-xl: 10px;
-  --r-2xl: 12px;
-  --r-window: 10px;
+  /* ── Радиусы: Obsidian Terminal — резче, «аппаратно».
+     Кнопки/поля почти прямоугольные, только чуть сняты углы. ─ */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 6px;
+  --r-xl: 8px;
+  --r-2xl: 10px;
+  --r-window: 8px;
   --r-full: 9999px;
 
   /* ── Тени: глубина вместо свечения.
@@ -301,30 +304,33 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #1e1e1e;
-  --surface: #252527;
-  --card: #2c2c2e;
-  --card-hi: #323234;
-  --inset: #1c1c1e;
-  --surface-hi: #323234;
+  /* Obsidian: почти-чёрный графит с холодным подтоном, не серый #1e1e1e.
+     Слои расходятся по светлоте ступенями, чтобы панели читались
+     без тяжёлых теней. */
+  --bg: #0c0d10;
+  --surface: #131519;
+  --card: #16181d;
+  --card-hi: #1c1f26;
+  --inset: #0e0f13;
+  --surface-hi: #1c1f26;
 
-  --border: rgba(255, 255, 255, 0.12);
-  --border-hi: rgba(255, 255, 255, 0.2);
-  --separator: rgba(255, 255, 255, 0.08);
-  --border-accent: rgba(10, 132, 255, 0.45);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-hi: rgba(255, 255, 255, 0.16);
+  --separator: rgba(255, 255, 255, 0.06);
+  --border-accent: rgba(0, 179, 230, 0.5);
 
-  --text: #f5f5f7;
-  --text-2: rgba(255, 255, 255, 0.66);
-  --text-3: rgba(255, 255, 255, 0.44);
-  --muted: rgba(255, 255, 255, 0.44);
-  --dim: rgba(255, 255, 255, 0.3);
+  --text: #eceef2;
+  --text-2: rgba(236, 238, 242, 0.64);
+  --text-3: rgba(236, 238, 242, 0.4);
+  --muted: rgba(236, 238, 242, 0.4);
+  --dim: rgba(236, 238, 242, 0.26);
 
-  --accent: #0a84ff;
-  --accent-hover: #409cff;
-  --accent-bright: #409cff;
-  --accent-dim: rgba(10, 132, 255, 0.18);
-  --accent-border: rgba(10, 132, 255, 0.45);
-  --accent-text: #64b0ff;
+  --accent: #00b3e6;
+  --accent-hover: #33c6f0;
+  --accent-bright: #4dd2f5;
+  --accent-dim: rgba(0, 179, 230, 0.16);
+  --accent-border: rgba(0, 179, 230, 0.5);
+  --accent-text: #4dd2f5;
 
   --purple: #bf5af2;
   --purple-bright: #d17ff5;
@@ -381,7 +387,7 @@
   --color-risk-low: #32d74b;
   --color-risk-low-bg: rgba(50, 215, 75, 0.16);
 
-  --color-chart-revenue: #0a84ff;
+  --color-chart-revenue: #00b3e6;
   --color-chart-profit: #32d74b;
 
   --color-heatmap-high: rgba(50, 215, 75, 0.6);
@@ -449,29 +455,30 @@
   [data-theme='system'] {
     color-scheme: dark;
 
-    --bg: #1e1e1e;
-    --surface: #252527;
-    --card: #2c2c2e;
-    --card-hi: #323234;
-    --inset: #1c1c1e;
-    --surface-hi: #323234;
+    --bg: #0c0d10;
+    --surface: #131519;
+    --card: #16181d;
+    --card-hi: #1c1f26;
+    --inset: #0e0f13;
+    --surface-hi: #1c1f26;
 
-    --border: rgba(255, 255, 255, 0.12);
-    --border-hi: rgba(255, 255, 255, 0.2);
-    --separator: rgba(255, 255, 255, 0.08);
-    --border-accent: rgba(10, 132, 255, 0.45);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-hi: rgba(255, 255, 255, 0.16);
+    --separator: rgba(255, 255, 255, 0.06);
+    --border-accent: rgba(0, 179, 230, 0.5);
 
-    --text: #f5f5f7;
-    --text-2: rgba(255, 255, 255, 0.66);
-    --text-3: rgba(255, 255, 255, 0.44);
-    --muted: rgba(255, 255, 255, 0.44);
-    --dim: rgba(255, 255, 255, 0.3);
+    --text: #eceef2;
+    --text-2: rgba(236, 238, 242, 0.64);
+    --text-3: rgba(236, 238, 242, 0.4);
+    --muted: rgba(236, 238, 242, 0.4);
+    --dim: rgba(236, 238, 242, 0.26);
 
-    --accent-hover: #409cff;
-    --accent-bright: #409cff;
-    --accent-dim: rgba(10, 132, 255, 0.18);
-    --accent-border: rgba(10, 132, 255, 0.45);
-    --accent-text: #64b0ff;
+    --accent: #00b3e6;
+    --accent-hover: #33c6f0;
+    --accent-bright: #4dd2f5;
+    --accent-dim: rgba(0, 179, 230, 0.16);
+    --accent-border: rgba(0, 179, 230, 0.5);
+    --accent-text: #4dd2f5;
 
     --purple: #bf5af2;
     --purple-dim: rgba(191, 90, 242, 0.18);

@@ -128,15 +128,22 @@
   }
 
   .sbi.active {
-    background: var(--accent);
-    color: var(--accent-fg);
+    background: var(--accent-dim);
+    color: var(--accent-text);
     font-weight: 500;
-    /* macOS Finder-style: лёгкая тень под активным пунктом */
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    /* Активный «канал»: яркая левая метка cyan вместо флуда —
+       пункт подсвечен, но не кричит сплошным цветом. */
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  .sbi.active svg {
+    color: var(--accent);
+    stroke-width: 2;
   }
 
   .sbi.active:hover {
-    background: var(--accent-hover, var(--accent));
+    background: var(--accent-dim);
+    color: var(--accent-bright);
   }
 
   .sbi:focus-visible {
@@ -1070,14 +1077,30 @@
   }
 
   .ph-title {
-    font-size: 24px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 600;
     color: var(--text);
     font-family: var(--font-ui);
-    letter-spacing: 0.02em;
+    letter-spacing: -0.01em;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    /* Cyan-«тик» перед заголовком: страница читается как активный
+       раздел терминала, а не просто текст. */
+    padding-left: 12px;
+    position: relative;
+  }
+
+  .ph-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 18px;
+    border-radius: var(--r-full);
+    background: var(--accent);
   }
 
   .ph-sub {

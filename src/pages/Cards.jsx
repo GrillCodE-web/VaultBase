@@ -752,12 +752,12 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     <div className="content">
       {/* Sync error banner */}
       {syncError && (
-        <div className="mb-2 p-2 bg-red-900/20 border border-red-800 rounded text-[12px] text-red-400 flex items-center gap-2">
-          <span>⚠️</span>
+        <div className="alert alert-error">
+          <span className="alert-icon">⚠️</span>
           <span>{syncError}</span>
           <button
             onClick={() => setSyncError(null)}
-            className="ml-auto text-red-400 hover:text-red-300"
+            className="alert-close"
             aria-label="Dismiss error"
           >
             ×

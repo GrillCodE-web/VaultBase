@@ -1,0 +1,54 @@
+/* ═══════════════════════════════════════════════════════════
+   FONTS — self-hosted (вне слоя, грузятся безусловно)
+
+   CSP приложения запрещает внешние шрифты (нет font-src с CDN),
+   поэтому .woff2 лежат в public/fonts и раздаются с 'self'.
+   Geist — характерный гротеск от Vercel: геометричный, но тёплый,
+   не Inter и не системный. Geist Mono — для всех числовых полей
+   (карты, суммы, трек-номера): таблично-моноширинный, выравнивает
+   колонки цифр, чего системный шрифт не умеет.
+   ═══════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}

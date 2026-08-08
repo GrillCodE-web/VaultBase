@@ -1268,19 +1268,6 @@
   }
 
   /* ── Form Input Styles (Orders Modal) ───────────────────── */
-  .form-input {
-    width: 100%;
-    box-sizing: border-box;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-size: 13px;
-    color: var(--text);
-    outline: none;
-    transition: border-color 0.15s;
-  }
-
   .form-input-sm {
     width: 100%;
     box-sizing: border-box;
@@ -2776,6 +2763,10 @@
   .btn-accent:hover,
   .btn-primary:hover {
     background: var(--accent-hover);
+    box-shadow:
+      var(--shadow-xs),
+      0 0 0 1px var(--accent-border),
+      0 2px 12px -2px var(--accent-dim);
   }
 
   .btn-accent:active,
@@ -3133,6 +3124,7 @@
   .input,
   .textarea,
   .select,
+  .field-input,
   .form-input {
     width: 100%;
     height: var(--h-control);
@@ -3624,7 +3616,7 @@
   .inline-select:focus {
     border-color: var(--accent-border);
     box-shadow: 0 0 0 3px var(--accent-dim);
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%230a84ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%238b8b94' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   .inline-select:disabled {
@@ -3666,7 +3658,7 @@
   .inline-select-sm:focus {
     border-color: var(--accent-border);
     box-shadow: 0 0 0 2px var(--accent-dim);
-    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%230a84ff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238b8b94' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   .inline-select-sm:disabled {
@@ -3822,7 +3814,8 @@
   }
 
   /* ── Окно ───────────────────────────────────────────────── */
-  .modal {
+  .modal,
+  .modal-box {
     background: var(--card);
     border: none;
     border-radius: var(--r-xl);
@@ -4141,6 +4134,60 @@
     line-height: 1.6;
     margin-bottom: var(--sp-6);
     font-family: var(--font-ui);
+  }
+
+  /* ── Inline Alerts ──────────────────────────────────────────
+     Токенные баннеры на месте прежних сырых Tailwind-палитр
+     (bg-red-900/20 text-red-400 и т.п.), которые игнорировали
+     тему и выглядели инородно. .alert + модификатор статуса. */
+  .alert {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 10px var(--sp-3);
+    margin-bottom: var(--sp-3);
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: var(--r-md);
+    font-size: var(--fs-body);
+    color: var(--text);
+    background: var(--card);
+  }
+
+  .alert-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+  }
+
+  .alert-close {
+    margin-left: auto;
+    color: var(--muted);
+    cursor: default;
+    display: inline-flex;
+  }
+  .alert-close:hover {
+    color: var(--text);
+  }
+
+  .alert-error {
+    background: var(--color-error-bg);
+    border-color: var(--red-border);
+    border-left-color: var(--color-error);
+  }
+  .alert-warning {
+    background: var(--color-warning-bg);
+    border-color: var(--yellow-border);
+    border-left-color: var(--color-warning);
+  }
+  .alert-success {
+    background: var(--color-success-bg);
+    border-color: var(--green-border);
+    border-left-color: var(--color-success);
+  }
+  .alert-info {
+    background: var(--accent-dim);
+    border-color: var(--accent-border);
+    border-left-color: var(--accent);
   }
 
   /* ── Toast Notifications ────────────────────────────────── */
@@ -4637,20 +4684,20 @@
   }
 
   /* ── Шапка ──────────────────────────────────────────────────
-   Липкая, без капса и разрядки: в macOS заголовки колонок
-   пишутся обычным регистром. */
+   Липкая. Микро-капс с разрядкой — сигнатура ops-терминала:
+   заголовки колонок читаются как «поля данных», а не текст. */
   .tbl th {
-    color: var(--text-2);
-    font-size: var(--fs-caption);
+    color: var(--text-3);
+    font-size: 10px;
     font-weight: 600;
-    text-transform: none;
-    letter-spacing: 0;
-    height: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    height: 26px;
     padding: 0 10px;
     text-align: left;
     background: var(--surface);
-    border-bottom: 1px solid var(--separator);
-    font-family: var(--font-ui);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
     white-space: nowrap;
     position: sticky;
     top: 0;
@@ -4691,17 +4738,19 @@
   }
 
   /* ── Выделенная строка ──────────────────────────────────────
-   Сплошная заливка акцентом, весь текст внутри белеет. */
+   Не сплошной флуд, а тонкий cyan-фон + акцентная левая метка:
+   моноширинные данные (карты, суммы) остаются читаемыми. */
   .tbl tbody tr.selected,
   .tbl tbody tr[aria-selected='true'] {
-    background: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: inset 2px 0 0 var(--accent);
   }
 
   .tbl tbody tr.selected td,
   .tbl tbody tr[aria-selected='true'] td,
   .tbl tbody tr.selected .mono,
   .tbl tbody tr[aria-selected='true'] .mono {
-    color: var(--accent-fg);
+    color: var(--text);
   }
 
   /* Действия показываются при наведении */
@@ -5698,7 +5747,7 @@
   .filter-select:focus {
     border-color: var(--accent-border);
     box-shadow: 0 0 0 3px var(--accent-dim);
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%230a84ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%238b8b94' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   /* ── Filter Input ───────────────────────────────────────── */
@@ -6107,8 +6156,16 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: var(--gradient-accent);
-    opacity: 0.15;
+    /* Тонкая cyan-кромка сверху панели — затухает к краям, читается
+       как аккуратная подсветка, а не сплошная полоса. */
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--accent) 20%,
+      var(--accent) 80%,
+      transparent
+    );
+    opacity: 0.25;
   }
 
   /* ── Panel Header ───────────────────────────────────────── */
