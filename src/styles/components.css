@@ -818,6 +818,9 @@
   .col-span-2 {
     grid-column: span 2 / span 2;
   }
+  .col-span-full {
+    grid-column: 1 / -1;
+  }
 
   /* ── Flex Alignment Utilities ───────────────────────────── */
   .items-baseline {
@@ -4788,17 +4791,20 @@
 
   /* ── Заголовок панели ───────────────────────────────────── */
   .ptitle {
-    font-size: var(--fs-heading);
-    line-height: var(--lh-heading);
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: var(--sp-3);
+    font-size: 12px;
+    line-height: 1.4;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-2);
-    font-family: var(--font-ui);
-    letter-spacing: -0.01em;
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
   }
 
   /* Декоративная полоска перед заголовком удалена */
@@ -6144,9 +6150,14 @@
     padding: 20px;
     position: relative;
     overflow: hidden;
-    /* Мягкая тень для глубины — раньше панели были плоскими, сливались
-     с фоном. Тонкая, не «карточка-в-облаке», а лёгкий подъём. */
-    box-shadow: var(--shadow-sm);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.18),
+      0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    transition: border-color 200ms ease;
+  }
+
+  .panel:hover {
+    border-color: var(--border-hi);
   }
 
   .panel::before {
@@ -6156,16 +6167,15 @@
     left: 0;
     right: 0;
     height: 1px;
-    /* Тонкая cyan-кромка сверху панели — затухает к краям, читается
-       как аккуратная подсветка, а не сплошная полоса. */
     background: linear-gradient(
       90deg,
-      transparent,
-      var(--accent) 20%,
-      var(--accent) 80%,
-      transparent
+      transparent 5%,
+      var(--accent) 30%,
+      var(--accent) 70%,
+      transparent 95%
     );
-    opacity: 0.25;
+    opacity: 0.18;
+    pointer-events: none;
   }
 
   /* ── Panel Header ───────────────────────────────────────── */
@@ -6862,5 +6872,100 @@
   .theme-option svg {
     width: 16px;
     height: 16px;
+  }
+
+  /* ── Settings Page Layout ───────────────────────────────── */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .setting-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .setting-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .setting-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    font-family: var(--font-ui);
+    line-height: 1.4;
+  }
+
+  .setting-desc {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  /* ── Toggle Switch (.toggle-wrap > input[checkbox] + span.track) */
+  .toggle-wrap {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .toggle-wrap input[type='checkbox'] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .toggle-wrap .track {
+    width: 36px;
+    height: 20px;
+    background: var(--inset);
+    border-radius: 999px;
+    position: relative;
+    transition: background-color 150ms ease;
+    flex-shrink: 0;
+    border: 1px solid var(--border-hi);
+  }
+
+  .toggle-wrap .track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    transition:
+      transform 150ms ease,
+      background-color 150ms ease;
+  }
+
+  .toggle-wrap input:checked ~ .track,
+  .toggle-wrap input:checked + .track {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .toggle-wrap input:checked ~ .track::after,
+  .toggle-wrap input:checked + .track::after {
+    transform: translateX(16px);
+    background: #fff;
+  }
+
+  /* ── Text colour utility ─────────────────────────────────── */
+  .text-text {
+    color: var(--text);
   }
 }
