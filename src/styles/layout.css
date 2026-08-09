@@ -116,34 +116,35 @@
   }
 
   .sbi svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
-    stroke-width: 1.5;
+    stroke-width: 1.75;
   }
 
   .sbi:hover {
-    background: var(--hover);
+    background: rgba(255, 255, 255, 0.08);
     color: var(--text);
+    transition: all 100ms ease-out;
   }
 
   .sbi.active {
-    background: var(--accent-dim);
-    color: var(--accent-text);
+    background: rgba(0, 179, 230, 0.15);
+    color: #4dd2f5;
     font-weight: 500;
-    /* Активный «канал»: яркая левая метка cyan вместо флуда —
-       пункт подсвечен, но не кричит сплошным цветом. */
-    box-shadow: inset 2px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 #00b3e6;
   }
 
   .sbi.active svg {
-    color: var(--accent);
+    color: #00b3e6;
     stroke-width: 2;
+    width: 20px;
+    height: 20px;
   }
 
   .sbi.active:hover {
-    background: var(--accent-dim);
-    color: var(--accent-bright);
+    background: rgba(0, 179, 230, 0.15);
+    color: #4dd2f5;
   }
 
   .sbi:focus-visible {
@@ -213,12 +214,12 @@
   /* ── Бейдж ──────────────────────────────────────────────── */
   .sbi-badge {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    min-width: 15px;
-    height: 15px;
-    border-radius: var(--r-full);
-    background: var(--red);
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: #ff453a;
     color: #ffffff;
     font-size: 10px;
     font-weight: 600;
@@ -228,24 +229,33 @@
     font-family: var(--font-ui);
     font-variant-numeric: tabular-nums;
     padding: 0 4px;
-    box-shadow: none;
+    border: 2px solid #16181d;
+    box-shadow: 0 2px 8px rgba(255, 69, 58, 0.3);
   }
 
   .sidebar.expanded .sbi-badge {
     position: static;
     margin-left: auto;
+    top: auto;
+    right: auto;
   }
 
-  /* На выделенном пункте бейдж инвертируется — иначе
-   красный на синем нечитаем. */
   .sbi.active .sbi-badge {
     background: rgba(255, 255, 255, 0.25);
     color: #ffffff;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
   }
 
   .sbi-badge.y {
-    background: var(--yellow);
-    color: #1d1d1f;
+    background: #ffd60a;
+    color: #0c0d10;
+    box-shadow: 0 2px 8px rgba(255, 214, 10, 0.3);
+  }
+
+  .sbi-badge.g {
+    background: #32d74b;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(50, 215, 75, 0.3);
   }
 
   .sbi-badge.g {

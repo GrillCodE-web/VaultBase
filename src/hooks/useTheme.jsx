@@ -17,7 +17,7 @@ const listeners = new Set()
 
 const read = () => {
   const saved = localStorage.getItem(STORAGE_KEY)
-  return MODES.includes(saved) ? saved : 'system'
+  return MODES.includes(saved) ? saved : 'dark'
 }
 
 let current = read()
