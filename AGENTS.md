@@ -28,16 +28,25 @@ manager-work/
 │   │   ├── useLang.jsx           # i18n
 │   │   ├── useSmartToast.jsx     # Toast notifications
 │   │   └── useConfirm.jsx        # Confirmation dialogs
-│   ├── styles/                   # CSS (design system)
-│   │   ├── tokens-redesign.css   # Design tokens (colors, spacing, shadows)
-│   │   ├── layout/               # Layout components
-│   │   │   ├── sidebar-redesign.css
-│   │   │   ├── topbar-redesign.css
-│   │   │   └── content-redesign.css
-│   │   └── utilities-redesign.css
+│   ├── styles/                   # CSS (design system) — 7 files, all consolidated
+│   │   ├── index.css             # Entry point: @imports all 5 layers below
+│   │   ├── tokens.css            # Design tokens (CSS vars: colors, spacing, shadows)
+│   │   ├── base.css              # Reset + body + typography base (@layer app)
+│   │   ├── layout.css            # Sidebar, topbar, content layout (@layer app)
+│   │   ├── components.css        # Buttons, cards, badges, utility classes (@layer app)
+│   │   ├── pages.css             # Page-specific styles: dashboard, cards, etc. (@layer app)
+│   │   └── fonts.css             # @font-face definitions for Geist/GeistMono
 │   ├── App.jsx                   # Main app component
-│   ├── main.jsx                  # Entry point
-│   └── index.css                 # Global styles
+│   ├── main.jsx                  # Entry point (imports src/index.css)
+│   ├── float.jsx                 # Float window entry (imports src/index.css)
+│   └── index.css                 # Re-exports styles/index.css (one-liner @import)
+│
+│   ⚠️  CSS IMPORTANT — READ BEFORE EDITING STYLES:
+│   The OLD file names (tokens-redesign.css, layout/sidebar-redesign.css,
+│   utilities-redesign.css, content-redesign.css, etc.) NO LONGER EXIST.
+│   They were consolidated in v2.8.0. Editing those paths does nothing.
+│   Always edit files inside src/styles/ — the 7 files listed above.
+│   Import chain: main.jsx → src/index.css → src/styles/index.css → 5 files.
 │
 ├── src-tauri/                    # Rust backend (Tauri v2)
 │   ├── src/
@@ -114,7 +123,7 @@ npm run tauri build
 
 - **State Management:** React Context (useAuth, useLang, useSmartToast, useConfirm)
 - **Styling:** CSS variables + Tailwind utilities
-- **Design System:** tokens-redesign.css (colors, spacing, shadows, typography)
+- **Design System:** src/styles/tokens.css (CSS vars: colors, spacing, shadows, typography)
 - **Components:** Lazy-loaded pages, reusable UI components
 - **Async:** Tauri invoke() for backend calls, Promise-based error handling
 
@@ -382,5 +391,5 @@ if (hasPerm('take_cards')) {
 
 ---
 
-**Last Updated:** August 6, 2026  
-**Version:** 2.5.0
+**Last Updated:** August 9, 2026  
+**Version:** 2.11.1

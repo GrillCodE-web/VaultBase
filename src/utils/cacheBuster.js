@@ -1,23 +1,31 @@
-// Сброс кеша WebView2 при смене версии сборки.
+// Сброс кеша WebView при смене версии сборки.
 //
-// ПРОБЛЕМА, которую это чинит: на Windows Tauri рендерит фронт через
-// системный WebView2. У него собственный HTTP-кеш в
-// %LOCALAPPDATA%\com.vaultbase.app\EBWebView, который ПЕРЕЖИВАЕТ
-// переустановку приложения (деинсталлятор его не трогает). Ассеты
-// раздаются со стабильных tauri://-адресов, поэтому движок отдаёт старый
-// закешированный фронт и игнорирует свежую сборку. Симптом: ставишь
-// новую версию — визуально ничего не меняется.
+// КАК РАБОТАЕТ КЕШИРОВАНИЕ В TAURI:
+// Tauri раздаёт фронт через кастомный протокол tauri://localhost/.
+// WebView2 (Windows) и WKWebView (macOS) кешируют ответы этого протокола
+// в ДВУХ разных слоях:
 //
-// РЕШЕНИЕ: версию сборки Vite вшивает в бандл (см. vite.config → define
-// __APP_VERSION__). При старте сравниваем её с сохранённой. Если сборка
-// сменилась — чистим все кеши, доступные из WebView (Cache Storage,
-// Service Workers, storage-квоту) и один раз перезагружаемся. Rust не
-// может снести кеш сам: пока движок жив, файлы залочены; а изнутри JS
-// эти хранилища доступны.
+//   1. HTTP disk-кеш (основной, проблемный):
+//      Windows: %LOCALAPPDATA%\com.vaultbase.app\EBWebView
+//      macOS:   ~/Library/WebKit/com.vaultbase.app/...
+//      Переживает переустановку приложения. Из JS НЕДОСТУПЕН.
+//      → Исправлено в main.rs (purge_old_webview_cache): Rust удаляет папку
+//        EBWebView до инициализации WebView2, когда версия приложения меняется.
 //
-// Хеши в именах файлов (index-XX␣.css) обычно спасают от такого — но
-// EBWebView кеширует и по абсолютному tauri-URL самого index.html,
-// поэтому одних хешей мало. Явный сброс надёжнее.
+//   2. Cache Storage API (SW-кеш, вторичный):
+//      Доступен из JS через caches.keys() / caches.delete().
+//      Обычно пуст (нет Service Worker-ов), но чистим на всякий случай.
+//
+// ПОЧЕМУ ОДНИХ ХЕШЕЙ В ИМЕНАХ ФАЙЛОВ НЕ ДОСТАТОЧНО:
+// WebView2 кеширует index.html по tauri://localhost/index.html.
+// При установке новой версии EBWebView не трогается → браузер отдаёт
+// старый index.html из кеша → тот ссылается на старый CSS с прежним хешем
+// → CSS визуально не меняется, хотя в бинарнике он уже новый.
+//
+// ИТОГОВОЕ РЕШЕНИЕ:
+//   • Windows: Rust чистит EBWebView ДО запуска WebView2 (надёжно, всегда).
+//   • Все платформы: этот модуль чистит Cache Storage и вызывает
+//     clearAllBrowsingData() через Tauri API как страховку (особенно macOS/Linux).
 
 const VERSION_KEY = 'vb_build_version'
 // __APP_VERSION__ подставляется Vite на этапе сборки (define).
@@ -40,6 +48,8 @@ export async function purgeCacheOnVersionChange() {
 
   // Первая установка (stored=null) не считается сменой версии: чистить
   // нечего, а лишняя перезагрузка на первом старте раздражает.
+  // Примечание: после того как Rust удалил EBWebView, localStorage тоже пуст →
+  // stored=null → мы попадём сюда и просто сохраним версию без лишнего reload.
   if (stored === null) {
     try {
       localStorage.setItem(VERSION_KEY, BUILD_VERSION)
@@ -51,12 +61,12 @@ export async function purgeCacheOnVersionChange() {
 
   if (stored === BUILD_VERSION) return false
 
-  // Версия сменилась — чистим всё, до чего дотягивается WebView.
+  // Версия сменилась — чистим всё доступное из WebView.
   if (import.meta.env.DEV) {
-    console.warn(`[cache-buster] версия ${stored} → ${BUILD_VERSION}, чищу кеш WebView2`)
+    console.warn(`[cache-buster] версия ${stored} → ${BUILD_VERSION}, чищу кеш`)
   }
 
-  // 1. Cache Storage API — основной HTTP-кеш ассетов.
+  // 1. Cache Storage API — SW-кеш. Обычно пуст, но чистим для надёжности.
   try {
     if (typeof caches !== 'undefined') {
       const keys = await caches.keys()
@@ -76,6 +86,21 @@ export async function purgeCacheOnVersionChange() {
     if (import.meta.env.DEV) console.warn('[cache-buster] SW unregister:', err)
   }
 
+  // 3. Tauri clearAllBrowsingData() — чистит HTTP disk-кеш через нативный API
+  //    WebView. Работает на всех платформах (macOS/Linux/Windows).
+  //    На Windows это страховка: Rust уже удалил EBWebView до запуска WebView2.
+  //    Импорт динамический: вне Tauri (браузер, тесты) модуль отсутствует.
+  try {
+    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+    const win = getCurrentWebviewWindow()
+    if (typeof win.clearAllBrowsingData === 'function') {
+      await win.clearAllBrowsingData()
+    }
+  } catch (err) {
+    // Не Tauri-окружение или версия API без этого метода — ок, продолжаем.
+    if (import.meta.env.DEV) console.warn('[cache-buster] clearAllBrowsingData:', err)
+  }
+
   // Записываем новую версию ДО перезагрузки, иначе уйдём в цикл
   // «сменилась → перезагрузка → снова сменилась».
   try {
@@ -84,7 +109,7 @@ export async function purgeCacheOnVersionChange() {
     if (import.meta.env.DEV) console.warn('[cache-buster] запись версии перед reload:', err)
   }
 
-  // 3. Жёсткая перезагрузка: теперь кеш пуст, движок дотянет свежие ассеты.
+  // 4. Жёсткая перезагрузка: кеш очищен, движок дотянет свежие ассеты.
   window.location.reload()
   return true
 }

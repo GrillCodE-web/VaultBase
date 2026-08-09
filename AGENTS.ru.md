@@ -29,16 +29,25 @@ manager-work/
 │   │   ├── useLang.jsx           # i18n
 │   │   ├── useSmartToast.jsx     # Тост-уведомления
 │   │   └── useConfirm.jsx        # Диалоги подтверждения
-│   ├── styles/                   # CSS (дизайн-система)
-│   │   ├── tokens-redesign.css   # Токены (цвета, отступы, тени)
-│   │   ├── layout/               # Компоненты оболочки
-│   │   │   ├── sidebar-redesign.css
-│   │   │   ├── topbar-redesign.css
-│   │   │   └── content-redesign.css
-│   │   └── utilities-redesign.css
+│   ├── styles/                   # CSS (дизайн-система) — 7 файлов, всё консолидировано
+│   │   ├── index.css             # Точка входа: @import всех 5 слоёв ниже
+│   │   ├── tokens.css            # Токены (CSS-переменные: цвета, отступы, тени)
+│   │   ├── base.css              # Reset + body + базовая типографика (@layer app)
+│   │   ├── layout.css            # Сайдбар, топбар, контент (@layer app)
+│   │   ├── components.css        # Кнопки, карточки, утилиты (@layer app)
+│   │   ├── pages.css             # Стили страниц: дашборд, карты и т.д. (@layer app)
+│   │   └── fonts.css             # @font-face для Geist/GeistMono
 │   ├── App.jsx                   # Главный компонент
-│   ├── main.jsx                  # Точка входа
-│   └── index.css                 # Глобальные стили
+│   ├── main.jsx                  # Точка входа (импортирует src/index.css)
+│   ├── float.jsx                 # Float-окно (импортирует src/index.css)
+│   └── index.css                 # Однострочный @import styles/index.css
+│
+│   ⚠️  CSS — ЧИТАТЬ ПЕРЕД ПРАВКОЙ СТИЛЕЙ:
+│   СТАРЫЕ имена файлов (tokens-redesign.css, layout/sidebar-redesign.css,
+│   utilities-redesign.css, content-redesign.css и т.д.) БОЛЬШЕ НЕ СУЩЕСТВУЮТ.
+│   Они объединены в v2.8.0. Правка этих путей не даёт эффекта.
+│   Редактировать только файлы в src/styles/ — 7 файлов выше.
+│   Цепочка импортов: main.jsx → src/index.css → src/styles/index.css → 5 файлов.
 │
 ├── src-tauri/                    # Бэкенд Rust (Tauri v2)
 │   ├── src/

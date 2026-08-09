@@ -5,6 +5,14 @@ All notable changes to VaultBase will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.2] — 2026-08-09
+
+### Исправления
+
+- **Windows:** при каждом запуске новой версии Rust-код теперь удаляет `EBWebView` (HTTP disk-кеш WebView2) до инициализации окна. Это гарантирует что пользователь видит свежий CSS/HTML после обновления — кеш WebView2 переживал переустановку и блокировал все редизайны.
+- **Все платформы:** `cacheBuster.js` дополнительно вызывает `clearAllBrowsingData()` через Tauri API как страховка (macOS/Linux).
+- Обновлён `AGENTS.md` — убрана устаревшая структура CSS с несуществующими файлами `-redesign`, которую ИИ-агенты редактировали вместо реальных файлов.
+
 ## [2.11.1] — 2026-08-08
 
 ### Изменения

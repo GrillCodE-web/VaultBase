@@ -2809,7 +2809,51 @@ fn sync_catalog_from_server(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Windows: перед инициализацией WebView2 удаляем его HTTP disk-кеш если
+/// версия приложения сменилась.
+///
+/// ПРОБЛЕМА: WebView2 кеширует ответы tauri://-протокола (включая index.html
+/// и CSS-ассеты) в %LOCALAPPDATA%\com.vaultbase.app\EBWebView.  Этот кеш
+/// ПЕРЕЖИВАЕТ переустановку приложения — деинсталлятор его не трогает.
+/// JS-сторона (cacheBuster.js) работает с Cache Storage API (SW-кеш),
+/// который ДРУГОЙ слой; HTTP disk-кеш из JS недоступен вообще.
+/// Единственный надёжный вариант — удалить папку из Rust ДО того как
+/// WebView2 её залочил.  После удаления WebView2 создаёт свежую структуру
+/// и запрашивает все ассеты у Tauri заново → пользователь видит новый CSS.
+///
+/// Безопасность: все данные VaultBase хранятся в SQLite, а не в WebView2-
+/// хранилищах (localStorage/IndexedDB).  Очистка EBWebView не затрагивает БД.
+#[cfg(target_os = "windows")]
+fn purge_old_webview_cache() {
+    let Ok(localappdata) = std::env::var("LOCALAPPDATA") else { return };
+    let app_dir = std::path::PathBuf::from(&localappdata).join("com.vaultbase.app");
+    let version_file = app_dir.join(".build_version");
+    let eb_dir = app_dir.join("EBWebView");
+
+    let current = env!("CARGO_PKG_VERSION");
+    let stored = std::fs::read_to_string(&version_file).unwrap_or_default();
+
+    if stored.trim() == current {
+        return; // версия не изменилась — трогать кеш не нужно
+    }
+
+    // Версия сменилась (или первый запуск) — сносим HTTP disk-кеш.
+    if eb_dir.exists() {
+        let _ = std::fs::remove_dir_all(&eb_dir);
+    }
+
+    // Сохраняем новую версию чтобы не чистить при следующем запуске.
+    let _ = std::fs::create_dir_all(&app_dir);
+    let _ = std::fs::write(&version_file, current);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn purge_old_webview_cache() {}
+
 fn main() {
+    // Должно быть первым: WebView2 ещё не создан, папка не залочена.
+    purge_old_webview_cache();
+
     let db_p = db_path();
     let db_path_str = db_p.to_str().unwrap_or("vaultbase.db").to_string();
     let db = Database::open(&db_path_str).expect("Failed to open database");
