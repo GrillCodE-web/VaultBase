@@ -1,7 +1,7 @@
 # VaultBase — Project Status
 
-**Last Updated:** 2026-08-06
-**Version:** 2.5.0
+**Last Updated:** 2026-08-09
+**Version:** 2.11.2
 
 > Russian version: [PROJECT_STATUS.ru.md](PROJECT_STATUS.ru.md).
 
