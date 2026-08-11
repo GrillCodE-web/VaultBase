@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useAuth } from '../hooks/useAuth'
+import { getDateLocale } from '../utils/dateLocale'
 import { getDeliveryRateColor } from '../constants/colors.js'
 import {
   Users,
@@ -25,7 +26,8 @@ function fmtMoney(v) {
 function fmtDate(s) {
   if (!s) return '—'
   try {
-    return new Date(s.replace(' ', 'T') + 'Z').toLocaleString('ru-RU', {
+    const locale = getDateLocale(localStorage.getItem('vaultbase_lang') || 'en')
+    return new Date(s.replace(' ', 'T') + 'Z').toLocaleString(locale, {
       dateStyle: 'medium',
       timeStyle: 'short',
     })

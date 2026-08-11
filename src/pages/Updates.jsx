@@ -226,7 +226,7 @@ export default function Updates() {
 
         // Don't show banner if we already installed this exact version this session
         // (prevents infinite loop after relaunch)
-        const alreadyInstalled = sessionStorage.getItem(INSTALLED_VER_KEY)
+        const alreadyInstalled = localStorage.getItem(INSTALLED_VER_KEY)
         if (alreadyInstalled === update.version) {
           // Installed but manifest hasn't refreshed yet — show "up to date" quietly
           return
@@ -268,7 +268,7 @@ export default function Updates() {
       })
       // Скачано и установлено — запоминаем версию, чтобы после перезапуска
       // не показать баннер снова, и перезапускаем приложение.
-      sessionStorage.setItem(INSTALLED_VER_KEY, updateAvailable.version)
+      localStorage.setItem(INSTALLED_VER_KEY, updateAvailable.version)
       setDownloadState('installed')
       toast(t('upd_installing') || 'Устанавливаю обновление, перезапуск…', 'success')
       await relaunch()
@@ -282,7 +282,7 @@ export default function Updates() {
   const handleDismiss = () => {
     // Snooze: don't show banner again this session
     if (updateAvailable) {
-      sessionStorage.setItem(INSTALLED_VER_KEY, updateAvailable.version)
+      localStorage.setItem(INSTALLED_VER_KEY, updateAvailable.version)
     }
     setDismissed(true)
   }

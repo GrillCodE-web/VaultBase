@@ -937,4 +937,12 @@ export const ru = {
   settings_stuffer_key_ph: 'Введите API-ключ',
   settings_stuffer_save: 'Сохранить',
   settings_stuffer_saved: 'Сохранено',
+
+  // I18N-002..004
+  dash_not_enough_data: 'Недостаточно данных (нужно ≥3 заказов на комбинацию)',
+  dash_not_enough_data_yet: 'Пока недостаточно данных',
+  btn_bin_enrich: 'BIN Обогащение',
+  btn_batch_import: 'Пакетный импорт',
+  batch_import_title: 'Пакетный импорт заказов',
+  settings_bin_enrichment: 'BIN Обогащение',
 }

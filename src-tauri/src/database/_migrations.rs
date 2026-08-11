@@ -59,14 +59,21 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
+    const LATEST_VERSION: u32 = 12;
+
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
     let mut version: u32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+
+    if version > LATEST_VERSION {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+
     let migrations: &[(u32, fn(&Connection) -> SqlResult<()>)] = &[
         (1, migration_v1), (2, migration_v2), (3, migration_v3),
         (4, migration_v4), (5, migration_v5), (6, migration_v6),
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
-        (10, migration_v10), (11, migration_v11),
+        (10, migration_v10), (11, migration_v11), (12, migration_v12),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -540,6 +547,31 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 value TEXT
             );
             INSERT OR IGNORE INTO _maintenance (key, value) VALUES ('last_vacuum', '');
+        "#)?;
+        Ok(())
+    }
+
+    fn migration_v12(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            -- DB-003: Trigger-based CHECK for card status values
+            CREATE TRIGGER IF NOT EXISTS trg_card_status_check
+            BEFORE UPDATE OF status ON credit_cards
+            BEGIN
+                SELECT CASE
+                    WHEN NEW.status NOT IN ('free','in_use','burned','reserved','frozen')
+                    THEN RAISE(ABORT, 'invalid card status')
+                END;
+            END;
+
+            -- DB-003: Trigger-based CHECK for order status values
+            CREATE TRIGGER IF NOT EXISTS trg_order_status_check
+            BEFORE UPDATE OF status ON orders
+            BEGIN
+                SELECT CASE
+                    WHEN NEW.status NOT IN ('pending','processing','shipped','delivered','returned','cancelled','refunded','chargeback')
+                    THEN RAISE(ABORT, 'invalid order status')
+                END;
+            END;
         "#)?;
         Ok(())
     }

@@ -130,10 +130,11 @@ function getHeatmapClass(rate) {
 }
 
 function Heatmap({ data, onCellClick }) {
+  const { t } = useLang()
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center text-muted text-[12px] h-[80px]">
-        Not enough data (need ≥3 orders per combination)
+        {t('dash_not_enough_data')}
       </div>
     )
   }
@@ -594,7 +595,9 @@ function OperatorsTable({ data, onNavigate }) {
 }
 
 function BinPerfTable({ data }) {
-  if (!data?.length) return <p className="text-[11px] text-muted py-2">Not enough data yet</p>
+  const { t } = useLang()
+  if (!data?.length)
+    return <p className="text-[11px] text-muted py-2">{t('dash_not_enough_data_yet')}</p>
   return (
     <div className="overflow-x-auto">
       <table className="tbl w-full">
@@ -743,8 +746,8 @@ const PremiumStatCard = React.memo(function PremiumStatCard({
       <Minus size={12} />
     )
 
-  const trendClass =
-    trend === 'up' ? 'trend-positive' : trend === 'down' ? 'trend-negative' : 'trend-neutral'
+  const TREND_CLASSES = { up: 'trend-positive', down: 'trend-negative', neutral: 'trend-neutral' }
+  const trendClass = TREND_CLASSES[trend] || 'trend-neutral'
 
   return (
     <div className={`stat-card-premium stat-card-${variant}`} onClick={onClick}>

@@ -19,7 +19,7 @@ static TRACKING_CACHE: Lazy<Mutex<HashMap<String, (TrackingStatus, i64)>>> =
 use crate::constants::{TRACKING_CACHE_TTL_SECS, TRACKING_CACHE_MAX_SIZE, TRACKING_CACHE_CLEANUP_INTERVAL};
 
 fn get_cached_tracking(tracking: &str) -> Option<TrackingStatus> {
-    let guard = TRACKING_CACHE.lock().ok()?;
+    let guard = TRACKING_CACHE.lock().unwrap_or_else(|e| e.into_inner());
     if let Some((status, timestamp)) = guard.get(tracking) {
         let now = chrono::Utc::now().timestamp();
         if now - timestamp < TRACKING_CACHE_TTL_SECS {
@@ -30,7 +30,7 @@ fn get_cached_tracking(tracking: &str) -> Option<TrackingStatus> {
 }
 
 fn cache_tracking_result(tracking: &str, status: TrackingStatus) {
-    if let Ok(mut guard) = TRACKING_CACHE.lock() {
+    if let Ok(mut guard) = TRACKING_CACHE.lock().or_else(|e| Ok::<_, ()>(e.into_inner())) {
         let now = chrono::Utc::now().timestamp();
         
         // FINAL-003: Fixed cache cleanup — always check when exceeding threshold

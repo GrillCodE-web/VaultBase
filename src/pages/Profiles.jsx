@@ -467,7 +467,7 @@ export default function ProfileList({
             <SearchCode size={13} />
             {enrichProgress
               ? `Enriching ${enrichProgress.done}/${enrichProgress.total}...`
-              : 'BIN Enrich'}
+              : t('btn_bin_enrich')}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>
             <X size={13} /> Clear

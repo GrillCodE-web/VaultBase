@@ -905,7 +905,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                 title="Enrich BIN data for selected cards"
                 aria-label="Enrich BIN data for selected cards"
               >
-                <Zap size={12} /> BIN Enrich
+                <Zap size={12} /> {t('btn_bin_enrich')}
               </button>
             )}
             <button onClick={() => handleExport('txt')} className="btn btn-b btn-sm">

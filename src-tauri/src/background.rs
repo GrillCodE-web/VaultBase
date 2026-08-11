@@ -192,8 +192,16 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                         if let Ok(mut db) = st.db.lock() {
                             for msg in &result.messages {
                                 if let (Some(onum), Some(act)) = (msg.order_number.as_deref(), msg.action.as_deref()) {
-                                    if let Ok(Some(oid)) = db.find_order_by_number(onum) {
-                                        let _ = db.update_order_status_simple(oid, act, msg.tracking.as_deref());
+                                    match db.find_order_by_number(onum) {
+                                        Ok(Some(oid)) => {
+                                            let _ = db.update_order_status_simple(oid, act, msg.tracking.as_deref());
+                                        }
+                                        Ok(None) => {
+                                            log::debug!("[IMAP] No matching order for number '{}' from email '{}'", onum, msg.subject);
+                                        }
+                                        Err(e) => {
+                                            log::warn!("[IMAP] Error looking up order '{}': {}", onum, e);
+                                        }
                                     }
                                 }
                                 let _ = db.save_imap_message(

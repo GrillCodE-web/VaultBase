@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { getDateLocale } from '../utils/dateLocale'
 import {
   Users,
   Plus,
@@ -76,7 +77,8 @@ const PERM_GROUPS = [
 function fmtDate(s) {
   if (!s) return '—'
   try {
-    return new Date(s.replace(' ', 'T') + 'Z').toLocaleString('ru-RU', {
+    const locale = getDateLocale(localStorage.getItem('vaultbase_lang') || 'en')
+    return new Date(s.replace(' ', 'T') + 'Z').toLocaleString(locale, {
       dateStyle: 'short',
       timeStyle: 'short',
     })

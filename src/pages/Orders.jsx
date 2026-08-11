@@ -218,7 +218,7 @@ export default function OrderList({
             onClick={() => setShowBatchImport(true)}
             title="Batch import (b)"
           >
-            <Upload size={13} /> Batch Import
+            <Upload size={13} /> {t('btn_batch_import')}
           </button>
           <button className="btn btn-ghost btn-sm" disabled title={t('export_coming_soon')}>
             {t('btn_export')}

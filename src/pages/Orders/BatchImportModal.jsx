@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X, Upload } from 'lucide-react'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
+import { useLang } from '../../hooks/useLang'
 import { STATUS_COLORS } from '../../constants/colors'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
 export function BatchImportModal({ onCreated, onClose }) {
+  const { t } = useLang()
   const [parsedRows, setParsedRows] = useState([])
   const [fileName, setFileName] = useState('')
   const [result, setResult] = useState(null)
@@ -77,7 +79,7 @@ export function BatchImportModal({ onCreated, onClose }) {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Upload size={15} className="text-blue-t" />
-            <span className="modal-title m-0">Batch Import Orders</span>
+            <span className="modal-title m-0">{t('batch_import_title')}</span>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             <X size={18} />

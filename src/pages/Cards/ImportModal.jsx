@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang.jsx'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
+import { useScrollLock } from '../../hooks/useScrollLock.js'
 import { normalizeExpiry } from '../../utils/formatting.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
@@ -55,6 +56,11 @@ export function ImportModal({ onClose, onImported }) {
     setLoading(true)
     try {
       const data = await invoke('detect_mapping_preview', { raw })
+      // BUG-017: Validate non-empty preview
+      if (!data || !data.preview_rows || data.preview_rows.length === 0) {
+        toast(t('cc_import_no_data') || 'No parseable data found', 'warn')
+        return
+      }
       setPreview(data)
       setMapping([...data.detected_mapping])
       setStep(2)
@@ -108,10 +114,11 @@ export function ImportModal({ onClose, onImported }) {
   const colCount = preview?.preview_rows?.[0]?.length ?? 0
   const expiryColIdx = preview ? mapping.findIndex(m => m === 'expiry_date') : -1
 
+  // BUG-012: Use useScrollLock for safe ref-counted scroll locking
+  useScrollLock()
+
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
     return () => {
-      document.body.style.overflow = ''
       if (importTimerRef.current) {
         clearTimeout(importTimerRef.current)
       }

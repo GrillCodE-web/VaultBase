@@ -660,7 +660,7 @@ export default function Settings() {
         <div className="panel">
           <div className="ptitle">
             <Zap size={13} className="inline mr-1.5" />
-            BIN Enrichment
+            {t('settings_bin_enrichment')}
           </div>
           <div className="setting-desc mb-2">
             API key from iinapi.com for automatic card BIN enrichment.

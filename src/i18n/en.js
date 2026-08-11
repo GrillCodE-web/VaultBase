@@ -936,4 +936,12 @@ export const en = {
   settings_stuffer_key_ph: 'Enter API key',
   settings_stuffer_save: 'Save',
   settings_stuffer_saved: 'Saved',
+
+  // I18N-002..004: remaining hardcoded strings
+  dash_not_enough_data: 'Not enough data (need ≥3 orders per combination)',
+  dash_not_enough_data_yet: 'Not enough data yet',
+  btn_bin_enrich: 'BIN Enrich',
+  btn_batch_import: 'Batch Import',
+  batch_import_title: 'Batch Import Orders',
+  settings_bin_enrichment: 'BIN Enrichment',
 }

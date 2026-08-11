@@ -17,19 +17,21 @@ import './index.css'
 
 // SEC-013: Use copySensitive for auto-clear after 30s
 const CopyBtn = React.memo(function CopyBtn({ value }) {
-  const [copied, setCopied] = useState(false)
+  const [state, setState] = useState('idle')
   const handleCopy = () => {
     if (!value) return
     copySensitive(String(value)).then(ok => {
-      if (ok) {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1800)
-      }
+      setState(ok ? 'copied' : 'error')
+      setTimeout(() => setState('idle'), 1800)
     })
   }
   return (
-    <button className={`float-copy${copied ? ' copied' : ''}`} onClick={handleCopy} title="Copy">
-      {copied ? '✓' : '⎘'}
+    <button
+      className={`float-copy${state === 'copied' ? ' copied' : state === 'error' ? ' error' : ''}`}
+      onClick={handleCopy}
+      title={state === 'error' ? 'Copy failed' : 'Copy'}
+    >
+      {state === 'copied' ? '✓' : state === 'error' ? '✗' : '⎘'}
     </button>
   )
 })
