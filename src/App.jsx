@@ -244,9 +244,9 @@ function GlobalSearch({ onClose, onNavigate }) {
             {sections.map(sec => (
               <div key={sec.key}>
                 <div className="search-section-label">{sec.label}</div>
-                {sec.items.map((item, i) => (
+                {sec.items.map(item => (
                   <button
-                    key={i}
+                    key={`${item._type}-${item.id}`}
                     onClick={() => {
                       onNavigate(TYPE_PAGE[item._type] ?? sec.key)
                       onClose()
