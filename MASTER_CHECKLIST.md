@@ -1,7 +1,7 @@
 # VaultBase — Мастер-чеклист улучшений, багов и доработок
 
 > **Создан:** 2026-08-11 · **Обновлён:** 2026-08-11  
-> **Всего пунктов:** 121 · **Выполнено:** 48 · **Уже было:** 3  
+> **Всего пунктов:** 121 · **Выполнено:** 58 · **Уже было:** 3  
 > **Статусы:** ⬜ Не начато · 🔄 В работе · ✅ Готово · ❌ Отклонено  
 > **Приоритеты:** 🔴 Критичный · 🟠 Важный · 🟡 Средний · 🟢 Желательный
 
@@ -89,7 +89,7 @@
 | ARCH-006 | Разбить Cards.jsx (1302 строки): CardTable, CardFilters, CardActions, SidePanelManager          | 🟠        | `src/pages/Cards.jsx`                  | ⬜     |
 | ARCH-007 | Разбить DashboardRedesigned.jsx (1383 строки): RevenueChart, Heatmap, StatCards, PeriodSelector | 🟠        | `src/pages/DashboardRedesigned.jsx`    | ⬜     |
 | ARCH-008 | Разбить Orders.jsx (558 строк) и Profiles.jsx (643 строки)                                      | 🟡        | `src/pages/Orders.jsx`, `Profiles.jsx` | ⬜     |
-| ARCH-009 | Централизованный API-слой: `src/api/cards.js`, `api/orders.js` и т.д.                           | 🟠        | `src/api/` (новый)                     | ⬜     |
+| ARCH-009 | Централизованный API-слой: `src/api/cards.js`, `api/orders.js` и т.д.                           | 🟠        | `src/api/`                             | ✅     |
 | ARCH-010 | TypeScript миграция: начать с хуков и утилит (.jsx → .tsx)                                      | 🟡        | `src/hooks/`, `src/utils/`             | ⬜     |
 | ARCH-011 | Drops.jsx — убрать заглушку из роутинга или реализовать полноценный UI                          | 🟡        | `src/pages/Drops.jsx`                  | ⬜     |
 
