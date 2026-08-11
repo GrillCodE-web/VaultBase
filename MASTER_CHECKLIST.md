@@ -1,7 +1,7 @@
 # VaultBase — Мастер-чеклист улучшений, багов и доработок
 
 > **Создан:** 2026-08-11 · **Обновлён:** 2026-08-11  
-> **Всего пунктов:** 121 · **Выполнено:** 58 · **Уже было:** 3  
+> **Всего пунктов:** 121 · **Выполнено:** 72 · **Уже было:** 7  
 > **Статусы:** ⬜ Не начато · 🔄 В работе · ✅ Готово · ❌ Отклонено  
 > **Приоритеты:** 🔴 Критичный · 🟠 Важный · 🟡 Средний · 🟢 Желательный
 
@@ -20,11 +20,11 @@
 
 ### 1.2 Мастер-пароль
 
-| #       | Задача                                                                                       | Приоритет | Файл(ы)                                            | Статус |
-| ------- | -------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------- | ------ |
-| SEC-005 | Реализовать смену мастер-пароля (проверка текущего → перешифрование ключа → обновление хеша) | 🔴        | `encryption.rs`, `commands/config.rs`, `Login.jsx` | ⬜     |
-| SEC-006 | Добавить confirm-поле при смене пароля (повторить новый пароль)                              | 🟠        | `Login.jsx`                                        | ⬜     |
-| SEC-007 | Показывать требования к паролю (12+ символов) в UI                                           | 🟠        | `Login.jsx:14-21`                                  | ⬜     |
+| #       | Задача                                                                                       | Приоритет | Файл(ы)                                            | Статус        |
+| ------- | -------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------- | ------------- |
+| SEC-005 | Реализовать смену мастер-пароля (проверка текущего → перешифрование ключа → обновление хеша) | 🔴        | `encryption.rs`, `commands/config.rs`, `Login.jsx` | ⬜            |
+| SEC-006 | Добавить confirm-поле при смене пароля (повторить новый пароль)                              | 🟠        | `Login.jsx`                                        | ✅ (уже было) |
+| SEC-007 | Показывать требования к паролю (12+ символов) в UI                                           | 🟠        | `Login.jsx:14-21`                                  | ✅ (уже было) |
 
 ### 1.3 E2E шифрование синхронизации
 
@@ -321,7 +321,7 @@
 | CLEAN-005 | `.env.example`: добавить USPS_API_USER_ID и другие undocumented vars           | 🟢        | `.env.example`                                          | ⬜     |
 | CLEAN-006 | PostCSS: добавить autoprefixer                                                 | 🟢        | `postcss.config.js`                                     | ⬜     |
 | CLEAN-007 | ESLint: убрать generic `eslint-disable-next-line` (указать конкретное правило) | 🟢        | Все файлы                                               | ⬜     |
-| CLEAN-008 | Deeply nested ternaries → object lookup для status colors                      | 🟢        | `DashboardRedesigned.jsx:650+`                          | ⬜     |
+| CLEAN-008 | Deeply nested ternaries → object lookup для status colors                      | 🟢        | `DashboardRedesigned.jsx:650+`                          | ✅     |
 | CLEAN-009 | Prop drilling в Cards: compound components pattern или Context для CardRow     | 🟡        | `Cards.jsx:950+`                                        | ⬜     |
 | CLEAN-010 | virtualizer overscan: сделать конфигурируемым (не hardcoded 20)                | 🟢        | `Profiles.jsx:47`                                       | ⬜     |
 
@@ -329,29 +329,29 @@
 
 ## 10. i18n / ЛОКАЛИЗАЦИЯ
 
-| #        | Задача                                                            | Приоритет | Файл(ы)                          | Статус |
-| -------- | ----------------------------------------------------------------- | --------- | -------------------------------- | ------ |
-| I18N-001 | float.jsx: hardcoded strings → i18n keys                          | 🟡        | `float.jsx`                      | ✅     |
-| I18N-002 | Profiles.jsx: "No suitable free card found" → i18n                | 🟡        | `Profiles.jsx:320`               | ⬜     |
-| I18N-003 | Dashboard: "Not enough data (need ≥3 orders)" → i18n              | 🟡        | `DashboardRedesigned.jsx:200`    | ⬜     |
-| I18N-004 | Orders "Batch Import", Cards "BIN Enrich" → i18n                  | 🟡        | `Orders.jsx:75`, `Cards.jsx:850` | ⬜     |
-| I18N-005 | Pluralization: `pluralize(count, ['заказ', 'заказа', 'заказов'])` | 🟡        | `src/utils/pluralize.js`         | ✅     |
-| I18N-006 | Дата форматирование: динамический locale вместо hardcoded 'ru-RU' | 🟡        | `Shops.jsx:44`, `MyStats.jsx`    | ⬜     |
+| #        | Задача                                                            | Приоритет | Файл(ы)                          | Статус        |
+| -------- | ----------------------------------------------------------------- | --------- | -------------------------------- | ------------- |
+| I18N-001 | float.jsx: hardcoded strings → i18n keys                          | 🟡        | `float.jsx`                      | ✅            |
+| I18N-002 | Profiles.jsx: "No suitable free card found" → i18n                | 🟡        | `Profiles.jsx:320`               | ✅ (уже было) |
+| I18N-003 | Dashboard: "Not enough data (need ≥3 orders)" → i18n              | 🟡        | `DashboardRedesigned.jsx:200`    | ✅            |
+| I18N-004 | Orders "Batch Import", Cards "BIN Enrich" → i18n                  | 🟡        | `Orders.jsx:75`, `Cards.jsx:850` | ✅            |
+| I18N-005 | Pluralization: `pluralize(count, ['заказ', 'заказа', 'заказов'])` | 🟡        | `src/utils/pluralize.js`         | ✅            |
+| I18N-006 | Дата форматирование: динамический locale вместо hardcoded 'ru-RU' | 🟡        | `Shops.jsx:44`, `MyStats.jsx`    | ✅            |
 
 ---
 
 ## 11. БД — ЦЕЛОСТНОСТЬ И МИГРАЦИИ
 
-| #      | Задача                                                              | Приоритет | Файл(ы)                       | Статус |
-| ------ | ------------------------------------------------------------------- | --------- | ----------------------------- | ------ |
-| DB-001 | Миграции: SAVEPOINT для каждой миграции (rollback при failure)      | 🟠        | `_migrations.rs:38-50`        | ✅     |
-| DB-002 | Миграции: проверка downgrade safety (version check при старте)      | 🟡        | `_migrations.rs:25-40`        | ⬜     |
-| DB-003 | CHECK constraints для status колонок (orders, emails)               | 🟡        | `_migrations.rs`              | ⬜     |
-| DB-004 | Валидация shop domain (strip protocol, validate TLD)                | 🟡        | `_shops.rs`                   | ⬜     |
-| DB-005 | Email validation: разрешить `+` в local part                        | 🟡        | `src/utils/validation.js`     | ⬜     |
-| DB-006 | Card import: валидация длины номера (не только Luhn)                | 🟡        | `parser.rs:200+`              | ⬜     |
-| DB-007 | BIN cache: UI кнопка для ручного refresh / invalidate               | 🟡        | `_cards.rs:477-485`, UI       | ⬜     |
-| DB-008 | Activity log: логировать failed операции (import, enrichment, sync) | 🟡        | `_migrations.rs`, `commands/` | ⬜     |
+| #      | Задача                                                              | Приоритет | Файл(ы)                       | Статус        |
+| ------ | ------------------------------------------------------------------- | --------- | ----------------------------- | ------------- |
+| DB-001 | Миграции: SAVEPOINT для каждой миграции (rollback при failure)      | 🟠        | `_migrations.rs:38-50`        | ✅            |
+| DB-002 | Миграции: проверка downgrade safety (version check при старте)      | 🟡        | `_migrations.rs:25-40`        | ✅            |
+| DB-003 | CHECK constraints для status колонок (orders, emails)               | 🟡        | `_migrations.rs`              | ✅            |
+| DB-004 | Валидация shop domain (strip protocol, validate TLD)                | 🟡        | `_shops.rs`                   | ⬜            |
+| DB-005 | Email validation: разрешить `+` в local part                        | 🟡        | `src/utils/validation.js`     | ✅ (уже было) |
+| DB-006 | Card import: валидация длины номера (не только Luhn)                | 🟡        | `parser.rs:200+`              | ⬜            |
+| DB-007 | BIN cache: UI кнопка для ручного refresh / invalidate               | 🟡        | `_cards.rs:477-485`, UI       | ⬜            |
+| DB-008 | Activity log: логировать failed операции (import, enrichment, sync) | 🟡        | `_migrations.rs`, `commands/` | ⬜            |
 
 ---
 
@@ -365,7 +365,7 @@
 | ERR-004 | IMAP ошибки: emit event в React                             | 🟡        | `imap.rs`, `background.rs` | ⬜            |
 | ERR-005 | Stuffer ошибки: humanize (HTTP коды → user-friendly текст)  | 🟡        | `errorHandler.js:155-175`  | ⬜            |
 | ERR-006 | Auto-retry для failed invoke() (с backoff)                  | 🟡        | `src/api/` (новый)         | ⬜            |
-| ERR-007 | Clipboard copy error: показывать toast в Float              | 🟢        | `float.jsx:50-80`          | ⬜            |
+| ERR-007 | Clipboard copy error: показывать toast в Float              | 🟢        | `float.jsx:50-80`          | ✅            |
 
 ---
 
@@ -382,24 +382,24 @@
 
 ### 13.2 Важные
 
-| #         | Баг                                                                                                       | Приоритет | Файл(ы)                     | Статус |
-| --------- | --------------------------------------------------------------------------------------------------------- | --------- | --------------------------- | ------ |
-| FINAL-005 | Catalog.jsx: `p ?? pageRef.current` — при p=0 (валидная страница) вернёт pageRef (nullish coalescing баг) | 🟠        | `Catalog.jsx:74-75`         | ✅     |
-| FINAL-006 | Updates.jsx: sessionStorage ненадёжен — баннер обновления появляется снова после очистки                  | 🟠        | `Updates.jsx:229, 271`      | ⬜     |
-| FINAL-007 | Orders cache key JSON.stringify — не гарантирует детерминированность при null полях                       | 🟠        | `store/orders.js:69`        | ✅     |
-| FINAL-008 | Tracking USPS: `.replace("{}", ...)` заменит ВСЕ вхождения. Нужно `replacen(..., 1)`                      | 🟠        | `tracking.rs:125`           | ✅     |
-| FINAL-009 | cards.rs: raw SQL в update_card_status без проверки существования карты                                   | 🟠        | `commands/cards.rs:200-203` | ⬜     |
-| FINAL-010 | Settings.jsx: setSeeding(false) может не выполниться при ошибке (вложенный try)                           | 🟠        | `Settings.jsx:290-308`      | ⬜     |
-| FINAL-011 | errorHandler.js: новые permission не в PERMISSION_LABELS → undefined в UI                                 | 🟠        | `errorHandler.js:25-43`     | ✅     |
-| FINAL-012 | background.rs: 3 копии tracking блока UPS/FedEx/USPS — DRY violation                                      | 🟠        | `background.rs:416-475`     | ✅     |
-| FINAL-013 | useAuth.jsx: если localStorage полон при login, токен не сохранится. Молчаливый разлогин при reload       | 🟠        | `useAuth.jsx:17-18`         | ✅     |
+| #         | Баг                                                                                                       | Приоритет | Файл(ы)                     | Статус        |
+| --------- | --------------------------------------------------------------------------------------------------------- | --------- | --------------------------- | ------------- |
+| FINAL-005 | Catalog.jsx: `p ?? pageRef.current` — при p=0 (валидная страница) вернёт pageRef (nullish coalescing баг) | 🟠        | `Catalog.jsx:74-75`         | ✅            |
+| FINAL-006 | Updates.jsx: sessionStorage ненадёжен — баннер обновления появляется снова после очистки                  | 🟠        | `Updates.jsx:229, 271`      | ✅            |
+| FINAL-007 | Orders cache key JSON.stringify — не гарантирует детерминированность при null полях                       | 🟠        | `store/orders.js:69`        | ✅            |
+| FINAL-008 | Tracking USPS: `.replace("{}", ...)` заменит ВСЕ вхождения. Нужно `replacen(..., 1)`                      | 🟠        | `tracking.rs:125`           | ✅            |
+| FINAL-009 | cards.rs: raw SQL в update_card_status без проверки существования карты                                   | 🟠        | `commands/cards.rs:200-203` | ✅ (уже было) |
+| FINAL-010 | Settings.jsx: setSeeding(false) может не выполниться при ошибке (вложенный try)                           | 🟠        | `Settings.jsx:290-308`      | ✅ (уже было) |
+| FINAL-011 | errorHandler.js: новые permission не в PERMISSION_LABELS → undefined в UI                                 | 🟠        | `errorHandler.js:25-43`     | ✅            |
+| FINAL-012 | background.rs: 3 копии tracking блока UPS/FedEx/USPS — DRY violation                                      | 🟠        | `background.rs:416-475`     | ✅            |
+| FINAL-013 | useAuth.jsx: если localStorage полон при login, токен не сохранится. Молчаливый разлогин при reload       | 🟠        | `useAuth.jsx:17-18`         | ✅            |
 
 ### 13.3 Средние
 
 | #         | Баг                                                                                     | Приоритет | Файл(ы)              | Статус |
 | --------- | --------------------------------------------------------------------------------------- | --------- | -------------------- | ------ |
-| FINAL-014 | Tracking cache mutex poisoned state — если поток паникнет, cache перестанет обновляться | 🟡        | `tracking.rs:33`     | ⬜     |
-| FINAL-015 | Background IMAP: молчаливый skip при опечатке в order_number из письма                  | 🟡        | `background.rs:195`  | ⬜     |
+| FINAL-014 | Tracking cache mutex poisoned state — если поток паникнет, cache перестанет обновляться | 🟡        | `tracking.rs:33`     | ✅     |
+| FINAL-015 | Background IMAP: молчаливый skip при опечатке в order_number из письма                  | 🟡        | `background.rs:195`  | ✅     |
 | FINAL-016 | Activate.jsx: пустой installationId не обработан — пользователь не узнает об ошибке     | 🟡        | `Activate.jsx:36-37` | ✅     |
 
 ---
