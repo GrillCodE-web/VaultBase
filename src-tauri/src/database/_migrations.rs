@@ -66,7 +66,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (1, migration_v1), (2, migration_v2), (3, migration_v3),
         (4, migration_v4), (5, migration_v5), (6, migration_v6),
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
-        (10, migration_v10),
+        (10, migration_v10), (11, migration_v11),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -510,6 +510,37 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         // Safe ALTER TABLE additions (ignored if column already exists)
         let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0;");
 
+        Ok(())
+    }
+
+    // DB-003/PERF-011/PERF-012: Additional indexes, VACUUM schedule marker
+    fn migration_v11(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            -- PERF-011: Index for email search
+            CREATE INDEX IF NOT EXISTS idx_cards_email ON credit_cards(email);
+
+            -- PERF-011: Index for card status filtering (most common filter)
+            CREATE INDEX IF NOT EXISTS idx_cards_status ON credit_cards(status);
+
+            -- PERF-011: Index for orders by date (dashboard, reports)
+            CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
+
+            -- PERF-011: Index for orders by status
+            CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+
+            -- PERF-011: Index for orders by shop (domain reports)
+            CREATE INDEX IF NOT EXISTS idx_orders_shop ON orders(shop);
+
+            -- DB-008: Index for activity log entity lookup
+            CREATE INDEX IF NOT EXISTS idx_activity_entity ON activity_log(entity_type, entity_id);
+
+            -- Store last VACUUM time
+            CREATE TABLE IF NOT EXISTS _maintenance (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            );
+            INSERT OR IGNORE INTO _maintenance (key, value) VALUES ('last_vacuum', '');
+        "#)?;
         Ok(())
     }
 

@@ -645,3 +645,35 @@ pub(crate) fn purge_old_webview_cache() {
 
 #[cfg(not(target_os = "windows"))]
 pub(crate) fn purge_old_webview_cache() {}
+
+// PERF-012: Run VACUUM if not done in last 7 days
+pub(crate) fn maybe_vacuum_db() {
+    if let Some(st) = STATE.get() {
+        if let Ok(db) = st.db.lock() {
+            let should_vacuum = db.conn().query_row(
+                "SELECT value FROM _maintenance WHERE key = 'last_vacuum'",
+                [],
+                |r| r.get::<_, String>(0),
+            ).map(|v| {
+                if v.is_empty() { return true; }
+                chrono::NaiveDateTime::parse_from_str(&v, "%Y-%m-%d %H:%M:%S")
+                    .map(|dt| {
+                        let days = (chrono::Utc::now().naive_utc() - dt).num_days();
+                        days >= 7
+                    })
+                    .unwrap_or(true)
+            }).unwrap_or(false);
+
+            if should_vacuum {
+                eprintln!("[maintenance] Running VACUUM...");
+                let _ = db.conn().execute_batch("VACUUM");
+                let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                let _ = db.conn().execute(
+                    "INSERT OR REPLACE INTO _maintenance (key, value) VALUES ('last_vacuum', ?1)",
+                    [&now],
+                );
+                eprintln!("[maintenance] VACUUM complete");
+            }
+        }
+    }
+}
