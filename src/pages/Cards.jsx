@@ -7,6 +7,7 @@ import { usePremiumToast } from '../hooks/usePremiumToast.js'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { useDebounce } from '../hooks/useDebounce.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
+import { usePersistedState } from '../hooks/usePersistedState.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { copyToClipboard } from '../utils/clipboard.js'
@@ -147,30 +148,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // ★ Insight: Sync error state для fallback UI при ошибке WebSocket
   const [syncError, setSyncError] = useState(null)
 
-  // Local UI state (column visibility and order - localStorage preferences)
-  const [visibleCols, setVisibleCols] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cc_columns_visible')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        const allCols = getAllColumns(k => k)
-        if (Array.isArray(parsed) && parsed.every(c => allCols.some(a => a.id === c))) return parsed
-      }
-    } catch {
-      // Ignore localStorage errors
-    }
-    return DEFAULT_COLS
-  })
-
-  const [columnOrder, setColumnOrder] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cc_columns_order')
-      if (saved) return JSON.parse(saved)
-    } catch {
-      // Ignore localStorage errors
-    }
-    return null
-  })
+  const [visibleCols, setVisibleCols] = usePersistedState('cards_visible_cols', DEFAULT_COLS)
+  const [columnOrder, setColumnOrder] = usePersistedState('cards_column_order', null)
   const dragColRef = useRef(null)
 
   // Search input (local state, debounced to store)
@@ -759,11 +738,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     order.splice(si, 1)
     order.splice(ti, 0, srcId)
     setColumnOrder(order)
-    try {
-      localStorage.setItem('cc_columns_order', JSON.stringify(order))
-    } catch {
-      // Ignore localStorage errors
-    }
   }
   const { from, to } = getPageRange(page, total)
 
@@ -829,11 +803,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                 'actions',
               ]
               setVisibleCols(carderCols)
-              try {
-                localStorage.setItem('cc_columns_visible', JSON.stringify(carderCols))
-              } catch {
-                /* ignore */
-              }
             }}
             className="btn btn-ghost btn-sm"
             title={t('cards_carder_view') || 'Carder View'}
@@ -856,14 +825,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                   visible={visibleCols}
                   allColumns={ALL_COLUMNS}
                   t={t}
-                  onChange={cols => {
-                    setVisibleCols(cols)
-                    try {
-                      localStorage.setItem('cc_columns_visible', JSON.stringify(cols))
-                    } catch {
-                      // Ignore localStorage errors
-                    }
-                  }}
+                  onChange={cols => setVisibleCols(cols)}
                   onClose={() => setShowColPicker(false)}
                 />
               </>

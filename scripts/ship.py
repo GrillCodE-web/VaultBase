@@ -322,9 +322,13 @@ def main():
     git("add", "-A", quiet=True)
     staged = git("diff", "--cached", "--name-only", quiet=True)
     if staged:
+        commit_msg = f"release: {new}\n\n{notes.strip()}"
+        import re
+        if re.search(r'%[A-Z_]+%', commit_msg):
+            raise RuntimeError(f"commit message содержит нераскрытый шаблон: {commit_msg!r}")
         subprocess.run(["git", "-c", "user.name=VaultBase Release",
                         "-c", "user.email=release@vaultbase.local",
-                        "commit", "-q", "-m", f"release: {new}\n\n{notes.strip()}"],
+                        "commit", "-q", "-m", commit_msg],
                        cwd=ROOT, capture_output=True, text=True)
         log(f"  закоммичено файлов: {len(staged.splitlines())}")
     else:

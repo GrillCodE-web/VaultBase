@@ -95,9 +95,9 @@ describe('Error Handler', () => {
     })
 
     it('returns fallback for unknown types', () => {
-      expect(getErrorMessage(null)).toBe('An unexpected error occurred.')
-      expect(getErrorMessage(undefined)).toBe('An unexpected error occurred.')
-      expect(getErrorMessage(123)).toBe('An unexpected error occurred.')
+      expect(getErrorMessage(null)).toBe('Произошла непредвиденная ошибка.')
+      expect(getErrorMessage(undefined)).toBe('Произошла непредвиденная ошибка.')
+      expect(getErrorMessage(123)).toBe('Произошла непредвиденная ошибка.')
     })
   })
 

@@ -1,5 +1,11 @@
-import { Landmark } from 'lucide-react'
+import { useState } from 'react'
+import { Landmark, Save, Trash2 } from 'lucide-react'
 import { countryFlag } from '../../utils/formatting.js'
+import { usePersistedState } from '../../hooks/usePersistedState.js'
+
+function hasActiveFilter(f) {
+  return Object.entries(f).some(([k, v]) => k !== 'search' && v != null && v !== '')
+}
 
 export function CardFilters({
   filter,
@@ -14,6 +20,27 @@ export function CardFilters({
   loadCards,
   t,
 }) {
+  const [presets, setPresets] = usePersistedState('cards_filter_presets', [])
+  const [presetName, setPresetName] = useState('')
+  const [showPresetInput, setShowPresetInput] = useState(false)
+
+  const savePreset = () => {
+    const name = presetName.trim()
+    if (!name || !hasActiveFilter(filter)) return
+    setPresets(prev => [...prev.filter(p => p.name !== name), { name, filter: { ...filter } }])
+    setPresetName('')
+    setShowPresetInput(false)
+  }
+
+  const loadPreset = preset => {
+    setFilter(() => ({ ...preset.filter }))
+    setPage(1)
+  }
+
+  const deletePreset = name => {
+    setPresets(prev => prev.filter(p => p.name !== name))
+  }
+
   return (
     <>
       {/* Filters row */}
@@ -175,6 +202,65 @@ export function CardFilters({
           <button onClick={handleSearch} className="btn btn-b btn-sm">
             {t('btn_search')}
           </button>
+          {presets.length > 0 && (
+            <select
+              value=""
+              onChange={e => {
+                const p = presets.find(x => x.name === e.target.value)
+                if (p) loadPreset(p)
+              }}
+              className="inline-select"
+              aria-label={t('cc_filter_presets') || 'Filter presets'}
+              style={{ maxWidth: 120 }}
+            >
+              <option value="">{t('cc_filter_presets') || '⚡ Пресеты'}</option>
+              {presets.map(p => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {hasActiveFilter(filter) && !showPresetInput && (
+            <button
+              onClick={() => setShowPresetInput(true)}
+              className="btn btn-ghost btn-sm"
+              title={t('cc_save_filter') || 'Сохранить фильтр'}
+            >
+              <Save size={12} />
+            </button>
+          )}
+          {showPresetInput && (
+            <span className="flex items-center gap-1">
+              <input
+                className="search-box"
+                style={{ width: 100 }}
+                value={presetName}
+                onChange={e => setPresetName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && savePreset()}
+                placeholder={t('cc_preset_name') || 'Имя...'}
+                autoFocus
+              />
+              <button onClick={savePreset} className="btn btn-b btn-sm">
+                OK
+              </button>
+              <button onClick={() => setShowPresetInput(false)} className="btn btn-ghost btn-sm">
+                ✕
+              </button>
+            </span>
+          )}
+          {presets.length > 0 && (
+            <button
+              onClick={() => {
+                const last = presets[presets.length - 1]
+                if (last) deletePreset(last.name)
+              }}
+              className="btn btn-ghost btn-sm"
+              title={t('cc_delete_last_preset') || 'Удалить последний пресет'}
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
           <button onClick={handleResetFilters} className="btn btn-ghost btn-sm">
             {t('cc_reset_filters')}
           </button>

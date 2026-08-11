@@ -263,23 +263,24 @@ export function handleError(error, context = '') {
  * @returns {string} User-friendly error message
  */
 export function getErrorMessage(error) {
-  // If it's already a formatted error object from handleError
   if (error && typeof error === 'object' && error.message) {
-    return error.message
+    return error.suggestion ? `${error.message} ${error.suggestion}` : error.message
   }
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return 'Произошла непредвиденная ошибка.'
+}
 
-  // If it's a custom error class
-  if (error instanceof Error) {
-    return error.message
-  }
+export function getErrorTitle(error) {
+  if (error && typeof error === 'object' && error.message) return error.message
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return 'Произошла непредвиденная ошибка.'
+}
 
-  // If it's a string
-  if (typeof error === 'string') {
-    return error
-  }
-
-  // Fallback
-  return 'An unexpected error occurred.'
+export function getErrorSuggestion(error) {
+  if (error && typeof error === 'object' && error.suggestion) return error.suggestion
+  return null
 }
 
 /**

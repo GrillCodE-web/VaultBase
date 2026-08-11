@@ -216,21 +216,55 @@ fn read_json(resp: Result<ureq::Response, ureq::Error>) -> Result<serde_json::Va
     Ok(json)
 }
 
+const MAX_RETRIES: u32 = 3;
+const RETRY_BASE_MS: u64 = 500;
+
+fn is_retryable(err: &str) -> bool {
+    err == "stuffer_network_error"
+        || err.starts_with("stuffer_http_5")
+        || err.starts_with("stuffer_read_error")
+}
+
 fn get(url: &str) -> Result<serde_json::Value, String> {
-    read_json(
-        ureq::get(url)
-            .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
-            .call(),
-    )
+    let mut last_err = String::new();
+    for attempt in 0..MAX_RETRIES {
+        match read_json(
+            ureq::get(url)
+                .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+                .call(),
+        ) {
+            Ok(v) => return Ok(v),
+            Err(e) if is_retryable(&e) && attempt + 1 < MAX_RETRIES => {
+                let delay = RETRY_BASE_MS * 2u64.pow(attempt);
+                std::thread::sleep(std::time::Duration::from_millis(delay));
+                last_err = e;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err)
 }
 
 fn post_json(url: &str, payload: &serde_json::Value) -> Result<serde_json::Value, String> {
-    read_json(
-        ureq::post(url)
-            .set("Content-Type", "application/json")
-            .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
-            .send_string(&payload.to_string()),
-    )
+    let body = payload.to_string();
+    let mut last_err = String::new();
+    for attempt in 0..MAX_RETRIES {
+        match read_json(
+            ureq::post(url)
+                .set("Content-Type", "application/json")
+                .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+                .send_string(&body),
+        ) {
+            Ok(v) => return Ok(v),
+            Err(e) if is_retryable(&e) && attempt + 1 < MAX_RETRIES => {
+                let delay = RETRY_BASE_MS * 2u64.pow(attempt);
+                std::thread::sleep(std::time::Duration::from_millis(delay));
+                last_err = e;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err)
 }
 
 fn extract<T: for<'de> Deserialize<'de>>(
