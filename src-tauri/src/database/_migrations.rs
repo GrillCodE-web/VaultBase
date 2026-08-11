@@ -42,21 +42,38 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     //  init_db — migration runner
     // ─────────────────────────────────────────
 
+    // DB-001: Run a single migration inside a SAVEPOINT for safe rollback
+    fn run_migration(conn: &Connection, target: u32, f: fn(&Connection) -> SqlResult<()>) -> SqlResult<()> {
+        let sp_name = format!("migration_v{}", target);
+        conn.execute_batch(&format!("SAVEPOINT {}", sp_name))?;
+        match f(conn) {
+            Ok(()) => {
+                conn.execute_batch(&format!("RELEASE {}", sp_name))?;
+                conn.execute_batch(&format!("PRAGMA user_version = {}", target))?;
+                Ok(())
+            }
+            Err(e) => {
+                let _ = conn.execute_batch(&format!("ROLLBACK TO {}", sp_name));
+                Err(e)
+            }
+        }
+    }
+
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
-    // FIX B12: WAL mode — значительно быстрее для частой записи
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
-    // FIX B44: перечитываем version после каждой миграции чтобы не запускать лишние
     let mut version: u32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if version < 1 { migration_v1(conn)?; conn.execute_batch("PRAGMA user_version = 1")?; version = 1; }
-    if version < 2 { migration_v2(conn)?; conn.execute_batch("PRAGMA user_version = 2")?; version = 2; }
-    if version < 3 { migration_v3(conn)?; conn.execute_batch("PRAGMA user_version = 3")?; version = 3; }
-    if version < 4 { migration_v4(conn)?; conn.execute_batch("PRAGMA user_version = 4")?; version = 4; }
-    if version < 5 { migration_v5(conn)?; conn.execute_batch("PRAGMA user_version = 5")?; version = 5; }
-        if version < 6 { migration_v6(conn)?; conn.execute_batch("PRAGMA user_version = 6")?; version = 6; }
-        if version < 7 { migration_v7(conn)?; conn.execute_batch("PRAGMA user_version = 7")?; }
-        if version < 8 { migration_v8(conn)?; conn.execute_batch("PRAGMA user_version = 8")?; }
-        if version < 9 { migration_v9(conn)?; conn.execute_batch("PRAGMA user_version = 9")?; }
-        if version < 10 { migration_v10(conn)?; conn.execute_batch("PRAGMA user_version = 10")?; }
+    let migrations: &[(u32, fn(&Connection) -> SqlResult<()>)] = &[
+        (1, migration_v1), (2, migration_v2), (3, migration_v3),
+        (4, migration_v4), (5, migration_v5), (6, migration_v6),
+        (7, migration_v7), (8, migration_v8), (9, migration_v9),
+        (10, migration_v10),
+    ];
+    for &(target, f) in migrations {
+        if version < target {
+            run_migration(conn, target, f)?;
+            version = target;
+        }
+    }
     Ok(())
     }
 

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
 
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const CACHE_MAX_ENTRIES = 50 // FINAL-004: Prevent unbounded cache growth
 
 export const useOrdersStore = create((set, get) => ({
   // State
@@ -65,8 +66,14 @@ export const useOrdersStore = create((set, get) => ({
     const state = get()
     const { filters, page, perPage, cache } = state
 
-    // Generate cache key
-    const cacheKey = JSON.stringify({ filters, page, perPage })
+    // FINAL-007: Deterministic cache key — sort keys and normalize nulls
+    const normalizedFilters = Object.keys(filters)
+      .sort()
+      .reduce((acc, k) => {
+        acc[k] = filters[k] ?? null
+        return acc
+      }, {})
+    const cacheKey = JSON.stringify({ f: normalizedFilters, p: page, pp: perPage })
     const cached = cache[cacheKey]
 
     // Return cached data if valid and not forcing refresh
@@ -83,8 +90,17 @@ export const useOrdersStore = create((set, get) => ({
     try {
       const res = await invoke('get_orders', { filter: filters, page, perPage })
 
-      // Update cache
+      // FINAL-004: Evict oldest entries if cache is full
       const newCache = { ...cache }
+      const cacheKeys = Object.keys(newCache)
+      if (cacheKeys.length >= CACHE_MAX_ENTRIES) {
+        const sorted = cacheKeys.sort(
+          (a, b) => (newCache[a].timestamp || 0) - (newCache[b].timestamp || 0)
+        )
+        for (let i = 0; i < sorted.length - CACHE_MAX_ENTRIES + 1; i++) {
+          delete newCache[sorted[i]]
+        }
+      }
       newCache[cacheKey] = {
         data: res,
         timestamp: Date.now(),
@@ -204,4 +220,15 @@ export const useOrdersStore = create((set, get) => ({
 
   // Invalidate cache
   invalidateCache: () => set({ cache: {} }),
+
+  // SEC-010: Clear all sensitive data on lock/logout + FINAL-004: cache size limit
+  clearSensitiveData: () =>
+    set({
+      orders: [],
+      total: 0,
+      selected: [],
+      deletingIds: [],
+      cache: {},
+      lastFetch: null,
+    }),
 }))

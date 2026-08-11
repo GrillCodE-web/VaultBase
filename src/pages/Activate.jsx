@@ -31,10 +31,16 @@ export default function Activate({ onActivated }) {
     invoke('get_challenge_code')
       .then(setChallengeCode)
       .catch(() => setChallengeCode('????-????-????-????'))
-    // FIX FE-H05: Log installation ID errors instead of silently ignoring
+    // FINAL-016: Handle empty installationId — show fallback
     invoke('get_installation_id')
-      .then(setInstallationId)
-      .catch(e => console.error('[Activate] Failed to get installation ID:', e))
+      .then(id => {
+        if (id) setInstallationId(id)
+        else setInstallationId('N/A — restart app')
+      })
+      .catch(e => {
+        console.error('[Activate] Failed to get installation ID:', e)
+        setInstallationId('Error — restart app')
+      })
   }, [])
 
   const handleCopy = useCallback(() => {

@@ -728,6 +728,27 @@ export const en = {
 
   // float extras
   float_no_profile_id: 'No profile ID',
+  float_waiting: 'Waiting for profile...',
+  float_no_orders: 'No orders yet',
+  float_no_drop: 'No drop address configured',
+  float_copy_billing_btn: 'Copy Billing Address',
+  float_copy_shipping_btn: 'Copy Shipping Address',
+  float_orders_tab: 'Orders',
+  float_quick_order: '+ Order',
+  float_quick_order_placeholder: 'Shop URL...',
+  float_quick_order_hint: 'Press Enter to create',
+  float_quick_order_cancel: 'Cancel',
+  float_order_created: 'Order created!',
+  float_billing_copied: 'Billing address copied',
+  float_shipping_copied: 'Shipping address copied',
+  float_status_updated: 'Status updated',
+  float_delivered: '✓ Delivered',
+  float_declined: '✗ Declined',
+  float_order_delivered: 'Order marked as delivered',
+  float_order_declined: 'Order marked as declined',
+  float_view_all_orders: 'View all orders →',
+  float_retry: 'Retry',
+  float_not_found: 'Profile not found',
 
   // Cards extras
   cards_zip_filter_hint: 'ZIP prefix match',

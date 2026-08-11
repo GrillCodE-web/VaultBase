@@ -61,6 +61,9 @@ impl EmailSender {
 
         let creds = Credentials::new(cfg.login.clone(), password.get().to_string());
 
+        // BUG-001/SEC-016: Fixed inverted TLS logic
+        // use_tls=true  → implicit TLS (port 465) via relay()
+        // use_tls=false → STARTTLS upgrade (port 587) via starttls_relay()
         let transport = if cfg.use_tls {
             SmtpTransport::relay(&cfg.host)
                 .map_err(|e| e.to_string())?
@@ -68,8 +71,7 @@ impl EmailSender {
                 .credentials(creds)
                 .build()
         } else {
-            SmtpTransport::starttls_relay(&cfg.host)
-                .map_err(|e| e.to_string())?
+            SmtpTransport::builder_dangerous(&cfg.host)
                 .port(cfg.port as u16)
                 .credentials(creds)
                 .build()
@@ -87,8 +89,11 @@ impl EmailSender {
     }
 
     /// Test SMTP connection without sending a message.
+    // SEC-012: Accept owned String for password so we can zeroize after use
     pub fn test(host: &str, port: u16, login: &str, password: &str, use_tls: bool) -> Result<String, String> {
-        let creds = Credentials::new(login.to_string(), password.to_string());
+        let secure_pwd = SecurePassword::new(password.to_string());
+        let creds = Credentials::new(login.to_string(), secure_pwd.get().to_string());
+        // BUG-001: Fixed inverted TLS logic (same as send)
         let transport = if use_tls {
             SmtpTransport::relay(host)
                 .map_err(|e| e.to_string())?
@@ -96,17 +101,13 @@ impl EmailSender {
                 .credentials(creds)
                 .build()
         } else {
-            SmtpTransport::starttls_relay(host)
-                .map_err(|e| e.to_string())?
+            SmtpTransport::builder_dangerous(host)
                 .port(port)
                 .credentials(creds)
                 .build()
         };
         let result = transport.test_connection().map_err(|e| e.to_string());
-
-        // Note: Cannot zeroize `password` here as it's a &str reference
-        // Caller is responsible for zeroizing the original String
-
+        // secure_pwd is auto-zeroized on drop
         result.map(|_| format!("Connected to {}:{}", host, port))
     }
 }

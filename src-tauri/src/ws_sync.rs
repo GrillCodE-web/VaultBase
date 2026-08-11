@@ -17,13 +17,14 @@ use tauri::{AppHandle, Emitter};
 use crate::models;
 
 // URL выводится из crate::endpoints (переменная VAULTBASE_SYNC_WS_URL там же).
-const RECONNECT_SECS: u64 = 3;
-const PING_INTERVAL_SECS: u64 = 30;
-// FIX P3-HB-01: Reconnect after 2 missed pings (60 seconds total)
-const MAX_MISSED_PINGS: u32 = 2;
-// FIX P0-9: Track last full_pull time to prevent duplicate requests on rapid reconnects
+// CLEAN-004: Use centralized constants
+use crate::constants::{
+    WS_RECONNECT_SECS as RECONNECT_SECS,
+    WS_PING_INTERVAL_SECS as PING_INTERVAL_SECS,
+    WS_MAX_MISSED_PINGS as MAX_MISSED_PINGS,
+    WS_FULL_PULL_DEBOUNCE_SECS as FULL_PULL_DEBOUNCE_SECS,
+};
 static LAST_FULL_PULL: RwLock<Option<Instant>> = RwLock::new(None);
-const FULL_PULL_DEBOUNCE_SECS: u64 = 30;  // Only one full_pull per 30 seconds
 
 // ─────────────────────────────────────────
 //  Shared credentials (set from main.rs)
@@ -247,6 +248,10 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                 }
 
                 let _ = app.emit("ws_sync:status", serde_json::json!({ "connected": false, "connecting": false }));
+                // BUG-009: Reset full_pull debounce on disconnect so reconnect gets fresh data
+                if let Ok(mut last_pull) = LAST_FULL_PULL.write() {
+                    *last_pull = None;
+                }
             }
             Err(e) => {
                 eprintln!("[ws_sync] connect error: {e}");

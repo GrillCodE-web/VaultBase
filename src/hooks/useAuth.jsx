@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-// FIX CRITICAL: Use safe localStorage operations
 import { safeSetItem, safeGetItem, safeRemoveItem } from '../utils/localStorage'
+import { useCardsStore } from '../store/cards'
+import { useOrdersStore } from '../store/orders'
+import { useUIStore } from '../store/ui'
 
 const AuthContext = createContext(null)
 
@@ -16,8 +18,11 @@ export function AuthProvider({ children }) {
       deviceInfo: navigator.userAgent ?? null,
     })
     setCurrentUser(result)
-    // FIX CRITICAL: Use safe localStorage
-    safeSetItem('cc_session_token', result.token)
+    // FINAL-013: Check if token was saved, warn if localStorage is full
+    const saved = safeSetItem('cc_session_token', result.token)
+    if (!saved) {
+      console.error('[Auth] Failed to persist session token — session will not survive reload')
+    }
     return result
   }, [])
 
@@ -30,6 +35,10 @@ export function AuthProvider({ children }) {
       }
     }
     setCurrentUser(null)
+    // SEC-010/SEC-014: Clear all sensitive data from stores on logout
+    useCardsStore.getState().clearSensitiveData()
+    useOrdersStore.getState().clearSensitiveData()
+    useUIStore.getState().clearSensitiveData()
     try {
       safeRemoveItem('cc_session_token')
     } catch (e) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
   AreaChart,
@@ -720,9 +720,9 @@ function CollapsePanel({ title, id, collapsed, onToggle, children }) {
   )
 }
 
-// ─── Premium Stat Card Component ─────────────────────────────
+// ─── Premium Stat Card Component — PERF-002: memoized ───────
 
-function PremiumStatCard({
+const PremiumStatCard = React.memo(function PremiumStatCard({
   icon: Icon,
   label,
   value,
@@ -802,11 +802,11 @@ function PremiumStatCard({
       </div>
     </div>
   )
-}
+})
 
-// ─── Smart Alert Card ────────────────────────────────────────
+// ─── Smart Alert Card — PERF-002: memoized ──────────────────
 
-function SmartAlertCard({ alert, onAction }) {
+const SmartAlertCard = React.memo(function SmartAlertCard({ alert, onAction }) {
   const config = {
     error: { icon: XCircle, color: 'error' },
     warning: { icon: AlertTriangle, color: 'warning' },
@@ -831,7 +831,7 @@ function SmartAlertCard({ alert, onAction }) {
       )}
     </div>
   )
-}
+})
 
 // ─── Main Dashboard ──────────────────────────────────────────
 

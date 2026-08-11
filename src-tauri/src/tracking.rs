@@ -33,14 +33,12 @@ fn cache_tracking_result(tracking: &str, status: TrackingStatus) {
     if let Ok(mut guard) = TRACKING_CACHE.lock() {
         let now = chrono::Utc::now().timestamp();
         
-        // FIX CRITICAL: Periodic cleanup to prevent memory leak
-        if guard.len() % TRACKING_CACHE_CLEANUP_INTERVAL == 0 && guard.len() > 0 {
-            // Remove entries older than 2x TTL
+        // FINAL-003: Fixed cache cleanup — always check when exceeding threshold
+        if guard.len() >= TRACKING_CACHE_CLEANUP_INTERVAL {
             let max_age = TRACKING_CACHE_TTL_SECS * 2;
             guard.retain(|_, (_, timestamp)| now - *timestamp < max_age);
         }
         
-        // FIX CRITICAL: LRU eviction if cache is full
         if guard.len() >= TRACKING_CACHE_MAX_SIZE {
             // Find and remove oldest entry
             if let Some(oldest_key) = guard.iter()
@@ -121,8 +119,9 @@ pub fn check_usps_tracking(tracking: &str) -> Result<TrackingStatus, String> {
     );
 
     // FIX CRITICAL: Use constant for USPS tracking URL
+    // FINAL-008: Use replacen to only replace first occurrence
     let encoded_xml = urlencoding::encode(&xml_request);
-    let url = crate::constants::TRACKING_USPS_URL.replace("{}", &encoded_xml);
+    let url = crate::constants::TRACKING_USPS_URL.replacen("{}", &encoded_xml, 1);
 
     let resp = ureq::get(&url)
         .timeout(std::time::Duration::from_secs(10))
@@ -294,9 +293,12 @@ fn get_ups_oauth_token(client_id: String, client_secret: String) -> Result<Strin
     // FIX CRITICAL: Use constant for UPS OAuth token URL
     let url = crate::constants::TRACKING_UPS_TOKEN_URL;
 
+    // FINAL-002: URL-encode credentials to prevent injection via special chars
+    let encoded_id = urlencoding::encode(&client_id);
+    let encoded_secret = urlencoding::encode(&client_secret);
     let body = format!(
         "grant_type=client_credentials&client_id={}&client_secret={}",
-        client_id, client_secret
+        encoded_id, encoded_secret
     );
 
     let resp = ureq::post(url)

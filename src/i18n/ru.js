@@ -729,6 +729,27 @@ export const ru = {
 
   // float extras
   float_no_profile_id: 'ID профиля не указан',
+  float_waiting: 'Ожидание профиля...',
+  float_no_orders: 'Заказов пока нет',
+  float_no_drop: 'Адрес доставки не настроен',
+  float_copy_billing_btn: 'Скопировать биллинг адрес',
+  float_copy_shipping_btn: 'Скопировать адрес доставки',
+  float_orders_tab: 'Заказы',
+  float_quick_order: '+ Заказ',
+  float_quick_order_placeholder: 'URL магазина...',
+  float_quick_order_hint: 'Нажмите Enter для создания',
+  float_quick_order_cancel: 'Отмена',
+  float_order_created: 'Заказ создан!',
+  float_billing_copied: 'Биллинг адрес скопирован',
+  float_shipping_copied: 'Адрес доставки скопирован',
+  float_status_updated: 'Статус обновлён',
+  float_delivered: '✓ Доставлен',
+  float_declined: '✗ Отклонён',
+  float_order_delivered: 'Заказ отмечен как доставленный',
+  float_order_declined: 'Заказ отмечен как отклонённый',
+  float_view_all_orders: 'Все заказы →',
+  float_retry: 'Повторить',
+  float_not_found: 'Профиль не найден',
 
   // Cards extras
   cards_zip_filter_hint: 'Фильтр по ZIP-префиксу',

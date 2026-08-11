@@ -58,10 +58,19 @@ pub(crate) fn set_config(key: String, value: String) -> Result<(), String> {
     with_db!(db, { db.set_config(&key, &value).map_err(|e| e.to_string()) })
 }
 
+// SEC-020/BUG-003: Seed data only available in debug builds
 #[tauri::command]
 pub(crate) fn seed_test_data(force: bool) -> Result<String, String> {
-    require_user()?;
-    with_db!(db, { db.seed_test_data(force) })
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = force;
+        return Err("seed_test_data is disabled in production builds".to_string());
+    }
+    #[cfg(debug_assertions)]
+    {
+        require_user()?;
+        with_db!(db, { db.seed_test_data(force) })
+    }
 }
 
 #[tauri::command]

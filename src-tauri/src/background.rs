@@ -382,57 +382,44 @@ pub(crate) fn run_tracking_update(api_key: &str) {
         }
     }
 
+    // FINAL-012: DRY — unified carrier status mapping helper
+    fn map_carrier_status(raw: &str) -> Option<&'static str> {
+        match raw {
+            "delivered" => Some("delivered"),
+            "in_transit" | "pre_transit" => Some("shipped"),
+            "exception" => Some("exception"),
+            _ => None,
+        }
+    }
+    fn apply_tracking_update(tracking: &str, status: &str) {
+        if let Some(st) = STATE.get() {
+            if let Ok(mut db) = st.db.lock() {
+                let _ = db.update_order_status_by_tracking(tracking, status);
+            }
+        }
+    }
+
     // Process direct carrier APIs first
     for tracking in &ups {
         if let Ok(status) = tracking::check_ups_tracking(tracking) {
-            let new_status = match status.status.as_str() {
-                "delivered" => Some("delivered"),
-                "in_transit" | "pre_transit" => Some("shipped"),
-                "exception" => Some("exception"),
-                _ => None,
-            };
-            if let Some(s) = new_status {
-                if let Some(st) = STATE.get() {
-                    if let Ok(mut db) = st.db.lock() {
-                        let _ = db.update_order_status_by_tracking(tracking, s);
-                    }
-                }
+            if let Some(s) = map_carrier_status(&status.status) {
+                apply_tracking_update(tracking, s);
             }
         }
     }
 
     for tracking in &fedex {
         if let Ok(status) = tracking::check_fedex_tracking(tracking) {
-            let new_status = match status.status.as_str() {
-                "delivered" => Some("delivered"),
-                "in_transit" | "pre_transit" => Some("shipped"),
-                "exception" => Some("exception"),
-                _ => None,
-            };
-            if let Some(s) = new_status {
-                if let Some(st) = STATE.get() {
-                    if let Ok(mut db) = st.db.lock() {
-                        let _ = db.update_order_status_by_tracking(tracking, s);
-                    }
-                }
+            if let Some(s) = map_carrier_status(&status.status) {
+                apply_tracking_update(tracking, s);
             }
         }
     }
 
     for tracking in &usps {
         if let Ok(status) = tracking::check_usps_tracking(tracking) {
-            let new_status = match status.status.as_str() {
-                "delivered" => Some("delivered"),
-                "in_transit" | "pre_transit" => Some("shipped"),
-                "exception" => Some("exception"),
-                _ => None,
-            };
-            if let Some(s) = new_status {
-                if let Some(st) = STATE.get() {
-                    if let Ok(mut db) = st.db.lock() {
-                        let _ = db.update_order_status_by_tracking(tracking, s);
-                    }
-                }
+            if let Some(s) = map_carrier_status(&status.status) {
+                apply_tracking_update(tracking, s);
             }
         }
     }

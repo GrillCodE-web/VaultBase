@@ -1,5 +1,5 @@
 /* global AbortController */
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom/client'
 import { invoke } from '@tauri-apps/api/core'
 import { useLang, LangProvider } from './hooks/useLang'
@@ -8,38 +8,35 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Lock } from 'lucide-react'
 import { ORDER_STATUS_CSS } from './constants/status.js'
-// HEX_COLORS imported but not used - reserved for future color picker feature
 import { handleError, getErrorMessage } from './utils/errorHandler.js'
+import { copySensitive } from './utils/clipboard.js'
 import { purgeCacheOnVersionChange } from './utils/cacheBuster.js'
 import './index.css'
 
 // ─── Copy button ──────────────────────────────────────────────
-// eslint-disable-next-line react-refresh/only-export-components -- Helper component
-function CopyBtn({ value }) {
+
+// SEC-013: Use copySensitive for auto-clear after 30s
+const CopyBtn = React.memo(function CopyBtn({ value }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = () => {
     if (!value) return
-    navigator.clipboard
-      .writeText(String(value))
-      .then(() => {
+    copySensitive(String(value)).then(ok => {
+      if (ok) {
         setCopied(true)
         setTimeout(() => setCopied(false), 1800)
-      })
-      .catch(e => {
-        // FIX CRITICAL: Handle clipboard errors
-        console.error('[float] Failed to copy value:', e)
-      })
+      }
+    })
   }
   return (
     <button className={`float-copy${copied ? ' copied' : ''}`} onClick={handleCopy} title="Copy">
       {copied ? '✓' : '⎘'}
     </button>
   )
-}
+})
 
-// ─── Field row ────────────────────────────────────────────────
+// ─── Field row — PERF-001: memoized ─────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components -- Helper component
-function Field({ label, value }) {
+const Field = React.memo(function Field({ label, value }) {
   return (
     <div className="float-field">
       <span className="float-lbl">{label}</span>
@@ -47,11 +44,11 @@ function Field({ label, value }) {
       <CopyBtn value={value} />
     </div>
   )
-}
+})
 
-// ─── Risk badge ───────────────────────────────────────────────
+// ─── Risk badge — PERF-001: memoized ─────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components -- Helper component
-function RiskBadge({ level }) {
+const RiskBadge = React.memo(function RiskBadge({ level }) {
   if (!level) return null
   const map = {
     safe: { className: 'risk-safe', label: 'Safe', icon: '🟢' },
@@ -64,7 +61,7 @@ function RiskBadge({ level }) {
       {cfg.icon} {cfg.label}
     </span>
   )
-}
+})
 
 // ─── Card Health Indicator ────────────────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components -- Helper component
@@ -200,10 +197,19 @@ function ProfileFloat() {
     }
   }, [profileId, load])
 
-  // ── App lock listener ──────────────────────────────────────
+  // ── App lock listener — SEC-011: clear all data on lock ──
   useEffect(() => {
     let unlisten
-    listen('app_locked', () => setAppLocked(true)).then(u => {
+    listen('app_locked', () => {
+      setAppLocked(true)
+      setProfile(null)
+      setCard(null)
+      setDrop(null)
+      setLatestOrderId(null)
+      setRecentOrders([])
+      setProfileId(null)
+      setError(null)
+    }).then(u => {
       unlisten = u
     })
     return () => {
@@ -245,7 +251,7 @@ function ProfileFloat() {
   if (!profileId) {
     return (
       <div className="float-state float-waiting">
-        <span className="text-[12px]">Waiting for profile…</span>
+        <span className="text-[12px]">{t('float_waiting')}</span>
       </div>
     )
   }
@@ -261,9 +267,9 @@ function ProfileFloat() {
   if (error || !profile) {
     return (
       <div className="float-state float-error">
-        <span className="float-error-text">{error ?? 'Profile not found'}</span>
+        <span className="float-error-text">{error ?? t('float_not_found')}</span>
         <button className="btn btn-ghost btn-sm" onClick={() => load(profileId)}>
-          Retry
+          {t('float_retry')}
         </button>
       </div>
     )
@@ -608,12 +614,42 @@ function ProfileFloat() {
   )
 }
 
-// Флоат-окно делит кеш WebView2 с главным окном — тот же сброс по версии.
+// ERR-001: ErrorBoundary for float window
+class FloatErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="float-state float-error">
+          <span className="float-error-text">
+            {this.state.error?.message || 'Unexpected error'}
+          </span>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            Retry
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 purgeCacheOnVersionChange().then(reloading => {
   if (reloading) return
   ReactDOM.createRoot(document.getElementById('root')).render(
-    <LangProvider>
-      <ProfileFloat />
-    </LangProvider>
+    <FloatErrorBoundary>
+      <LangProvider>
+        <ProfileFloat />
+      </LangProvider>
+    </FloatErrorBoundary>
   )
 })

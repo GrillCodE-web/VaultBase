@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
 
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const CACHE_MAX_ENTRIES = 50 // FINAL-004: Prevent unbounded cache growth
 
 export const useCardsStore = create((set, get) => ({
   // State
@@ -112,8 +113,17 @@ export const useCardsStore = create((set, get) => ({
         return
       }
 
-      // Update cache
+      // FINAL-004: Evict oldest entries if cache is full
       const newCache = { ...cache }
+      const cacheKeys = Object.keys(newCache)
+      if (cacheKeys.length >= CACHE_MAX_ENTRIES) {
+        const sorted = cacheKeys.sort(
+          (a, b) => (newCache[a].timestamp || 0) - (newCache[b].timestamp || 0)
+        )
+        for (let i = 0; i < sorted.length - CACHE_MAX_ENTRIES + 1; i++) {
+          delete newCache[sorted[i]]
+        }
+      }
       newCache[cacheKey] = {
         data: res,
         timestamp: Date.now(),
@@ -362,4 +372,18 @@ export const useCardsStore = create((set, get) => ({
 
   // Invalidate cache
   invalidateCache: () => set({ cache: {} }),
+
+  // SEC-010: Clear all sensitive data on lock/logout
+  clearSensitiveData: () =>
+    set({
+      revealed: {},
+      cache: {},
+      cards: [],
+      total: 0,
+      freeTotal: 0,
+      selected: [],
+      deletingIds: [],
+      lastFetch: null,
+      retryCount: 0,
+    }),
 }))

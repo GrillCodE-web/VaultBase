@@ -12,11 +12,12 @@ use once_cell::sync::Lazy;  // FIX CRITICAL: Compile regex once instead of each 
 //  Static compiled regexes (performance optimization)
 // ─────────────────────────────────────────
 // FIX B19: расширен до 9[0-9] — покрывает все серии USPS
-static RE_USPS: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(9[0-9]\d{20})\b").unwrap());
-static RE_UPS: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(1Z[0-9A-Z]{16})\b").unwrap());
-static RE_AMAZON: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(TBA\d{12})\b").unwrap());
-static RE_FEDEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)track(?:ing)?\s*(?:number)?[:\s]+(\d{12,15})").unwrap());
-static RE_ORDER: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(?:order\s*[#:\-]?\s*|#)([A-Z0-9\-]{4,20})").unwrap());
+// ARCH-003: Use expect() with descriptive messages instead of unwrap()
+static RE_USPS: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(9[0-9]\d{20})\b").expect("USPS regex invalid"));
+static RE_UPS: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(1Z[0-9A-Z]{16})\b").expect("UPS regex invalid"));
+static RE_AMAZON: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(TBA\d{12})\b").expect("Amazon regex invalid"));
+static RE_FEDEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)track(?:ing)?\s*(?:number)?[:\s]+(\d{12,15})").expect("FedEx regex invalid"));
+static RE_ORDER: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(?:order\s*[#:\-]?\s*|#)([A-Z0-9\-]{4,20})").expect("Order regex invalid"));
 
 // ─────────────────────────────────────────
 //  Body extraction helper

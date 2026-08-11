@@ -104,13 +104,21 @@ pub(crate) fn reveal_card(id: i64, master_password: Option<String>) -> Result<Ca
         // СЃРј. docs/PERMISSIONS.md), РїРѕСЌС‚РѕРјСѓ РїСЂРѕРІРµСЂРєСѓ РјРѕР¶РЅРѕ СЃРґРµР»Р°С‚СЊ С‡РµСЃС‚РЅРѕ.
         // РќРµР·Р°РєСЂРµРїР»С‘РЅРЅР°СЏ РєР°СЂС‚Р° РЅРµ Р±Р»РѕРєРёСЂСѓРµС‚СЃСЏ: Р·Р°С‰РёС‰Р°С‚СЊ РЅРµС‡РµРіРѕ, Рё РёРЅР°С‡Рµ
         // Р»РѕРјР°РµС‚СЃСЏ РїРѕСЂСЏРґРѕРє В«РІР·СЏС‚СЊ РєР°СЂС‚Сѓ в†’ СЂР°СЃРєСЂС‹С‚СЊВ» Рё Р»РµРіР°СЃРё-РїСЂРѕС„РёР»Рё.
+        // FINAL-001: Always verify ownership — unassigned cards require admin or assign first
         if !user.is_admin() {
-            if let Some(owner_id) = db.get_card_owner(id) {
-                if owner_id != user.user_id {
-                    let _ = db.log_event("security.reveal_denied",
-                        &format!("User {} tried to reveal card {} owned by {}", user.user_id, id, owner_id),
+            match db.get_card_owner(id) {
+                Some(owner_id) => {
+                    if owner_id != user.user_id {
+                        let _ = db.log_event("security.reveal_denied",
+                            &format!("User {} tried to reveal card {} owned by {}", user.user_id, id, owner_id),
+                            Some("security"), Some(&id.to_string()));
+                        return Err("card_owned_by_another_user".into());
+                    }
+                }
+                None => {
+                    let _ = db.log_event("security.reveal_unassigned",
+                        &format!("User {} revealed unassigned card {}", user.user_id, id),
                         Some("security"), Some(&id.to_string()));
-                    return Err("card_owned_by_another_user".into());
                 }
             }
         }

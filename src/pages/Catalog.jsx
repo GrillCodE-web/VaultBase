@@ -70,9 +70,9 @@ function ItemsTab() {
 
   const load = useCallback(
     async (p, s) => {
-      // Если параметры не переданы, используем актуальные значения из ref
-      const actualPage = p ?? pageRef.current
-      const actualSearch = s ?? searchRef.current
+      // FINAL-005: Use explicit undefined check instead of ?? (p=0 is valid)
+      const actualPage = p !== undefined && p !== null ? p : pageRef.current
+      const actualSearch = s !== undefined && s !== null ? s : searchRef.current
       setLoading(true)
       try {
         const r = await invoke('get_catalog_items', {
@@ -339,9 +339,9 @@ function ShopsTab() {
 
   const load = useCallback(
     async (p, s) => {
-      // Если параметры не переданы, используем актуальные значения из ref
-      const actualPage = p ?? pageRef.current
-      const actualSearch = s ?? searchRef.current
+      // FINAL-005: Use explicit undefined check instead of ?? (p=0 is valid)
+      const actualPage = p !== undefined && p !== null ? p : pageRef.current
+      const actualSearch = s !== undefined && s !== null ? s : searchRef.current
       setLoading(true)
       try {
         const r = await invoke('get_catalog_shops', {

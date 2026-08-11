@@ -116,7 +116,8 @@ export function handleError(error, context = '') {
     const rawKeys = message.split(':')[1] || ''
     const labels = rawKeys
       .split('|')
-      .map(k => PERMISSION_LABELS[k.trim()])
+      // FINAL-011: Fallback to raw key when label is missing
+      .map(k => PERMISSION_LABELS[k.trim()] || k.trim())
       .filter(Boolean)
     return {
       type: 'PermissionError',

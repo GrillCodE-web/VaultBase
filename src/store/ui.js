@@ -51,4 +51,18 @@ export const useUIStore = create(set => ({
     })),
 
   setEnrichProgress: progress => set({ enrichProgress: progress }),
+
+  // SEC-014: Reset all UI state on lock/logout
+  clearSensitiveData: () =>
+    set({
+      showImport: false,
+      showColPicker: false,
+      sideCard: null,
+      sideCardIdx: null,
+      shopUsageCardId: null,
+      timelineCardId: null,
+      statusMenuId: null,
+      flashedIds: [],
+      enrichProgress: null,
+    }),
 }))

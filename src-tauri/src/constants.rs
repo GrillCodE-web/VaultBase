@@ -184,3 +184,38 @@ pub const MAX_IMAP_FETCH_SIZE: usize = 100;
 
 /// Rate limiter bucket cleanup interval (every 100 checks)
 pub const RATE_LIMITER_CLEANUP_INTERVAL: usize = 100;
+
+// ─────────────────────────────────────────────────────────────────────
+//  WebSocket Sync (CLEAN-004: magic numbers extracted)
+// ─────────────────────────────────────────────────────────────────────
+
+/// WS reconnect interval (seconds)
+pub const WS_RECONNECT_SECS: u64 = 3;
+
+/// WS keepalive ping interval (seconds)
+pub const WS_PING_INTERVAL_SECS: u64 = 30;
+
+/// WS max missed pings before reconnect
+pub const WS_MAX_MISSED_PINGS: u32 = 2;
+
+/// WS full_pull debounce window (seconds)
+pub const WS_FULL_PULL_DEBOUNCE_SECS: u64 = 30;
+
+/// Max cards in a single sync batch
+pub const WS_MAX_BATCH_SIZE: usize = 100;
+
+/// Max notes length in sync messages
+pub const WS_MAX_NOTES_LEN: usize = 500;
+
+// ─────────────────────────────────────────────────────────────────────
+//  Frontend UI Constants (reference — actual values in JS)
+// ─────────────────────────────────────────────────────────────────────
+
+/// Card virtualizer threshold (enable virtual scroll above this count)
+pub const CARDS_VIRTUALIZER_THRESHOLD: usize = 200;
+
+/// Clipboard sensitive data auto-clear timeout (seconds)
+pub const CLIPBOARD_SENSITIVE_CLEAR_SECS: u64 = 30;
+
+/// BIN cache TTL (days)
+pub const BIN_CACHE_TTL_DAYS: i64 = 30;
