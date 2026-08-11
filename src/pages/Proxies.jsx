@@ -31,8 +31,8 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 function TypeBadge({ type }) {
   const colorMap = {
     http: { color: STATUS_COLORS.info, bg: 'var(--color-info-bg)' },
-    socks5: { color: 'var(--blue-t)', bg: 'rgba(167,139,250,0.12)' },
-    socks4: { color: 'var(--blue-t)', bg: 'rgba(129,140,248,0.12)' },
+    socks5: { color: 'var(--blue-t)', bg: 'var(--purple-alt-dim)' },
+    socks4: { color: 'var(--blue-t)', bg: 'var(--indigo-dim)' },
     pptp: { color: STATUS_COLORS.warning, bg: STATUS_COLORS.warningBg },
   }
   const cfg = colorMap[type] || { color: 'var(--muted)', bg: 'var(--surface)' }
@@ -588,6 +588,7 @@ export default function ProxyList() {
   // Virtualization setup
   const parentRef = useRef(null)
   const useVirtual = proxies.length > 100
+  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? proxies.length : 0,
     getScrollElement: () => parentRef.current,

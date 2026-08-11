@@ -19,10 +19,16 @@ function CopyBtn({ value }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = () => {
     if (!value) return
-    navigator.clipboard.writeText(String(value)).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    })
+    navigator.clipboard
+      .writeText(String(value))
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1800)
+      })
+      .catch(e => {
+        // FIX CRITICAL: Handle clipboard errors
+        console.error('[float] Failed to copy value:', e)
+      })
   }
   return (
     <button className={`float-copy${copied ? ' copied' : ''}`} onClick={handleCopy} title="Copy">
@@ -187,6 +193,7 @@ function ProfileFloat() {
   // FIX FE-01: Added AbortController to cancel pending requests on unmount or id change
   useEffect(() => {
     const abortController = new AbortController()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка профиля
     if (profileId) load(profileId, abortController.signal)
     return () => {
       abortController.abort() // Cancel pending requests on cleanup

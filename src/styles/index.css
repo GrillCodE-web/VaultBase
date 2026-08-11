@@ -1,10 +1,11 @@
-/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════════
    VAULTBASE — единая точка входа стилей
    Раньше было 36 файлов, подключённых по одному через @import.
    Теперь 5 логических файлов. Порядок @layer определяет каскад:
    слой, объявленный раньше, СЛАБЕЕ. Поэтому app идёт между
    tw-base (preflight Tailwind) и tw-utils (утилиты Tailwind).
-   ═══════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @layer tw-base, app, tw-utils;
 
 /* fonts — ВНЕ слоя: @font-face должны быть видны до первого использования. */
@@ -20,13 +21,54 @@
 @import './components.css';
 @import './pages.css';
 
-/* ── Tailwind ───────────────────────────────────────────── */
-@layer tw-base {
-  @tailwind base;
-}
+/* ─── Tailwind 4 ────────────────────────────────────────────────────────────
+   Preflight кладём в tw-base, утилиты — в tw-utils, чтобы сохранить
+   исходный порядок каскада (app между ними). */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(tw-base);
+@import 'tailwindcss/utilities.css' layer(tw-utils);
 
-@tailwind components;
+/* Тема (кастомные цвета/шрифты/радиусы) задаётся через @theme.
+   Значения ссылаются на CSS-переменные из tokens.css, поэтому утилиты
+   (bg-card, text-2, border-hi и т.д.) работают как раньше. */
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-hi: var(--card-hi);
+  --color-inset: var(--inset);
+  --color-border: var(--border);
+  --color-border-hi: var(--border-hi);
+  --color-separator: var(--separator);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-green-t: var(--green-t);
+  --color-red-t: var(--red-t);
+  --color-yellow-t: var(--yellow-t);
+  --color-blue-t: var(--blue-t);
+  --color-orange-t: var(--orange-t);
+  --color-teal-t: var(--teal-t);
+  --color-gray-t: var(--text-3);
 
-@layer tw-utils {
-  @tailwind utilities;
+  --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-error: var(--color-error);
+  --color-error-bg: var(--color-error-bg);
+  --color-info: var(--color-info);
+  --color-info-bg: var(--color-info-bg);
+  --color-orange: var(--orange);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
 }

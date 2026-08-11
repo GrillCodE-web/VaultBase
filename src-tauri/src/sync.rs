@@ -6,7 +6,7 @@ use crate::models::{Footprint, RiskWarning, SyncResult};
 
 // ✅ SECURE: Only HTTPS via Cloudflare
 // Домен берётся из crate::endpoints — единственного места, где он задан.
-fn server_url() -> &'static str { crate::endpoints::server_base() }
+fn server_url() -> String { crate::endpoints::server_base() }
 
 /// FIX B02: три разных исхода вместо Vec<> где [] = два разных состояния
 pub enum RiskCheckOutcome {
@@ -495,9 +495,12 @@ impl SyncGroupClient {
                 Ok(resp) => {
                     if resp.status() == 200 {
                         // Success — log and return
+                        // FIX AUDIT-25: &group_id[..8] паниковал на коротком или
+                        // многобайтовом group_id. Используем безопасный срез по границе char.
+                        let short_id: String = group_id.chars().take(8).collect();
                         let _ = db.log_event(
                             "sync.cards_pushed",
-                            &format!("Pushed {} card updates to group {}", updates.len(), &group_id[..8]),
+                            &format!("Pushed {} card updates to group {}", updates.len(), short_id),
                             Some("sync"),
                             None,
                         );

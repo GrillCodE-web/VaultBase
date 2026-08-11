@@ -29,12 +29,12 @@ export default function Drops() {
             style={{
               background: 'var(--accent-dim)',
               borderColor: 'var(--accent-border)',
-              boxShadow: '0 0 40px rgba(0, 217, 255, 0.15)',
+              boxShadow: '0 0 40px var(--accent-dim)',
             }}
           >
             <div
               className="premium-empty-state__icon-glow"
-              style={{ background: 'rgba(0, 217, 255, 0.15)' }}
+              style={{ background: 'var(--accent-dim)' }}
             />
             <MapPin
               size={48}

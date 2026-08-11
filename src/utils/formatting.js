@@ -182,23 +182,3 @@ export function formatNumber(value) {
   if (value == null || isNaN(value)) return '0'
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
-
-/**
- * Format ISO date to short date (YYYY-MM-DD)
- * @param {string} isoDate - ISO 8601 date string
- * @returns {string} Short date (e.g., "2024-03-23") or "—" if empty
- */
-export function formatDateShort(isoDate) {
-  if (!isoDate) return '—'
-  return isoDate.slice(0, 10)
-}
-
-/**
- * Format ISO datetime to datetime without seconds (YYYY-MM-DD HH:MM)
- * @param {string} isoDate - ISO 8601 datetime string
- * @returns {string} Datetime (e.g., "2024-03-23 14:30") or "—" if empty
- */
-export function formatDateTime(isoDate) {
-  if (!isoDate) return '—'
-  return isoDate.slice(0, 16).replace('T', ' ')
-}

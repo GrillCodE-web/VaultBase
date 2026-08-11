@@ -106,10 +106,13 @@ impl Database {
         Ok(())
     }
 
-    pub fn log_event(&self, event_type: &str, description: &str, _category: Option<&str>, _entity_id: Option<&str>) -> Result<(), String> {
+    pub fn log_event(&self, event_type: &str, description: &str, category: Option<&str>, entity_id: Option<&str>) -> Result<(), String> {
+        // FIX AUDIT-14: раньше category/entity_id игнорировались — из-за этого
+        // get_card_timeline (по entity_type='card') и фильтры по entity_type
+        // в get_activity_log всегда возвращали пустоту.
         self.conn.execute(
-            "INSERT INTO activity_log(event_type,description) VALUES(?1,?2)",
-            params![event_type, description],
+            "INSERT INTO activity_log(event_type,description,entity_type,entity_id) VALUES(?1,?2,?3,?4)",
+            params![event_type, description, category, entity_id],
         ).map_err(|e| e.to_string())?;
         // FIX B47: авто-ротация лога — держим последние 10 000 записей
         let _ = self.conn.execute(
@@ -119,14 +122,20 @@ impl Database {
         Ok(())
     }
 
-    /// Возвращает HMAC-ключ из DEK или фолбэк-ключ если не залочено
+    /// Возвращает HMAC-ключ из DEK или фолбэк-ключ если не залочено.
+    /// Фолбэк деривируется из installation_id (уникален для каждой установки),
+    /// а не из статической константы — чтобы хеши не были детерминированными
+    /// и не поддавались словарным атакам при залоченной БД.
     fn hmac_key(&self) -> [u8; 32] {
         match &self.encryption {
             Some(enc) => enc.derive_hmac_key(),
             None => {
                 use sha2::{Sha256, Digest};
                 let mut h = Sha256::new();
-                h.update(b"vaultbase-footprint-fallback-v1");
+                h.update(b"vaultbase-footprint-fallback-v2:");
+                if let Ok(Some(id)) = self.get_config("installation_id") {
+                    h.update(id.as_bytes());
+                }
                 h.finalize().into()
             }
         }

@@ -120,10 +120,9 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                 // Сырой /ws протокол (ws-tauri.js): auth первым фреймом как
                 // {"type":"auth","token":"..."}. Не socket.io (40{...}) —
                 // сервер /ws парсит JSON напрямую.
-                let token_sanitized = token.chars()
-                    .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
-                    .collect::<String>();
-                let auth_msg = serde_json::json!({ "type": "auth", "token": token_sanitized }).to_string();
+                // FIX AUDIT-24: раньше токен фильтровался до [A-Za-z0-9_-], что
+                // портило base64-токены с '+/='. JSON-сериализация уже безопасна.
+                let auth_msg = serde_json::json!({ "type": "auth", "token": token }).to_string();
                 if socket.send(Message::Text(auth_msg)).is_err() {
                     std::thread::sleep(Duration::from_secs(RECONNECT_SECS));
                     continue;
@@ -204,7 +203,7 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                                     let _ = socket.send(Message::Text(pong));
                                     continue;
                                 }
-                                if let Some(state) = crate::STATE.get() {
+                                if let Some(state) = crate::state::STATE.get() {
                                     if let Ok(db) = state.db.lock() {
                                         if let Some(pool) = db.pool.as_ref() {
                                             handle_ws_message(&app, pool, mtype, &msg);
@@ -365,7 +364,8 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
 // ─────────────────────────────────────────
 
 fn status_weight(s: &str) -> u8 {
-    match s { "dead" => 5, "declined" => 4, "archive" => 3, "in_use" => 2, "free" => 1, _ => 0 }
+    // FIX AUDIT-17: "declined" — статус заказа, не карты. Убран.
+    match s { "dead" => 5, "archive" => 3, "in_use" => 2, "free" => 1, _ => 0 }
 }
 
 fn apply_catalog_item(pool: &crate::database::DbPool, item: models::CatalogItemInput) {
@@ -407,8 +407,9 @@ fn apply_card_updates(pool: &crate::database::DbPool, cards: &[serde_json::Value
             _ => continue
         };
         // FIX WS-STATUS-01: Validate status is one of allowed values
+        // FIX AUDIT-17: "declined" — статус заказа, не карты. Убран.
         let status = match card["status"].as_str() {
-            Some(s) if ["free", "in_use", "archive", "declined", "dead"].contains(&s) => s,
+            Some(s) if ["free", "in_use", "archive", "dead"].contains(&s) => s,
             _ => continue
         };
         // FIX WS-NOTES-01: Limit notes length to prevent DoS

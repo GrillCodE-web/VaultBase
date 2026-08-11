@@ -9,27 +9,3 @@ export function escapeHtml(str) {
   div.textContent = str
   return div.innerHTML
 }
-
-/**
- * Escape special characters for safe regex usage
- * @param {string} str - String to escape
- * @returns {string} Escaped string safe for regex
- */
-export function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-/**
- * Sanitize user input by removing potentially dangerous characters
- * @param {string} input - User input to sanitize
- * @returns {string} Sanitized input
- */
-export function sanitizeInput(input) {
-  if (!input) return ''
-  return input
-    .replace(/[<>]/g, '') // Remove angle brackets
-    .replace(/&/g, '&amp;') // Encode ampersands
-    .replace(/"/g, '&quot;') // Encode quotes
-    .replace(/'/g, '&#39;') // Encode single quotes
-    .trim()
-}

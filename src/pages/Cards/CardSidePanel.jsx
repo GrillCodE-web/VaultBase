@@ -95,14 +95,16 @@ export function CardSidePanel({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 right-[340px] bg-[rgba(0,0,0,0.25)] z-[199]"
+        className="fixed inset-0 right-[340px] z-[199]"
+        style={{ background: 'var(--overlay-backdrop)' }}
       />
       {/* Panel */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Card details"
-        className="fixed right-0 top-0 w-[340px] h-screen bg-card border-l border-border z-[200] flex flex-col shadow-[-8px_0_32px_rgba(0,0,0,0.45)] animate-[side-panel-in_200ms_ease-out]"
+        className="fixed right-0 top-0 w-[340px] h-screen bg-card border-l border-border z-[200] flex flex-col animate-[side-panel-in_200ms_ease-out]"
+        style={{ boxShadow: '-8px 0 32px var(--overlay-darker)' }}
       >
         {/* Header */}
         <div className="p-[14px_16px] border-b border-border flex items-center justify-between">

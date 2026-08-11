@@ -6,6 +6,17 @@ use crate::models::{ImapCheckResult};
 use mailparse::MailHeaderMap;
 use regex::Regex;
 use zeroize::Zeroize;  // FIX ZEROIZE-01: Secure memory zeroing
+use once_cell::sync::Lazy;  // FIX CRITICAL: Compile regex once instead of each call
+
+// ─────────────────────────────────────────
+//  Static compiled regexes (performance optimization)
+// ─────────────────────────────────────────
+// FIX B19: расширен до 9[0-9] — покрывает все серии USPS
+static RE_USPS: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(9[0-9]\d{20})\b").unwrap());
+static RE_UPS: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(1Z[0-9A-Z]{16})\b").unwrap());
+static RE_AMAZON: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(TBA\d{12})\b").unwrap());
+static RE_FEDEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)track(?:ing)?\s*(?:number)?[:\s]+(\d{12,15})").unwrap());
+static RE_ORDER: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(?:order\s*[#:\-]?\s*|#)([A-Z0-9\-]{4,20})").unwrap());
 
 // ─────────────────────────────────────────
 //  Body extraction helper
@@ -97,13 +108,12 @@ impl ImapPoller {
             .uid_fetch(&fetch_range, "RFC822")
             .map_err(|e| format!("FETCH failed: {}", e))?;
 
-        // Compile regexes
-        // FIX B19: расширен до 9[0-9] — покрывает все серии USPS
-        let re_usps   = Regex::new(r"\b(9[0-9]\d{20})\b").unwrap();
-        let re_ups    = Regex::new(r"\b(1Z[0-9A-Z]{16})\b").unwrap();
-        let re_amazon = Regex::new(r"\b(TBA\d{12})\b").unwrap();
-        let re_fedex  = Regex::new(r"(?i)track(?:ing)?\s*(?:number)?[:\s]+(\d{12,15})").unwrap();
-        let re_order  = Regex::new(r"(?i)(?:order\s*[#:\-]?\s*|#)([A-Z0-9\-]{4,20})").unwrap();
+        // FIX CRITICAL: Use static compiled regexes for performance
+        let re_usps = &*RE_USPS;
+        let re_ups = &*RE_UPS;
+        let re_amazon = &*RE_AMAZON;
+        let re_fedex = &*RE_FEDEX;
+        let re_order = &*RE_ORDER;
 
         let mut processed = 0usize;
         let mut orders_updated = 0usize; // FIX B65
@@ -336,11 +346,12 @@ pub fn fetch_folder_page(
     let messages = session.fetch(&range, "RFC822 FLAGS UID")
         .map_err(|e| format!("FETCH failed: {}", e))?;
 
-    let re_usps   = Regex::new(r"\b(9[0-9]\d{20})\b").unwrap();
-    let re_ups    = Regex::new(r"\b(1Z[0-9A-Z]{16})\b").unwrap();
-    let re_amazon = Regex::new(r"\b(TBA\d{12})\b").unwrap();
-    let re_fedex  = Regex::new(r"(?i)track(?:ing)?\s*(?:number)?[:\s]+(\d{12,15})").unwrap();
-    let re_order  = Regex::new(r"(?i)(?:order\s*[#:\-]?\s*|#)([A-Z0-9\-]{4,20})").unwrap();
+    // FIX CRITICAL: Use static compiled regexes for performance
+    let re_usps = &*RE_USPS;
+    let re_ups = &*RE_UPS;
+    let re_amazon = &*RE_AMAZON;
+    let re_fedex = &*RE_FEDEX;
+    let re_order = &*RE_ORDER;
 
     for msg in messages.iter() {
         let uid = msg.uid.map(|u| u.to_string());
@@ -398,7 +409,35 @@ pub fn get_message_body_from_server(
     if let Ok(Some(body)) = db.get_imap_message_body(message_id) {
         return Ok(body);
     }
-    Err("Message body not cached; use fetch_folder_page to populate".into())
+    // FIX AUDIT-13: раньше это была заглушка — теперь тянем тело с сервера.
+    let (uid, folder) = match db.get_imap_message_uid_folder(message_id)? {
+        Some(pair) => pair,
+        None => return Err("message_has_no_uid".into()),
+    };
+    let (account, password) = db.get_imap_account_with_password(account_id)?;
+    if password.is_empty() {
+        return Err("no_password".into());
+    }
+
+    let tls = native_tls::TlsConnector::builder()
+        .build()
+        .map_err(|e| format!("TLS error: {}", e))?;
+    let client = imap::connect((account.host.as_str(), account.port as u16), &account.host, &tls)
+        .map_err(|e| format!("Connection failed: {}", e))?;
+    let mut session = client
+        .login(&account.login, &password)
+        .map_err(|(e, _)| format!("Login failed: {}", e))?;
+    let _ = session.select(&folder).map_err(|e| format!("SELECT failed: {}", e))?;
+
+    let fetched = session.uid_fetch(uid.as_str(), "BODY[TEXT]")
+        .map_err(|e| format!("UID FETCH failed: {}", e))?;
+    let body = fetched.iter().find_map(|m| m.body()).map(|b| b.to_vec())
+        .ok_or_else(|| "body_not_found".to_string())?;
+    let body_str = String::from_utf8_lossy(&body).to_string();
+    let _ = session.logout();
+
+    let _ = db.set_imap_message_body(message_id, &body_str);
+    Ok(body_str)
 }
 
 /// Mark a message as read locally and on the IMAP server.
@@ -408,6 +447,22 @@ pub fn mark_message_read_on_server(
     message_id: i64,
 ) -> Result<(), String> {
     db.mark_imap_message_read(message_id)?;
+    // FIX AUDIT-13: раньше помечалось только локально — теперь и на сервере.
+    if let Some((uid, folder)) = db.get_imap_message_uid_folder(message_id)? {
+        if let Ok((account, password)) = db.get_imap_account_with_password(account_id) {
+            if !password.is_empty() {
+                if let Ok(tls) = native_tls::TlsConnector::builder().build() {
+                    if let Ok(client) = imap::connect((account.host.as_str(), account.port as u16), &account.host, &tls) {
+                        if let Ok(mut session) = client.login(&account.login, &password) {
+                            let _ = session.select(&folder);
+                            let _ = session.uid_store(uid.as_str(), "+FLAGS (\\Seen)");
+                            let _ = session.logout();
+                        }
+                    }
+                }
+            }
+        }
+    }
     Ok(())
 }
 
@@ -492,11 +547,12 @@ pub fn fetch_account_messages(
     let messages = session.uid_fetch(&fetch_range, "RFC822")
         .map_err(|e| format!("FETCH failed: {}", e))?;
 
-    let re_usps   = Regex::new(r"\b(9[0-9]\d{20})\b").unwrap();
-    let re_ups    = Regex::new(r"\b(1Z[0-9A-Z]{16})\b").unwrap();
-    let re_amazon = Regex::new(r"\b(TBA\d{12})\b").unwrap();
-    let re_fedex  = Regex::new(r"(?i)track(?:ing)?\s*(?:number)?[:\s]+(\d{12,15})").unwrap();
-    let re_order  = Regex::new(r"(?i)(?:order\s*[#:\-]?\s*|#)([A-Z0-9\-]{4,20})").unwrap();
+    // FIX CRITICAL: Use static compiled regexes for performance
+    let re_usps = &*RE_USPS;
+    let re_ups = &*RE_UPS;
+    let re_amazon = &*RE_AMAZON;
+    let re_fedex = &*RE_FEDEX;
+    let re_order = &*RE_ORDER;
 
     let mut result_messages = vec![];
     let mut mark_seen = vec![];

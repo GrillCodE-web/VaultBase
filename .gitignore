@@ -26,6 +26,13 @@ coverage/
 # Claude Code
 .claude/
 
+# Release artifacts (бинарники — не в git, заливаются скриптом publish-release.py)
+.release-artifacts/
+
+# Playwright test results
+test-results/
+playwright-report/
+
 # Environment variables
 .env
 .env.local

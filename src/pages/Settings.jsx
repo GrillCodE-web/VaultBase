@@ -40,6 +40,18 @@ const THEME_OPTIONS = [
   { value: 'dark', label: 'Dark', Icon: Moon },
 ]
 
+// Единая политика паролей с мастер-паролем (12+ символов, верхний/нижний
+// регистр, цифра, спецсимвол) — совпадает с PasswordValidation в бэкенде.
+function isStrongPassword(pw) {
+  return (
+    pw.length >= 12 &&
+    /[A-ZА-ЯЁ]/.test(pw) &&
+    /[a-zа-яё]/.test(pw) &&
+    /\d/.test(pw) &&
+    /[^A-Za-zА-Яа-яЁё0-9]/.test(pw)
+  )
+}
+
 export default function Settings() {
   const { t, lang, setLang } = useLang()
   const { success: toastOk, error: toastErr } = usePremiumToast()
@@ -431,8 +443,8 @@ export default function Settings() {
       toastErr('Пароли не совпадают')
       return
     }
-    if (ownPwForm.next.length < 6) {
-      toastErr('Минимум 6 символов')
+    if (!isStrongPassword(ownPwForm.next)) {
+      toastErr('Пароль: минимум 12 символов, заглавная и строчная буквы, цифра и спецсимвол')
       return
     }
     setSavingOwnPw(true)
@@ -1070,7 +1082,7 @@ export default function Settings() {
           <div className="flex flex-col gap-3">
             {[
               { key: 'current', label: 'Текущий пароль', placeholder: 'Текущий пароль' },
-              { key: 'next', label: 'Новый пароль', placeholder: 'Минимум 6 символов' },
+              { key: 'next', label: 'Новый пароль', placeholder: 'Минимум 12 символов' },
               { key: 'confirm', label: 'Повторите пароль', placeholder: 'Повторите новый пароль' },
             ].map(({ key, label, placeholder }) => (
               <div className="form-group" key={key}>

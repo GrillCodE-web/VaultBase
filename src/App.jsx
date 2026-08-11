@@ -13,7 +13,13 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
 import { HEX_COLORS } from './constants/colors.js'
 import { isUnauthorizedError } from './utils/errorHandler.js'
+// FIX CRITICAL: Use safe localStorage operations
+import { safeGetItem, safeSetItem, safeSetJSON } from './utils/localStorage'
 import { escapeHtml } from './utils/escape.js'
+// SPRINT3-DAY2: Structured logging
+import { createLogger } from './utils/logger'
+
+const logger = createLogger('App')
 
 // Auth screens — loaded immediately (shown before app)
 import Login from './pages/Login'
@@ -160,6 +166,7 @@ function GlobalSearch({ onClose, onNavigate }) {
 
   useEffect(() => {
     if (!query.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- очистка результатов поиска при пустом запросе
       setResults(null)
       return
     }
@@ -342,9 +349,10 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     onSessionTimeout?.()
   }, [logout, onSessionTimeout, toast])
 
-  useIdleTimer({
+  const { warningActive, remainingSeconds } = useIdleTimer({
     onIdle: onSessionTimeout,
     timeoutMs: 30 * 60 * 1000,
+    warningBeforeMs: 2 * 60 * 1000,
     enabled: !!currentUser && !!onSessionTimeout,
   })
 
@@ -407,16 +415,14 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {
     try {
-      return localStorage.getItem('cc_sidebar_expanded') === '1'
+      return safeGetItem('cc_sidebar_expanded') === '1'
     } catch {
       return false
     }
   })
   const [showOnboarding, setShowOnboarding] = useState(false)
   // #27 — drag-to-reorder sidebar
-  const [navOrder, setNavOrder] = useState(() =>
-    safeParseJSON(localStorage.getItem('cc_nav_order'), null)
-  )
+  const [navOrder, setNavOrder] = useState(() => safeParseJSON(safeGetItem('cc_nav_order'), null))
   const dragNavRef = useRef(null)
   const prevImapRef = useRef(0)
 
@@ -447,6 +453,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   }, [handleUnauthorized])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка бейджей при монтировании
     loadBadges()
     const id = setInterval(loadBadges, 30_000)
     return () => clearInterval(id)
@@ -500,7 +507,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   useEffect(() => {
     let done
     try {
-      done = !!localStorage.getItem('onboarding_done')
+      done = !!safeGetItem('onboarding_done')
     } catch {
       done = false
     }
@@ -600,20 +607,41 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   // Admin live notifications: card taken / order created by operator
   useEffect(() => {
     if (!isAdmin) return
+
     let fns = []
+    let isMounted = true // FIX CRITICAL: Track mount state
+
     Promise.all([
       listen('admin:card_taken', e => {
+        if (!isMounted) return // FIX CRITICAL: Check before action
         const p = e.payload
         toast(`Оператор ${p.username} взял карту #${p.card_id}`, 'info')
       }),
       listen('admin:order_created', e => {
+        if (!isMounted) return // FIX CRITICAL: Check before action
         const p = e.payload
         toast(`${p.username} создал заказ #${p.order_id}`, 'info')
       }),
-    ]).then(unlisten => {
-      fns = unlisten
-    })
-    return () => fns.forEach(fn => fn?.())
+    ])
+      .then(unlisten => {
+        if (isMounted) {
+          // FIX CRITICAL: Only set if still mounted
+          fns = unlisten
+        } else {
+          // FIX CRITICAL: Clean up immediately if unmounted
+          unlisten.forEach(fn => fn?.())
+        }
+      })
+      .catch(e => {
+        if (import.meta.env.DEV) {
+          console.error('[App] Failed to setup admin listeners:', e)
+        }
+      })
+
+    return () => {
+      isMounted = false // FIX CRITICAL: Mark as unmounted
+      fns.forEach(fn => fn?.())
+    }
   }, [isAdmin, toast])
 
   // Global keyboard shortcuts using new system
@@ -937,11 +965,11 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             <Onboarding
               onComplete={() => {
                 setShowOnboarding(false)
-                localStorage.setItem('onboarding_done', '1')
+                safeSetItem('onboarding_done', '1')
               }}
               onNavigate={p => {
                 setShowOnboarding(false)
-                localStorage.setItem('onboarding_done', '1')
+                safeSetItem('onboarding_done', '1')
                 handlePageChange(p)
               }}
             />
@@ -1005,7 +1033,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
                   order.splice(ti, 0, src)
                   setNavOrder(order)
                   try {
-                    localStorage.setItem('cc_nav_order', JSON.stringify(order))
+                    safeSetJSON('cc_nav_order', JSON.stringify(order))
                   } catch {
                     // localStorage may be unavailable - order will reset on reload
                   }
@@ -1081,13 +1109,16 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
                 borderRadius: 4,
                 flexShrink: 0,
                 background:
-                  currentUser.role === 'admin' ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.25)',
+                  currentUser.role === 'admin' ? 'var(--role-admin-bg)' : 'var(--role-user-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 700,
                 fontSize: 10,
-                color: currentUser.role === 'admin' ? '#3b82f6' : '#22c55e',
+                color:
+                  currentUser.role === 'admin'
+                    ? 'var(--role-admin-color)'
+                    : 'var(--role-user-color)',
               }}
             >
               {(currentUser.display_name || currentUser.username)[0].toUpperCase()}
@@ -1155,7 +1186,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             const next = !sidebarExpanded
             setSidebarExpanded(next)
             try {
-              localStorage.setItem('cc_sidebar_expanded', next ? '1' : '0')
+              safeSetItem('cc_sidebar_expanded', next ? '1' : '0')
             } catch {
               // localStorage may be unavailable
             }
@@ -1205,6 +1236,19 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
 
       {/* ── Main ── */}
       <div className="main-content-wrapper">
+        {warningActive && (
+          <div className="session-warning-banner" role="alert">
+            <AlertTriangle size={14} />
+            <span>
+              {t('session_expiring_soon') || 'Сессия истекает через'}{' '}
+              <strong>
+                {remainingSeconds}
+                {t('session_seconds_short') || 'с'}
+              </strong>
+              . {t('session_move_mouse') || 'Двигайте мышь, чтобы остаться.'}
+            </span>
+          </div>
+        )}
         {/* Topbar tabs */}
         {TOPBAR_TABS[page]?.length > 0 && (
           <div className="topbar">
@@ -1267,6 +1311,7 @@ function AppInner() {
   const { resumeSession, autoLogin, logout } = useAuth()
 
   useEffect(() => {
+    logger.info('AppInner mounted, initializing event listeners')
     let unlistenFns = []
     let isMounted = true
 

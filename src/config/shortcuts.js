@@ -207,15 +207,6 @@ export function isInInputField() {
   )
 }
 
-// Helper to normalize key combination
-export function normalizeKey(key) {
-  return key
-    .replace(/Cmd/gi, 'Meta')
-    .replace(/Ctrl/gi, 'Control')
-    .replace(/Alt/gi, 'Alt')
-    .replace(/Shift/gi, 'Shift')
-}
-
 // Helper to format key for display (Mac vs Windows)
 export function formatKeyForDisplay(key) {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0

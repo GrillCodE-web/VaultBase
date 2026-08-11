@@ -36,12 +36,12 @@ const ENTITY_COLORS = {
     text: STATUS_COLORS.warning,
     border: 'var(--color-warning-bg)',
   },
-  sync: { bg: 'rgba(20,184,166,0.1)', text: 'var(--teal-t)', border: 'rgba(20,184,166,0.2)' },
+  sync: { bg: 'var(--teal-dim)', text: 'var(--teal-t)', border: 'var(--teal-border)' },
   license: { bg: STATUS_COLORS.infoBg, text: STATUS_COLORS.info, border: 'var(--color-info-bg)' },
   system: {
     bg: STATUS_COLORS.neutralBg,
     text: STATUS_COLORS.neutral,
-    border: 'rgba(107,114,128,0.2)',
+    border: 'var(--neutral-border)',
   },
 }
 
@@ -123,6 +123,7 @@ export default function ActivityLog() {
   }, [search, entityFilter, page, toastErr])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка лога
     load()
   }, [load])
 

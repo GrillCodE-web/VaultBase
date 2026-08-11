@@ -25,7 +25,10 @@ const FIELD_OPTIONS = [
 
 function Spinner() {
   return (
-    <span className="inline-block w-3 h-3 mr-1.5 border-2 border-[rgba(255,255,255,0.3)] border-t-text rounded-full animate-spin align-middle" />
+    <span
+      className="inline-block w-3 h-3 mr-1.5 border-2 border-t-text rounded-full animate-spin align-middle"
+      style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'var(--text)' }}
+    />
   )
 }
 

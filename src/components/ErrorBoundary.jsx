@@ -53,7 +53,7 @@ class ErrorBoundary extends React.Component {
                 width: '64px',
                 height: '64px',
                 borderRadius: '12px',
-                background: 'rgba(239, 68, 68, 0.12)',
+                background: 'var(--color-error-bg)',
               }}
             >
               <AlertTriangle size={32} style={{ color: HEX_COLORS.red }} />

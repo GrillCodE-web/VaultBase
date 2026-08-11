@@ -21,7 +21,7 @@ tauri                = { version = "2", features = [] }
 tauri-plugin-dialog  = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
-rusqlite      = { version = "0.31", features = ["bundled"] }
+rusqlite      = { version = "0.31", features = ["bundled", "backup"] }
 r2d2          = "0.8"
 r2d2_sqlite   = "0.24"
 serde         = { version = "1", features = ["derive"] }
@@ -46,6 +46,13 @@ tungstenite   = { version = "0.23", features = ["native-tls"] }
 lettre        = { version = "0.11", features = ["native-tls", "smtp-transport", "builder"] }
 zeroize       = { version = "1.7", features = ["derive"] }  # FIX ZEROIZE-01: Secure memory zeroing for passwords
 urlencoding   = "2.1"  # For USPS API URL encoding
+tracing            = "0.1"  # SPRINT3-DAY2: Structured logging framework
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }  # SPRINT3-DAY2: Log subscriber with JSON support
+tracing-appender   = "0.2"  # SPRINT3-DAY2: File appender for logs
+toml               = "0.8"  # SPRINT3-DAY3: TOML configuration parser
+
+[dev-dependencies]
+tempfile = "3"  # SPRINT3-DAY1: Temp directories for testing
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

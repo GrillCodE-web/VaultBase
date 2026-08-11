@@ -24,19 +24,21 @@ use std::sync::OnceLock;
 /// активироваться, ни синхронизироваться. Проверено: на sec201-www живой Node
 /// (`/version` → JSON, `/activate` → `missing_fields`, `/sync/cards` → 401).
 /// Домен `pub-www.otpmanager.pro` — это статика/лендинг, API там нет.
-const DEFAULT_SERVER_URL: &str = "https://sec201-www.otpmanager.pro";
+// FIX CRITICAL: Use constant instead of hardcoded URL
+const DEFAULT_SERVER_URL: &str = crate::constants::DEFAULT_SERVER_URL;
 
 static SERVER_BASE: OnceLock<String> = OnceLock::new();
 static WS_URL: OnceLock<String> = OnceLock::new();
 
+fn get_server_base() -> String {
+    std::env::var("VAULTBASE_SERVER_URL")
+        .unwrap_or_else(|_| DEFAULT_SERVER_URL.to_string())
+        .trim().trim_end_matches('/').to_string()
+}
+
 /// База HTTP-API без завершающего слеша, например `https://api.example.com`.
-pub fn server_base() -> &'static str {
-    SERVER_BASE.get_or_init(|| {
-        let raw = std::env::var("VAULTBASE_SERVER_URL")
-            .unwrap_or_else(|_| DEFAULT_SERVER_URL.to_string());
-        let trimmed = raw.trim().trim_end_matches('/').to_string();
-        if trimmed.is_empty() { DEFAULT_SERVER_URL.to_string() } else { trimmed }
-    })
+pub fn server_base() -> String {
+    get_server_base()
 }
 
 /// Собрать абсолютный URL: `endpoint("/verify")` → `https://host/verify`.

@@ -43,6 +43,7 @@ export default [
         prompt: 'readonly',
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
+        performance: 'readonly',
         process: 'readonly',
       },
     },
@@ -78,6 +79,12 @@ export default [
       react: {
         version: 'detect',
       },
+    },
+  },
+  {
+    files: ['src/utils/logger.js'],
+    rules: {
+      'no-console': 'off',
     },
   },
   {

@@ -81,7 +81,6 @@ manager-work/
 │
 ├── package.json                  # Node-зависимости
 ├── vite.config.js                # Конфиг Vite
-├── tailwind.config.js            # Конфиг Tailwind
 └── AGENTS.md                     # Оригинал этого файла (EN)
 ```
 

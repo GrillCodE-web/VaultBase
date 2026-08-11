@@ -21,7 +21,7 @@ const STRENGTH_META = [
   { color: 'bg-accent-red', label: 'auth_strength_weak' },
   { color: 'bg-accent-red', label: 'auth_strength_weak' },
   { color: 'bg-accent-yellow', label: 'auth_strength_fair' },
-  { color: 'bg-green-400', label: 'auth_strength_good' },
+  { color: 'bg-accent-green', label: 'auth_strength_good' },
   { color: 'bg-accent-green', label: 'auth_strength_strong' },
 ]
 

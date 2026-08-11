@@ -213,6 +213,7 @@ export default function Updates() {
   )
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка обновлений
     loadData()
   }, [loadData])
 
@@ -386,8 +387,8 @@ export default function Updates() {
           {downloadState === 'downloading' && (
             <div className="h-1 rounded overflow-hidden bg-color-info-bg">
               <div
-                className="h-full rounded bg-blue-t transition-all"
-                style={{ width: `${downloadProgress}%` }}
+                className="h-full rounded transition-all"
+                style={{ width: `${downloadProgress}%`, backgroundColor: 'var(--blue-t)' }}
               />
             </div>
           )}

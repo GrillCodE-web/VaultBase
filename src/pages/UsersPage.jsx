@@ -831,6 +831,7 @@ export default function UsersPage() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка пользователей
     load()
   }, [load])
 

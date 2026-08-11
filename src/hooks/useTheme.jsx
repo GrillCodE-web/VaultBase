@@ -1,4 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react'
+// FIX CRITICAL: Use safe localStorage operations
+import { safeGetItem, safeSetItem } from '../utils/localStorage'
 
 const STORAGE_KEY = 'theme'
 const MODES = ['system', 'light', 'dark']
@@ -16,7 +18,8 @@ const MODES = ['system', 'light', 'dark']
 const listeners = new Set()
 
 const read = () => {
-  const saved = localStorage.getItem(STORAGE_KEY)
+  // FIX CRITICAL: Use safe localStorage
+  const saved = safeGetItem(STORAGE_KEY)
   return MODES.includes(saved) ? saved : 'dark'
 }
 
@@ -37,12 +40,14 @@ const store = {
     const mode = MODES.includes(next) ? next : 'system'
     if (mode === current) return
     current = mode
-    try {
-      localStorage.setItem(STORAGE_KEY, mode)
-    } catch (err) {
+    // FIX CRITICAL: Use safe localStorage with error handling
+    const success = safeSetItem(STORAGE_KEY, mode)
+    if (!success) {
       // Приватный режим или переполненное хранилище: тема применится,
       // но не переживёт перезапуск. Это не повод падать.
-      console.warn('[useTheme] Не удалось сохранить тему:', err)
+      console.warn(
+        '[useTheme] Не удалось сохранить тему - приватный режим или переполненное хранилище'
+      )
     }
     apply(mode)
     listeners.forEach(fn => fn())

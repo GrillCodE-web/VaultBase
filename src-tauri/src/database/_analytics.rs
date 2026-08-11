@@ -416,7 +416,7 @@ impl Database {
                     SUM(CASE WHEN o.status='delivered' THEN 1 ELSE 0 END) as delivered,
                     SUM(CASE WHEN o.status='declined' THEN 1 ELSE 0 END) as declined,
                     COALESCE(SUM(CASE WHEN o.status='delivered' THEN o.total_amount ELSE 0 END), 0) as revenue
-             FROM cards c
+             FROM credit_cards c
              JOIN profiles p ON p.card_id = c.id
              JOIN orders o ON o.profile_id = p.id
              WHERE c.bin IS NOT NULL AND c.bin != ''

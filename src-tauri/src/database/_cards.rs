@@ -156,32 +156,35 @@ impl Database {
             format!("WHERE {}", conditions.join(" AND "))
         };
 
-        let count_sql = format!("SELECT COUNT(*) FROM credit_cards {}", where_clause);
+        // FIX AUDIT-04: алиас c обязателен — фильтр owner_user_id использует c.id.
+        let count_sql = format!("SELECT COUNT(*) FROM credit_cards c {}", where_clause);
 
         // FIX: Only select domain/acquired_at if columns exist (migration v9)
+        // FIX AUDIT-03: добавлен c.ip_address — раньше парсер читал на его месте
+        // c.acquired_at, из-за чего IP карты в списке никогда не показывался.
         let select_columns = if has_domain_column && has_acquired_at_column {
             "c.id, c.bin, c.last4, c.expiry_date, c.holder_name, c.bank_name,
              c.card_type, c.card_level, c.status, c.source, c.notes,
-             c.city, c.state, c.zip, c.country, c.created_at, c.domain, c.acquired_at,
+             c.city, c.state, c.zip, c.country, c.created_at, c.domain, c.ip_address, c.acquired_at,
              (SELECT COUNT(*) FROM orders o JOIN profiles p ON o.profile_id=p.id WHERE p.card_id=c.id) as orders_count"
         } else if has_domain_column {
             "c.id, c.bin, c.last4, c.expiry_date, c.holder_name, c.bank_name,
              c.card_type, c.card_level, c.status, c.source, c.notes,
-             c.city, c.state, c.zip, c.country, c.created_at, c.domain,
+             c.city, c.state, c.zip, c.country, c.created_at, c.domain, c.ip_address,
              (SELECT COUNT(*) FROM orders o JOIN profiles p ON o.profile_id=p.id WHERE p.card_id=c.id) as orders_count"
         } else {
             "c.id, c.bin, c.last4, c.expiry_date, c.holder_name, c.bank_name,
              c.card_type, c.card_level, c.status, c.source, c.notes,
-             c.city, c.state, c.zip, c.country, c.created_at,
+             c.city, c.state, c.zip, c.country, c.created_at, c.ip_address,
              (SELECT COUNT(*) FROM orders o JOIN profiles p ON o.profile_id=p.id WHERE p.card_id=c.id) as orders_count"
         };
 
         let num_columns = if has_domain_column && has_acquired_at_column {
-            19
+            20
         } else if has_domain_column {
-            18
+            19
         } else {
-            17
+            18
         };
 
         let data_sql = format!(
@@ -211,8 +214,9 @@ impl Database {
         let mut stmt = self.conn.prepare(&data_sql).map_err(|e| e.to_string())?;
         let items = stmt.query_map(rusqlite::params_from_iter(page_params.iter().copied()), |row| {
             // FIX: Parse row based on available columns (migration v9 compatibility)
-            let domain: Option<String> = if num_columns >= 18 { row.get(16)? } else { None };
-            let ip_address: Option<String> = if num_columns >= 19 { row.get(17)? } else { None };
+            // FIX AUDIT-03: ip_address теперь на своём месте (после domain, до acquired_at).
+            let domain: Option<String> = if num_columns >= 19 { row.get(16)? } else { None };
+            let ip_address: Option<String> = if num_columns >= 19 { row.get(17)? } else { row.get(16)? };
             let orders_col = num_columns - 1;
             let orders_count: u32 = row.get::<_, i64>(orders_col).unwrap_or(0) as u32;
 
@@ -592,9 +596,19 @@ impl Database {
     }
 
     fn reencrypt_all_inner(&self, old_enc: &FieldEncryption, new_enc: &FieldEncryption) -> Result<(), String> {
+        // FIX AUDIT-01: устойчивость к legacy plaintext. Некоторые поля (например,
+        // email_pool.email, созданный из IMAP-логина) могли быть записаны открытым
+        // текстом. Если расшифровка старым ключом не удаётся — считаем значение
+        // plaintext и просто шифруем новым ключом, вместо того чтобы ронять всю
+        // транзакцию смены мастер-пароля.
         let reenc = |val: Option<&str>| -> Result<Option<String>, String> {
             match val {
-                Some(v) if !v.is_empty() => Ok(Some(new_enc.reencrypt_from(old_enc, v)?)),
+                Some(v) if !v.is_empty() => {
+                    match old_enc.decrypt(v) {
+                        Ok(plain) => Ok(Some(new_enc.encrypt(&plain)?)),
+                        Err(_) => Ok(Some(new_enc.encrypt(v)?)),
+                    }
+                }
                 _ => Ok(None),
             }
         };
@@ -660,6 +674,21 @@ impl Database {
                 params![reenc(pw.as_deref())?, id]).map_err(|e| e.to_string())?;
         }
 
+        // FIX AUDIT-02: smtp_configs.password — раньше не перешифровывался, из-за
+        // чего после смены мастер-пароля get_smtp_config_password считал старый
+        // шифротекст «legacy plaintext» и перешифровывал его повторно (двойное
+        // шифрование → пароль навсегда сломан).
+        let sm_rows: Vec<(i64, Option<String>)> = {
+            let mut s = self.conn.prepare("SELECT id, password FROM smtp_configs").map_err(|e| e.to_string())?;
+            let c: Vec<_> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?
+             .filter_map(|r| r.ok()).collect();
+            c
+        };
+        for (id, pw) in sm_rows {
+            self.conn.execute("UPDATE smtp_configs SET password=?1 WHERE id=?2",
+                params![reenc(pw.as_deref())?, id]).map_err(|e| e.to_string())?;
+        }
+
         // FIX B03: drops таблица содержит PII (имена, адреса) — перешифровываем
         let dr_rows: Vec<(i64, String, String, Option<String>)> = {
             let mut s = self.conn.prepare(
@@ -679,6 +708,16 @@ impl Database {
                     id
                 ],
             ).map_err(|e| e.to_string())?;
+        }
+
+        // FIX AUDIT-23: license_token — если лицензия активирована до установки
+        // мастер-пароля, токен лежит plaintext. reenc устойчив к этому: decrypt
+        // не удастся → зашифруем новым ключом. Если уже зашифрован — перешифруем.
+        if let Some(raw) = self.get_config("license_token").map_err(|e| e.to_string())? {
+            if !raw.is_empty() {
+                let new_val = reenc(Some(&raw))?.unwrap_or(raw);
+                self.set_config("license_token", &new_val).map_err(|e| e.to_string())?;
+            }
         }
 
         Ok(())

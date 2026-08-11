@@ -1,0 +1,40 @@
+# VaultBase Production Configuration
+# Only sections that are actually read by the application at runtime.
+# Logging is initialized before config loads (hardcoded in main.rs).
+# API URLs, timeouts, and tracking endpoints come from constants.rs.
+# Database settings (except max_connections check) use compiled defaults.
+
+[app]
+profile = "production"
+name = "VaultBase"
+version = "2.11.2"
+debug = false
+
+[security]
+rate_limit_strict = 5        # Auth attempts per minute
+rate_limit_moderate = 30     # API calls per minute
+rate_limit_lenient = 100     # General calls per minute
+pbkdf2_iterations = 1000000  # Password hashing iterations (OWASP high-security)
+session_timeout = 3600       # Session timeout in seconds
+autolock_timeout = 30        # Auto-lock timeout in seconds
+
+[background]
+license_check_interval = 60
+sync_interval = 60
+stuffer_poll_interval = 300
+fulfillment_check_interval = 1800
+risk_check_interval = 300
+quarantine_cleanup_interval = 1800
+catalog_update_interval = 3600
+
+# ─────────────────────────────────────────────────────
+# Production Notes:
+# - Debug mode DISABLED for security
+# - PBKDF2 at 1M iterations (high-security recommendation)
+# - Removed dead sections: [logging], [api], [database], [email]
+#   — these were parsed but never consumed by the runtime.
+# - API URLs and timeouts are compiled into constants.rs
+# - Stuffer base URL is stored per-instance in the database
+#
+# DO NOT enable debug mode in production!
+# DO NOT lower pbkdf2_iterations below 600k!

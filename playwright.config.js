@@ -1,5 +1,10 @@
-// Playwright Configuration
-// FIX ARCH-MED-02: E2E testing setup
+// Playwright Configuration for VaultBase E2E tests.
+// Тесты запускаются против Vite dev-сервера (npm run dev).
+// Tauri invoke() мокируется через setup/tauri-mock.js, поэтому
+// для E2E не нужен полный Tauri-бинарь.
+//
+// Запуск:  npm run test:e2e
+// С UI:    npm run test:e2e:ui
 
 import { defineConfig, devices } from '@playwright/test';
 
@@ -9,7 +14,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: [['html', { open: 'never' }], ['list']],
 
   use: {
     baseURL: 'http://localhost:5173',
@@ -26,17 +31,6 @@ export default defineConfig({
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-    {
-      name: 'Desktop Electron',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 720 },
-      },
     },
   ],
 

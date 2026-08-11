@@ -30,7 +30,7 @@ export function LoadingOverlay({ message = 'Loading...' }) {
       aria-live="polite"
       className="fade-in fixed inset-0 flex flex-col items-center justify-center gap-4"
       style={{
-        background: 'rgba(13, 17, 23, 0.8)',
+        background: 'var(--overlay-loading)',
         backdropFilter: 'blur(4px)',
         zIndex: 'var(--z-modal)',
       }}

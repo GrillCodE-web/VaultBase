@@ -468,6 +468,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
   }, [shopId]) // toast is stable from useToast hook
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка магазинов
     load()
   }, [load])
 
@@ -739,6 +740,7 @@ export default function ShopList({ onNavigate }) {
   // Virtualization setup - disable when any row is expanded
   const parentRef = useRef(null)
   const useVirtual = shops.length > 80 && expanded === null
+  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? shops.length : 0,
     getScrollElement: () => parentRef.current,

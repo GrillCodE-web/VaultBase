@@ -82,17 +82,6 @@ export const ORDER_STATUS_COLORS = {
   },
 }
 
-/**
- * Get status color configuration
- * @param {string} status - Status value
- * @param {string} type - 'card' or 'order'
- * @returns {object} Color configuration with bg, text, label
- */
-export function getStatusColor(status, type = 'card') {
-  const colors = type === 'card' ? CARD_STATUS_COLORS : ORDER_STATUS_COLORS
-  return colors[status] || { bg: 'rgba(156, 163, 175, 0.1)', text: HEX_COLORS.gray, label: status }
-}
-
 // Order status workflow steps
 export const ORDER_STATUS_STEPS = ['pending', 'processing', 'shipped', 'delivered']
 

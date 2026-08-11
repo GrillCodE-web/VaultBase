@@ -1,0 +1,37 @@
+# VaultBase Development Configuration
+# Only sections that are actually read by the application at runtime.
+
+[app]
+profile = "dev"
+name = "VaultBase"
+version = "2.11.2"
+debug = true
+
+[security]
+rate_limit_strict = 5        # Auth attempts per minute
+rate_limit_moderate = 30     # API calls per minute
+rate_limit_lenient = 100     # General calls per minute
+pbkdf2_iterations = 600000   # Password hashing iterations (must be >= 100k)
+session_timeout = 3600       # Session timeout in seconds (1 hour)
+autolock_timeout = 30        # Auto-lock timeout in seconds
+
+[background]
+license_check_interval = 60
+sync_interval = 60
+stuffer_poll_interval = 300
+fulfillment_check_interval = 1800
+risk_check_interval = 300
+quarantine_cleanup_interval = 1800
+catalog_update_interval = 3600
+
+# ─────────────────────────────────────────────────────
+# Development Notes:
+# - Set VAULTBASE_LOG_LEVEL=trace for very verbose logging
+# - Set VAULTBASE_DEBUG=1 to enable debug mode
+# - Set VAULTBASE_PROFILE=staging to use staging config
+#
+# Environment Variables Override:
+# - VAULTBASE_LOG_LEVEL - override logging level
+# - VAULTBASE_SYNC_SERVER - override sync server URL
+# - VAULTBASE_PROFILE - override profile
+# - VAULTBASE_DEBUG - enable debug mode

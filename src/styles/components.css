@@ -4577,12 +4577,6 @@
     animation: spin 0.8s linear infinite;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   /* Float tabs bar */
   .float-tabs-bar {
     padding: var(--sp-2) var(--sp-3);
@@ -4897,15 +4891,6 @@
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.8s ease-in-out infinite;
     border-radius: var(--r-xs);
-  }
-
-  @keyframes skeleton-shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
   }
 
   .skeleton-cell.circle {
@@ -6967,5 +6952,31 @@
   /* ── Text colour utility ─────────────────────────────────── */
   .text-text {
     color: var(--text);
+  }
+}
+
+/* ── Session warning banner ── */
+.session-warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--clr-warning-bg, #fef3c7);
+  color: var(--clr-warning-text, #92400e);
+  font-size: 12px;
+  border-bottom: 1px solid var(--clr-warning-border, #fcd34d);
+  animation: slideDown 0.2s ease-out;
+}
+.session-warning-banner strong {
+  font-weight: 600;
+}
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }

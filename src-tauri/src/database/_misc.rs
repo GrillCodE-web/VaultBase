@@ -100,7 +100,7 @@ impl Database {
         ).unwrap_or(0);
 
         let unique_ips: i64 = self.conn.query_row(
-            "SELECT COUNT(DISTINCT f.ip_hash) FROM footprints f WHERE f.shop_id = ?1 AND f.ip_hash IS NOT NULL",
+            "SELECT COUNT(DISTINCT f.ip_hash) FROM shop_footprints f WHERE f.shop_id = ?1 AND f.ip_hash IS NOT NULL",
             params![shop_id], |r| r.get(0),
         ).unwrap_or(0);
 
@@ -161,7 +161,7 @@ impl Database {
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
                     SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as declined,
-                    COALESCE(SUM(CAST(amount AS REAL)), 0) as revenue
+                    COALESCE(SUM(CAST(total_amount AS REAL)), 0) as revenue
                  FROM orders
                  WHERE shop_id = ?1
                    AND created_at >= datetime('now', '-{} days')",
@@ -189,7 +189,7 @@ impl Database {
     pub fn get_unique_users_for_shop(&self, shop_id: i64) -> Result<i64, String> {
         let count: i64 = self.conn.query_row(
             "SELECT COUNT(DISTINCT f.installation_id_hash)
-             FROM footprints f
+             FROM shop_footprints f
              WHERE f.shop_id = ?1
                AND f.created_at >= datetime('now', '-30 days')
                AND f.installation_id_hash IS NOT NULL",
@@ -316,7 +316,7 @@ impl Database {
 
     pub fn get_profile_ltv(&self, profile_id: &str) -> Result<serde_json::Value, String> {
         let row = self.conn.query_row(
-            "SELECT COUNT(*), COALESCE(SUM(CAST(amount AS REAL)),0), COALESCE(AVG(CAST(amount AS REAL)),0) FROM orders WHERE profile_id=?1",
+            "SELECT COUNT(*), COALESCE(SUM(CAST(total_amount AS REAL)),0), COALESCE(AVG(CAST(total_amount AS REAL)),0) FROM orders WHERE profile_id=?1",
             params![profile_id],
             |r| Ok((r.get::<_,i64>(0)?, r.get::<_,f64>(1)?, r.get::<_,f64>(2)?))
         ).map_err(|e| e.to_string())?;
@@ -325,23 +325,27 @@ impl Database {
 
     // E2: Auto-mark orders as Delivered when IMAP poll finds a delivery email
     pub fn auto_mark_delivered_by_account(&self, account_id: i64) -> Result<Vec<i64>, String> {
-        // Find the email for this IMAP account
+        // Find the email for this IMAP account (login хранится открытым текстом)
         let email: String = self.conn.query_row(
             "SELECT login FROM imap_accounts WHERE id=?1",
             params![account_id],
             |r| r.get(0)
         ).map_err(|e| e.to_string())?;
-        // Find profiles that use email pool entries matching this email
+        // FIX AUDIT-07: email_pool.email зашифрован — ищем по email_hash.
+        // Email связан с заказом через orders.email_pool_id (в profiles нет
+        // колонки email_id). Статусы в БД строчные.
+        let login_hash = Self::email_hash(&email);
         let mut stmt = self.conn.prepare(
-            "SELECT o.id FROM orders o JOIN profiles p ON p.id=o.profile_id JOIN email_pool ep ON ep.id=p.email_id WHERE ep.email=?1 AND o.status='Shipped'"
+            "SELECT o.id FROM orders o JOIN email_pool ep ON ep.id=o.email_pool_id
+             WHERE ep.email_hash=?1 AND o.status='shipped'"
         ).map_err(|e| e.to_string())?;
-        let ids: Vec<i64> = stmt.query_map(params![email], |r| r.get(0))
+        let ids: Vec<i64> = stmt.query_map(params![login_hash], |r| r.get(0))
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
             .collect();
         for id in &ids {
             let _ = self.conn.execute(
-                "UPDATE orders SET status='Delivered', updated_at=datetime('now') WHERE id=?1",
+                "UPDATE orders SET status='delivered', updated_at=datetime('now') WHERE id=?1",
                 params![id]
             );
         }
@@ -748,11 +752,16 @@ impl Database {
     /// PHASE 6: Получение количества последовательных declines для карты
     pub fn get_consecutive_declines(&self, card_id: i64) -> Result<u32, String> {
         // Получаем последние заказы карты, отсортированные по дате
+        // FIX AUDIT-06: s.success_rate не существует в shops — считаем success rate
+        // магазина из его заказов (delivered / total, в процентах).
         let mut stmt = self.conn.prepare("
-            SELECT o.status, o.shop_id, s.success_rate, o.created_at
+            SELECT o.status, o.shop_id,
+              (SELECT COALESCE(
+                  (SELECT COUNT(*) FROM orders o2 WHERE o2.shop_id=o.shop_id AND o2.status='delivered') * 100.0 /
+                  NULLIF((SELECT COUNT(*) FROM orders o2 WHERE o2.shop_id=o.shop_id), 0), 0)) as success_rate,
+              o.created_at
             FROM orders o
             JOIN profiles p ON o.profile_id = p.id
-            LEFT JOIN shops s ON o.shop_id = s.id
             WHERE p.card_id = ?1
             ORDER BY o.created_at DESC
             LIMIT 20

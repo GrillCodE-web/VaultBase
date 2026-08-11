@@ -1,6 +1,8 @@
 import { useState, useCallback, createContext, useContext } from 'react'
 import { en } from '../i18n/en.js'
 import { ru } from '../i18n/ru.js'
+// FIX CRITICAL: Use safe localStorage operations
+import { safeGetItem, safeSetItem } from '../utils/localStorage'
 
 const LANGS = { en, ru }
 const STORAGE_KEY = 'vaultbase_lang'
@@ -8,10 +10,11 @@ const STORAGE_KEY = 'vaultbase_lang'
 const LangContext = createContext(null)
 
 export function LangProvider({ children }) {
-  const [lang, setLangState] = useState(() => localStorage.getItem(STORAGE_KEY) || 'en')
+  const [lang, setLangState] = useState(() => safeGetItem(STORAGE_KEY) || 'en')
 
   const setLang = useCallback(code => {
-    localStorage.setItem(STORAGE_KEY, code)
+    // FIX CRITICAL: Use safe localStorage
+    safeSetItem(STORAGE_KEY, code)
     setLangState(code)
   }, [])
 

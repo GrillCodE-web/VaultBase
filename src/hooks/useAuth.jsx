@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+// FIX CRITICAL: Use safe localStorage operations
+import { safeSetItem, safeGetItem, safeRemoveItem } from '../utils/localStorage'
 
 const AuthContext = createContext(null)
 
@@ -14,11 +16,8 @@ export function AuthProvider({ children }) {
       deviceInfo: navigator.userAgent ?? null,
     })
     setCurrentUser(result)
-    try {
-      localStorage.setItem('cc_session_token', result.token)
-    } catch (e) {
-      console.warn('[Auth] Failed to save session token:', e.message)
-    }
+    // FIX CRITICAL: Use safe localStorage
+    safeSetItem('cc_session_token', result.token)
     return result
   }, [])
 
@@ -32,7 +31,7 @@ export function AuthProvider({ children }) {
     }
     setCurrentUser(null)
     try {
-      localStorage.removeItem('cc_session_token')
+      safeRemoveItem('cc_session_token')
     } catch (e) {
       console.warn('[Auth] Failed to remove session token:', e.message)
     }
@@ -47,7 +46,7 @@ export function AuthProvider({ children }) {
       if (!result) return null
       setCurrentUser(result)
       try {
-        localStorage.setItem('cc_session_token', result.token)
+        safeSetItem('cc_session_token', result.token)
       } catch (e) {
         console.warn('[Auth] Failed to save session token:', e.message)
       }
@@ -59,14 +58,14 @@ export function AuthProvider({ children }) {
 
   const resumeSession = useCallback(async () => {
     try {
-      const token = localStorage.getItem('cc_session_token')
+      const token = safeGetItem('cc_session_token')
       if (!token) return null
       const result = await invoke('resume_session', { token })
       setCurrentUser(result)
       return result
     } catch {
       try {
-        localStorage.removeItem('cc_session_token')
+        safeRemoveItem('cc_session_token')
       } catch {
         /* ignore */
       }

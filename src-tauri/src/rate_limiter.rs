@@ -29,6 +29,16 @@ impl SimpleRateLimiter {
         let mut buckets = self.buckets.lock().map_err(|e| format!("lock poisoned: {}", e))?;
 
         let now = Instant::now();
+        
+        // FIX CRITICAL: Periodic cleanup to prevent memory leak
+        // Clean up expired buckets every 100th call
+        if buckets.len() % 100 == 0 && buckets.len() > 0 {
+            let max_age = self.window * 2; // Keep buckets for 2x window duration
+            buckets.retain(|_, (_, start_time)| {
+                now.duration_since(*start_time) <= max_age
+            });
+        }
+        
         let entry = buckets.entry(key).or_insert((0, now));
 
         // Reset if window has passed
@@ -78,10 +88,43 @@ static MODERATE_LIMITER: Lazy<SimpleRateLimiter> =
 static LENIENT_LIMITER: Lazy<SimpleRateLimiter> =
     Lazy::new(|| SimpleRateLimiter::new(100, 60));
 
-/// Check rate limit for a command
+/// Check rate limit for a command using static limiters
 /// Returns Ok(()) if allowed, Err if exceeded
+/// 
+/// NOTE: Uses hardcoded limits. In future, should use config from AppState.
+/// This is a migration step - currently uses static Lazy initialization.
 pub fn check_rate_limit(category: RateLimitCategory, key: u64) -> Result<(), String> {
     category.limiter().check(key)
+}
+
+/// Check rate limit using config from AppState
+/// 
+/// SPRINT3-DAY4: New function that uses config instead of static limits
+/// This allows rate limits to be customized per profile (dev/staging/prod)
+pub fn check_rate_limit_with_config(category: RateLimitCategory, key: u64, config_limits: (u32, u32, u32)) -> Result<(), String> {
+    use crate::state::state;
+    
+    let (strict, moderate, lenient) = config_limits;
+    
+    let limiter = match category {
+        RateLimitCategory::Strict => SimpleRateLimiter::new(strict, 60),
+        RateLimitCategory::Moderate => SimpleRateLimiter::new(moderate, 60),
+        RateLimitCategory::Lenient => SimpleRateLimiter::new(lenient, 60),
+    };
+    
+    limiter.check(key)
+}
+
+/// FIX AUDIT-20: глобальный installation_id. Раньше брался из env
+/// `vaultbase_INSTALLATION_ID`, который никогда не задавался → все установки
+/// делили один bucket на команду (лимиты не защищали от перебора).
+static INSTALLATION_ID: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new("unknown".to_string()));
+
+/// Установить installation_id (вызывается при старте приложения из БД).
+pub fn set_installation_id(id: String) {
+    if let Ok(mut g) = INSTALLATION_ID.lock() {
+        *g = id;
+    }
 }
 
 /// Get a unique key for rate limiting based on command
@@ -89,8 +132,8 @@ pub fn get_rate_limit_key(command: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
 
-    // Get installation ID for per-installation rate limiting
-    let installation_id = std::env::var("vaultbase_INSTALLATION_ID")
+    let installation_id = INSTALLATION_ID.lock()
+        .map(|g| g.clone())
         .unwrap_or_else(|_| "unknown".to_string());
 
     let mut hasher = DefaultHasher::new();

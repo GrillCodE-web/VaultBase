@@ -8,8 +8,9 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_BASE_URL: &str = "https://dash.stockhubdeal.com/api/stuffer/";
-const TIMEOUT_SECS: u64 = 15;
+// FIX CRITICAL: Use constant instead of hardcoded URL
+pub const DEFAULT_BASE_URL: &str = crate::constants::STUFFER_BASE_URL;
+const TIMEOUT_SECS: u64 = crate::constants::TRACKING_REQUEST_TIMEOUT_SECS;
 
 // ─────────────────────────────────────────
 //  Data structures
@@ -169,6 +170,12 @@ pub struct PackageInput {
 
 /// Build the endpoint URL for a given `json` method. Extra query pairs may be
 /// appended (already url-safe keys, values are encoded here).
+///
+/// SECURITY: the external Stuffer panel authenticates via the `api_key` query
+/// parameter (server returns 403 "no api key" otherwise) — it cannot be moved
+/// to an Authorization header without breaking the integration. To limit
+/// exposure the key is URL-encoded here and the resulting URL is NEVER logged
+/// nor returned to the frontend (see `read_json` and the command handlers).
 fn build_url(base_url: &str, method: &str, api_key: &str, extra: &[(&str, String)]) -> String {
     let mut url = format!(
         "{}?json={}&api_key={}",
@@ -282,4 +289,178 @@ pub fn create_package(base_url: &str, api_key: &str, package: &PackageInput) -> 
     json.get("package_id")
         .and_then(|v| v.as_i64())
         .ok_or_else(|| "stuffer_missing_field: package_id".to_string())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_build_url_basic() {
+        let url = build_url("https://example.com/api/", "couriers", "my_key", &[]);
+        assert_eq!(url, "https://example.com/api/?json=couriers&api_key=my_key");
+    }
+
+    #[test]
+    fn test_build_url_extra_params() {
+        let url = build_url(
+            "https://example.com/api/",
+            "labels",
+            "key123",
+            &[("package_id", "42".to_string())],
+        );
+        assert!(url.contains("json=labels"));
+        assert!(url.contains("api_key=key123"));
+        assert!(url.contains("package_id=42"));
+    }
+
+    #[test]
+    fn test_build_url_encodes_special_chars() {
+        let url = build_url("https://ex.com/", "m", "key with spaces&stuff", &[]);
+        assert!(!url.contains("key with spaces"));
+        assert!(url.contains("key%20with%20spaces%26stuff"));
+    }
+
+    #[test]
+    fn test_build_url_trims_trailing_whitespace() {
+        let url = build_url("https://ex.com/api/  ", "test", "k", &[]);
+        assert!(url.starts_with("https://ex.com/api/?"));
+    }
+
+    #[test]
+    fn test_extract_couriers() {
+        let json = json!({
+            "success": true,
+            "couriers": [
+                {
+                    "id": 1,
+                    "name": "Test Courier",
+                    "status": "active",
+                    "address1": "123 Main St",
+                    "city": "NYC",
+                    "country": "US",
+                    "state": "NY",
+                    "zip": "10001",
+                    "packages": {"new": 5, "shipped": 2, "sent": 1}
+                }
+            ]
+        });
+        let couriers: Vec<CourierFull> = extract(json, "couriers").unwrap();
+        assert_eq!(couriers.len(), 1);
+        assert_eq!(couriers[0].id, 1);
+        assert_eq!(couriers[0].name, "Test Courier");
+        assert_eq!(couriers[0].packages.new, 5);
+    }
+
+    #[test]
+    fn test_extract_available_couriers() {
+        let json = json!({
+            "success": true,
+            "couriers": [
+                {"id": 10, "country": "US", "city": "LA", "state": "CA", "zip": "90001", "status": "available", "packages": {}}
+            ]
+        });
+        let avail: Vec<CourierAvailable> = extract(json, "couriers").unwrap();
+        assert_eq!(avail.len(), 1);
+        assert_eq!(avail[0].id, 10);
+        assert_eq!(avail[0].country, "US");
+    }
+
+    #[test]
+    fn test_extract_packages() {
+        let json = json!({
+            "success": true,
+            "packages": [
+                {
+                    "id": 100,
+                    "name": "Test Pkg",
+                    "status": "new",
+                    "labels": [{"track": "1Z999", "label_carrier": "UPS"}],
+                    "labels_hash": "abc123",
+                    "tracks": ["1Z999"],
+                    "comments": [
+                        {"id": 1, "date": "2026-08-01", "comment_text": "Hello", "sender": "admin", "access": "public"}
+                    ]
+                }
+            ]
+        });
+        let packages: Vec<Package> = extract(json, "packages").unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].id, 100);
+        assert_eq!(packages[0].name, "Test Pkg");
+        assert_eq!(packages[0].tracks, vec!["1Z999"]);
+        assert_eq!(packages[0].labels[0].track, "1Z999");
+        assert_eq!(packages[0].comments[0].comment_text, "Hello");
+    }
+
+    #[test]
+    fn test_extract_labels() {
+        let json = json!({
+            "labels": [
+                {"track": "1Z111", "carrier": "UPS", "file": "dGVzdA=="}
+            ]
+        });
+        let labels: Vec<LabelFile> = extract(json, "labels").unwrap();
+        assert_eq!(labels.len(), 1);
+        assert_eq!(labels[0].track, "1Z111");
+        assert_eq!(labels[0].file, "dGVzdA==");
+    }
+
+    #[test]
+    fn test_extract_missing_field() {
+        let json = json!({"other": "data"});
+        let result: Result<Vec<CourierFull>, String> = extract(json, "couriers");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("stuffer_missing_field"));
+    }
+
+    #[test]
+    fn test_package_input_serialization() {
+        let input = PackageInput {
+            courier_id: 5,
+            name: Some("Test".to_string()),
+            comment: None,
+            holder_name: None,
+            weight: Some("2.5".to_string()),
+            quantity: Some(3),
+            shop: Some("Amazon".to_string()),
+            price: Some(29.99),
+            delivery_date: None,
+            pay_option: Some("prepaid".to_string()),
+            pickup: None,
+            asin: Some("B001TEST".to_string()),
+            upc: None,
+            pickup_address: None,
+            pickup_holder_name: None,
+            tracks: Some(vec![TrackInput { track: "1Z999".to_string(), carrier: "UPS".to_string() }]),
+        };
+        let json = serde_json::to_value(&input).unwrap();
+        assert_eq!(json["courier_id"], 5);
+        assert_eq!(json["shop"], "Amazon");
+        assert_eq!(json["price"], 29.99);
+        assert_eq!(json["tracks"][0]["track"], "1Z999");
+        assert!(json["comment"].is_null());
+    }
+
+    #[test]
+    fn test_package_deserialize_with_defaults() {
+        let json = json!({"id": 1});
+        let pkg: Package = serde_json::from_value(json).unwrap();
+        assert_eq!(pkg.id, 1);
+        assert_eq!(pkg.name, "");
+        assert!(pkg.labels.is_empty());
+        assert!(pkg.tracks.is_empty());
+        assert!(pkg.comments.is_empty());
+    }
+
+    #[test]
+    fn test_packages_count_defaults() {
+        let json = json!({});
+        let pc: PackagesCount = serde_json::from_value(json).unwrap();
+        assert_eq!(pc.new, 0);
+        assert_eq!(pc.shipped, 0);
+        assert_eq!(pc.sent, 0);
+    }
 }

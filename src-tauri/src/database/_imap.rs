@@ -25,9 +25,13 @@ impl Database {
         ).map_err(|e| e.to_string())?;
         let imap_id = self.conn.last_insert_rowid();
 
-        // Auto-create Email Pool entry for this IMAP login if it doesn't already exist
+        // Auto-create Email Pool entry for this IMAP login if it doesn't already exist.
+        // FIX AUDIT-01: email хранится ЗАШИФРОВАННЫМ (как в add_email), а поиск
+        // идёт по email_hash — иначе смена мастер-пароля падала на plaintext.
+        let enc_login = self.encrypt_field(&input.login)?;
+        let login_hash = Self::email_hash(&input.login);
         let existing: Option<i64> = self.conn.query_row(
-            "SELECT id FROM email_pool WHERE email=?1", params![input.login], |r| r.get(0),
+            "SELECT id FROM email_pool WHERE email_hash=?1", params![login_hash], |r| r.get(0),
         ).ok();
         if let Some(email_id) = existing {
             // Link existing email pool entry to this IMAP account
@@ -38,8 +42,8 @@ impl Database {
         } else {
             // Create new email pool entry and link it
             let _ = self.conn.execute(
-                "INSERT INTO email_pool(email,label,imap_account_id,is_blocked,created_at,updated_at) VALUES(?1,?2,?3,0,datetime('now'),datetime('now'))",
-                params![input.login, input.label, imap_id],
+                "INSERT INTO email_pool(email,email_hash,label,imap_account_id,is_blocked,created_at,updated_at) VALUES(?1,?2,?3,?4,0,datetime('now'),datetime('now'))",
+                params![enc_login, login_hash, input.label, imap_id],
             );
         }
 
@@ -80,8 +84,11 @@ impl Database {
         let accounts = self.get_imap_accounts()?;
         let mut count = 0u32;
         for acc in &accounts {
+            // FIX AUDIT-01: email шифруем, поиск по email_hash (как в add_email).
+            let enc_login = self.encrypt_field(&acc.login)?;
+            let login_hash = Self::email_hash(&acc.login);
             let existing: Option<i64> = self.conn.query_row(
-                "SELECT id FROM email_pool WHERE email=?1", params![acc.login], |r| r.get(0),
+                "SELECT id FROM email_pool WHERE email_hash=?1", params![login_hash], |r| r.get(0),
             ).ok();
             if let Some(email_id) = existing {
                 let _ = self.conn.execute(
@@ -90,8 +97,8 @@ impl Database {
                 );
             } else {
                 let _ = self.conn.execute(
-                    "INSERT INTO email_pool(email,label,imap_account_id,is_blocked,created_at,updated_at) VALUES(?1,?2,?3,0,datetime('now'),datetime('now'))",
-                    params![acc.login, acc.label, acc.id],
+                    "INSERT INTO email_pool(email,email_hash,label,imap_account_id,is_blocked,created_at,updated_at) VALUES(?1,?2,?3,?4,0,datetime('now'),datetime('now'))",
+                    params![enc_login, login_hash, acc.label, acc.id],
                 );
             }
             count += 1;
@@ -260,7 +267,7 @@ impl Database {
         let total: i64 = if search_active {
             self.conn.query_row(
                 "SELECT COUNT(*) FROM imap_messages WHERE account_id=?1 AND folder=?2 AND (LOWER(subject) LIKE '%' || LOWER(?3) || '%' OR LOWER(from_email) LIKE '%' || LOWER(?3) || '%')",
-                params![account_id, folder, search.unwrap()], |r| r.get(0),
+                params![account_id, folder, search.unwrap_or("")], |r| r.get(0),
             ).unwrap_or(0)
         } else {
             self.conn.query_row(
@@ -281,7 +288,7 @@ impl Database {
         let items: Vec<ImapMessage> = if search_active {
             let sql = "SELECT id,account_id,message_uid,subject,from_email,to_email,received_at,body,folder,is_read,extracted_order_number,extracted_tracking,action_taken,processed,created_at FROM imap_messages WHERE account_id=?1 AND folder=?2 AND (LOWER(subject) LIKE '%' || LOWER(?3) || '%' OR LOWER(from_email) LIKE '%' || LOWER(?3) || '%') ORDER BY id DESC LIMIT ?4 OFFSET ?5";
             let mut stmt = self.conn.prepare(sql).map_err(|e| e.to_string())?;
-            let x = stmt.query_map(params![account_id, folder, search.unwrap(), pp, offset], row_map)
+            let x = stmt.query_map(params![account_id, folder, search.unwrap_or(""), pp, offset], row_map)
                 .map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect(); x
         } else {
             let sql = "SELECT id,account_id,message_uid,subject,from_email,to_email,received_at,body,folder,is_read,extracted_order_number,extracted_tracking,action_taken,processed,created_at FROM imap_messages WHERE account_id=?1 AND folder=?2 ORDER BY id DESC LIMIT ?3 OFFSET ?4";
@@ -302,6 +309,40 @@ impl Database {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.to_string()),
         }
+    }
+
+    /// FIX AUDIT-FE-05: account_id по id сообщения (для mark_imap_read).
+    pub fn get_imap_message_account_id(&self, id: i64) -> Result<Option<i64>, String> {
+        let res = self.conn.query_row(
+            "SELECT account_id FROM imap_messages WHERE id=?1", params![id], |r| r.get(0),
+        );
+        match res {
+            Ok(v) => Ok(Some(v)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// FIX AUDIT-13: возвращает (uid, folder) сообщения для live-запросов к серверу.
+    pub fn get_imap_message_uid_folder(&self, id: i64) -> Result<Option<(String, String)>, String> {
+        let res = self.conn.query_row(
+            "SELECT message_uid, folder FROM imap_messages WHERE id=?1",
+            params![id], |r| Ok((r.get::<_,Option<String>>(0)?, r.get::<_,String>(1)?)),
+        );
+        match res {
+            Ok((Some(uid), folder)) => Ok(Some((uid, folder))),
+            Ok(_) => Ok(None),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// FIX AUDIT-13: сохраняет тело письма в кэш.
+    pub fn set_imap_message_body(&self, id: i64, body: &str) -> Result<(), String> {
+        self.conn.execute(
+            "UPDATE imap_messages SET body=?1 WHERE id=?2", params![body, id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
     }
 
     pub fn mark_imap_message_read(&self, id: i64) -> Result<(), String> {
@@ -351,7 +392,7 @@ impl Database {
             created_at: r.get(14)?,
         });
         let (total, items): (i64, Vec<ImapMessage>) = if search_active {
-            let q = search.unwrap();
+            let q = search.unwrap_or("");
             let t: i64 = self.conn.query_row(
                 "SELECT COUNT(*) FROM imap_messages WHERE folder='INBOX' AND (LOWER(subject) LIKE '%'||LOWER(?1)||'%' OR LOWER(from_email) LIKE '%'||LOWER(?1)||'%')",
                 params![q], |r| r.get(0),
@@ -508,6 +549,15 @@ impl Database {
     }
 
     pub fn update_order_status_simple(&self, id: i64, status: &str, tracking: Option<&str>) -> Result<(), String> {
+        // FIX AUDIT-16: нормализуем статус — "processing" не входит в допустимые.
+        let status = match status {
+            "processing" => "pending",
+            s => s,
+        };
+        const VALID_STATUSES: &[&str] = &["pending", "shipped", "delivered", "declined", "cancelled", "failed"];
+        if !VALID_STATUSES.contains(&status) {
+            return Ok(());
+        }
         if let Some(t) = tracking {
             self.conn.execute(
                 "UPDATE orders SET status=?1, tracking_number=?2, updated_at=datetime('now') WHERE id=?3",
@@ -694,17 +744,32 @@ impl Database {
         }).map_err(|e| e.to_string())? { if let Ok(v) = row { proxies.push(v); } }
 
         // Profiles — search by drop recipient_name or notes
+        // FIX AUDIT-15: recipient_name зашифрован — LIKE по шифротексту не работал.
+        // Расшифровываем имена и фильтруем в Rust.
         let mut profiles = Vec::new();
         let mut stmt = self.conn.prepare(
-            "SELECT DISTINCT p.id, d.recipient_name, d.city, d.country, p.notes              FROM profiles p LEFT JOIN drops d ON d.profile_id=p.id              WHERE LOWER(d.recipient_name) LIKE ?1 OR LOWER(p.notes) LIKE ?1 LIMIT 5"
+            "SELECT DISTINCT p.id, d.recipient_name, d.city, d.country, p.notes
+             FROM profiles p LEFT JOIN drops d ON d.profile_id=p.id"
         ).map_err(|e| e.to_string())?;
-        for row in stmt.query_map(params![q], |r| {
-            Ok(json!({
-                "id": r.get::<_,String>(0)?, "name": r.get::<_,Option<String>>(1)?,
-                "city": r.get::<_,Option<String>>(2)?, "country": r.get::<_,Option<String>>(3)?,
-                "notes": r.get::<_,Option<String>>(4)?, "_type": "profile",
-            }))
-        }).map_err(|e| e.to_string())? { if let Ok(v) = row { profiles.push(v); } }
+        let rows: Vec<(String, Option<String>, Option<String>, Option<String>, Option<String>)> =
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect();
+        let ql = query.to_lowercase();
+        for (pid, name_enc, city, country, notes) in rows {
+            let name = name_enc.as_deref()
+                .map(|n| self.decrypt_field(n).unwrap_or_else(|_| n.to_string()));
+            let name_lower = name.as_deref().unwrap_or("").to_lowercase();
+            let notes_lower = notes.as_deref().unwrap_or("").to_lowercase();
+            if name_lower.contains(&ql) || notes_lower.contains(&ql) {
+                profiles.push(json!({
+                    "id": pid, "name": name, "city": city, "country": country,
+                    "notes": notes, "_type": "profile",
+                }));
+                if profiles.len() >= 5 { break; }
+            }
+        }
 
         Ok(SearchResults { cards, profiles, orders, shops, emails, proxies })
     }

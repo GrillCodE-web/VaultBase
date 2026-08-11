@@ -39,7 +39,7 @@ export function ConfirmProvider({ children }) {
           aria-labelledby="confirm-title"
           aria-describedby="confirm-message"
           className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.65)' }}
+          style={{ background: 'var(--overlay-modal)' }}
         >
           <div
             ref={modalRef}
@@ -47,7 +47,7 @@ export function ConfirmProvider({ children }) {
             style={{
               border: `1px solid var(--border)`,
               maxWidth: '360px',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+              boxShadow: '0 25px 50px var(--overlay-darker)',
             }}
           >
             <h3 id="confirm-title" className="text-text text-base font-semibold mb-2">

@@ -125,18 +125,6 @@ export const HEATMAP_COLORS = {
   noData: 'var(--color-heatmap-no-data)', // <3 orders
 }
 
-/**
- * Get heatmap color based on success rate
- * @param {number} rate - Success rate percentage (-1 for no data)
- * @returns {string} Color value
- */
-export function getHeatmapColor(rate) {
-  if (rate < 0) return HEATMAP_COLORS.noData
-  if (rate < 20) return HEATMAP_COLORS.low
-  if (rate < 50) return HEATMAP_COLORS.medium
-  return HEATMAP_COLORS.high
-}
-
 // Expiring card warning colors
 export const EXPIRY_COLORS = {
   urgent: 'var(--color-expiry-urgent)', // ≤14 days

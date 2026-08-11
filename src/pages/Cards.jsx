@@ -256,25 +256,37 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     let unlistenUpdate = null
     let unlistenFull = null
     let isMounted = true
-    const timers = flashTimers.current
 
     const setupListeners = async () => {
       try {
         // Register card_update listener
         const updateListener = await listen('sync:card_update', event => {
+          if (!isMounted) return // FIX CRITICAL: Check if still mounted
+
           const updates = event.payload ?? []
           // Use ref to get latest handler
           handleSyncUpdateRef.current(updates)
 
           // Flash updated cards — используем ref вместо direct dependency
           updates.forEach(upd => {
+            if (!isMounted) return // FIX CRITICAL: Check before each timer
+
             const card = cardsRef.current.find(c => c.id === upd.id)
             if (card) {
               addFlashedId(card.id)
-              if (timers[card.id]) clearTimeout(timers[card.id])
-              timers[card.id] = setTimeout(() => {
-                removeFlashedId(card.id)
+
+              // FIX CRITICAL: Clear old timer before setting new one
+              const oldTimer = flashTimers.current[card.id]
+              if (oldTimer) clearTimeout(oldTimer)
+
+              // FIX CRITICAL: Check mounted state before scheduling
+              const timerId = setTimeout(() => {
+                if (isMounted) {
+                  removeFlashedId(card.id)
+                }
               }, 2000)
+
+              flashTimers.current[card.id] = timerId
             }
           })
         })
@@ -285,7 +297,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
         // Register full_data listener
         const fullListener = await listen('sync:full_data', () => {
-          handleFullSyncRef.current()
+          if (isMounted) {
+            handleFullSyncRef.current()
+          }
         })
         if (isMounted) {
           unlistenFull = fullListener
@@ -302,11 +316,15 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
     return () => {
       isMounted = false
-      // Cleanup listeners safely
+
+      // FIX CRITICAL: Cleanup listeners safely
       if (unlistenUpdate) unlistenUpdate()
       if (unlistenFull) unlistenFull()
-      // Clear all timers on cleanup
-      Object.values(timers).forEach(clearTimeout)
+
+      // FIX CRITICAL: Clear all timers using current ref (not stale closure)
+      Object.values(flashTimers.current).forEach(clearTimeout)
+      flashTimers.current = {}
+
       Object.values(deleteTimers.current).forEach(clearTimeout)
       deleteTimers.current = {}
     }
@@ -626,6 +644,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // overscan 10 — баланс между производительностью и UX (меньше белых полос)
   const useVirtualCards = !groupByBank && cards.length > 50
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
   const rowVirtualizer = useVirtualizer({
     count: useVirtualCards ? cards.length : 0,
     getScrollElement: () => parentRef.current,

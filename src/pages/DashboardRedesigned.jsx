@@ -761,7 +761,7 @@ function PremiumStatCard({
             <circle
               className="progress-ring-bg"
               strokeWidth="4"
-              stroke="rgba(255,255,255,0.1)"
+              stroke="var(--separator)"
               fill="transparent"
               r="16"
               cx="20"
@@ -939,6 +939,7 @@ export default function DashboardRedesigned({ onNavigate }) {
 
   // Initial load + period change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- установка loading-флага перед асинхронной загрузкой
     setLoading(true)
     loadAll()
   }, [loadAll])
@@ -1228,11 +1229,17 @@ export default function DashboardRedesigned({ onNavigate }) {
             {t('chart_title')}
             <div className="flex text-[11px] gap-4">
               <span className="flex items-center gap-1">
-                <span className="inline-block rounded-sm w-3 h-0.5 bg-blue-t" />
+                <span
+                  className="inline-block rounded-sm w-3 h-0.5"
+                  style={{ backgroundColor: 'var(--blue-t)' }}
+                />
                 <span className="text-muted">{t('chart_revenue')}</span>
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block rounded-sm w-3 h-0.5 bg-green-t" />
+                <span
+                  className="inline-block rounded-sm w-3 h-0.5"
+                  style={{ backgroundColor: 'var(--green-t)' }}
+                />
                 <span className="text-muted">{t('chart_profit')}</span>
               </span>
             </div>
@@ -1246,13 +1253,16 @@ export default function DashboardRedesigned({ onNavigate }) {
             {t('heatmap_title')}
             <div className="flex text-[10px] gap-2">
               {[
-                { color: HEATMAP_COLORS.high, label: '≥50%', colorClass: 'bg-green-t' },
-                { color: HEATMAP_COLORS.medium, label: '20–50%', colorClass: 'bg-yellow-t' },
-                { color: HEATMAP_COLORS.low, label: '<20%', colorClass: 'bg-red-t' },
-                { color: HEATMAP_COLORS.noData, label: '<3 orders', colorClass: 'bg-border' },
-              ].map(({ label, colorClass }) => (
+                { color: HEATMAP_COLORS.high, label: '≥50%', colorVar: '--green-t' },
+                { color: HEATMAP_COLORS.medium, label: '20–50%', colorVar: '--yellow-t' },
+                { color: HEATMAP_COLORS.low, label: '<20%', colorVar: '--red-t' },
+                { color: HEATMAP_COLORS.noData, label: '<3 orders', colorVar: '--border' },
+              ].map(({ label, colorVar }) => (
                 <span key={label} className="flex items-center gap-1">
-                  <span className={`inline-block rounded-sm w-2.5 h-2.5 ${colorClass}`} />
+                  <span
+                    className="inline-block rounded-sm w-2.5 h-2.5"
+                    style={{ backgroundColor: `var(${colorVar})` }}
+                  />
                   <span className="text-muted">{label}</span>
                 </span>
               ))}

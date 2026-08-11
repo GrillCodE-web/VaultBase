@@ -184,7 +184,8 @@ export function handleError(error, context = '') {
     return {
       type: 'NetworkError',
       code: 'NETWORK_ERROR',
-      message: 'Network connection failed. Please check your internet connection.',
+      message: 'Ошибка сети. Проверьте подключение к интернету.',
+      suggestion: 'Убедитесь, что интернет работает, и попробуйте ещё раз.',
       details: { originalMessage: message },
       context,
     }
@@ -194,7 +195,8 @@ export function handleError(error, context = '') {
     return {
       type: 'NotFoundError',
       code: 'NOT_FOUND',
-      message: 'The requested resource was not found.',
+      message: 'Запрашиваемый ресурс не найден.',
+      suggestion: 'Возможно, он был удалён. Обновите список.',
       details: { originalMessage: message },
       context,
     }
@@ -204,7 +206,8 @@ export function handleError(error, context = '') {
     return {
       type: 'ValidationError',
       code: 'VALIDATION_ERROR',
-      message: 'Validation failed. Please check your input.',
+      message: 'Ошибка валидации. Проверьте введённые данные.',
+      suggestion: 'Убедитесь, что все обязательные поля заполнены корректно.',
       details: { originalMessage: message },
       context,
     }
@@ -214,7 +217,8 @@ export function handleError(error, context = '') {
     return {
       type: 'AuthenticationError',
       code: 'AUTH_ERROR',
-      message: 'Authentication failed. Please try again.',
+      message: 'Ошибка аутентификации.',
+      suggestion: 'Попробуйте ввести пароль заново или перезайти в систему.',
       details: { originalMessage: message },
       context,
     }
@@ -224,7 +228,8 @@ export function handleError(error, context = '') {
     return {
       type: 'DatabaseError',
       code: 'DATABASE_ERROR',
-      message: 'Database operation failed. Please try again.',
+      message: 'Ошибка базы данных.',
+      suggestion: 'Попробуйте ещё раз. Если повторяется — перезапустите приложение.',
       details: { originalMessage: message },
       context,
     }
@@ -234,7 +239,8 @@ export function handleError(error, context = '') {
     return {
       type: 'EncryptionError',
       code: 'ENCRYPTION_ERROR',
-      message: 'Encryption operation failed. Please check your password.',
+      message: 'Ошибка шифрования.',
+      suggestion: 'Проверьте правильность мастер-пароля.',
       details: { originalMessage: message },
       context,
     }
@@ -244,7 +250,8 @@ export function handleError(error, context = '') {
   return {
     type: 'Error',
     code: 'UNKNOWN_ERROR',
-    message: message || 'An unexpected error occurred.',
+    message: message || 'Произошла непредвиденная ошибка.',
+    suggestion: 'Попробуйте ещё раз или перезапустите приложение.',
     details: { originalMessage: message },
     context,
   }

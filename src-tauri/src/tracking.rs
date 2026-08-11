@@ -15,13 +15,14 @@ use crate::models::{TrackingStatus, TrackingEvent};
 static TRACKING_CACHE: Lazy<Mutex<HashMap<String, (TrackingStatus, i64)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-const CACHE_TTL_SECONDS: i64 = 300; // 5 minutes
+// FIX CONFIG: Use centralized constants instead of local magic numbers
+use crate::constants::{TRACKING_CACHE_TTL_SECS, TRACKING_CACHE_MAX_SIZE, TRACKING_CACHE_CLEANUP_INTERVAL};
 
 fn get_cached_tracking(tracking: &str) -> Option<TrackingStatus> {
     let guard = TRACKING_CACHE.lock().ok()?;
     if let Some((status, timestamp)) = guard.get(tracking) {
         let now = chrono::Utc::now().timestamp();
-        if now - timestamp < CACHE_TTL_SECONDS {
+        if now - timestamp < TRACKING_CACHE_TTL_SECS {
             return Some(status.clone());
         }
     }
@@ -31,6 +32,25 @@ fn get_cached_tracking(tracking: &str) -> Option<TrackingStatus> {
 fn cache_tracking_result(tracking: &str, status: TrackingStatus) {
     if let Ok(mut guard) = TRACKING_CACHE.lock() {
         let now = chrono::Utc::now().timestamp();
+        
+        // FIX CRITICAL: Periodic cleanup to prevent memory leak
+        if guard.len() % TRACKING_CACHE_CLEANUP_INTERVAL == 0 && guard.len() > 0 {
+            // Remove entries older than 2x TTL
+            let max_age = TRACKING_CACHE_TTL_SECS * 2;
+            guard.retain(|_, (_, timestamp)| now - *timestamp < max_age);
+        }
+        
+        // FIX CRITICAL: LRU eviction if cache is full
+        if guard.len() >= TRACKING_CACHE_MAX_SIZE {
+            // Find and remove oldest entry
+            if let Some(oldest_key) = guard.iter()
+                .min_by_key(|(_, (_, ts))| ts)
+                .map(|(k, _)| k.clone())
+            {
+                guard.remove(&oldest_key);
+            }
+        }
+        
         guard.insert(tracking.to_string(), (status, now));
     }
 }
@@ -82,7 +102,7 @@ pub fn check_usps_tracking(tracking: &str) -> Result<TrackingStatus, String> {
         .filter(|s| !s.is_empty())
         .or_else(|| {
             // Try to get from config via STATE if available
-            crate::get_config_internal("usps_api_user_id").ok().flatten()
+            crate::state::get_config_internal("usps_api_user_id").ok().flatten()
                 .filter(|s| !s.is_empty())
         })
         .ok_or_else(|| "USPS_API_USER_ID not configured".to_string())?;
@@ -100,10 +120,9 @@ pub fn check_usps_tracking(tracking: &str) -> Result<TrackingStatus, String> {
         user_id, tracking
     );
 
-    let url = format!(
-        "https://secure.shippingapis.com/ShippingAPI.dll?API=TrackV2&XML={}",
-        urlencoding::encode(&xml_request)
-    );
+    // FIX CRITICAL: Use constant for USPS tracking URL
+    let encoded_xml = urlencoding::encode(&xml_request);
+    let url = crate::constants::TRACKING_USPS_URL.replace("{}", &encoded_xml);
 
     let resp = ureq::get(&url)
         .timeout(std::time::Duration::from_secs(10))
@@ -249,10 +268,10 @@ pub fn check_ups_tracking(tracking: &str) -> Result<TrackingStatus, String> {
     }
 
     // Get OAuth2 token
-    let token = get_ups_oauth_token(client_id.unwrap(), client_secret.unwrap())?;
+    let token = get_ups_oauth_token(client_id.unwrap_or_default(), client_secret.unwrap_or_default())?;
 
-    // Call tracking API
-    let url = format!("https://ontrack.ups.com/api/tracking/{}", tracking);
+    // FIX CRITICAL: Use constant for UPS tracking URL
+    let url = crate::constants::TRACKING_UPS_URL.replacen("{}", tracking, 1);
 
     let resp = ureq::get(&url)
         .set("Authorization", &format!("Bearer {}", token))
@@ -272,8 +291,8 @@ pub fn check_ups_tracking(tracking: &str) -> Result<TrackingStatus, String> {
 }
 
 fn get_ups_oauth_token(client_id: String, client_secret: String) -> Result<String, String> {
-    // OAuth2 token endpoint
-    let url = "https://ontrack.ups.com/security/v1/oauth/token";
+    // FIX CRITICAL: Use constant for UPS OAuth token URL
+    let url = crate::constants::TRACKING_UPS_TOKEN_URL;
 
     let body = format!(
         "grant_type=client_credentials&client_id={}&client_secret={}",
@@ -445,8 +464,8 @@ pub fn check_fedex_tracking(tracking: &str) -> Result<TrackingStatus, String> {
         return Err("FedEx API requires FEDEX_API_KEY and FEDEX_ACCOUNT_NUMBER".into());
     }
 
-    let url = "https://apis.fedex.com/track/v2/trackingnumbers";
-    let api_key = api_key.unwrap();
+    let url = crate::constants::TRACKING_FEDEX_URL;
+    let api_key = api_key.unwrap_or_default();
 
     let body = serde_json::json!({
         "trackingNumberInfo": [{
@@ -454,6 +473,7 @@ pub fn check_fedex_tracking(tracking: &str) -> Result<TrackingStatus, String> {
         }]
     });
 
+    // FIX CRITICAL: Use constant for FedEx tracking URL
     let resp = ureq::post(url)
         .set("Authorization", &format!("Bearer {}", &api_key))
         .set("client_api_key", &api_key)

@@ -63,8 +63,10 @@ function ItemsTab() {
   // ★ Insight: Ref для актуальных page/search чтобы listener использовал свежие значения
   const pageRef = useRef(page)
   const searchRef = useRef(search)
-  pageRef.current = page
-  searchRef.current = search
+  useEffect(() => {
+    pageRef.current = page
+    searchRef.current = search
+  })
 
   const load = useCallback(
     async (p, s) => {
@@ -93,6 +95,7 @@ function ItemsTab() {
 
   useEffect(() => {
     let isMounted = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка каталога
     load(1, '')
 
     // Real-time: refresh when a new catalog item arrives via WebSocket
@@ -329,8 +332,10 @@ function ShopsTab() {
   // ★ Insight: Ref для актуальных page/search чтобы listener использовал свежие значения
   const pageRef = useRef(page)
   const searchRef = useRef(search)
-  pageRef.current = page
-  searchRef.current = search
+  useEffect(() => {
+    pageRef.current = page
+    searchRef.current = search
+  })
 
   const load = useCallback(
     async (p, s) => {
@@ -358,6 +363,7 @@ function ShopsTab() {
   )
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка магазинов каталога
     load(1, '')
     // Real-time: refresh when a new catalog shop arrives via WebSocket
     const unlisten = listen('catalog_shop_added', () => {

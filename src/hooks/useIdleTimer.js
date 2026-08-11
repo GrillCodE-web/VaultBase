@@ -1,32 +1,73 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 
 /**
  * Вызывает onIdle через timeoutMs миллисекунд бездействия пользователя.
  * Бездействие = нет mousemove / keydown / click / scroll / touchstart.
  * Если enabled=false — ничего не делает.
+ *
+ * Возвращает { warningActive, remainingSeconds } для показа предупреждения.
+ * Предупреждение появляется за warningBeforeMs до блокировки (по умолчанию 2 мин).
  */
-export function useIdleTimer({ onIdle, timeoutMs = 15 * 60 * 1000, enabled = true }) {
+export function useIdleTimer({
+  onIdle,
+  timeoutMs = 15 * 60 * 1000,
+  enabled = true,
+  warningBeforeMs = 2 * 60 * 1000,
+}) {
   const timerRef = useRef(null)
+  const warningTimerRef = useRef(null)
+  const countdownRef = useRef(null)
   const onIdleRef = useRef(onIdle)
-  onIdleRef.current = onIdle
+  const [warningActive, setWarningActive] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(0)
+
+  useEffect(() => {
+    onIdleRef.current = onIdle
+  })
+
+  const clearAllTimers = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
+    if (countdownRef.current) clearInterval(countdownRef.current)
+  }, [])
 
   const reset = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current)
+    clearAllTimers()
+    setWarningActive(false)
+
+    if (warningBeforeMs > 0 && warningBeforeMs < timeoutMs) {
+      warningTimerRef.current = setTimeout(() => {
+        const secs = Math.ceil(warningBeforeMs / 1000)
+        setRemainingSeconds(secs)
+        setWarningActive(true)
+        let left = secs
+        countdownRef.current = setInterval(() => {
+          left -= 1
+          setRemainingSeconds(Math.max(0, left))
+          if (left <= 0 && countdownRef.current) clearInterval(countdownRef.current)
+        }, 1000)
+      }, timeoutMs - warningBeforeMs)
+    }
+
     timerRef.current = setTimeout(() => {
+      setWarningActive(false)
       onIdleRef.current?.()
     }, timeoutMs)
-  }, [timeoutMs])
+  }, [timeoutMs, warningBeforeMs, clearAllTimers])
 
   useEffect(() => {
     if (!enabled) return
 
     const EVENTS = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll']
     EVENTS.forEach(e => window.addEventListener(e, reset, { passive: true }))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- инициализация таймера при монтировании
     reset()
 
     return () => {
       EVENTS.forEach(e => window.removeEventListener(e, reset))
-      if (timerRef.current) clearTimeout(timerRef.current)
+      clearAllTimers()
     }
-  }, [enabled, reset])
+  }, [enabled, reset, clearAllTimers])
+
+  return { warningActive, remainingSeconds }
 }

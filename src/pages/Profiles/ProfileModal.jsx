@@ -45,6 +45,7 @@ export function ProfileModal({ onCreated, onClose }) {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- установка loading-флага перед асинхронной загрузкой
     setCardsLoading(true)
     invoke('get_cards', {
       filter: {

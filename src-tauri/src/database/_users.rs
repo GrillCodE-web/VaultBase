@@ -206,7 +206,10 @@ impl Database {
     /// Создать пользователя (только admin)
     pub fn create_user(&self, input: &crate::models::CreateUserInput, created_by: i64) -> Result<crate::models::User, String> {
         if input.username.trim().is_empty() { return Err("username_empty".into()); }
-        if input.password.len() < 6 { return Err("password_too_short".into()); }
+        // Единая политика паролей с мастер-паролем (12+ символов, верхний/нижний
+        // регистр, цифра, спецсимвол) — раньше здесь был только минимум 6 символов.
+        let v = PasswordValidation::check(&input.password);
+        if let Some(msg) = v.error_message() { return Err(format!("password_too_weak: {msg}")); }
         if input.role != "admin" && input.role != "operator" { return Err("invalid_role".into()); }
         // Cost 14 — как у мастер-пароля (main.rs:363) и у сеяного admin (стр. 19).
         // Здесь было 12: документация обещала 14 для всех паролей, а пароли
@@ -255,13 +258,59 @@ impl Database {
 
     /// Сменить пароль пользователя
     pub fn set_user_password(&self, id: i64, new_password: &str) -> Result<(), String> {
-        if new_password.len() < 6 { return Err("password_too_short".into()); }
+        // Единая политика паролей с мастер-паролем (12+ символов, верхний/нижний
+        // регистр, цифра, спецсимвол) — раньше здесь был только минимум 6 символов.
+        let v = PasswordValidation::check(new_password);
+        if let Some(msg) = v.error_message() { return Err(format!("password_too_weak: {msg}")); }
         let hash = bcrypt::hash(new_password, BCRYPT_COST).map_err(|e| e.to_string())?;
         self.conn.execute("UPDATE users SET password_hash=?1 WHERE id=?2", params![hash, id])
             .map_err(|e| e.to_string())?;
         // Инвалидируем все сессии кроме текущей
         self.conn.execute("DELETE FROM user_sessions WHERE user_id=?1", params![id])
             .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// FIX AUDIT-FE-01: смена собственного пароля пользователем.
+    /// Проверяет текущий пароль, затем ставит новый (та же политика, что у админа).
+    pub fn change_own_password(&self, user_id: i64, current: &str, new_password: &str) -> Result<(), String> {
+        let hash: String = self.conn.query_row(
+            "SELECT password_hash FROM users WHERE id=?1", params![user_id], |r| r.get(0)
+        ).map_err(|_| "user_not_found")?;
+        if !bcrypt::verify(current, &hash).map_err(|_| "wrong_current_password")? {
+            return Err("wrong_current_password".into());
+        }
+        let v = PasswordValidation::check(new_password);
+        if let Some(msg) = v.error_message() { return Err(format!("password_too_weak: {msg}")); }
+        let new_hash = bcrypt::hash(new_password, BCRYPT_COST).map_err(|e| e.to_string())?;
+        self.conn.execute("UPDATE users SET password_hash=?1, must_change_password=0 WHERE id=?2",
+            params![new_hash, user_id]).map_err(|e| e.to_string())?;
+        // Инвалидируем все сессии пользователя (кроме текущей — её токен не знаем,
+        // поэтому просто удаляем все; фронтенд перелогинится при необходимости).
+        self.conn.execute("DELETE FROM user_sessions WHERE user_id=?1", params![user_id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// FIX AUDIT-FE-02: список онлайн-сессий (для админа).
+    pub fn get_online_sessions(&self) -> Result<Vec<crate::models::UserSession>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id,user_id,token,ip_address,device_info,created_at,last_seen
+             FROM user_sessions ORDER BY last_seen DESC LIMIT 200"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok(crate::models::UserSession {
+            id: r.get(0)?, user_id: r.get(1)?, token: r.get(2)?,
+            ip_address: r.get(3)?, device_info: r.get(4)?,
+            created_at: r.get(5)?, last_seen: r.get(6)?,
+        })).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// FIX AUDIT-FE-03: отозвать сессию по id (для админа).
+    pub fn revoke_session(&self, session_id: i64) -> Result<(), String> {
+        let rows = self.conn.execute("DELETE FROM user_sessions WHERE id=?1", params![session_id])
+            .map_err(|e| e.to_string())?;
+        if rows == 0 { return Err("session_not_found".into()); }
         Ok(())
     }
 
@@ -316,12 +365,13 @@ impl Database {
         let sessions: Vec<crate::models::UserSession> = {
             let mut stmt = self.conn.prepare(
                 "SELECT id,user_id,token,ip_address,device_info,created_at,last_seen FROM user_sessions WHERE user_id=?1 ORDER BY last_seen DESC LIMIT 20"
-            ).unwrap();
-            stmt.query_map(params![id], |r| Ok(crate::models::UserSession {
+            ).map_err(|e| e.to_string())?;
+            let rows = stmt.query_map(params![id], |r| Ok(crate::models::UserSession {
                 id: r.get(0)?, user_id: r.get(1)?, token: r.get(2)?,
                 ip_address: r.get(3)?, device_info: r.get(4)?,
                 created_at: r.get(5)?, last_seen: r.get(6)?,
-            })).unwrap().filter_map(|r| r.ok()).collect()
+            })).map_err(|e| e.to_string())?;
+            rows.filter_map(|r| r.ok()).collect()
         };
 
         Ok(crate::models::UserWithPermissions { user, permissions, sessions })
@@ -387,6 +437,32 @@ impl Database {
                 .map_err(|e| e.to_string())?;
             Ok(rows.filter_map(|r| r.ok()).collect())
         }
+    }
+
+    /// FIX AUDIT-FE-04: журнал аудита с фильтрами по пользователю и типу действия.
+    pub fn get_user_activity_log_filtered(&self, user_id: Option<i64>, action_type: Option<&str>, limit: u32, offset: u32) -> Result<Vec<crate::models::UserActivity>, String> {
+        let mut sql = String::from(
+            "SELECT a.id,a.user_id,u.username,u.display_name,a.action_type,a.entity_type,a.entity_id,a.details,a.ip_address,a.created_at
+             FROM user_activity a JOIN users u ON a.user_id=u.id WHERE 1=1");
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        if let Some(uid) = user_id {
+            sql.push_str(" AND a.user_id=?");
+            params.push(Box::new(uid));
+        }
+        if let Some(at) = action_type {
+            if !at.is_empty() {
+                sql.push_str(" AND a.action_type=?");
+                params.push(Box::new(at.to_string()));
+            }
+        }
+        sql.push_str(" ORDER BY a.created_at DESC LIMIT ? OFFSET ?");
+        params.push(Box::new(limit));
+        params.push(Box::new(offset));
+
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())), Self::map_activity_row)
+            .map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
     }
 
     fn map_activity_row(r: &rusqlite::Row) -> rusqlite::Result<crate::models::UserActivity> {

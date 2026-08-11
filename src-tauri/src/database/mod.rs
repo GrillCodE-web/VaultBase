@@ -2,14 +2,14 @@
 //! FIX B-MED-04: Connection pooling with r2d2 for better concurrent access
 #![allow(unused_imports, unused_variables, dead_code)]
 
-use rusqlite::{Connection, Result as SqlResult, params};
+use rusqlite::{Connection, Result as SqlResult, params, params_from_iter, ToSql};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use chrono::{Utc, Local};
 use uuid::Uuid;
-use crate::encryption::{FieldEncryption, hash_value, hash_value_with_key};
+use crate::encryption::{FieldEncryption, PasswordValidation, hash_value_with_key};
 use crate::models::*;
 use crate::parser::{extract_bin_last4, luhn_valid};
 

@@ -93,6 +93,7 @@ export default function MyStats() {
   }, [currentUser])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка сводки
     loadOverview()
   }, [loadOverview])
 
@@ -100,6 +101,7 @@ export default function MyStats() {
   useEffect(() => {
     if (!selectedId) return
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- установка loading-флага перед асинхронной загрузкой
     setDetailLoading(true)
     invoke('get_user_period_stats', { userId: selectedId })
       .catch(() => [])

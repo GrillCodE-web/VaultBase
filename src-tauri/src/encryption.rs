@@ -21,20 +21,18 @@ pub struct FieldEncryption {
 }
 
 impl FieldEncryption {
-    /// FIX CRY-01: PBKDF2-SHA256 with 600,000 iterations (OWASP recommendation for 2026).
+    /// PBKDF2-SHA256 with iterations from constants (OWASP high-security).
     /// Makes brute-force attacks on database dumps computationally prohibitive.
-    /// FIX CRY-03: Password bytes are zeroed after key derivation
+    /// Password bytes are zeroed after key derivation.
     pub fn new(password: &str, salt: &[u8]) -> Self {
         let mut key = [0u8; 32];
 
-        // Convert password to bytes for zeroing after use
         let mut password_bytes = password.as_bytes().to_vec();
 
-        // PBKDF2 с HMAC-SHA256, 600_000 итераций (OWASP 2026 recommendation)
         pbkdf2::pbkdf2_hmac::<sha2::Sha256>(
             &password_bytes,
             salt,
-            600_000,
+            crate::constants::PBKDF2_ITERATIONS,
             &mut key,
         );
 
@@ -95,21 +93,24 @@ impl FieldEncryption {
 //  One-way hash for footprints
 // ─────────────────────────────────────────
 
-/// HMAC-SHA256 хеш значения с явным ключом.
+/// HMAC-SHA256 с явным ключом (32 байта).
 /// Ключ деривируется из DEK (мастер-пароля) через FieldEncryption::derive_hmac_key().
 /// Никаких env-переменных, никаких panic в production.
-pub fn hash_value(value: &str) -> String {
-    hash_value_with_key(value, b"vaultbase-footprint-fallback-v1")
-}
-
-/// HMAC-SHA256 с явным ключом (32 байта).
-/// Используется когда есть DEK: hash_value_with_key(v, enc.derive_hmac_key())
 pub fn hash_value_with_key(value: &str, key: &[u8]) -> String {
     use hmac::{Hmac, Mac};
     type HmacSha256 = Hmac<sha2::Sha256>;
 
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(key)
-        .expect("HMAC key init");
+    // FIX CRITICAL: Graceful error handling instead of panic
+    let mut mac = match <HmacSha256 as Mac>::new_from_slice(key) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("❌ ОШИБКА: Неверная длина HMAC ключа");
+            eprintln!("   Ожидается: 32 байта, получено: {}", key.len());
+            eprintln!("   Ошибка: {:?}", e);
+            // Fallback: использовать пустой хеш (лучше чем паника)
+            return format!("{:0>64}", "");
+        }
+    };
     mac.update(value.as_bytes());
     format!("{:x}", mac.finalize().into_bytes())
 }

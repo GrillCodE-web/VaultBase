@@ -372,6 +372,23 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const [showCompose, setShowCompose] = useState(false)
   const [composeReply, setComposeReply] = useState(null)
 
+  // Load folders for an account
+  const loadFolders = useCallback(async account => {
+    if (!account) return
+    setLoadingFolders(p => ({ ...p, [account.id]: true }))
+    try {
+      const folders = await invoke('get_imap_folders', { id: account.id })
+      setAccountFolders(p => ({ ...p, [account.id]: folders }))
+      // Load stats
+      const stats = await invoke('get_imap_stats', { id: account.id })
+      setStats(p => ({ ...p, [account.id]: stats }))
+    } catch (e) {
+      handleError(e, 'Imap.loadFolders')
+    } finally {
+      setLoadingFolders(p => ({ ...p, [account.id]: false }))
+    }
+  }, [])
+
   // Load accounts
   const loadAccounts = useCallback(async () => {
     try {
@@ -389,24 +406,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
       const error = handleError(e, 'Imap.loadAccounts')
       toastErr(getErrorMessage(error))
     }
-  }, [selectedAccount, toastErr])
-
-  const loadFolders = async account => {
-    if (!account) return
-    setLoadingFolders(p => ({ ...p, [account.id]: true }))
-    try {
-      const folders = await invoke('get_imap_folders', { id: account.id })
-      setAccountFolders(p => ({ ...p, [account.id]: folders }))
-      // Load stats
-      const stats = await invoke('get_imap_stats', { id: account.id })
-      setStats(p => ({ ...p, [account.id]: stats }))
-    } catch (e) {
-      const error = handleError(e, 'Imap.loadFolders')
-      console.error(error)
-    } finally {
-      setLoadingFolders(p => ({ ...p, [account.id]: false }))
-    }
-  }
+  }, [selectedAccount, toastErr, loadFolders])
 
   const loadMessages = useCallback(
     async (accountId, folder, page = 1, search = '') => {
@@ -437,10 +437,13 @@ export default function Imap({ onNavigate: _onNavigate }) {
   // FIX P0-5: Use refs for stable values to prevent listener recreation
   const msgPageRef = useRef(msgPage)
   const msgSearchRef = useRef(msgSearch)
-  msgPageRef.current = msgPage
-  msgSearchRef.current = msgSearch
+  useEffect(() => {
+    msgPageRef.current = msgPage
+    msgSearchRef.current = msgSearch
+  })
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка IMAP-аккаунтов
     loadAccounts()
     let unlistenFn = null
     // Событие называется new_imap_message — так его шлёт бэкенд

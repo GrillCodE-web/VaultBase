@@ -2,6 +2,11 @@
 // FIX ARCH-MED-02: E2E tests with Playwright
 
 import { test, expect } from '@playwright/test';
+import { getTauriMockScript } from './setup/tauri-mock.js';
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(getTauriMockScript());
+});
 
 test.describe('Cards Management', () => {
   test.beforeEach(async ({ page }) => {

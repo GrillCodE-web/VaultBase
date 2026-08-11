@@ -908,16 +908,6 @@
     animation: none;
   }
 
-  @keyframes alertPulse {
-    0%,
-    100% {
-      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-    }
-  }
-
   .alert-card.error {
     background: var(--color-error-bg);
     border-color: var(--red-border);
@@ -927,16 +917,6 @@
     background: var(--color-warning-bg);
     border-color: var(--yellow-border);
     animation: none;
-  }
-
-  @keyframes alertPulseWarning {
-    0%,
-    100% {
-      box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
-    }
   }
 
   .alert-card.info {
@@ -1020,30 +1000,8 @@
     overflow: hidden;
   }
 
-  @keyframes slideInRight {
-    from {
-      transform: translateX(calc(100% + 24px));
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-
   .smart-toast.exit {
     animation: none;
-  }
-
-  @keyframes slideOutRight {
-    from {
-      transform: translateX(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateX(calc(100% + 24px));
-      opacity: 0;
-    }
   }
 
   .smart-toast::before {
@@ -1246,19 +1204,6 @@
       radial-gradient(circle at 70% 50%, transparent 0%, transparent 50%);
     animation: none;
     pointer-events: none;
-  }
-
-  @keyframes auth-bg-float {
-    0%,
-    100% {
-      transform: translate(0, 0) rotate(0deg);
-    }
-    33% {
-      transform: translate(5%, 5%) rotate(120deg);
-    }
-    66% {
-      transform: translate(-5%, 5%) rotate(240deg);
-    }
   }
 
   /* Legacy background glow */
@@ -1789,16 +1734,6 @@
     opacity: 1;
   }
 
-  @keyframes gradient-flow {
-    0%,
-    100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 0% 150%;
-    }
-  }
-
   /* Animated gradient border for in-use cards */
   .card-row-in-use::before {
     content: '';
@@ -1942,21 +1877,6 @@
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), transparent);
     border-color: rgba(99, 102, 241, 0.5);
     box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
-  }
-
-  /* Row flash animation */
-  .row-flash {
-    animation: none;
-  }
-
-  @keyframes row-flash-animation {
-    0%,
-    100% {
-      background: transparent;
-    }
-    50% {
-      background: var(--accent-dim);
-    }
   }
 
   /* ── Card Number Display ────────────────────────────────── */
@@ -2498,47 +2418,14 @@
     animation: none;
   }
 
-  @keyframes cell-copy-flash {
-    0%,
-    100% {
-      background: transparent;
-    }
-    50% {
-      background: rgba(16, 185, 129, 0.15);
-    }
-  }
-
   /* Enhanced field copy feedback with flash and glow */
   .field-copy-feedback {
     animation: none;
   }
 
-  @keyframes field-copied-flash {
-    0% {
-      background: transparent;
-    }
-    50% {
-      background: rgba(34, 197, 94, 0.15);
-      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-    }
-    100% {
-      background: transparent;
-    }
-  }
-
   /* Copy button success state with ring */
   .copy-btn.copied {
     animation: none;
-  }
-
-  @keyframes copy-success-pulse {
-    0%,
-    100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.1);
-    }
   }
 
   /* ── Column Selector ────────────────────────────────────── */
@@ -3595,90 +3482,6 @@
     animation: none;
   }
 
-  @keyframes pulse-dot {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.5;
-      transform: scale(0.95);
-    }
-  }
-
-  @keyframes pulse-dot-green {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-      box-shadow:
-        0 0 8px rgba(34, 197, 94, 0.4),
-        0 0 16px rgba(34, 197, 94, 0.2);
-    }
-    50% {
-      opacity: 0.7;
-      transform: scale(1.1);
-      box-shadow:
-        0 0 12px rgba(34, 197, 94, 0.6),
-        0 0 24px rgba(34, 197, 94, 0.3);
-    }
-  }
-
-  @keyframes pulse-dot-yellow {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-      box-shadow:
-        0 0 8px rgba(234, 179, 8, 0.4),
-        0 0 16px rgba(234, 179, 8, 0.2);
-    }
-    50% {
-      opacity: 0.7;
-      transform: scale(1.1);
-      box-shadow:
-        0 0 12px rgba(234, 179, 8, 0.6),
-        0 0 24px rgba(234, 179, 8, 0.3);
-    }
-  }
-
-  @keyframes pulse-dot-red {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-      box-shadow:
-        0 0 8px rgba(239, 68, 68, 0.4),
-        0 0 16px rgba(239, 68, 68, 0.2);
-    }
-    50% {
-      opacity: 0.7;
-      transform: scale(1.1);
-      box-shadow:
-        0 0 12px rgba(239, 68, 68, 0.6),
-        0 0 24px rgba(239, 68, 68, 0.3);
-    }
-  }
-
-  @keyframes pulse-dot-blue {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-      box-shadow:
-        0 0 8px rgba(59, 130, 246, 0.4),
-        0 0 16px rgba(59, 130, 246, 0.2);
-    }
-    50% {
-      opacity: 0.7;
-      transform: scale(1.1);
-      box-shadow:
-        0 0 12px rgba(59, 130, 246, 0.6),
-        0 0 24px rgba(59, 130, 246, 0.3);
-    }
-  }
-
   /* ── Order Card (for detail view) ───────────────────────── */
   .order-detail-card {
     background: var(--card);
@@ -3765,17 +3568,6 @@
     border-radius: var(--r-md);
     margin-bottom: var(--sp-4);
     animation: none;
-  }
-
-  @keyframes slide-down {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   .batch-actions-text {
@@ -5152,17 +4944,6 @@
     box-shadow: var(--shadow-lg);
     overflow: hidden;
     animation: none;
-  }
-
-  @keyframes dropdown-in {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   .imap-link-header {
@@ -7316,17 +7097,6 @@
     animation: none;
   }
 
-  @keyframes success-in {
-    from {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
   .onboarding-success-icon {
     width: 80px;
     height: 80px;
@@ -7338,18 +7108,6 @@
     justify-content: center;
     color: var(--green-t);
     animation: none;
-  }
-
-  @keyframes pulse-success {
-    0%,
-    100% {
-      transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
-    }
-    50% {
-      transform: scale(1.05);
-      box-shadow: 0 0 0 20px rgba(34, 197, 94, 0);
-    }
   }
 
   .onboarding-success-title {
@@ -7512,15 +7270,6 @@
     animation: none;
   }
 
-  @keyframes grid-scroll {
-    0% {
-      background-position: 0 0;
-    }
-    100% {
-      background-position: 50px 50px;
-    }
-  }
-
   /* ─── Glowing Border Animation ──────────────────────────── */
   .glow-border {
     position: relative;
@@ -7550,30 +7299,11 @@
     animation: none;
   }
 
-  @keyframes border-flow {
-    0%,
-    100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-  }
-
   /* ─── Shimmer Loading Effect ────────────────────────────── */
   .shimmer {
     background: linear-gradient(90deg, var(--card) 0%, var(--card-hi) 50%, var(--card) 100%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
-  }
-
-  @keyframes shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
   }
 
   /* ─── Pulse Ring Animation ──────────────────────────────── */
@@ -7589,17 +7319,6 @@
     border-radius: inherit;
     opacity: 0;
     animation: none;
-  }
-
-  @keyframes pulse-ring {
-    0% {
-      transform: scale(1);
-      opacity: 0.8;
-    }
-    100% {
-      transform: scale(1.1);
-      opacity: 0;
-    }
   }
 
   /* ─── Floating Label Input ──────────────────────────────── */
@@ -7881,12 +7600,6 @@
     animation: spin 0.8s linear infinite;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   .spinner-premium-sm {
     width: 16px;
     height: 16px;
@@ -7928,17 +7641,6 @@
     height: 2px;
     background: var(--gradient-accent);
     opacity: 0.5;
-  }
-
-  @keyframes dropdown-slide-in {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   .dropdown-item {
@@ -8069,16 +7771,6 @@
     color: var(--accent);
     margin-bottom: 24px;
     animation: none;
-  }
-
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
   }
 
   .empty-state-title--lg {
@@ -8242,47 +7934,6 @@
     animation: none;
   }
 
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  /* ─── Slide Up Animation ────────────────────────────────── */
-  .slide-up {
-    animation: none;
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* ─── Scale In Animation ────────────────────────────────── */
-  .scale-in {
-    animation: none;
-  }
-
-  @keyframes scaleIn {
-    from {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
   /* ═══════════════════════════════════════════════════════════
    PREMIUM PAGE HEADERS
    Cyber-Terminal page headers with unified styling
@@ -8380,15 +8031,6 @@
 
   .premium-icon-button.spinning svg {
     animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .premium-action-button {
@@ -8579,18 +8221,6 @@
     animation: none;
   }
 
-  @keyframes particle-float {
-    0%,
-    100% {
-      opacity: 0;
-      transform: translateY(0) scale(0);
-    }
-    50% {
-      opacity: 0.6;
-      transform: translateY(-20px) scale(1);
-    }
-  }
-
   .premium-empty-state__content {
     position: relative;
     z-index: 1;
@@ -8622,32 +8252,10 @@
     animation: none;
   }
 
-  @keyframes icon-glow-pulse {
-    0%,
-    100% {
-      opacity: 0.2;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.4;
-      transform: scale(1.1);
-    }
-  }
-
   .premium-empty-state__icon {
     position: relative;
     z-index: 1;
     animation: none;
-  }
-
-  @keyframes icon-float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
   }
 
   .premium-empty-state__title {

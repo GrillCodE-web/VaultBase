@@ -90,6 +90,7 @@ export default function Couriers({ activeTab, onNavigate }) {
   }, [tab, notify, stufferReady])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка курьеров
     load()
   }, [load])
 
@@ -100,7 +101,7 @@ export default function Couriers({ activeTab, onNavigate }) {
         .then(setCouriers)
         .catch(() => {})
     }
-  }, [tab, couriers.length])
+  }, [tab, couriers.length, stufferReady])
 
   const handleAdd = async id => {
     if (!hasPerm('manage_couriers')) return
@@ -155,9 +156,15 @@ export default function Couriers({ activeTab, onNavigate }) {
   const removeTrackRow = i =>
     setForm(f => ({ ...f, tracks: f.tracks.filter((_, idx) => idx !== i) }))
 
+  const PAY_OPTIONS = ['prepaid', 'cod', 'credit', 'cash', 'other']
+
   const submit = async () => {
     if (!form.courier_id) {
       toastErr(t('pkg_courier_required'))
+      return
+    }
+    if (!form.shop || !form.shop.trim()) {
+      toastErr(t('pkg_shop_required') || 'Shop is required')
       return
     }
     setCreating(true)
@@ -453,8 +460,8 @@ export default function Couriers({ activeTab, onNavigate }) {
             />
           </label>
           <label className="cou-form-field">
-            <span>{t('pkg_field_shop')}</span>
-            <input value={form.shop} onChange={e => setField('shop', e.target.value)} />
+            <span>{t('pkg_field_shop')} *</span>
+            <input value={form.shop} onChange={e => setField('shop', e.target.value)} required />
           </label>
           <label className="cou-form-field">
             <span>{t('pkg_field_weight')}</span>
@@ -487,7 +494,14 @@ export default function Couriers({ activeTab, onNavigate }) {
           </label>
           <label className="cou-form-field">
             <span>{t('pkg_field_pay_option')}</span>
-            <input value={form.pay_option} onChange={e => setField('pay_option', e.target.value)} />
+            <select value={form.pay_option} onChange={e => setField('pay_option', e.target.value)}>
+              <option value="">{t('pkg_select_pay_option') || '— Select —'}</option>
+              {PAY_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="cou-form-field">
             <span>{t('pkg_field_asin')}</span>

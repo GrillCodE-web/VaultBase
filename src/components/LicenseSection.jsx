@@ -42,10 +42,25 @@ export function LicenseSection() {
   }
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(installId).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+    navigator.clipboard
+      .writeText(installId)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(e => {
+        // FIX CRITICAL: Handle clipboard error (may fail on some browsers/OS)
+        console.error('[LicenseSection] Failed to copy installation ID:', e)
+        // Fallback: select text manually
+        const el = document.querySelector('[data-installation-id]')
+        if (el) {
+          const selection = window.getSelection()
+          const range = document.createRange()
+          range.selectNodeContents(el)
+          selection.removeAllRanges()
+          selection.addRange(range)
+        }
+      })
   }
 
   const statusMeta = {
