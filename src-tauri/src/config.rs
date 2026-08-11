@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+﻿use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::fs;
 use tracing::{info, warn, error};
@@ -120,7 +120,7 @@ pub fn get_default_config(profile: &str) -> Config {
             app: AppConfig {
                 profile: "dev".to_string(),
                 name: "VaultBase".to_string(),
-                version: "2.11.2".to_string(),
+                version: "2.11.3".to_string(),
                 debug: true,
             },
             security: SecurityConfig {
@@ -146,7 +146,7 @@ pub fn get_default_config(profile: &str) -> Config {
             app: AppConfig {
                 profile: "staging".to_string(),
                 name: "VaultBase".to_string(),
-                version: "2.11.2".to_string(),
+                version: "2.11.3".to_string(),
                 debug: false,
             },
             security: SecurityConfig {
@@ -172,7 +172,7 @@ pub fn get_default_config(profile: &str) -> Config {
             app: AppConfig {
                 profile: "production".to_string(),
                 name: "VaultBase".to_string(),
-                version: "2.11.2".to_string(),
+                version: "2.11.3".to_string(),
                 debug: false,
             },
             security: SecurityConfig {
