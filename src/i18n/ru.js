@@ -753,6 +753,13 @@ export const ru = {
 
   // Cards extras
   cards_zip_filter_hint: 'Фильтр по ZIP-префиксу',
+  bin_enrich: 'BIN обогащение',
+  bin_enrichment: 'BIN обогащение',
+  batch_import: 'Массовый импорт',
+  batch_import_orders: 'Массовый импорт заказов',
+  not_enough_data: 'Недостаточно данных',
+  not_enough_data_hint: 'Недостаточно данных (нужно ≥3 заказов на комбинацию)',
+  no_suitable_card: 'Подходящая свободная карта не найдена',
 
   // Search placeholders
   orders_holder_search_placeholder: 'Поиск по имени держателя, last4…',

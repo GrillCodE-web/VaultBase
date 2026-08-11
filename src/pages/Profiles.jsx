@@ -283,7 +283,7 @@ export default function ProfileList({
       load()
     } catch (e) {
       if (e.includes?.('no_free_cards') || e.includes?.('no_unburned_free_card')) {
-        toast('No suitable free card found for duplication', 'warn')
+        toast(t('no_suitable_card'), 'warn')
       } else {
         toast(String(e), 'error')
       }

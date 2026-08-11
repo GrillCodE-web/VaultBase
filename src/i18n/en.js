@@ -752,6 +752,13 @@ export const en = {
 
   // Cards extras
   cards_zip_filter_hint: 'ZIP prefix match',
+  bin_enrich: 'BIN Enrich',
+  bin_enrichment: 'BIN Enrichment',
+  batch_import: 'Batch Import',
+  batch_import_orders: 'Batch Import Orders',
+  not_enough_data: 'Not enough data yet',
+  not_enough_data_hint: 'Not enough data (need ≥3 orders per combination)',
+  no_suitable_card: 'No suitable free card found for duplication',
 
   // Search placeholders
   orders_holder_search_placeholder: 'Search holder name, last4…',
