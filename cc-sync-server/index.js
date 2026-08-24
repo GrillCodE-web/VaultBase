@@ -72,6 +72,8 @@ app.use('/version',   require('./routes/version'));
 app.use('/update',    require('./routes/update'));
 app.use('/invite',    require('./routes/invite'));
 app.use('/sync',      require('./routes/sync'));
+// SEC-019: CSP violation reports from Tauri clients (see tauri.conf.json report-uri)
+app.use('/csp-report', require('./routes/csp-report'));
 
 // Catalog sync
 app.use('/api/catalog',  require('./routes/catalog'));
