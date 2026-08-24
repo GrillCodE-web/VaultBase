@@ -19,6 +19,38 @@ const clients = new Map();
 // Keep-alive timer handle, cleared on graceful shutdown.
 let pingInterval = null;
 
+// SEC-023: rate limit per connection + per-IP backoff after violations.
+// Limit lowered 50 -> 20 msg/sec: normal clients send a handful of messages
+// per sync cycle; 50/sec only enabled abuse.
+const RATE_LIMIT_MAX_PER_SEC = 20;
+// ip -> { count, bannedUntil }. Each violation doubles the ban: 10s, 20s, 40s, ...
+// capped at 1 hour. Entries are pruned 1h after the ban expires.
+const ipViolations = new Map();
+let violationPruneInterval = null;
+
+// Mirrors index.js 'trust proxy': only a same-host proxy may supply
+// X-Forwarded-For, otherwise the header is client-controlled and spoofable.
+function clientIp(req) {
+  const remote = req?.socket?.remoteAddress || 'unknown';
+  if (remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1') {
+    const fwd = req?.headers?.['x-forwarded-for'];
+    if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0].trim();
+  }
+  return remote;
+}
+
+function registerViolation(ip) {
+  const e = ipViolations.get(ip) || { count: 0, bannedUntil: 0 };
+  e.count += 1;
+  e.bannedUntil = Date.now() + Math.min(2 ** e.count * 5000, 3_600_000);
+  ipViolations.set(ip, e);
+}
+
+function isBanned(ip) {
+  const e = ipViolations.get(ip);
+  return !!e && e.bannedUntil > Date.now();
+}
+
 const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
 const VALID_STATUSES = ['free', 'in_use', 'archive', 'declined', 'dead'];
 function weight(s) { return STATUS_WEIGHT[s] || 0; }
@@ -73,36 +105,41 @@ function applyCardPush(db, groupId, installationId, cards) {
 }
 
 module.exports = function initWsTauri(wss, io) {
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    const ip = clientIp(req);
+
+    // SEC-023: IP is in a backoff ban after repeated rate-limit violations
+    if (isBanned(ip)) {
+      ws.close(4002, 'rate_limit_backoff');
+      return;
+    }
+
     ws.authenticated = false;
     ws.installationId = null;
     ws.groupId = null;
     ws.messageCount = 0;
-    ws.lastMessageTime = Date.now();
+    ws.windowStart = Date.now();
 
     // Auth timeout — 10 seconds
     const authTimeout = setTimeout(() => {
       if (!ws.authenticated) ws.close(4001, 'auth_timeout');
     }, 10_000);
 
-    // FIX WS-RATELIMIT-01: Rate limiting per connection
-    const rateLimitInterval = setInterval(() => {
-      const now = Date.now();
-      if (now - ws.lastMessageTime > 1000) {
-        ws.messageCount = 0; // Reset counter every second
-      }
-      if (ws.messageCount > 50) {
-        ws.close(4002, 'rate_limit_exceeded');
-        clearInterval(rateLimitInterval);
-      }
-    }, 1000);
-
-    ws.on('close', () => clearInterval(rateLimitInterval));
-
     ws.on('message', (raw) => {
-      // FIX WS-RATELIMIT-02: Count messages for rate limiting
+      // SEC-023: sliding 1-second window, max RATE_LIMIT_MAX_PER_SEC messages.
+      // On violation the connection is closed and the IP gets an exponential
+      // backoff ban, so an abusive client cannot just reconnect and resume.
+      const now = Date.now();
+      if (now - ws.windowStart >= 1000) {
+        ws.windowStart = now;
+        ws.messageCount = 0;
+      }
       ws.messageCount++;
-      ws.lastMessageTime = Date.now();
+      if (ws.messageCount > RATE_LIMIT_MAX_PER_SEC) {
+        registerViolation(ip);
+        ws.close(4002, 'rate_limit_exceeded');
+        return;
+      }
 
       // FIX WS-MAXPAYLOAD-02: Limit message size
       if (raw.length > 1024 * 1024) { // 1MB
@@ -133,33 +170,39 @@ module.exports = function initWsTauri(wss, io) {
         if (!token) { send(ws, { type: 'auth_error', error: 'missing_token' }); ws.close(); return; }
 
         const db = getDb();
-        const row = db.prepare(
-          'SELECT installation_id, is_active FROM licenses WHERE token = ?'
-        ).get(token);
+        // SEC-022: license check + last_seen + group lookup run in one
+        // transaction. Previously a license deactivated between the SELECT and
+        // the UPDATE still authenticated this socket (TOCTOU).
+        const authTx = db.transaction((tkn) => {
+          const row = db.prepare(
+            'SELECT installation_id, is_active FROM licenses WHERE token = ?'
+          ).get(tkn);
+          if (!row || !row.is_active) return null;
+          db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?').run(tkn);
+          const member = db.prepare(`
+            SELECT sgm.group_id FROM sync_group_members sgm
+            WHERE sgm.installation_id = ?
+          `).get(row.installation_id);
+          return { installationId: row.installation_id, groupId: member?.group_id || null };
+        });
+        const auth = authTx(token);
 
-        if (!row || !row.is_active) {
+        if (!auth) {
           send(ws, { type: 'auth_error', error: 'invalid_token' });
           ws.close();
           return;
         }
 
-        db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?').run(token);
-
-        const member = db.prepare(`
-          SELECT sgm.group_id FROM sync_group_members sgm
-          WHERE sgm.installation_id = ?
-        `).get(row.installation_id);
-
         ws.authenticated = true;
-        ws.installationId = row.installation_id;
+        ws.installationId = auth.installationId;
         ws.userToken = token;
-        ws.groupId = member?.group_id || null;
+        ws.groupId = auth.groupId;
 
-        clients.set(row.installation_id, ws);
+        clients.set(auth.installationId, ws);
 
         send(ws, {
           type: 'auth_ok',
-          installation_id: row.installation_id,
+          installation_id: auth.installationId,
           group_id: ws.groupId,
         });
 
@@ -262,6 +305,14 @@ module.exports = function initWsTauri(wss, io) {
       if (ws.readyState === ws.OPEN) send(ws, { type: 'ping' });
     }
   }, 30_000);
+
+  // Prune cooled-down violation entries (ban expired more than 1h ago)
+  violationPruneInterval = setInterval(() => {
+    const cutoff = Date.now() - 3_600_000;
+    for (const [ip, e] of ipViolations) {
+      if (e.bannedUntil < cutoff) ipViolations.delete(ip);
+    }
+  }, 60_000);
 };
 
 function broadcastToGroup(groupId, msg, excludeInstallationId) {
@@ -280,12 +331,18 @@ function broadcastCatalogUpdate(wss, type, data) {
   });
 }
 module.exports.broadcastCatalogUpdate = broadcastCatalogUpdate;
+// Test-only: reset per-IP backoff state.
+module.exports._clearViolationsForTest = () => ipViolations.clear();
 
 /** Stop the keep-alive timer and close every tracked client. Used on shutdown. */
 function shutdown() {
   if (pingInterval) {
     clearInterval(pingInterval);
     pingInterval = null;
+  }
+  if (violationPruneInterval) {
+    clearInterval(violationPruneInterval);
+    violationPruneInterval = null;
   }
   for (const [, ws] of clients) {
     if (ws.readyState === ws.OPEN) ws.close(1001, 'server_shutdown');
