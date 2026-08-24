@@ -124,7 +124,25 @@ impl Database {
                 last_checked: r.get(8)?,
             }, r.get::<_,Option<String>>(5)?.unwrap_or_default())),
         ).map_err(|e| e.to_string())?;
-        let pw = if enc_pw.is_empty() { String::new() } else { self.decrypt_field(&enc_pw)? };
+        let pw = if enc_pw.is_empty() {
+            String::new()
+        } else {
+            match self.decrypt_field(&enc_pw) {
+                Ok(p) => p,
+                // Строки, записанные до введения шифрования IMAP-паролей, хранят
+                // plaintext. Auth-tag AES-GCM гарантирует, что настоящий шифротекст
+                // здесь не может дать ошибку, значит это legacy-строка.
+                // Перешифровываем её на месте (как в get_smtp_config_password).
+                Err(_) => {
+                    let enc = self.encrypt_field(&enc_pw)?;
+                    self.conn.execute(
+                        "UPDATE imap_accounts SET password=?1 WHERE id=?2",
+                        params![enc, id],
+                    ).map_err(|e| e.to_string())?;
+                    enc_pw
+                }
+            }
+        };
         Ok((acc, pw))
     }
 
