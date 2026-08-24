@@ -47,17 +47,21 @@ pub(crate) fn sync_now() -> Result<SyncResult, String> {
 
 #[tauri::command]
 pub(crate) fn sync_create_group(name: String, app: tauri::AppHandle) -> Result<SyncGroupInfo, String> {
-    let (info, token) = with_db!(db, {
+    let (info, token, group_key) = with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
         let info = crate::sync::SyncGroupClient::create_group(db, &name)?;
         let token = db.get_config("license_token").ok().flatten()
             .and_then(|t| if t.is_empty() { None } else {
                 db.encryption.as_ref().and_then(|enc| enc.decrypt(&t).ok())
             });
-        Ok::<(SyncGroupInfo, Option<String>), String>((info, token))
+        let group_key = db.get_config("sync_group_key").ok().flatten()
+            .and_then(|gk| db.encryption.as_ref()
+                .and_then(|enc| crate::encryption::resolve_group_key(&gk, enc)));
+        Ok::<(SyncGroupInfo, Option<String>, Option<[u8; 32]>), String>((info, token, group_key))
     })?;
     // Refresh WS creds with new group
     if let Some(h) = WS_HANDLE.get() {
+        h.set_group_key(group_key);
         h.set_creds(token, Some(info.group_id.clone()));
         ws_sync::start(app, h.clone());
     }
@@ -74,16 +78,20 @@ pub(crate) fn sync_create_pair_code() -> Result<String, String> {
 
 #[tauri::command]
 pub(crate) fn sync_join_group(pair_code: String, app: tauri::AppHandle) -> Result<SyncGroupInfo, String> {
-    let (info, token) = with_db!(db, {
+    let (info, token, group_key) = with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
         let info = crate::sync::SyncGroupClient::join_group(db, &pair_code)?;
         let token = db.get_config("license_token").ok().flatten()
             .and_then(|t| if t.is_empty() { None } else {
                 db.encryption.as_ref().and_then(|enc| enc.decrypt(&t).ok())
             });
-        Ok::<(SyncGroupInfo, Option<String>), String>((info, token))
+        let group_key = db.get_config("sync_group_key").ok().flatten()
+            .and_then(|gk| db.encryption.as_ref()
+                .and_then(|enc| crate::encryption::resolve_group_key(&gk, enc)));
+        Ok::<(SyncGroupInfo, Option<String>, Option<[u8; 32]>), String>((info, token, group_key))
     })?;
     if let Some(h) = WS_HANDLE.get() {
+        h.set_group_key(group_key);
         h.set_creds(token, Some(info.group_id.clone()));
         ws_sync::start(app, h.clone());
     }
@@ -109,6 +117,7 @@ pub(crate) fn sync_disconnect() -> Result<(), String> {
         h.stop();
         // Clear group_id but keep token (for reconnect if user re-joins)
         h.set_creds(None, None);
+        h.set_group_key(None);
     }
     Ok(())
 }

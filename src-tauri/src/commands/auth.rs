@@ -5,7 +5,7 @@ use crate::state::*;
 use crate::models::*;
 use crate::database::{Database, fetch_bin_info};
 use crate::models;
-use crate::encryption::{FieldEncryption, PasswordValidation, generate_salt};
+use crate::encryption::{FieldEncryption, PasswordValidation, generate_salt, derive_db_key};
 use crate::license::LicenseStatus;
 use crate::rate_limiter;
 use crate::sync;
@@ -329,6 +329,19 @@ pub(crate) fn setup_password(password: String) -> Result<(), String> {
         let hash = bcrypt::hash(&password, 14).map_err(|e| e.to_string())?;
         db.set_config("master_password_hash", &hash).map_err(|e| e.to_string())?;
         db.set_config("encryption_salt", &salt_b64).map_err(|e| e.to_string())?;
+        let db_path = crate::state::db_path();
+        let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
+        // SEC-001: шифруем файл БД сразу при создании пароля — не оставляем
+        // plaintext-копию на диске до следующего unlock.
+        // SEC-005: DEK случайный (envelope v2), sidecar хранит соль + обёртку.
+        if !Database::is_encrypted(db_path_str) {
+            let dek = crate::encryption::generate_group_key();
+            let blob = crate::encryption::wrap_dek(&dek, &password, &salt)?;
+            Database::save_sidecar(db_path_str, &salt_b64, &blob)?;
+            db.close_connections();
+            Database::migrate_to_encrypted(db_path_str, &dek)?;
+            db.reopen_with_key(db_path_str, &dek)?;
+        }
         db.set_encryption(FieldEncryption::new(&password, &salt));
         db.log_event("system.password_created", "Master password created", Some("system"), None)
             .map_err(|e| e.to_string())?;
@@ -338,6 +351,14 @@ pub(crate) fn setup_password(password: String) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) fn is_password_set() -> Result<bool, String> {
+    // SEC-001: зашифрованный файл БД возможен только после установки пароля.
+    // Проверяем заголовок файла, т.к. locked-shell соединение не может читать config.
+    let db_path = crate::state::db_path();
+    if let Some(p) = db_path.to_str() {
+        if std::path::Path::new(p).exists() && Database::is_encrypted(p) {
+            return Ok(true);
+        }
+    }
     with_db!(db, {
         Ok(db.get_config("master_password_hash")
             .map_err(|e| e.to_string())?
@@ -348,34 +369,62 @@ pub(crate) fn is_password_set() -> Result<bool, String> {
 
 #[tauri::command]
 pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
-    // FIX TC-H03: Rate limiting вЂ” 5 attempts per minute to prevent brute-force
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("unlock"))?;
-    let (token, group_id) = with_db!(db, {
+    let (token, group_id, group_key) = with_db!(db, {
+        let db_path = crate::state::db_path();
+        let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
+        let is_encrypted_db = Database::is_encrypted(db_path_str);
+
+        if is_encrypted_db && db.pool.is_none() {
+            // SEC-005: envelope-sidecar. Пробуем основной, потом .bak —
+            // покрывает прерванную запись sidecar при смене пароля.
+            let mut last_err = "salt_file_missing: cannot unlock encrypted database".to_string();
+            let mut opened = false;
+            for sc in [Database::read_sidecar(db_path_str), Database::read_sidecar_bak(db_path_str)]
+                .into_iter().flatten()
+            {
+                let salt = match B64.decode(&sc.salt_b64) { Ok(s) => s, Err(_) => continue };
+                let dek = match &sc.wrapped_dek {
+                    Some(blob) => match crate::encryption::unwrap_dek(blob, &password, &salt) {
+                        Ok(d) => d,
+                        Err(_) => continue,
+                    },
+                    None => derive_db_key(&password, &salt),
+                };
+                match db.reopen_with_key(db_path_str, &dek) {
+                    Ok(()) => {
+                        // Legacy v1 (голая соль) → сразу апгрейдим до v2 envelope
+                        if sc.wrapped_dek.is_none() {
+                            if let Ok(blob) = crate::encryption::wrap_dek(&dek, &password, &salt) {
+                                let _ = Database::save_sidecar(db_path_str, &sc.salt_b64, &blob);
+                            }
+                        }
+                        opened = true;
+                        break;
+                    }
+                    Err(e) => { last_err = e; }
+                }
+            }
+            if !opened {
+                return Err(last_err);
+            }
+        }
+
         let hash = db.get_config("master_password_hash").map_err(|e| e.to_string())?
             .ok_or("setup_required")?;
         if !bcrypt::verify(&password, &hash).map_err(|e| e.to_string())? {
             return Err("wrong_password".into());
         }
 
-        // FIX B-MED-07: РђРІС‚РѕРјР°С‚РёС‡РµСЃРєР°СЏ РјРёРіСЂР°С†РёСЏ bcrypt cost factor.
-        // Р¤РѕСЂРјР°С‚ С…РµС€Р°: `$2b$XX$...`, РіРґРµ XX вЂ” cost РёР· Р”Р’РЈРҐ С†РёС„СЂ РЅР° РїРѕР·РёС†РёСЏС… 4..6.
-        // Р‘С‹Р» СЃСЂРµР· hash[4..7] вЂ” РѕРЅ Р·Р°С…РІР°С‚С‹РІР°Р» С‚СЂРµС‚РёР№ СЃРёРјРІРѕР» `$`, РґР°РІР°Р» "12$",
-        // parse::<u32>() РїР°РґР°Р», Р° .unwrap_or(false)РіР°СЃРёР» РѕС€РёР±РєСѓ: СѓСЃР»РѕРІРёРµ РІСЃРµРіРґР°
-        // Р±С‹Р»Рѕ false Рё РјРёРіСЂР°С†РёСЏ РЅРµ РѕС‚СЂР°Р±РѕС‚Р°Р»Р° РќР Р РђР—РЈ СЃ РјРѕРјРµРЅС‚Р° РЅР°РїРёСЃР°РЅРёСЏ.
-        // РџРѕСЌС‚РѕРјСѓ Р¶Рµ СЃС‡С‘С‚ В«119 СѓСЏР·РІРёРјРѕСЃС‚РµР№ РёСЃРїСЂР°РІР»РµРЅРѕВ» Р·Р°РІС‹С€РµРЅ РјРёРЅРёРјСѓРј РЅР° РѕРґРЅСѓ.
         let parsed_cost = if hash.starts_with("$2b$") && hash.len() > 7 {
             hash[4..6].parse::<u32>().ok()
         } else {
             None
         };
-        // РќРµСЂР°СЃРїРѕР·РЅР°РЅРЅС‹Р№ С„РѕСЂРјР°С‚ Р»РѕРіРёСЂСѓРµРј, Р° РЅРµ РїСЂРѕРіР»Р°С‚С‹РІР°РµРј: РјРѕР»С‡Р°Р»РёРІС‹Р№
-        // .unwrap_or(false) Рё Р±С‹Р» РїСЂРёС‡РёРЅРѕР№ С‚РѕРіРѕ, С‡С‚Рѕ Р±Р°Рі Р¶РёР» РЅРµР·Р°РјРµС‡РµРЅРЅС‹Рј.
         if parsed_cost.is_none() && hash.starts_with("$2b$") {
             eprintln!("[bcrypt] cannot parse cost from hash prefix, upgrade skipped");
         }
-
         if parsed_cost.is_some_and(|c| c < 14) {
-            // Р Рµ-С…РµС€РёСЂСѓРµРј СЃ РЅРѕРІС‹Рј cost factor
             let new_hash = bcrypt::hash(&password, 14).map_err(|e| e.to_string())?;
             db.set_config("master_password_hash", &new_hash).map_err(|e| e.to_string())?;
             eprintln!("[bcrypt] Upgraded cost factor to 14");
@@ -384,17 +433,34 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
         let salt_b64 = db.get_config("encryption_salt").map_err(|e| e.to_string())?
             .ok_or("encryption_salt_missing")?;
         let salt = B64.decode(&salt_b64).map_err(|e| e.to_string())?;
+
+        if !is_encrypted_db {
+            // SEC-005: DEK случайный и в дальнейшем не меняется; в sidecar
+            // пишем v2-envelope (соль + DEK, обёрнутый ключом из пароля).
+            let dek = crate::encryption::generate_group_key();
+            let blob = crate::encryption::wrap_dek(&dek, &password, &salt)?;
+            Database::save_sidecar(db_path_str, &salt_b64, &blob)?;
+            // На Windows rename файла невозможен, пока его держит открытый
+            // SQLite handle — закрываем conn+pool перед sqlcipher_export.
+            db.close_connections();
+            Database::migrate_to_encrypted(db_path_str, &dek)?;
+            db.reopen_with_key(db_path_str, &dek)?;
+            let _ = db.log_event("security.db_encrypted", "Database migrated to SQLCipher", Some("system"), None);
+        }
+
         db.set_encryption(FieldEncryption::new(&password, &salt));
         db.log_event("system.unlocked", "Database unlocked", Some("system"), None)
             .map_err(|e| e.to_string())?;
         let _ = auto_backup(db);
-        // Extract WS creds while lock is held
         let token = db.get_config("license_token").ok().flatten()
             .and_then(|t| if t.is_empty() { None } else {
                 db.encryption.as_ref().and_then(|enc| enc.decrypt(&t).ok())
             });
         let group_id = db.get_config("sync_group_id").ok().flatten();
-        Ok::<(Option<String>, Option<String>), String>((token, group_id))
+        let group_key: Option<[u8; 32]> = db.get_config("sync_group_key").ok().flatten()
+            .and_then(|gk| db.encryption.as_ref()
+                .and_then(|enc| crate::encryption::resolve_group_key(&gk, enc)));
+        Ok::<(Option<String>, Option<String>, Option<[u8; 32]>), String>((token, group_id, group_key))
     })?;
 
     // FIX B-MED-05: РЎР±СЂР°СЃС‹РІР°РµРј Р°С‚РѕРјР°СЂРЅС‹Р№ С„Р»Р°Рі РїРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕРіРѕ unlock
@@ -404,6 +470,7 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
 
     // Start WS sync in background (non-blocking)
     if let Some(h) = WS_HANDLE.get() {
+        h.set_group_key(group_key);
         h.set_creds(token, group_id);
         ws_sync::start(app, h.clone());
     }
@@ -432,6 +499,7 @@ pub(crate) fn lock() -> Result<(), String> {
     if let Some(h) = WS_HANDLE.get() {
         h.stop();
         h.set_creds(None, None);
+        h.set_group_key(None);
     }
     
     tracing::info!("Lock completed successfully");
@@ -481,6 +549,30 @@ pub(crate) fn change_password(old: String, new: String) -> Result<(), String> {
                 }
             }
         }
+        let db_path = crate::state::db_path();
+        let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
+        if Database::is_encrypted(db_path_str) {
+            // SEC-005: envelope-схема — DEK НЕ меняется при смене пароля.
+            // Достаём текущий DEK (из v2-обёртки старым паролем, либо
+            // derive из v1-соли) и перезаписываем sidecar новой обёрткой.
+            // Никакого PRAGMA rekey → смена пароля атомарна и crash-safe.
+            let sc = Database::read_sidecar(db_path_str)
+                .ok_or("salt_file_missing")?;
+            let old_salt = B64.decode(&sc.salt_b64).map_err(|e| e.to_string())?;
+            let dek = match &sc.wrapped_dek {
+                Some(blob) => crate::encryption::unwrap_dek(blob, &old, &old_salt)?,
+                None => derive_db_key(&old, &old_salt),
+            };
+            let new_blob = crate::encryption::wrap_dek(&dek, &new, &new_salt)?;
+            // .bak со старой обёрткой — fallback если запись прервётся
+            let salt_path = Database::salt_file_path(db_path_str);
+            let _ = std::fs::copy(&salt_path, format!("{}.bak", salt_path));
+            Database::save_sidecar(db_path_str, &new_salt_b64, &new_blob)?;
+            let _ = std::fs::remove_file(format!("{}.bak", salt_path));
+        } else {
+            Database::save_salt_file(db_path_str, &new_salt_b64)?;
+        }
+
         db.set_encryption(new_enc);
         db.log_event("system.password_changed", "Password changed", Some("system"), None)
             .map_err(|e| e.to_string())?;

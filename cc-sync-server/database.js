@@ -194,6 +194,19 @@ function migrate(db) {
       PRAGMA user_version = 9;
     `);
   }
+
+  // SEC-008: zero-knowledge pair codes. The desktop client now generates the
+  // pair code locally and sends only its SHA-256 hash plus the group key
+  // encrypted with a key derived from the pair code. A server DB dump can no
+  // longer reveal active pair codes or the group key plaintext.
+  if (ver < 10) {
+    db.exec(`
+      ALTER TABLE sync_pair_codes ADD COLUMN code_hash      TEXT;
+      ALTER TABLE sync_pair_codes ADD COLUMN enc_group_key  TEXT;
+      CREATE INDEX IF NOT EXISTS idx_sync_pair_hash ON sync_pair_codes(code_hash);
+      PRAGMA user_version = 10;
+    `);
+  }
 }
 
 /**

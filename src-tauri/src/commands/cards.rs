@@ -156,9 +156,10 @@ pub(crate) fn update_card_status(id: i64, status: String, app: tauri::AppHandle)
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
-        // Get card_hash and encrypted_data for sync
-        let (hash, enc_data): (String, Option<String>) = db.conn.query_row(
-            "SELECT card_hash, encrypted_data FROM credit_cards WHERE id = ?1",
+        // Get card_hash and notes for sync (notes нужны для NOSYNC-фильтра в
+        // push; на сервер уезжают только внутри E2E blob, SEC-008)
+        let (hash, notes): (String, Option<String>) = db.conn.query_row(
+            "SELECT card_hash, notes FROM credit_cards WHERE id = ?1",
             rusqlite::params![id],
             |row| Ok((row.get(0)?, row.get(1)?))
         ).map_err(|e| format!("card_not_found: {}", e))?;
@@ -171,8 +172,8 @@ pub(crate) fn update_card_status(id: i64, status: String, app: tauri::AppHandle)
         let update = crate::models::CardSyncUpdate {
             card_hash: hash,
             status: status.clone(),
-            notes: None,
-            encrypted_data: enc_data,
+            notes,
+            encrypted_data: None,
         };
         let _ = crate::sync::SyncGroupClient::push_card_updates(db, &[update]);
 
@@ -187,10 +188,10 @@ pub(crate) fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -
         if db.is_locked() { return Err("database_locked".into()); }
 
         // Get card_hash and status for sync
-        let (hash, cur_status, enc_data): (String, String, Option<String>) = db.conn.query_row(
-            "SELECT card_hash, status, encrypted_data FROM credit_cards WHERE id = ?1",
+        let (hash, cur_status): (String, String) = db.conn.query_row(
+            "SELECT card_hash, status FROM credit_cards WHERE id = ?1",
             rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            |row| Ok((row.get(0)?, row.get(1)?))
         ).map_err(|e| format!("card_not_found: {}", e))?;
 
         db.update_card_notes(id, &notes)?;
@@ -202,7 +203,7 @@ pub(crate) fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -
             card_hash: hash,
             status: cur_status,
             notes: Some(notes),
-            encrypted_data: enc_data,
+            encrypted_data: None,
         };
         let _ = crate::sync::SyncGroupClient::push_card_updates(db, &[update]);
 
@@ -233,18 +234,18 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
         let mut updates = Vec::with_capacity(ids.len());
         for id in &ids {
             let result: Result<(String, Option<String>), _> = db.conn.query_row(
-                "SELECT card_hash, encrypted_data FROM credit_cards WHERE id = ?1",
+                "SELECT card_hash, notes FROM credit_cards WHERE id = ?1",
                 rusqlite::params![id],
                 |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
             );
 
-            if let Ok((hash, enc_data)) = result {
+            if let Ok((hash, notes)) = result {
                 if !hash.is_empty() {
                     updates.push(crate::models::CardSyncUpdate {
                         card_hash: hash,
                         status: status.clone(),
-                        notes: None,
-                        encrypted_data: enc_data,
+                        notes,
+                        encrypted_data: None,
                     });
                 }
             }

@@ -334,7 +334,15 @@ impl SyncGroupClient {
 
     pub fn create_group(db: &Database, name: &str) -> Result<crate::models::SyncGroupInfo, String> {
         let token = Self::get_token(db).ok_or("no_token")?;
-        let body = serde_json::json!({ "name": name });
+
+        let group_key_raw = crate::encryption::generate_group_key();
+        let enc = db.encryption.as_ref().ok_or("not_unlocked")?;
+        let encrypted_gk = crate::encryption::encrypt_group_key(&group_key_raw, enc)?;
+
+        // SEC-008: отдаём серверу свой blob ключа (зашифрован нашим мастер-паролем),
+        // иначе сервер сгенерирует СВОЙ ключ и раздаст его остальным участникам —
+        // ключи разойдутся и E2E-расшифровка сломается. Сервер хранит blob opaque.
+        let body = serde_json::json!({ "name": name, "group_key": encrypted_gk });
         let resp = ureq::post(&format!("{}/sync/group/create", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
@@ -346,10 +354,8 @@ impl SyncGroupClient {
             return Err(json["error"].as_str().unwrap_or("server_error").to_string());
         }
         let group_id = json["group_id"].as_str().ok_or("missing_group_id")?.to_string();
-        let group_key = json["group_key"].as_str().ok_or("missing_group_key")?.to_string();
-        // Save to local config
         db.set_config("sync_group_id", &group_id).map_err(|e| e.to_string())?;
-        db.set_config("sync_group_key", &group_key).map_err(|e| e.to_string())?;
+        db.set_config("sync_group_key", &encrypted_gk).map_err(|e| e.to_string())?;
         db.set_config("sync_group_name", name).map_err(|e| e.to_string())?;
         Ok(crate::models::SyncGroupInfo {
             group_id,
@@ -361,17 +367,37 @@ impl SyncGroupClient {
 
     pub fn create_pair_code(db: &Database) -> Result<String, String> {
         let token = Self::get_token(db).ok_or("no_token")?;
+
+        // SEC-008/009 zero-knowledge: код генерируем локально. На сервер
+        // уходит только его SHA-256 и ключ группы, зашифрованный ключом,
+        // выведенным из кода. Сервер не может ни прочитать ключ группы,
+        // ни подобрать код перебором по базе.
+        let code = crate::encryption::generate_pair_code();
+        let enc = db.encryption.as_ref().ok_or("not_unlocked")?;
+        let gk_stored = db.get_config("sync_group_key").ok().flatten()
+            .filter(|k| !k.is_empty())
+            .ok_or("not_in_group")?;
+        // Передаём СЫРОЙ ключ группы (не blob под нашим мастер-паролем — у
+        // joiner'а свой мастер-пароль, он бы его не расшифровал).
+        let gk_raw = crate::encryption::resolve_group_key(&gk_stored, enc)
+            .ok_or("cannot_decrypt_group_key")?;
+        let transport_key = crate::encryption::derive_pair_transport_key(&code);
+        let enc_gk = crate::encryption::e2e_encrypt(&hex::encode(gk_raw), &transport_key)?;
+
+        let body = serde_json::json!({
+            "code_hash": crate::encryption::pair_code_hash(&code),
+            "enc_group_key": enc_gk,
+        });
         let resp = ureq::post(&format!("{}/sync/group/pair", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(10))
-            .send_string("{}")
+            .send_string(&body.to_string())
             .map_err(|e| e.to_string())?;
         let json: serde_json::Value = resp.into_json().map_err(|e| e.to_string())?;
         if json["ok"].as_bool() != Some(true) {
             return Err(json["error"].as_str().unwrap_or("server_error").to_string());
         }
-        let code = json["code"].as_str().ok_or("missing_code")?.to_string();
         let expires_at = json["expires_at"].as_str().unwrap_or("").to_string();
         Ok(format!("{} (expires: {})", code, expires_at))
     }
@@ -392,8 +418,36 @@ impl SyncGroupClient {
         let group_id = json["group_id"].as_str().ok_or("missing_group_id")?.to_string();
         let group_key = json["group_key"].as_str().ok_or("missing_group_key")?.to_string();
         let group_name = json["group_name"].as_str().unwrap_or("Sync Group").to_string();
+
+        // SEC-008: сервер отдаёт opaque-blob. Три варианта содержимого:
+        // 1) ZK-flow: сырой ключ, зашифрованный ключом из pair-кода;
+        // 2) legacy: открытый hex;
+        // 3) blob под мастер-паролем создателя (если пароль совпадает с нашим —
+        //    например, тот же пользователь на второй машине — подойдёт как есть).
+        // Варианты 1-2 перешифровываем под НАШ мастер-пароль перед сохранением.
+        let enc = db.encryption.as_ref().ok_or("not_unlocked")?;
+        let stored_key = {
+            let transport_key = crate::encryption::derive_pair_transport_key(pair_code);
+            if let Ok(raw_hex) = crate::encryption::e2e_decrypt(&group_key, &transport_key) {
+                let bytes = hex::decode(&raw_hex).map_err(|_| "invalid_group_key".to_string())?;
+                if bytes.len() != 32 { return Err("invalid_group_key".into()); }
+                let mut k = [0u8; 32];
+                k.copy_from_slice(&bytes);
+                crate::encryption::encrypt_group_key(&k, enc)?
+            } else if group_key.len() == 64 && group_key.chars().all(|c| c.is_ascii_hexdigit()) {
+                let bytes = hex::decode(&group_key).map_err(|e| e.to_string())?;
+                let mut k = [0u8; 32];
+                k.copy_from_slice(&bytes);
+                crate::encryption::encrypt_group_key(&k, enc)?
+            } else if crate::encryption::decrypt_group_key(&group_key, enc).is_ok() {
+                group_key.clone()
+            } else {
+                return Err("cannot_decrypt_group_key".into());
+            }
+        };
+
         db.set_config("sync_group_id", &group_id).map_err(|e| e.to_string())?;
-        db.set_config("sync_group_key", &group_key).map_err(|e| e.to_string())?;
+        db.set_config("sync_group_key", &stored_key).map_err(|e| e.to_string())?;
         db.set_config("sync_group_name", &group_name).map_err(|e| e.to_string())?;
         let members_arr = json["cards"].as_array().cloned().unwrap_or_default();
         Ok(crate::models::SyncGroupInfo {
@@ -470,15 +524,43 @@ impl SyncGroupClient {
             }),
         };
 
-        // Build request body — notes НЕ отправляем открытым текстом (пойдут через E2E blob)
-        let cards: Vec<serde_json::Value> = updates.iter().map(|u| {
-            serde_json::json!({
+        // SEC-008: пытаемся достать ключ группы для E2E-шифрования payload.
+        let group_key = db.get_config("sync_group_key").ok().flatten()
+            .and_then(|gk| db.encryption.as_ref()
+                .and_then(|enc| crate::encryption::resolve_group_key(&gk, enc)));
+
+        // SEC-009: карты с NOSYNC-тегом никогда не покидают устройство.
+        // Отправляем только hash+status (операционные метаданные); notes
+        // уезжают внутри E2E blob, который сервер прочитать не может.
+        let mut skipped = 0u32;
+        let cards: Vec<serde_json::Value> = updates.iter().filter_map(|u| {
+            if let Some(notes) = &u.notes {
+                if notes.contains("NOSYNC") { skipped += 1; return None; }
+            }
+            let enc_data = match (&u.encrypted_data, &u.notes, &group_key) {
+                (Some(e), _, _) => Some(e.clone()),
+                (None, Some(n), Some(gk)) => crate::encryption::e2e_encrypt(
+                    &serde_json::json!({ "notes": n }).to_string(), gk
+                ).ok(),
+                _ => None,
+            };
+            Some(serde_json::json!({
                 "card_hash": u.card_hash,
                 "status": u.status,
-                "encrypted_data": u.encrypted_data,
-            })
+                "encrypted_data": enc_data,
+            }))
         }).collect();
 
+        if cards.is_empty() {
+            return Ok(PushResult {
+                synced: 0,
+                failed: 0,
+                message: format!("skipped {} NOSYNC", skipped),
+                server_reached: false,
+            });
+        }
+
+        let card_count = cards.len();
         let body = serde_json::json!({ "cards": cards });
 
         // Try to push with exponential backoff retry
@@ -500,14 +582,18 @@ impl SyncGroupClient {
                         let short_id: String = group_id.chars().take(8).collect();
                         let _ = db.log_event(
                             "sync.cards_pushed",
-                            &format!("Pushed {} card updates to group {}", updates.len(), short_id),
+                            &format!("Pushed {} card updates to group {}", card_count, short_id),
                             Some("sync"),
                             None,
                         );
                         return Ok(PushResult {
-                            synced: updates.len() as u32,
+                            synced: card_count as u32,
                             failed: 0,
-                            message: format!("Synced {} cards", updates.len()),
+                            message: if skipped > 0 {
+                                format!("Synced {} cards ({} NOSYNC skipped)", card_count, skipped)
+                            } else {
+                                format!("Synced {} cards", card_count)
+                            },
                             server_reached: true,
                         });
                     } else if resp.status() >= 500 {

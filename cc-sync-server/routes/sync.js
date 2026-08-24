@@ -52,7 +52,7 @@ function generatePairCode() {
 // POST /sync/group/create — create a group, get group_key
 router.post('/group/create', (req, res) => {
   const db = getDb();
-  const { name } = req.body || {};
+  const { name, group_key: client_gk } = req.body || {};
   const installation_id = db.prepare(
     'SELECT installation_id FROM licenses WHERE token = ?'
   ).get(req.userToken)?.installation_id;
@@ -65,12 +65,18 @@ router.post('/group/create', (req, res) => {
   if (existing) return res.status(409).json({ error: 'already_in_group', group_id: existing.group_id });
 
   const group_id = crypto.randomUUID();
-  const group_key = generateGroupKey();
+  // SEC-008: клиент присылает свой blob ключа группы (зашифрован его
+  // мастер-паролем — сервер видит только opaque-строку). Если не прислал —
+  // legacy-режим: генерируем ключ на сервере, как раньше.
+  const group_key = (typeof client_gk === 'string' && client_gk.length >= 16 && client_gk.length <= 2048)
+    ? client_gk
+    : generateGroupKey();
 
   db.prepare('INSERT INTO sync_groups (id, name, created_by, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)')
     .run(group_id, name || 'Sync Group', installation_id);
 
-  // group_key хранится на сервере в открытом виде; реальное шифрование данных выполняется на клиенте
+  // В E2E-режиме group_key_encrypted действительно содержит зашифрованный
+  // клиентом ключ; в legacy-режиме — открытый hex (старое поведение).
   db.prepare(`
     INSERT INTO sync_group_members (group_id, installation_id, group_key_encrypted, joined_at)
     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -92,13 +98,35 @@ router.post('/group/pair', pairLimiter, (req, res) => {
   ).get(installation_id);
   if (!member) return res.status(404).json({ error: 'not_in_group' });
 
+  const { code_hash, enc_group_key } = req.body || {};
+  // expires_at храним в формате CURRENT_TIMESTAMP ("YYYY-MM-DD HH:MM:SS"),
+  // иначе строковое сравнение с 'T'-разделителем ломает TTL.
+  const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+
+  // SEC-008 zero-knowledge flow: клиент генерирует код сам и присылает только
+  // его SHA-256 хеш + ключ группы, зашифрованный ключом, выведенным из кода.
+  // Сервер никогда не видит ни сам код, ни открытый ключ группы.
+  if (typeof code_hash === 'string' && /^[0-9a-f]{64}$/.test(code_hash)
+      && typeof enc_group_key === 'string' && enc_group_key.length >= 16 && enc_group_key.length <= 4096) {
+    const existing = db.prepare(
+      'SELECT 1 FROM sync_pair_codes WHERE code_hash = ? AND expires_at > CURRENT_TIMESTAMP'
+    ).get(code_hash);
+    if (existing) return res.status(409).json({ error: 'code_collision' });
+
+    db.prepare(
+      'INSERT INTO sync_pair_codes (code, code_hash, enc_group_key, group_id, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(code_hash, code_hash, enc_group_key, member.group_id, installation_id, expires_at);
+
+    return res.json({ ok: true, expires_at });
+  }
+
+  // Legacy flow: сервер генерирует код в открытом виде (старые клиенты).
   let code, attempts = 0;
   do {
     code = generatePairCode();
     attempts++;
   } while (db.prepare('SELECT 1 FROM sync_pair_codes WHERE code = ? AND expires_at > CURRENT_TIMESTAMP').get(code) && attempts < 10);
 
-  const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 19);
   db.prepare(
     'INSERT INTO sync_pair_codes (code, group_id, created_by, expires_at) VALUES (?, ?, ?, ?)'
   ).run(code, member.group_id, installation_id, expires_at);
@@ -123,10 +151,14 @@ router.post('/group/join', joinLimiter, (req, res) => {
   ).get(installation_id);
   if (existing) return res.status(409).json({ error: 'already_in_group', group_id: existing.group_id });
 
+  // SEC-008: код сначала хешируем — zero-knowledge строки хранят только
+  // SHA-256 от кода; OR по открытому коду оставлен для legacy-кодов.
+  const codeUpper = code.toUpperCase();
+  const codeHash = crypto.createHash('sha256').update(codeUpper).digest('hex');
   const pairCode = db.prepare(`
-    SELECT * FROM sync_pair_codes
-    WHERE code = ? AND expires_at > CURRENT_TIMESTAMP AND used_by IS NULL
-  `).get(code.toUpperCase());
+    SELECT rowid, * FROM sync_pair_codes
+    WHERE (code_hash = ? OR code = ?) AND expires_at > CURRENT_TIMESTAMP AND used_by IS NULL
+  `).get(codeHash, codeUpper);
 
   if (!pairCode) return res.status(404).json({ error: 'invalid_or_expired_code' });
 
@@ -137,13 +169,18 @@ router.post('/group/join', joinLimiter, (req, res) => {
 
   if (!creatorMember) return res.status(500).json({ error: 'group_key_not_found' });
 
+  // SEC-008: если пара создана zero-knowledge клиентом, отдаём E2E-blob
+  // (зашифрован ключом из pair-кода — расшифрует только тот, кто знает код).
+  // Иначе legacy: blob/hex из записи создателя группы.
+  const group_key = pairCode.enc_group_key || creatorMember.group_key_encrypted;
+
   // Add to group
   db.prepare(
     'INSERT INTO sync_group_members (group_id, installation_id, group_key_encrypted, joined_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)'
-  ).run(pairCode.group_id, installation_id, creatorMember.group_key_encrypted);
+  ).run(pairCode.group_id, installation_id, group_key);
 
-  // Mark code as used
-  db.prepare('UPDATE sync_pair_codes SET used_by = ? WHERE code = ?').run(installation_id, code.toUpperCase());
+  // Mark code as used (rowid — потому что у ZK-строк code хранит хеш)
+  db.prepare('UPDATE sync_pair_codes SET used_by = ? WHERE rowid = ?').run(installation_id, pairCode.rowid);
 
   // Get current cards for this group
   const cards = db.prepare(
@@ -162,7 +199,7 @@ router.post('/group/join', joinLimiter, (req, res) => {
   res.json({
     ok: true,
     group_id: pairCode.group_id,
-    group_key: creatorMember.group_key_encrypted,
+    group_key,
     group_name: group?.name || 'Sync Group',
     cards,
   });

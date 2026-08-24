@@ -1,16 +1,38 @@
+/// SEC-005: Parsed sidecar file. v1 = bare salt (DEK = PBKDF2(password, salt)),
+/// v2 = envelope (DEK is random, wrapped with password-derived KEK).
+pub struct DbSidecar {
+    pub salt_b64: String,
+    pub wrapped_dek: Option<String>,
+}
+
 impl Database {
     fn escape_like(s: &str) -> String {
         s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
     }
 
-    /// FIX B-MED-04: Open database with optional connection pooling
+    /// SEC-001: Open database — auto-detects whether file is SQLCipher-encrypted.
+    /// If encrypted, creates a "locked shell" that can only read config after unlock.
+    /// If plaintext (or new file), opens normally.
     pub fn open(path: &str) -> SqlResult<Self> {
+        if std::path::Path::new(path).exists() && Self::is_encrypted(path) {
+            Self::open_encrypted_shell(path)
+        } else {
+            Self::open_with_key(path, None)
+        }
+    }
+
+    /// Open database with an optional SQLCipher database encryption key (DEK).
+    pub fn open_with_key(path: &str, db_key: Option<&[u8; 32]>) -> SqlResult<Self> {
         let conn = Connection::open(path)?;
+
+        if let Some(key) = db_key {
+            let hex_key = hex::encode(key);
+            conn.execute_batch(&format!("PRAGMA key = \"x'{}'\"", hex_key))?;
+        }
+
         init_db(&conn)?;
 
-        // Create connection pool for concurrent reads
-        // For desktop single-user mode, pool is optional but improves performance
-        let pool = Self::create_pool(path);
+        let pool = Self::create_pool(path, db_key);
 
         Ok(Self {
             conn,
@@ -21,18 +43,65 @@ impl Database {
         })
     }
 
-    /// FIX B-MED-04: Create r2d2 connection pool
-    fn create_pool(path: &str) -> Option<DbPool> {
+    /// SEC-001: Create a locked shell for an encrypted DB file.
+    /// The connection is open but unusable until reopen_with_key() is called.
+    fn open_encrypted_shell(path: &str) -> SqlResult<Self> {
+        let conn = Connection::open(path)?;
+        Ok(Self {
+            conn,
+            pool: None,
+            encryption: None,
+            last_activity: Arc::new(Mutex::new(Instant::now())),
+            autolock_timeout: None,
+        })
+    }
+
+    /// SEC-001: Re-open the database with the correct SQLCipher key after unlock.
+    /// Replaces conn and pool in-place. Validates the key immediately — SQLCipher
+    /// does not report a wrong key at PRAGMA time, only on first read.
+    pub fn reopen_with_key(&mut self, path: &str, db_key: &[u8; 32]) -> Result<(), String> {
+        let conn = Connection::open(path).map_err(|e| format!("reopen: {e}"))?;
+        let hex_key = hex::encode(db_key);
+        conn.execute_batch(&format!("PRAGMA key = \"x'{}'\"", hex_key))
+            .map_err(|e| format!("pragma key: {e}"))?;
+        // Wrong key → first read fails with "file is not a database".
+        conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
+            .map_err(|_| "wrong_password".to_string())?;
+        init_db(&conn).map_err(|e| format!("init_db after reopen: {e}"))?;
+        let pool = Self::create_pool(path, Some(db_key));
+        self.conn = conn;
+        self.pool = pool;
+        Ok(())
+    }
+
+    /// SEC-001: Close conn + pool before file-level operations (migration).
+    /// On Windows an open SQLite handle blocks rename/delete of the file,
+    /// so sqlcipher_export file swap would fail while we hold the DB open.
+    /// Afterwards self.conn is an in-memory placeholder until reopen_with_key().
+    pub fn close_connections(&mut self) {
+        self.pool = None;
+        if let Ok(placeholder) = Connection::open_in_memory() {
+            let old = std::mem::replace(&mut self.conn, placeholder);
+            // close() returns Err((conn, err)) when statements are still open;
+            // dropping that tuple closes the handle either way.
+            let _ = old.close();
+        }
+    }
+
+    /// Create r2d2 connection pool. Each pooled connection receives the same
+    /// SQLCipher PRAGMA key so it can read/write the encrypted file.
+    pub(crate) fn create_pool(path: &str, db_key: Option<&[u8; 32]>) -> Option<DbPool> {
+        let hex_key = db_key.map(|k| hex::encode(k));
         let manager = SqliteConnectionManager::file(path)
-            .with_init(|c| {
-                // Initialize each connection with pragmas
-                // FIX P0-7: Add busy_timeout for SQLite to wait instead of returning SQLITE_BUSY
-                // FIX P2-10: Add wal_autocheckpoint for better WAL management (3000 pages = ~12MB)
+            .with_init(move |c| {
+                if let Some(ref hk) = hex_key {
+                    c.execute_batch(&format!("PRAGMA key = \"x'{}'\"", hk))?;
+                }
                 c.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA wal_autocheckpoint = 3000;")
             });
 
         Pool::builder()
-            .max_size(8)  // FIX P2-24: Increase from 4 to 8 for better concurrency
+            .max_size(8)
             .build(manager)
             .ok()
     }
@@ -44,6 +113,125 @@ impl Database {
         } else {
             // Fallback: this shouldn't happen in normal operation
             Err("Connection pool not initialized".to_string())
+        }
+    }
+
+    /// SEC-001: Rekey the database file with a new SQLCipher key.
+    /// Used during master password change — atomically re-encrypts entire file.
+    /// WAL is checkpointed first so no frames remain keyed under the old key.
+    pub fn rekey(&self, new_key: &[u8; 32]) -> SqlResult<()> {
+        let hex_key = hex::encode(new_key);
+        self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        self.conn.execute_batch(&format!("PRAGMA rekey = \"x'{}'\"", hex_key))?;
+        Ok(())
+    }
+
+    /// SEC-001: Migrate a plaintext (unencrypted) database to SQLCipher.
+    /// Uses sqlcipher_export() to copy data into a new encrypted file,
+    /// then replaces the original.
+    pub fn migrate_to_encrypted(path: &str, new_key: &[u8; 32]) -> Result<(), String> {
+        let encrypted_path = format!("{}.encrypted", path);
+        let hex_key = hex::encode(new_key);
+
+        let conn = Connection::open(path).map_err(|e| format!("open plaintext: {e}"))?;
+
+        conn.execute_batch(&format!(
+            "ATTACH DATABASE '{}' AS encrypted KEY \"x'{}'\"; \
+             SELECT sqlcipher_export('encrypted'); \
+             DETACH DATABASE encrypted;",
+            encrypted_path.replace('\'', "''"),
+            hex_key,
+        )).map_err(|e| format!("sqlcipher_export: {e}"))?;
+        drop(conn);
+
+        // WAL/shm старой plaintext-базы: содержат открытые данные и будут
+        // конфликтовать с новым зашифрованным файлом при переименовании.
+        let _ = std::fs::remove_file(format!("{}-wal", path));
+        let _ = std::fs::remove_file(format!("{}-shm", path));
+
+        let backup_path = format!("{}.plaintext.bak", path);
+        std::fs::rename(path, &backup_path)
+            .map_err(|e| format!("rename original: {e}"))?;
+        std::fs::rename(&encrypted_path, path)
+            .map_err(|e| format!("rename encrypted: {e}"))?;
+
+        // SEC-001: plaintext-копия обязана исчезнуть — это и есть смысл миграции.
+        // AV/индексатор может держать файл — даём несколько попыток.
+        let mut removed = false;
+        for _ in 0..5 {
+            if std::fs::remove_file(&backup_path).is_ok() { removed = true; break; }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+        if !removed {
+            eprintln!("[SEC-001] WARNING: plaintext backup {} could not be deleted", backup_path);
+        }
+
+        Ok(())
+    }
+
+    /// SEC-001: Check if a database file is already encrypted with SQLCipher.
+    /// Tries to read the header — a plaintext SQLite file starts with "SQLite format 3\0".
+    pub fn is_encrypted(path: &str) -> bool {
+        match std::fs::read(path) {
+            Ok(data) if data.len() >= 16 => !data.starts_with(b"SQLite format 3\0"),
+            Ok(_) => false,
+            Err(_) => false,
+        }
+    }
+
+    /// SEC-001: Path to the salt file stored alongside the database.
+    /// Salt is not secret — it can safely live in plaintext next to the
+    /// encrypted .db file. This avoids the chicken-and-egg problem of needing
+    /// to read the DB to get the salt needed to decrypt the DB.
+    pub fn salt_file_path(db_path: &str) -> String {
+        format!("{}.salt", db_path)
+    }
+
+    /// SEC-001: Save the encryption salt to a sidecar file (legacy v1 format —
+    /// bare salt, DEK derived directly from password+salt).
+    pub fn save_salt_file(db_path: &str, salt_b64: &str) -> Result<(), String> {
+        std::fs::write(Self::salt_file_path(db_path), salt_b64)
+            .map_err(|e| format!("save salt file: {e}"))
+    }
+
+    /// SEC-001: Read the encryption salt from the sidecar file.
+    pub fn read_salt_file(db_path: &str) -> Option<String> {
+        Self::read_sidecar(db_path).map(|sc| sc.salt_b64)
+    }
+
+    /// SEC-005: Save a v2 envelope sidecar: "v2:<salt_b64>:<wrapped_dek_b64>".
+    pub fn save_sidecar(db_path: &str, salt_b64: &str, wrapped_dek_b64: &str) -> Result<(), String> {
+        std::fs::write(Self::salt_file_path(db_path), format!("v2:{}:{}", salt_b64, wrapped_dek_b64))
+            .map_err(|e| format!("save sidecar: {e}"))
+    }
+
+    /// SEC-005: Read and parse the sidecar (v2 envelope or legacy v1 bare salt).
+    pub fn read_sidecar(db_path: &str) -> Option<DbSidecar> {
+        let raw = std::fs::read_to_string(Self::salt_file_path(db_path)).ok()?;
+        Self::parse_sidecar(&raw)
+    }
+
+    /// SEC-005: Read the .bak sidecar (fallback after an interrupted write).
+    pub fn read_sidecar_bak(db_path: &str) -> Option<DbSidecar> {
+        let raw = std::fs::read_to_string(format!("{}.bak", Self::salt_file_path(db_path))).ok()?;
+        Self::parse_sidecar(&raw)
+    }
+
+    fn parse_sidecar(raw: &str) -> Option<DbSidecar> {
+        let raw = raw.trim();
+        if raw.is_empty() {
+            return None;
+        }
+        if let Some(rest) = raw.strip_prefix("v2:") {
+            let mut it = rest.split(':');
+            let salt = it.next()?.to_string();
+            let dek = it.next()?.to_string();
+            if salt.is_empty() || dek.is_empty() {
+                return None;
+            }
+            Some(DbSidecar { salt_b64: salt, wrapped_dek: Some(dek) })
+        } else {
+            Some(DbSidecar { salt_b64: raw.to_string(), wrapped_dek: None })
         }
     }
 

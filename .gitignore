@@ -19,6 +19,8 @@ coverage/
 *.db
 *.db-shm
 *.db-wal
+*.db.salt
+*.db.plaintext.bak
 *.xlsx
 *.csv
 *.zip

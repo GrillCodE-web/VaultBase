@@ -197,10 +197,10 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                                             let _ = db.update_order_status_simple(oid, act, msg.tracking.as_deref());
                                         }
                                         Ok(None) => {
-                                            log::debug!("[IMAP] No matching order for number '{}' from email '{}'", onum, msg.subject);
+                                            tracing::debug!("[IMAP] No matching order for number '{}' from email '{}'", onum, msg.subject);
                                         }
                                         Err(e) => {
-                                            log::warn!("[IMAP] Error looking up order '{}': {}", onum, e);
+                                            tracing::warn!("[IMAP] Error looking up order '{}': {}", onum, e);
                                         }
                                     }
                                 }
@@ -658,7 +658,7 @@ pub(crate) fn purge_old_webview_cache() {}
 pub(crate) fn maybe_vacuum_db() {
     if let Some(st) = STATE.get() {
         if let Ok(db) = st.db.lock() {
-            let should_vacuum = db.conn().query_row(
+            let should_vacuum = db.conn.query_row(
                 "SELECT value FROM _maintenance WHERE key = 'last_vacuum'",
                 [],
                 |r| r.get::<_, String>(0),
@@ -674,9 +674,9 @@ pub(crate) fn maybe_vacuum_db() {
 
             if should_vacuum {
                 eprintln!("[maintenance] Running VACUUM...");
-                let _ = db.conn().execute_batch("VACUUM");
+                let _ = db.conn.execute_batch("VACUUM");
                 let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-                let _ = db.conn().execute(
+                let _ = db.conn.execute(
                     "INSERT OR REPLACE INTO _maintenance (key, value) VALUES ('last_vacuum', ?1)",
                     [&now],
                 );

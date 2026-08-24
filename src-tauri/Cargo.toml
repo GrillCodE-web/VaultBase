@@ -21,9 +21,13 @@ tauri                = { version = "2", features = [] }
 tauri-plugin-dialog  = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
-rusqlite      = { version = "0.31", features = ["bundled", "backup"] }
+# SEC-001: bundled-sqlcipher-vendored-openssl собирает SQLCipher+OpenSSL из
+# исходников (нужны perl и nasm в PATH). На CI-раннерах они предустановлены;
+# локально на Windows — C:\Program Files\Git\usr\bin (perl) + portable NASM.
+rusqlite      = { version = "0.31", features = ["bundled-sqlcipher-vendored-openssl", "backup"] }
 r2d2          = "0.8"
 r2d2_sqlite   = "0.24"
+hex           = "0.4"
 serde         = { version = "1", features = ["derive"] }
 serde_json    = "1"
 aes-gcm       = "0.10"

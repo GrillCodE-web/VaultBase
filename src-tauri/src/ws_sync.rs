@@ -34,6 +34,7 @@ static LAST_FULL_PULL: RwLock<Option<Instant>> = RwLock::new(None);
 pub struct WsCredentials {
     pub token:    Option<String>,
     pub group_id: Option<String>,
+    pub group_key: Option<[u8; 32]>,
 }
 
 pub type SharedCreds = Arc<RwLock<WsCredentials>>;
@@ -60,6 +61,12 @@ impl WsSyncHandle {
         if let Ok(mut c) = self.creds.write() {
             c.token    = token;
             c.group_id = group_id;
+        }
+    }
+
+    pub fn set_group_key(&self, key: Option<[u8; 32]>) {
+        if let Ok(mut c) = self.creds.write() {
+            c.group_key = key;
         }
     }
 }
@@ -94,11 +101,11 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
         // токену. Раньше здесь требовалась пара (token, group_id), поэтому
         // без группы цикл молча спал и статус навсегда застывал на
         // «Connecting…» — при живом и доступном сервере.
-        let (token, group_id) = {
+        let (token, group_id, group_key) = {
             let c = creds.read().unwrap_or_else(|e| e.into_inner());
             match c.token.clone() {
                 Some(t) if !t.is_empty() => {
-                    (t, c.group_id.clone().unwrap_or_default())
+                    (t, c.group_id.clone().unwrap_or_default(), c.group_key)
                 }
                 _ => {
                     // Токена нет — лицензия ещё не активирована. Ждём.
@@ -207,7 +214,7 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                                 if let Some(state) = crate::state::STATE.get() {
                                     if let Ok(db) = state.db.lock() {
                                         if let Some(pool) = db.pool.as_ref() {
-                                            handle_ws_message(&app, pool, mtype, &msg);
+                                            handle_ws_message(&app, pool, mtype, &msg, group_key.as_ref());
                                         }
                                     }
                                 }
@@ -268,7 +275,7 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
 //  Event handler — сырой /ws протокол (ws-tauri.js)
 // ─────────────────────────────────────────
 
-fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &str, msg: &serde_json::Value) {
+fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &str, msg: &serde_json::Value, group_key: Option<&[u8; 32]>) {
     match mtype {
         // {"type":"auth_ok","installation_id":...,"group_id":...}
         "auth_ok" => {
@@ -289,16 +296,34 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
                 Some(c) => c.clone(),
                 None => return,
             };
-            // FIX WS-BATCH-01: Limit batch size to prevent DoS
             if cards.len() > 100 {
                 eprintln!("[ws_sync] Ignoring batch with {} cards (max 100)", cards.len());
                 return;
             }
-            apply_card_updates(pool, &cards);
+
+            let decrypted_cards: Vec<serde_json::Value> = cards.iter().map(|card| {
+                let mut c = card.clone();
+                if let (Some(gk), Some(enc_data)) = (group_key, card["encrypted_data"].as_str()) {
+                    if !enc_data.is_empty() {
+                        if let Ok(plain) = crate::encryption::e2e_decrypt(enc_data, gk) {
+                            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&plain) {
+                                if let Some(obj) = parsed.as_object() {
+                                    for (k, v) in obj {
+                                        c[k.clone()] = v.clone();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                c
+            }).collect();
+
+            apply_card_updates(pool, &decrypted_cards);
 
             let event = if mtype == "full_data" { "sync:full_data" } else { "sync:card_update" };
             let _ = app.emit(event, serde_json::json!({
-                "cards": cards,
+                "cards": decrypted_cards,
                 "updated_by": msg["updated_by"].as_str().unwrap_or(""),
             }));
         }
