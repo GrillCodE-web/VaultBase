@@ -192,3 +192,39 @@ pub(crate) fn get_config_internal(key: &str) -> Result<Option<String>, String> {
         db.get_config(key).map_err(|e| e.to_string())
     })
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SEC-021: секретные ключи никогда не должны оказаться в READABLE —
+    /// иначе frontend смог бы прочитать raw-значение через get_config.
+    #[test]
+    fn secrets_are_never_readable() {
+        for secret in CONFIG_SECRET {
+            assert!(
+                !CONFIG_READABLE.contains(secret),
+                "secret key {secret} must not be readable"
+            );
+            // ...но флаг наличия `<key>_set` должен резолвиться
+            let flag = format!("{secret}_set");
+            assert_eq!(secret_flag_target(&flag), Some(*secret));
+        }
+    }
+
+    #[test]
+    fn non_secret_set_flag_is_not_special() {
+        assert_eq!(secret_flag_target("theme_set"), None);
+        assert_eq!(secret_flag_target("autolock_timeout_set"), None);
+    }
+
+    /// Секреты, для которых нет отдельной команды записи (у stuffer_api_key
+    /// она своя — commands/stuffer.rs), должны быть writable через set_config.
+    #[test]
+    fn secrets_without_dedicated_setter_are_writable() {
+        for secret in ["bin_api_key", "tracking_api_key"] {
+            assert!(CONFIG_WRITABLE.contains(&secret));
+        }
+    }
+}
