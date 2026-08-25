@@ -1,26 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { Package, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTableFilters } from '../hooks/useTableFilters.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
-import { EmptyState } from '../components/EmptyState.jsx'
-import { SkeletonRows } from '../components/SkeletonRow.jsx'
-import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
+import { DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
+import { Pagination } from '../components/Pagination.jsx'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { BatchImportModal } from './Orders/BatchImportModal.jsx'
 import { OrderFilters } from './Orders/OrderFilters.jsx'
-import { OrderRow } from './Orders/OrderRow.jsx'
-import { OrderTimeline } from './Orders/OrderTimeline.jsx'
-import { StatusMenu } from './Orders/StatusMenu.jsx'
+import { OrdersTable } from './Orders/OrdersTable.jsx'
 import { CreateOrderModal } from './Orders/CreateOrderModal.jsx'
 import { RepeatOrderModal } from './Orders/RepeatOrderModal.jsx'
 import { useOrdersStore } from '../store/orders.js'
 
-// ─── OrderTimeline ────────────────────────────────────────────
 export default function OrderList({
   onNavigate: _onNavigate,
   activeTab = 'list',
@@ -54,8 +49,6 @@ export default function OrderList({
 
   // Local UI state (not in store)
   const [showCreate, setShowCreate] = useState(false)
-  const [statusMenuId, setStatusMenuId] = useState(null)
-  const [expandedId, setExpandedId] = useState(null)
   const [shopOptions, setShopOptions] = useState([])
   const [repeatOrder, setRepeatOrder] = useState(null)
   const [showBatchImport, setShowBatchImport] = useState(false)
@@ -66,24 +59,6 @@ export default function OrderList({
     [setFilters]
   )
   const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
-
-  // Virtual scrolling setup
-  // ★ Insight: overscan увеличен до 20 для плавной прокрутки без белых полос
-  const parentRef = useRef(null)
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
-  const rowVirtualizer = useVirtualizer({
-    count: orders.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: index => (expandedId === orders[index]?.id ? 180 : 60),
-    overscan: 20, // Увеличено с 10 до 20
-  })
-
-  // Recalculate sizes when expandedId changes
-  useEffect(() => {
-    if (orders.length > 0) {
-      rowVirtualizer.measure()
-    }
-  }, [expandedId, rowVirtualizer, orders.length])
 
   // ── Effects ────────────────────────────────────────────────────
 
@@ -111,14 +86,6 @@ export default function OrderList({
     else if (activeTab === 'delivered') newStatus = 'delivered'
     setFilters({ status: newStatus })
   }, [activeTab, setFilters])
-
-  // Close status menu on outside click
-  useEffect(() => {
-    if (!statusMenuId) return
-    const handler = () => setStatusMenuId(null)
-    document.addEventListener('click', handler, true)
-    return () => document.removeEventListener('click', handler, true)
-  }, [statusMenuId])
 
   // ── Page-specific keyboard shortcuts ──────────────────────────────────
 
@@ -255,131 +222,30 @@ export default function OrderList({
         </div>
       )}
 
-      {/* Table with virtual scrolling */}
-      <div ref={parentRef} className="panel p-0 overflow-x-auto table-scroll-container">
-        <table className="tbl">
-          <thead>
-            <tr>
-              <th scope="col">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleSelectAll}
-                  className="accent-accent cursor-pointer"
-                />
-              </th>
-              <th scope="col">{t('col_order_num')}</th>
-              <th scope="col">
-                {t('cc_col_holder')} / {t('section_card')}
-              </th>
-              <th scope="col">{t('col_shop')}</th>
-              <th scope="col">{t('cc_col_status')}</th>
-              <th scope="col">{t('col_amount')}</th>
-              <th scope="col">{t('col_tracking')}</th>
-              <th scope="col">{t('carrier')}</th>
-              <th scope="col">{t('nav_proxies')}</th>
-              <th scope="col">{t('col_email')}</th>
-              <th scope="col">{t('cc_col_notes')}</th>
-              <th scope="col">{t('col_date')}</th>
-              <th scope="col"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && orders.length === 0 && <SkeletonRows count={6} cols={13} />}
-            {orders.length === 0 && !loading && (
-              <EmptyState
-                colSpan={13}
-                icon={<Package size={38} />}
-                {...{ title: t('orders'), subtitle: t('new_order') }}
-                action={
-                  <button className="btn btn-g btn-sm" onClick={() => setShowCreate(true)}>
-                    + New Order
-                  </button>
-                }
-              />
-            )}
-            {orders.length > 0 && (
-              <>
-                {/* Top padding spacer */}
-                {rowVirtualizer.getVirtualItems().length > 0 &&
-                  rowVirtualizer.getVirtualItems()[0].start > 0 && (
-                    <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                      <td colSpan={13} className="virtual-scroll-spacer" />
-                    </tr>
-                  )}
-                {/* Render visible rows */}
-                {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                  const o = orders[virtualRow.index]
-                  return (
-                    <OrderRow
-                      key={o.id}
-                      order={o}
-                      isSelected={selected.includes(o.id)}
-                      isDeleting={deletingIds.includes(o.id)}
-                      isExpanded={expandedId === o.id}
-                      onToggleExpand={() => {
-                        setExpandedId(expandedId === o.id ? null : o.id)
-                      }}
-                      onToggleSelect={() => toggleSelect(o.id)}
-                      onStatusMenuToggle={() =>
-                        setStatusMenuId(statusMenuId === o.id ? null : o.id)
-                      }
-                      showStatusMenu={statusMenuId === o.id}
-                      onRepeat={() => setRepeatOrder(o)}
-                      onDelete={() => handleDelete(o)}
-                      onTrackingUpdate={(id, val) => patchOrderLocal(id, { tracking_number: val })}
-                      StatusMenuComponent={
-                        <StatusMenu
-                          order={o}
-                          onUpdate={() => fetchOrders(true)}
-                          onClose={() => setStatusMenuId(null)}
-                        />
-                      }
-                      TimelineComponent={
-                        <OrderTimeline status={o.status} updatedAt={o.updated_at} />
-                      }
-                    />
-                  )
-                })}
-                {/* Bottom padding spacer */}
-                {rowVirtualizer.getVirtualItems().length > 0 && (
-                  <tr
-                    style={{
-                      height: `${rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end || 0)}px`,
-                    }}
-                  >
-                    <td colSpan={13} className="virtual-scroll-spacer" />
-                  </tr>
-                )}
-              </>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Table with virtual scrolling (ARCH-008: вынесена в Orders/OrdersTable.jsx) */}
+      <OrdersTable
+        orders={orders}
+        loading={loading}
+        selected={selected}
+        deletingIds={deletingIds}
+        allSelected={allSelected}
+        toggleSelect={toggleSelect}
+        toggleSelectAll={toggleSelectAll}
+        onRepeat={setRepeatOrder}
+        onDelete={handleDelete}
+        onUpdate={() => fetchOrders(true)}
+        onPatchLocal={patchOrderLocal}
+        onCreate={() => setShowCreate(true)}
+      />
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-[12px] text-muted">{total} orders</span>
-          <div className="flex gap-1">
-            {buildPageNumbers(page, totalPages).map((p, i) =>
-              p === '…' ? (
-                <span key={`ellipsis-${i}`} className="px-2 py-1 text-[12px] text-muted">
-                  …
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`btn btn-ghost btn-sm${page === p ? ' active pagination-btn-active' : ''}`}
-                >
-                  {p}
-                </button>
-              )
-            )}
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        label="orders"
+        onPageChange={p => setPage(p)}
+      />
 
       {showCreate && (
         <CreateOrderModal
