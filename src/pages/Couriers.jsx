@@ -541,7 +541,11 @@ export default function Couriers({ activeTab, onNavigate }) {
                 onChange={e => setTrack(i, 'carrier', e.target.value)}
               />
               {form.tracks.length > 1 && (
-                <button className="btn btn-ghost btn-sm" onClick={() => removeTrackRow(i)}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  aria-label="Remove track"
+                  onClick={() => removeTrackRow(i)}
+                >
                   <X size={14} />
                 </button>
               )}

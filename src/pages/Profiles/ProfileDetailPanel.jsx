@@ -216,6 +216,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
               {!editNotes && (
                 <button
                   onClick={() => setEditNotes(true)}
+                  aria-label="Edit notes"
                   className="bg-transparent border-none cursor-pointer text-muted p-0.5"
                 >
                   <Edit2 size={12} />
@@ -344,12 +345,14 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                         )}
                         <button
                           onClick={() => setEditingDrop(drop)}
+                          aria-label="Edit drop"
                           className="icon-btn icon-btn-blue"
                         >
                           <Edit2 size={12} />
                         </button>
                         <button
                           onClick={() => handleDeleteDrop(drop)}
+                          aria-label="Delete drop"
                           className="icon-btn icon-btn-red"
                         >
                           <Trash2 size={12} />

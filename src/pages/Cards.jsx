@@ -765,6 +765,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           </div>
           <button
             onClick={() => clearSelection()}
+            aria-label="Clear selection"
             className="ml-auto bg-transparent border-none text-muted cursor-pointer text-[14px]"
           >
             ✕

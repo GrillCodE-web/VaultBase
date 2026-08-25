@@ -786,6 +786,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                   />
                   <button
                     onClick={() => removeItem(idx)}
+                    aria-label="Remove item"
                     disabled={items.length === 1}
                     className={items.length === 1 ? 'btn-opacity-disabled' : 'btn-opacity-normal'}
                   >

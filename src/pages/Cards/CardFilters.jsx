@@ -244,7 +244,11 @@ export function CardFilters({
               <button onClick={savePreset} className="btn btn-b btn-sm">
                 OK
               </button>
-              <button onClick={() => setShowPresetInput(false)} className="btn btn-ghost btn-sm">
+              <button
+                onClick={() => setShowPresetInput(false)}
+                aria-label="Close"
+                className="btn btn-ghost btn-sm"
+              >
                 ✕
               </button>
             </span>

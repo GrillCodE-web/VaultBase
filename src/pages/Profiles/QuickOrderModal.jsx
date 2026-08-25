@@ -62,7 +62,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
       <div ref={modalRef} className="modal max-w-\[420px\]" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <span>New Order — {profile.holder_masked || `••••${profile.last4 || '?????'}`}</span>
-          <button className="icon-btn" onClick={onClose}>
+          <button className="icon-btn" aria-label="Close" onClick={onClose}>
             ✕
           </button>
         </div>

@@ -126,10 +126,15 @@ function InlineTrackingCell({ orderId, value, onSaved }) {
           placeholder="tracking #"
           disabled={saving}
         />
-        <button className="btn btn-ghost btn-sm text-green-t" onClick={save} disabled={saving}>
+        <button
+          className="btn btn-ghost btn-sm text-green-t"
+          aria-label="Save"
+          onClick={save}
+          disabled={saving}
+        >
           <Check size={11} />
         </button>
-        <button className="btn btn-ghost btn-sm text-muted" onClick={cancel}>
+        <button className="btn btn-ghost btn-sm text-muted" aria-label="Cancel" onClick={cancel}>
           <X size={11} />
         </button>
       </div>

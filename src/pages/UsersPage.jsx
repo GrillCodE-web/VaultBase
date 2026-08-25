@@ -132,7 +132,7 @@ function UserModal({ user, onClose, onSaved }) {
       <div className="modal-box" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{isNew ? 'Новый пользователь' : `Редактировать: ${user.username}`}</h2>
-          <button className="modal-close" onClick={onClose}>
+          <button className="modal-close" aria-label="Close" onClick={onClose}>
             <X size={16} />
           </button>
         </div>
@@ -290,7 +290,7 @@ function PermissionsPanel({ user, onClose, onSaved }) {
             <Shield size={15} style={{ marginRight: 6 }} />
             Права: {user.display_name || user.username}
           </h2>
-          <button className="modal-close" onClick={onClose}>
+          <button className="modal-close" aria-label="Close" onClick={onClose}>
             <X size={16} />
           </button>
         </div>
@@ -473,7 +473,7 @@ function UserDetailPanel({ user, onClose }) {
               </div>
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>
+          <button className="modal-close" aria-label="Close" onClick={onClose}>
             <X size={16} />
           </button>
         </div>
