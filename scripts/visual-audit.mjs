@@ -77,10 +77,10 @@ const imapMessages = [
 
 const activityLog = Array.from({ length: 12 }, (_, i) => ({
   id: i + 1,
-  action: ['create_card', 'update_order', 'login', 'import_cards'][i % 4],
+  event_type: ['create_card', 'update_order', 'login', 'import_cards'][i % 4],
   entity_type: ['card', 'order', 'user', 'card'][i % 4],
   entity_id: i + 1,
-  details: `Действие #${i + 1}`,
+  description: `Действие #${i + 1}: ${['добавлена карта', 'обновлён заказ', 'вход в систему', 'импорт карт'][i % 4]}`,
   created_at: daysAgo(i),
   username: 'admin',
 }))
