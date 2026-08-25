@@ -37,6 +37,11 @@ export function CreateOrderModal({ onCreated, onClose }) {
   const [templateName, setTemplateName] = useState('')
   const [loading, setLoading] = useState(false)
   const submittingRef = useRef(false)
+  // BUG-016: sequence-синхронизация асинхронного поиска и quick-create,
+  // чтобы медленный устаревший ответ не затирал более свежий
+  const searchSeqRef = useRef({ shop: 0, items: {} })
+  const selectShopSeqRef = useRef(0)
+  const quickCreateRef = useRef(false)
   const [itemSuggestions, setItemSuggestions] = useState({}) // {idx: [{id,name,asin,price}]}
   const [activeItemIdx, setActiveItemIdx] = useState(null)
   const [customEmail, setCustomEmail] = useState('')
@@ -85,6 +90,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
 
   // ── Shop search ──
   const searchShops = useCallback(async q => {
+    const seq = ++searchSeqRef.current.shop
     if (!q.trim()) {
       setShopResults([])
       return
@@ -98,25 +104,33 @@ export function CreateOrderModal({ onCreated, onClose }) {
           .then(r => r.map(s => ({ ...s, _fromCatalog: true })))
           .catch(() => []),
       ])
+      // BUG-016: устаревший ответ — уже ушёл более свежий запрос, его и ждём
+      if (seq !== searchSeqRef.current.shop) return
       // Merge: local first, then catalog items not already in local
       const localDomains = new Set(local.map(s => s.domain))
       const merged = [...local, ...catalog.filter(s => !localDomains.has(s.domain))]
       setShopResults(merged)
     } catch (e) {
+      if (seq !== searchSeqRef.current.shop) return
       handleError(e)
       setShopResults([])
     }
   }, [])
 
   const searchCatalogItems = useCallback(async (q, idx) => {
+    const prev = searchSeqRef.current.items[idx] || 0
+    const seq = (searchSeqRef.current.items[idx] = prev + 1)
     if (!q || q.length < 2) {
       setItemSuggestions(p => ({ ...p, [idx]: [] }))
       return
     }
     try {
       const results = await invoke('search_catalog_items', { q, limit: 8 })
+      // BUG-016: устаревший ответ по этой строке товара — не затираем свежий
+      if (seq !== (searchSeqRef.current.items[idx] || 0)) return
       setItemSuggestions(p => ({ ...p, [idx]: results }))
     } catch (e) {
+      if (seq !== (searchSeqRef.current.items[idx] || 0)) return
       handleError(e)
       setItemSuggestions(p => ({ ...p, [idx]: [] }))
     }
@@ -128,7 +142,15 @@ export function CreateOrderModal({ onCreated, onClose }) {
   }, [shopSearch, searchShops])
 
   const selectShop = async s => {
+    // BUG-016: пока quick-create в полёте, повторный клик игнорируем —
+    // иначе двойной клик создавал два магазина (проверка до инкремента seq,
+    // чтобы отброшенный клик не инвалидал валидный выбор в полёте)
+    if (s._fromCatalog && quickCreateRef.current) return
+    // BUG-016: sequence выбора — если по ходу await пользователь выбрал другой
+    // магазин, устаревший результат больше не перезаписывает свежий выбор
+    const mySelect = ++selectShopSeqRef.current
     if (s._fromCatalog) {
+      quickCreateRef.current = true
       // Quick-create local shop from catalog data
       try {
         const created = await invoke('create_shop', {
@@ -145,6 +167,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
             high_cancel_risk: false,
           },
         })
+        if (mySelect !== selectShopSeqRef.current) return
         setShopId(created.id)
         setShopObj(created)
         setShopSearch(created.domain)
@@ -166,6 +189,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
               high_cancel_risk: false,
             },
           })
+          if (mySelect !== selectShopSeqRef.current) return
           setShopId(created.id)
           setShopObj(created)
           setShopSearch(created.domain)
@@ -173,6 +197,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
           handleError(e)
           /* ignore */
         }
+      } finally {
+        quickCreateRef.current = false
       }
       setShopResults([])
       return
