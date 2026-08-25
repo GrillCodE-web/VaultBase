@@ -80,6 +80,21 @@ npm run test:e2e     # Playwright e2e
 npm run tauri build  # Production bundles
 ```
 
+## Parallel agent sessions — read [PARALLEL_WORK.md](PARALLEL_WORK.md) first
+
+If other agent sessions may be running simultaneously: one session = one git
+worktree = one branch. Create yours with `scripts/agent-session.ps1 backend|frontend`
+(run in the main checkout). Streams are strictly disjoint:
+
+- **backend**: `src-tauri/**`, `cc-sync-server/**`, `e2e/**`, `.github/**`, `scripts/**`, `docs/**`
+- **frontend**: `src/**`, `index.html`, `vite.config.js`, eslint/prettier/postcss configs
+
+Before starting a checklist item, claim it in MASTER_CHECKLIST.md (`⬜` → `🔄 @a`/`🔄 @b`)
+and commit the checklist file alone. Commit with explicit paths only — never
+`git add -A` / `git commit -a`: another agent may have WIP in the same tree.
+Merge into main one session at a time (rebase → checks → push; no force-push).
+Crash/interrupt recovery rules: section «Оборванная сессия» in PARALLEL_WORK.md.
+
 ## Auth flow
 
 License activation (challenge → activation key via sync server) → master password

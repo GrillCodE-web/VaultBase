@@ -130,6 +130,22 @@ npm run build
 npm run tauri build
 ```
 
+## Параллельные сессии агентов — сначала читай PARALLEL_WORK.md
+
+Если одновременно работают другие сессии агентов: одна сессия = один
+git worktree = одна ветка. Создание: `scripts/agent-session.ps1 backend|frontend`
+(запускать из основной копии). Потоки строго не пересекаются:
+
+- **backend**: `src-tauri/**`, `cc-sync-server/**`, `e2e/**`, `.github/**`, `scripts/**`, `docs/**`
+- **frontend**: `src/**`, `index.html`, `vite.config.js`, конфиги eslint/prettier/postcss
+
+Перед началом пункта чеклиста заклейми его в MASTER_CHECKLIST.md
+(`⬜` → `🔄 @a`/`🔄 @b`) и закоммить один только чеклист. Коммить явными
+путями — никогда `git add -A` / `git commit -a`: в общем дереве может лежать
+чужая незакоммиченная работа. В main вливается одна сессия за раз
+(rebase → проверки → push; без force-push). Восстановление после обрыва —
+раздел «Оборванная сессия» в PARALLEL_WORK.md.
+
 ## Архитектура
 
 ### Фронтенд (React 18 + Vite)
