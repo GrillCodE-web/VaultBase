@@ -271,7 +271,7 @@
 | BUG-014  | Missing useCallback deps: stale closures в Cards handleSetSideCard              | 🟡        | `Cards.jsx:545`                      | ✅     |
 | BUG-015  | Даты hardcoded 'ru-RU' — не учитывают locale пользователя                       | 🟡        | `Shops.jsx:44-50`, `MyStats.jsx`     | ✅     |
 | BUG-012a | Body overflow: создан `useScrollLock` hook с ref-counting для вложенных модалей | 🟡        | `src/hooks/useScrollLock.js`         | ✅     |
-| BUG-016  | CreateOrderModal: quickCreate race condition                                    | 🟡        | `CreateOrderModal.jsx:108-126`       | ⬜     |
+| BUG-016  | CreateOrderModal: quickCreate race condition                                    | 🟡        | `CreateOrderModal.jsx:108-126`       | 🔄 @b  |
 | BUG-017  | CSV Import: не валидирует пустой preview_rows                                   | 🟡        | `ImportModal.jsx:56-61`              | ✅     |
 | BUG-018  | Risk scoring offline: RiskCheckOutcome::Offline не показывается пользователю    | 🟡        | `_orders.rs`, `CreateOrderModal.jsx` | ✅     |
 | BUG-019  | ActionsMenu z-index может конфликтовать с модалями                              | 🟡        | `ActionsMenu.jsx:50-60`              | ✅     |
