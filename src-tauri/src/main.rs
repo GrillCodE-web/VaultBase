@@ -297,6 +297,20 @@ fn main() {
             std::process::exit(1);
         })
         .run(|app_handle, event| {
+            // BUG-010/011: корректное завершение — уничтожить float-окно
+            // (иначе его webview-процесс висит в памяти после выхода) и
+            // освободить пул соединений БД (иначе на Windows остаются
+            // file locks на .db/-wal до смерти процесса).
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(float_win) = app_handle.get_webview_window("float") {
+                    let _ = float_win.destroy();
+                }
+                if let Some(st) = STATE.get() {
+                    if let Ok(mut db) = st.db.lock() {
+                        db.close_connections();
+                    }
+                }
+            }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
                 if !has_visible_windows {

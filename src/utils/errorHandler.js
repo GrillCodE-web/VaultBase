@@ -216,6 +216,41 @@ export function handleError(error, context = '') {
     }
   }
 
+  // ERR-005: Stuffer API — humanize HTTP-коды (stuffer_http_401 и т.п.)
+  const stufferHttp = message.match(/^stuffer_http_(\d{3})/)
+  if (stufferHttp) {
+    const code = stufferHttp[1]
+    const human =
+      {
+        400: 'Stuffer отклонил запрос — проверьте данные (адрес, трек-номер).',
+        401: 'Stuffer: неверный API-ключ.',
+        403: 'Stuffer: доступ запрещён — проверьте тариф или права ключа.',
+        404: 'Stuffer: объект не найден (посылка/курьер удалён?).',
+        429: 'Stuffer: слишком много запросов — подождите немного.',
+      }[code] ||
+      (code.startsWith('5')
+        ? 'Stuffer: сбой на стороне сервера — попробуйте позже.'
+        : `Stuffer вернул ошибку HTTP ${code}.`)
+    return {
+      type: 'ExternalServiceError',
+      code: `STUFFER_HTTP_${code}`,
+      message: human,
+      suggestion: 'Проверьте API-ключ Stuffer в настройках или повторите позже.',
+      details: { originalMessage: message, httpStatus: Number(code) },
+      context,
+    }
+  }
+  if (message.startsWith('stuffer_api_error')) {
+    return {
+      type: 'ExternalServiceError',
+      code: 'STUFFER_API_ERROR',
+      message: 'Ошибка API Stuffer.',
+      suggestion: 'Проверьте API-ключ Stuffer в настройках или повторите позже.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+
   if (message.includes('not_found') || message.includes('not found')) {
     return {
       type: 'NotFoundError',

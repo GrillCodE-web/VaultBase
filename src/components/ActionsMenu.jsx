@@ -96,7 +96,7 @@ export function ActionsMenu({ items = [], align = 'right' }) {
           style={{
             top: pos.top,
             left: pos.left,
-            zIndex: 'var(--z-dropdown)',
+            zIndex: 'var(--z-menu)',
           }}
         >
           {items.map((item, i) => {

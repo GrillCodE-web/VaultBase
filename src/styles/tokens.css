@@ -265,6 +265,8 @@
   --z-dropdown: 20;
   --z-sticky: 50;
   --z-modal: 100;
+  /* BUG-019: контекстные меню должны быть выше модалок — могут открываться из них */
+  --z-menu: 120;
   --z-toast: 900;
   --z-tooltip: 1000;
 
@@ -670,15 +672,6 @@
   .float-spinner {
     animation: spin 1s steps(12, end) infinite !important;
   }
-}
-
-/* Только для скринридеров */
-.sr-only {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
 }
 
 .sr-only-focusable:focus {
