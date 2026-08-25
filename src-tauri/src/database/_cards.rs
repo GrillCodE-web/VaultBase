@@ -730,3 +730,92 @@ impl Database {
         Ok(())
     }
 }
+
+// ─────────────────────────────────────────
+//  Tests (TEST-013: DB benchmark)
+// ─────────────────────────────────────────
+
+#[cfg(test)]
+mod perf_tests {
+    use crate::models::CardInput;
+
+    fn test_db() -> (tempfile::TempDir, super::super::Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bench.db");
+        let mut db = super::super::Database::open(path.to_str().unwrap()).unwrap();
+        // insert_cards шифрует поля — нужна разблокированная БД
+        let salt = crate::encryption::generate_salt();
+        db.set_encryption(crate::encryption::FieldEncryption::new("bench_pw_1234567890", &salt));
+        (dir, db)
+    }
+
+    fn make_card(i: usize) -> CardInput {
+        CardInput {
+            card_number: format!("411111{:010}", i % 9_999_999_999),
+            expiry_date: Some("12/29".into()),
+            cvv: Some("123".into()),
+            holder_name: Some(format!("Holder {}", i)),
+            billing_address: None,
+            city: None,
+            state: None,
+            zip: None,
+            country: Some("US".into()),
+            phone: None,
+            email: None,
+            ip_address: None,
+            source: "bench".into(),
+            domain: None,
+            acquired_at: None,
+        }
+    }
+
+    // TEST-013: вставка 10k карт — замер времени (не ассерт, а регрессионный ориентир).
+    // 100k на CI слишком долго для unit-теста; 10k ловит порядковые деградации
+    // (например, потерю транзакции: 10k вне транзакции ≈ ×50 медленнее).
+    #[test]
+    fn bench_insert_10k_cards_under_transaction() {
+        let (_dir, db) = test_db();
+        let cards: Vec<CardInput> = (0..10_000).map(make_card).collect();
+
+        let t0 = std::time::Instant::now();
+        let inserted = db.insert_cards(cards).unwrap();
+        let elapsed = t0.elapsed();
+
+        assert_eq!(inserted, 10_000);
+        // В транзакции: ~1-3 сек на шифрованной БД. Без транзакции: минуты.
+        // Порог 60 сек — защита от случайной потери BEGIN/COMMIT.
+        assert!(
+            elapsed.as_secs() < 60,
+            "insert 10k cards took {:?} — транзакция потеряна?",
+            elapsed
+        );
+        println!("bench: insert 10k cards in {:?} ({:.0} cards/sec)",
+            elapsed, 10_000.0 / elapsed.as_secs_f64());
+    }
+
+    // TEST-013: выборка с фильтром по статусу на 10k карт — индекс должен
+    // держать запрос субсекундным
+    #[test]
+    fn bench_filter_query_10k_cards() {
+        let (_dir, db) = test_db();
+        let cards: Vec<CardInput> = (0..10_000).map(make_card).collect();
+        db.insert_cards(cards).unwrap();
+
+        let filter = crate::models::CardFilter {
+            status: Some("free".into()),
+            ..Default::default()
+        };
+        let t0 = std::time::Instant::now();
+        let page = db.get_cards(&filter, 1, 50).unwrap();
+        let elapsed = t0.elapsed();
+
+        assert_eq!(page.total, 10_000);
+        assert_eq!(page.items.len(), 50);
+        assert!(
+            elapsed.as_millis() < 2000,
+            "filter query on 10k cards took {:?} — пропал индекс?",
+            elapsed
+        );
+        println!("bench: filter 10k cards in {:?}", elapsed);
+    }
+}
