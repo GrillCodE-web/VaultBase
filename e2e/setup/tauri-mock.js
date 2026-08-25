@@ -179,6 +179,66 @@ export function getTauriMockScript() {
     },
     bulk_enrich_cards: function (a) { return { enriched: 0, total: (a && a.ids && a.ids.length) || 0 } },
 
+    // в"Ђв"Ђ import/export (РєРѕРЅС‚СЂР°РєС‚ вЂ" commands/cards.rs, parser.rs, database/_cards.rs) в"Ђв"Ђ
+    detect_mapping_preview: function (a) {
+      var raw = String((a && a.raw) || '')
+      var sep = raw.indexOf('|') !== -1 ? '|' : raw.indexOf(';') !== -1 ? ';' : (raw.indexOf('\\t') !== -1 ? '\\t' : ',')
+      // parser.rs: preview_rows — максимум 5 строк первого чанка
+      var rows = raw.split('\\n').map(function (l) { return l.trim() }).filter(Boolean)
+        .slice(0, 5).map(function (l) { return l.split(sep).map(function (c) { return c.trim() }) })
+      var detected = (rows[0] || []).map(function (cell) {
+        if (/^\\d{13,19}$/.test(cell)) return 'card_number'
+        if (/^\\d{2}\\/\\d{2}(\\d{2})?$/.test(cell)) return 'expiry_date'
+        return 'skip'
+      })
+      return { preview_rows: rows, detected_mapping: detected }
+    },
+    import_cards: function (a) {
+      var raw = String((a && a.raw) || '')
+      var mapping = (a && a.mapping) || []
+      var sep = raw.indexOf('|') !== -1 ? '|' : raw.indexOf(';') !== -1 ? ';' : (raw.indexOf('\\t') !== -1 ? '\\t' : ',')
+      var imported = 0
+      var skipped = 0
+      raw.split('\\n').map(function (l) { return l.trim() }).filter(Boolean).forEach(function (line) {
+        var cols = line.split(sep)
+        var numIdx = mapping.indexOf('card_number')
+        var num = numIdx >= 0 ? (cols[numIdx] || '').replace(/\\s+/g, '') : ''
+        // без валидного номера parse_cards отдаст строку в skipped/errors
+        if (!/^\\d{13,19}$/.test(num)) { skipped += 1; return }
+        var get = function (field) {
+          var i = mapping.indexOf(field)
+          return i >= 0 ? String(cols[i] || '').trim() : ''
+        }
+        seq += 1
+        state.cards.push({
+          id: seq, bin: num.slice(0, 6), last4: num.slice(-4), holder_name: get('holder_name'),
+          status: 'free', card_type: 'debit', card_level: 'classic', orders_count: 0,
+          country: get('country') || 'US', city: get('city'), state: get('state'), zip: get('zip'),
+          bank_name: '', source: (a && a.source) || 'manual',
+          acquired_at: nowStr(), created_at: nowStr(), expiry_date: get('expiry_date'),
+        })
+        imported += 1
+      })
+      return { total: imported + skipped, imported: imported, skipped: skipped, errors: [] }
+    },
+    export_cards: function (a) {
+      var ids = (a && a.ids) || []
+      var csv = (a && a.format) === 'csv'
+      // _cards.rs::export_cards (FIX CRIT-02): РЅРѕРјРµСЂ РјР°СЃРєРёСЂСѓРµС‚СЃСЏ ****last4, CVV РЅРµ
+      // РІС‹РіСЂСѓР¶Р°РµС‚СЃСЏ РІРѕРѕР±С‰Рµ; CSV вЂ" СЃ Р·Р°РіРѕР»РѕРІРєРѕРј С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ, TXT вЂ" Р±РµР·, С‡РµСЂРµР· '|'.
+      var out = csv
+        ? 'card_number,expiry_date,holder_name,email,phone,billing_address,city,state,country,zip\\n'
+        : ''
+      state.cards.filter(function (c) {
+        return ids.some(function (i) { return String(c.id) === String(i) })
+      }).forEach(function (c) {
+        var row = ['****' + c.last4, c.expiry_date || '', c.holder_name || '', '', '', '',
+          c.city || '', c.state || '', c.country || '', c.zip || ''].join(csv ? ',' : '|')
+        out += row + '\\n'
+      })
+      return out
+    },
+
     // ── profiles ──
     get_profiles: function (a) {
       var f = (a && a.filter) || {}
@@ -358,6 +418,28 @@ export function getTauriMockScript() {
       state.orders.unshift(order)
       if (prof) prof.order_count += 1
       return clone(order)
+    },
+    batch_create_orders: function (a) {
+      // commands/orders.rs: { created, failed } вЂ" С‡РёСЃР»Р° (html Р±РµСЂС'С' ? Рё СЃРєР»Р°РґС‹РІР°РµС‚)
+      var orders = (a && a.orders) || []
+      var ok = 0
+      var fail = 0
+      orders.forEach(function (row) {
+        if (!row.profile_id || !row.shop_id) { fail += 1; return }
+        var prof = state.profiles.filter(function (x) { return String(x.id) === String(row.profile_id) })[0]
+        seq += 1
+        state.orders.unshift({
+          id: 'o' + seq, order_number: 'ORD-' + (1000 + seq), profile_id: row.profile_id,
+          card_id: prof ? prof.card_id : null, shop_id: row.shop_id,
+          holder_masked: prof ? prof.holder_masked : null, last4: prof ? prof.last4 : null,
+          shop_name: 'Acme Store', status: 'pending',
+          total_amount: parseFloat(row.amount) || 0, tracking_number: null, carrier: null,
+          email_addr: null, proxy_label: null, notes: row.item_name || null,
+          created_at: nowStr(), updated_at: nowStr(),
+        })
+        ok += 1
+      })
+      return { created: ok, failed: fail }
     },
     update_order_status: function (a) {
       var o = state.orders.filter(function (x) { return x.id === a.id })[0]
