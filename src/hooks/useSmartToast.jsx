@@ -192,7 +192,7 @@ function SmartToastContainer() {
   }, {})
 
   return (
-    <div className="smart-toast-container">
+    <div className="smart-toast-container" aria-live="polite" aria-relevant="additions">
       {Object.entries(groupedToasts).map(([groupKey, group]) => {
         const latestToast = group[group.length - 1]
         const isCollapsed = collapsedGroups[groupKey] && group.length > 1
@@ -208,6 +208,7 @@ function SmartToastContainer() {
                 <div
                   key={t.id}
                   className={`smart-toast ${t.type}`}
+                  role={t.type === 'error' ? 'alert' : 'status'}
                   onMouseEnter={() => handleMouseEnter(t)}
                   onMouseLeave={() => handleMouseLeave(t)}
                   style={{ '--toast-duration': `${t.duration}ms` }}
