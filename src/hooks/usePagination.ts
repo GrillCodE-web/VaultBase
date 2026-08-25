@@ -6,21 +6,37 @@ import {
   buildPageNumbers,
 } from '../utils/pagination'
 
+export type PageNumber = number | '...'
+
+export interface UsePaginationResult {
+  page: number
+  setPage: (p: number) => void
+  totalPages: number
+  pageNumbers: PageNumber[]
+  from: number
+  to: number
+  goNext: () => void
+  goPrev: () => void
+  goFirst: () => void
+  goLast: () => void
+  pageSize: number
+}
+
 /**
  * ARCH-012: Reusable pagination hook
- * @param {number} total - Total item count
- * @param {number} [pageSize=DEFAULT_PAGE_SIZE]
- * @returns {{ page, setPage, totalPages, pageNumbers, from, to, goNext, goPrev, goFirst, goLast }}
  */
-export function usePagination(total, pageSize = DEFAULT_PAGE_SIZE) {
-  const [page, setPage] = useState(1)
+export function usePagination(total: number, pageSize: number = DEFAULT_PAGE_SIZE): UsePaginationResult {
+  const [page, setPage] = useState<number>(1)
 
   const totalPages = useMemo(() => getTotalPages(total, pageSize), [total, pageSize])
 
   const safePage = Math.min(page, totalPages)
   if (safePage !== page) setPage(safePage)
 
-  const pageNumbers = useMemo(() => buildPageNumbers(safePage, totalPages), [safePage, totalPages])
+  const pageNumbers = useMemo(
+    () => buildPageNumbers(safePage, totalPages) as PageNumber[],
+    [safePage, totalPages]
+  )
   const { from, to } = useMemo(
     () => getPageRange(safePage, total, pageSize),
     [safePage, total, pageSize]

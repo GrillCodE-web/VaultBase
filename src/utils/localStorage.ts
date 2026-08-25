@@ -3,19 +3,14 @@
  * FIX CRITICAL: Handle QuotaExceededError and other localStorage errors
  */
 
-/**
- * Safely get item from localStorage
- * @param {string} key
- * @param {*} defaultValue
- * @returns {*}
- */
-export function safeGetItem(key, defaultValue = null) {
+export function safeGetItem(key: string, defaultValue: string | null = null): string | null {
   try {
     const value = localStorage.getItem(key)
     return value !== null ? value : defaultValue
   } catch (e) {
-    if (e.name === 'SecurityError' || e.name === 'QuotaExceededError') {
-      console.warn(`[Storage] Failed to read '${key}' from localStorage:`, e.message)
+    const err = e as DOMException
+    if (err.name === 'SecurityError' || err.name === 'QuotaExceededError') {
+      console.warn(`[Storage] Failed to read '${key}' from localStorage:`, err.message)
     } else {
       console.error(`[Storage] Unexpected error reading '${key}':`, e)
     }
@@ -25,16 +20,14 @@ export function safeGetItem(key, defaultValue = null) {
 
 /**
  * Safely set item in localStorage with quota handling
- * @param {string} key
- * @param {string} value
- * @returns {boolean} true if successful
  */
-export function safeSetItem(key, value) {
+export function safeSetItem(key: string, value: string): boolean {
   try {
     localStorage.setItem(key, value)
     return true
   } catch (e) {
-    if (e.name === 'QuotaExceededError') {
+    const err = e as DOMException
+    if (err.name === 'QuotaExceededError') {
       console.warn('[Storage] localStorage quota exceeded - clearing old data')
       // Try to clear some space by removing less important keys
       const keysToTry = [
@@ -62,7 +55,7 @@ export function safeSetItem(key, value) {
         console.error('[Storage] Failed to set item even after clearing space:', retryError)
         return false
       }
-    } else if (e.name === 'SecurityError') {
+    } else if (err.name === 'SecurityError') {
       console.warn('[Storage] SecurityError - localStorage might be disabled (private mode?)')
       return false
     } else {
@@ -72,46 +65,29 @@ export function safeSetItem(key, value) {
   }
 }
 
-/**
- * Safely remove item from localStorage
- * @param {string} key
- * @returns {boolean} true if successful
- */
-export function safeRemoveItem(key) {
+export function safeRemoveItem(key: string): boolean {
   try {
     localStorage.removeItem(key)
     return true
   } catch (e) {
-    console.warn(`[Storage] Failed to remove '${key}' from localStorage:`, e.message)
+    console.warn(`[Storage] Failed to remove '${key}' from localStorage:`, (e as Error).message)
     return false
   }
 }
 
-/**
- * Safely parse JSON from localStorage with error handling
- * @param {string} key
- * @param {*} defaultValue
- * @returns {*}
- */
-export function safeGetJSON(key, defaultValue = null) {
+export function safeGetJSON<T = unknown>(key: string, defaultValue: T | null = null): T | null {
   const value = safeGetItem(key, null)
   if (value === null) return defaultValue
 
   try {
-    return JSON.parse(value)
+    return JSON.parse(value) as T
   } catch (e) {
-    console.warn(`[Storage] Failed to parse JSON from '${key}':`, e.message)
+    console.warn(`[Storage] Failed to parse JSON from '${key}':`, (e as Error).message)
     return defaultValue
   }
 }
 
-/**
- * Safely set JSON to localStorage
- * @param {string} key
- * @param {*} value
- * @returns {boolean} true if successful
- */
-export function safeSetJSON(key, value) {
+export function safeSetJSON(key: string, value: unknown): boolean {
   try {
     const jsonString = JSON.stringify(value)
     return safeSetItem(key, jsonString)

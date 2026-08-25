@@ -7,7 +7,7 @@ import { useEffect } from 'react'
  */
 let lockCount = 0
 
-export function useScrollLock() {
+export function useScrollLock(): void {
   useEffect(() => {
     lockCount++
     document.body.style.overflow = 'hidden'

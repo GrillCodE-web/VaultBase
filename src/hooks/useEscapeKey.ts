@@ -5,13 +5,13 @@ import { useEffect, useRef } from 'react'
  * при каждом рендере. Модалки монтируются только когда открыты, поэтому
  * флаг active не нужен.
  */
-export function useEscapeKey(onClose) {
+export function useEscapeKey(onClose: () => void): void {
   const ref = useRef(onClose)
   useEffect(() => {
     ref.current = onClose
   }, [onClose])
   useEffect(() => {
-    const handler = e => {
+    const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') ref.current()
     }
     document.addEventListener('keydown', handler)
