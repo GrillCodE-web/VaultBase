@@ -28,7 +28,9 @@ export async function bootApp(page, { autoLogin = true } = {}) {
 /** Реальный флоу приложения: экран мастер-пароля (Login) → кнопка Unlock. */
 export async function unlockMaster(page) {
   const pwInput = page.locator('.auth-input[placeholder="••••••••••••"]').first()
-  await expect(pwInput).toBeVisible({ timeout: 15000 })
+  // 30s: под параллельными воркерами (особенно firefox) первый рендер может
+  // превышать прежние 15s — это тайминги dev-Vite, не регрессия приложения.
+  await expect(pwInput).toBeVisible({ timeout: 30000 })
   await pwInput.fill('E2eMasterPass1!')
   await page.locator('.auth-card button.auth-btn').first().click()
 }

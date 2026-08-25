@@ -13,7 +13,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 3,
+  // 60s (вместо дефолтных 30s): firefox-профиль + dev-Vite под параллельными
+  // воркерами местами грузит страницу >30s — тесты флейкали по таймауту.
+  timeout: 60_000,
   reporter: [['html', { open: 'never' }], ['list']],
 
   use: {
