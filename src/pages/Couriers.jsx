@@ -19,6 +19,11 @@ import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
+// Енум pay_option панели SWAT (docs/API_STUFFER.md, new_package). Панель
+// жёстко валидирует значения — старый список prepaid/cod/... давал 400.
+// Реальные значения приходят из stuffer_get_config (capabilities провайдера).
+const DEFAULT_PAY_OPTIONS = ['%', 'forwarding', 'test', '50/50_admin', '50/50_stuffer', 'sale']
+
 const EMPTY_FORM = {
   courier_id: '',
   name: '',
@@ -69,9 +74,17 @@ export default function Couriers({ activeTab, onNavigate }) {
   // Без ключа не дёргаем API вообще: иначе на каждой вкладке сыпались тосты
   // «Stuffer не настроен». Вместо этого показываем экран настройки.
   const [stufferReady, setStufferReady] = useState(null)
+  // Енум pay_option отдаёт бэкенд из capabilities провайдера (панель жёстко
+  // валидирует значения). Дефолт — енум SWAT из docs/API_STUFFER.md.
+  const [payOptions, setPayOptions] = useState(DEFAULT_PAY_OPTIONS)
   useEffect(() => {
     invoke('stuffer_get_config')
-      .then(cfg => setStufferReady(!!cfg?.api_key_set))
+      .then(cfg => {
+        setStufferReady(!!cfg?.api_key_set)
+        if (Array.isArray(cfg?.pay_options) && cfg.pay_options.length) {
+          setPayOptions(cfg.pay_options)
+        }
+      })
       .catch(() => setStufferReady(false))
   }, [])
 
@@ -155,8 +168,6 @@ export default function Couriers({ activeTab, onNavigate }) {
     setForm(f => ({ ...f, tracks: [...f.tracks, { track: '', carrier: '' }] }))
   const removeTrackRow = i =>
     setForm(f => ({ ...f, tracks: f.tracks.filter((_, idx) => idx !== i) }))
-
-  const PAY_OPTIONS = ['prepaid', 'cod', 'credit', 'cash', 'other']
 
   const submit = async () => {
     if (!form.courier_id) {
@@ -496,7 +507,7 @@ export default function Couriers({ activeTab, onNavigate }) {
             <span>{t('pkg_field_pay_option')}</span>
             <select value={form.pay_option} onChange={e => setField('pay_option', e.target.value)}>
               <option value="">{t('pkg_select_pay_option') || '— Select —'}</option>
-              {PAY_OPTIONS.map(opt => (
+              {payOptions.map(opt => (
                 <option key={opt} value={opt}>
                   {opt}
                 </option>

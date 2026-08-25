@@ -1,5 +1,5 @@
-// Stuffer API client — integration with the external stuffer panel.
-// Docs: manager-work/docs/API_STUFFER.md
+// SWAT provider — клиент панели StockHub (dash.stockhubdeal.com).
+// Docs: docs/API_STUFFER.md
 //
 // The single entry point is `{base_url}?json=<method>&api_key=<key>`. All
 // responses are JSON. Errors come back either as an HTTP 4xx/5xx status or as
@@ -8,9 +8,15 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::{Provider, ProviderCapabilities};
+
 // FIX CRITICAL: Use constant instead of hardcoded URL
 pub const DEFAULT_BASE_URL: &str = crate::constants::STUFFER_BASE_URL;
 const TIMEOUT_SECS: u64 = crate::constants::TRACKING_REQUEST_TIMEOUT_SECS;
+
+/// Допустимые pay_option панели SWAT (docs/API_STUFFER.md, «new_package»).
+/// Панель жёстко валидирует значения: произвольные -> 400 Invalid pay_option.
+pub const PAY_OPTIONS: &[&str] = &["%", "forwarding", "test", "50/50_admin", "50/50_stuffer", "sale"];
 
 // ─────────────────────────────────────────
 //  Data structures
@@ -96,6 +102,35 @@ pub struct PackageComment {
     pub access: String,
 }
 
+/// Десериализация `tracks`: панель меняла формат — старый `["1Z...", "N/A"]`
+/// (строки), новый `[{"track": "1Z...", "carrier": "UPS"}]` (объекты).
+/// Принимаем оба, наружу отдаём только номера треков.
+fn de_tracks<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum RawTrack {
+        Text(String),
+        Obj {
+            #[serde(default)]
+            track: String,
+        },
+    }
+
+    let raw = Option::<Vec<Option<RawTrack>>>::deserialize(deserializer)?;
+    Ok(raw
+        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .map(|t| match t {
+            RawTrack::Text(s) => s,
+            RawTrack::Obj { track } => track,
+        })
+        .collect())
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Package {
     pub id: i64,
@@ -107,7 +142,7 @@ pub struct Package {
     pub labels: Vec<PackageLabel>,
     #[serde(default)]
     pub labels_hash: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_tracks")]
     pub tracks: Vec<String>,
     #[serde(default)]
     pub comments: Vec<PackageComment>,
@@ -129,39 +164,101 @@ pub struct TrackInput {
     pub carrier: String,
 }
 
+/// Тело `new_package`: незаполненные Optional-поля НЕ сериализуем вовсе
+/// (а не null) — так панель применяет свои дефолты из docs/API_STUFFER.md
+/// (pay_option "%", price 1, вес "0", трек-плейсхолдер "n/a"). Раньше null
+/// полей приводил к жёсткой валидации после смены схемы на панели.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PackageInput {
     pub courier_id: i64,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub holder_name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weight: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quantity: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shop: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub price: Option<f64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivery_date: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pay_option: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pickup: Option<i64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asin: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upc: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pickup_address: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pickup_holder_name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracks: Option<Vec<TrackInput>>,
+}
+
+// ─────────────────────────────────────────
+//  SWAT provider
+// ─────────────────────────────────────────
+
+pub struct SwatProvider {
+    base_url: String,
+    api_key: String,
+}
+
+impl SwatProvider {
+    pub fn new(base_url: &str, api_key: &str) -> Self {
+        Self {
+            base_url: base_url.to_string(),
+            api_key: api_key.to_string(),
+        }
+    }
+}
+
+impl Provider for SwatProvider {
+    fn id(&self) -> &'static str {
+        "swat"
+    }
+
+    fn display_name(&self) -> &'static str {
+        "SWAT"
+    }
+
+    fn capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities {
+            pay_options: PAY_OPTIONS.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    fn list_couriers(&self) -> Result<Vec<CourierFull>, String> {
+        list_couriers(&self.base_url, &self.api_key)
+    }
+
+    fn list_available_couriers(&self) -> Result<Vec<CourierAvailable>, String> {
+        list_available_couriers(&self.base_url, &self.api_key)
+    }
+
+    fn add_courier(&self, courier_id: i64) -> Result<CourierFull, String> {
+        add_courier(&self.base_url, &self.api_key, courier_id)
+    }
+
+    fn list_packages(&self) -> Result<Vec<Package>, String> {
+        list_packages(&self.base_url, &self.api_key)
+    }
+
+    fn get_labels(&self, package_id: i64) -> Result<Vec<LabelFile>, String> {
+        get_labels(&self.base_url, &self.api_key, package_id)
+    }
+
+    fn create_package(&self, package: &PackageInput) -> Result<i64, String> {
+        create_package(&self.base_url, &self.api_key, package)
+    }
 }
 
 // ─────────────────────────────────────────
@@ -325,7 +422,6 @@ pub fn create_package(base_url: &str, api_key: &str, package: &PackageInput) -> 
         .ok_or_else(|| "stuffer_missing_field: package_id".to_string())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -429,6 +525,70 @@ mod tests {
         assert_eq!(packages[0].comments[0].comment_text, "Hello");
     }
 
+    /// Ответ панели по актуальной docs/API_STUFFER.md: tracks — массив
+    /// объектов {"track","carrier"}, labels/labels_hash отсутствуют.
+    /// Раньше такой ответ валил весь список: stuffer_decode_error
+    /// "invalid type: map, expected a string".
+    #[test]
+    fn test_extract_packages_new_tracks_format() {
+        let json = json!({
+            "success": true,
+            "packages": [
+                {
+                    "id": 11517,
+                    "courier_id": 982,
+                    "name": "Apple iPhone 13 Pro, QTY:2",
+                    "status": "checked",
+                    "holder_name": "Petr Vasichkin",
+                    "weight": "1.5",
+                    "quantity": 2,
+                    "shop": "amazon",
+                    "price": 999.99,
+                    "delivery_date": "2026-08-10",
+                    "pay_option": "%",
+                    "pickup": 0,
+                    "asin": "B09G9HD6PD",
+                    "upc": "195949123456",
+                    "created_date": "2026-08-11 14:32:15",
+                    "tracks": [
+                        {"track": "1Z999AA10123456784", "carrier": "UPS"}
+                    ],
+                    "comments": []
+                },
+                {
+                    "id": 10809,
+                    "name": "Apple iPad Pro, QTY:4",
+                    "status": "received",
+                    "tracks": [{"track": "n/a", "carrier": ""}],
+                    "comments": []
+                }
+            ]
+        });
+        let packages: Vec<Package> = extract(json, "packages").unwrap();
+        assert_eq!(packages.len(), 2);
+        assert_eq!(packages[0].id, 11517);
+        assert_eq!(packages[0].tracks, vec!["1Z999AA10123456784"]);
+        assert_eq!(packages[0].labels.len(), 0);
+        assert_eq!(packages[1].tracks, vec!["n/a"]);
+    }
+
+    /// Смесь старого и нового форматов, null-элементы и null-поле — всё
+    /// декодируется без ошибок.
+    #[test]
+    fn test_package_tracks_mixed_and_null_formats() {
+        let json = json!({
+            "packages": [
+                {"id": 1, "tracks": ["1ZOLD", {"track": "1ZNEW", "carrier": "UPS"}, null]}
+            ]
+        });
+        let packages: Vec<Package> = extract(json, "packages").unwrap();
+        assert_eq!(packages[0].tracks, vec!["1ZOLD", "1ZNEW"]);
+
+        let json = json!({"packages": [{"id": 2, "tracks": null}]});
+        let packages: Vec<Package> = extract(json, "packages").unwrap();
+        assert!(packages[0].tracks.is_empty());
+    }
+
     #[test]
     fn test_extract_labels() {
         let json = json!({
@@ -462,7 +622,7 @@ mod tests {
             shop: Some("Amazon".to_string()),
             price: Some(29.99),
             delivery_date: None,
-            pay_option: Some("prepaid".to_string()),
+            pay_option: Some("forwarding".to_string()),
             pickup: None,
             asin: Some("B001TEST".to_string()),
             upc: None,
@@ -475,7 +635,11 @@ mod tests {
         assert_eq!(json["shop"], "Amazon");
         assert_eq!(json["price"], 29.99);
         assert_eq!(json["tracks"][0]["track"], "1Z999");
-        assert!(json["comment"].is_null());
+        // Незаполненные поля уходят в панель ОТСУТСТВУЮЩИМИ (не null):
+        // панель применяет свои дефолты, а не валидирует null.
+        assert!(json.get("comment").is_none());
+        assert!(json.get("delivery_date").is_none());
+        assert!(json.get("pickup").is_none());
     }
 
     #[test]
@@ -496,5 +660,14 @@ mod tests {
         assert_eq!(pc.new, 0);
         assert_eq!(pc.shipped, 0);
         assert_eq!(pc.sent, 0);
+    }
+
+    #[test]
+    fn test_pay_options_match_doc() {
+        // Жёсткий енум панели в docs/API_STUFFER.md — метод new_package.
+        assert_eq!(
+            PAY_OPTIONS,
+            &["%", "forwarding", "test", "50/50_admin", "50/50_stuffer", "sale"]
+        );
     }
 }

@@ -480,6 +480,12 @@ export function getTauriMockScript() {
     get_order_templates: function () { return [] },
     save_order_template: function () { return true },
 
+    // ── stuffer (Couriers): ключ не «настроен» — страница покажет экран настройки ──
+    stuffer_get_config: function () {
+      return { api_key_set: false, base_url: '', provider: 'swat',
+               pay_options: ['%', 'forwarding', 'test', '50/50_admin', '50/50_stuffer', 'sale'] }
+    },
+
     // ── справочники (создание заказа тянет их allSettled) ──
     get_emails: function () { return { items: [], total: 0 } },
     get_proxies: function () { return { items: [], total: 0 } },

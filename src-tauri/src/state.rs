@@ -190,6 +190,7 @@ const CONFIG_READABLE: &[&str] = &[
     "dash_collapsed_sources", "dash_collapsed_expiring",
     "badge_notify_imap", "badge_notify_tracking",
     "stuffer_base_url",
+    "stuffer_provider",
 ];
 
 /// Ключи-секреты: записать можно, прочитать значение — нельзя.
@@ -205,6 +206,7 @@ const CONFIG_WRITABLE: &[&str] = &[
     "dash_collapsed_banks", "dash_collapsed_countries",
     "dash_collapsed_sources", "dash_collapsed_expiring",
     "badge_notify_imap", "badge_notify_tracking",
+    "stuffer_provider",
 ];
 
 pub(crate) fn is_config_readable(key: &str) -> bool {

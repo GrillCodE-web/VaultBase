@@ -40,7 +40,22 @@ pub(crate) fn stuffer_get_config() -> Result<StufferConfigView, String> {
             .map_err(|e| e.to_string())?
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| crate::stuffer::DEFAULT_BASE_URL.to_string());
-        Ok(StufferConfigView { api_key_set, base_url })
+        let provider_id = db
+            .get_config("stuffer_provider")
+            .map_err(|e| e.to_string())?
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "swat".to_string());
+        // Capabilities не требуют кредов: конструируем провайдер пустыми
+        // ключами только чтобы отдать фронтенду енумы панели (pay options).
+        let pay_options = crate::stuffer::provider_by_id(&provider_id, "", "")?
+            .capabilities()
+            .pay_options;
+        Ok(StufferConfigView {
+            api_key_set,
+            base_url,
+            provider: provider_id,
+            pay_options,
+        })
     })
 }
 
@@ -68,22 +83,19 @@ pub(crate) fn stuffer_set_config(api_key: Option<String>, base_url: String) -> R
 #[tauri::command]
 pub(crate) fn stuffer_list_couriers() -> Result<Vec<crate::stuffer::CourierFull>, String> {
     require_perm(models::perms::VIEW_COURIERS)?;
-    let (base_url, api_key) = stuffer_creds()?;
-    crate::stuffer::list_couriers(&base_url, &api_key)
+    active_provider()?.list_couriers()
 }
 
 #[tauri::command]
 pub(crate) fn stuffer_list_available_couriers() -> Result<Vec<crate::stuffer::CourierAvailable>, String> {
     require_perm(models::perms::VIEW_COURIERS)?;
-    let (base_url, api_key) = stuffer_creds()?;
-    crate::stuffer::list_available_couriers(&base_url, &api_key)
+    active_provider()?.list_available_couriers()
 }
 
 #[tauri::command]
 pub(crate) fn stuffer_add_courier(courier_id: i64) -> Result<crate::stuffer::CourierFull, String> {
     require_perm(models::perms::MANAGE_COURIERS)?;
-    let (base_url, api_key) = stuffer_creds()?;
-    let courier = crate::stuffer::add_courier(&base_url, &api_key, courier_id)?;
+    let courier = active_provider()?.add_courier(courier_id)?;
     with_db!(db, {
         let _ = db.log_event(
             "stuffer.courier_added",
@@ -98,22 +110,19 @@ pub(crate) fn stuffer_add_courier(courier_id: i64) -> Result<crate::stuffer::Cou
 #[tauri::command]
 pub(crate) fn stuffer_list_packages() -> Result<Vec<crate::stuffer::Package>, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
-    let (base_url, api_key) = stuffer_creds()?;
-    crate::stuffer::list_packages(&base_url, &api_key)
+    active_provider()?.list_packages()
 }
 
 #[tauri::command]
 pub(crate) fn stuffer_get_labels(package_id: i64) -> Result<Vec<crate::stuffer::LabelFile>, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
-    let (base_url, api_key) = stuffer_creds()?;
-    crate::stuffer::get_labels(&base_url, &api_key, package_id)
+    active_provider()?.get_labels(package_id)
 }
 
 #[tauri::command]
 pub(crate) fn stuffer_create_package(package: crate::stuffer::PackageInput) -> Result<i64, String> {
     require_perm(models::perms::CREATE_PACKAGES)?;
-    let (base_url, api_key) = stuffer_creds()?;
-    let package_id = crate::stuffer::create_package(&base_url, &api_key, &package)?;
+    let package_id = active_provider()?.create_package(&package)?;
     with_db!(db, {
         let _ = db.log_event(
             "stuffer.package_created",
@@ -141,8 +150,26 @@ pub(crate) fn stuffer_creds() -> Result<(String, String), String> {
     })
 }
 
+/// Активный провайдер стаффинга. Сейчас доступен SWAT (панель StockHub);
+/// переключение SWAT/CARGO — по конфигу `stuffer_provider` (FEAT-013:
+/// CARGO добавляется реализацией trait Provider и регистрацией в
+/// provider_by_id, команды и фронтенд при этом не меняются).
+fn active_provider() -> Result<Box<dyn stuffer::Provider>, String> {
+    let provider_id = with_db!(db, {
+        Ok::<String, String>(db
+            .get_config("stuffer_provider")
+            .map_err(|e| e.to_string())?
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "swat".to_string()))
+    })?;
+    let (base_url, api_key) = stuffer_creds()?;
+    stuffer::provider_by_id(&provider_id, &base_url, &api_key)
+}
+
 #[derive(serde::Serialize)]
 pub(crate) struct StufferConfigView {
     api_key_set: bool,
     base_url: String,
+    provider: String,
+    pay_options: Vec<String>,
 }
