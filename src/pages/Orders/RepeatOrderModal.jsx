@@ -82,7 +82,7 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
           .map(i => i.name)
           .filter(Boolean)
           .join(', ')
-      : (order.item_name ?? 'вЂ”')
+      : (order.item_name ?? '—')
 
   return (
     <div className="modal-overlay">
@@ -107,10 +107,10 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
 
         <div className="text-[13px] text-text-2 mb-4 leading-normal">
           Repeat order for <strong className="text-text">{shopLabel}</strong>
-          {itemLabel !== 'вЂ”' && (
+          {itemLabel !== '—' && (
             <>
               {' '}
-              вЂ” <span className="text-muted">{itemLabel}</span>
+              — <span className="text-muted">{itemLabel}</span>
             </>
           )}
           ?
@@ -119,17 +119,17 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
         <div className="form-group">
           <label className="form-label">Select Profile</label>
           {loadingProfiles ? (
-            <div className="text-[12px] text-muted py-2">Loading profilesвЂ¦</div>
+            <div className="text-[12px] text-muted py-2">Loading profiles…</div>
           ) : (
             <select
               value={selectedProfileId}
               onChange={e => setSelectedProfileId(e.target.value)}
               className="inline-select w-full"
             >
-              <option value="">вЂ” Select profile вЂ”</option>
+              <option value="">— Select profile —</option>
               {profiles.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.holder_masked || 'вЂ”'} В·В·В·{p.last4 || '????'}
+                  {p.holder_masked || '—'} ···{p.last4 || '????'}
                   {p.bank_name ? ` (${p.bank_name})` : ''}
                 </option>
               ))}
@@ -146,7 +146,7 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
             disabled={loading || !selectedProfileId}
             className={`btn btn-b btn-sm flex-1 ${loading || !selectedProfileId ? 'opacity-40' : ''}`}
           >
-            {loading ? 'CreatingвЂ¦' : 'Repeat Order'}
+            {loading ? 'Creating…' : 'Repeat Order'}
           </button>
         </div>
       </div>

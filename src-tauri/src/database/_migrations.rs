@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 12;
+    const LATEST_VERSION: u32 = 13;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -74,6 +74,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (4, migration_v4), (5, migration_v5), (6, migration_v6),
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
+        (13, migration_v13),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -573,6 +574,31 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 END;
             END;
         "#)?;
+        Ok(())
+    }
+
+    // IMAP-ROUTING/HEALTH: маршрут «домен = почта» (уникально, без повторов),
+    // health-поля на аккаунте, домен отправителя на сообщении.
+    fn migration_v13(conn: &Connection) -> SqlResult<()> {
+        // Здоровье ящика: fail_count >= 3 → «умер», нужен ручной вход
+        let _ = conn.execute_batch("ALTER TABLE imap_accounts ADD COLUMN fail_count INTEGER NOT NULL DEFAULT 0;");
+        let _ = conn.execute_batch("ALTER TABLE imap_accounts ADD COLUMN last_error TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE imap_accounts ADD COLUMN last_ok DATETIME;");
+
+        // Маршрут домен → ящик. PRIMARY KEY на domain = запрет повторов:
+        // один домен обслуживает ровно один IMAP-аккаунт.
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS imap_domain_routes (
+                domain          TEXT PRIMARY KEY,
+                imap_account_id INTEGER NOT NULL REFERENCES imap_accounts(id) ON DELETE CASCADE,
+                created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_domain_route_account ON imap_domain_routes(imap_account_id);
+        "#)?;
+
+        // imap_messages: домен отправителя (zoro.com) — по нему фильтруют вид
+        let _ = conn.execute_batch("ALTER TABLE imap_messages ADD COLUMN from_domain TEXT;");
+        let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_imap_msg_domain ON imap_messages(from_domain);");
         Ok(())
     }
 

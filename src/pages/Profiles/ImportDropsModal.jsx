@@ -167,7 +167,7 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
                               mapping[ci] === 'skip' ? 'mono preview-cell-skipped' : 'mono'
                             }
                           >
-                            {cell || <span className="text-muted">вЂ”</span>}
+                            {cell || <span className="text-muted">—</span>}
                           </td>
                         ))}
                       </tr>

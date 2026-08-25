@@ -51,3 +51,7 @@ playwright-report/
 # "target tuple in channel name". Каждый разработчик держит свой,
 # пример — src-tauri/rust-toolchain.toml.example
 src-tauri/rust-toolchain.toml
+
+audit-shots/
+audit-run*.log
+dev-server.log

@@ -52,7 +52,7 @@ export function ShippedModal({ onConfirm, onClose }) {
           <input
             value={carrier}
             onChange={e => setCarrier(e.target.value)}
-            placeholder="UPS, FedEx, USPSвЂ¦"
+            placeholder="UPS, FedEx, USPS…"
             className="form-input"
           />
         </div>

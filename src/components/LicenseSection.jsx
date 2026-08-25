@@ -91,9 +91,7 @@ export function LicenseSection() {
 
   return (
     <div className="rounded-xl p-5 bg-inset" style={{ border: `1px solid var(--border)` }}>
-      <h3 className="text-sm font-semibold text-white mb-4">
-        {t('settings_license') || 'License'}
-      </h3>
+      <h3 className="text-sm font-semibold text-text mb-4">{t('settings_license') || 'License'}</h3>
 
       {/* Status row */}
       <div className="flex items-center justify-between mb-4">

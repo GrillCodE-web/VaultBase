@@ -48,7 +48,7 @@ export function DuplicateDropsModal({ groups, onClose }) {
             groups.map((group, gi) => (
               <div key={gi} className="border-warning-yellow rounded-[10px] overflow-hidden">
                 <div className="bg-warning p-\[8px_16px\] text-[12px] text-[var(--color-warning)] font-medium border-b-[var(--color-warning-bg)]">
-                  {group[0].address}, {group[0].city}, {group[0].country} вЂ” {group.length}{' '}
+                  {group[0].address}, {group[0].city}, {group[0].country} — {group.length}{' '}
                   duplicates
                 </div>
                 {group.map(d => (
@@ -59,7 +59,7 @@ export function DuplicateDropsModal({ groups, onClose }) {
                         profile: {shortId(d.profile_id)}
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono text-muted">{d.phone || 'вЂ”'}</span>
+                    <span className="text-[11px] font-mono text-muted">{d.phone || '—'}</span>
                   </div>
                 ))}
               </div>

@@ -632,6 +632,32 @@ pub struct ImapAccount {
     pub poll_interval: i64,
     pub is_active: bool,
     pub last_checked: Option<String>,
+    // IMAP-HEALTH: здоровье аккаунта (почта общая — разграничение по доменам,
+    // см. DomainOwnership). fail_count >= 3 = почта «умерла», нужен ручной вход.
+    #[serde(default)]
+    pub fail_count: i64,
+    #[serde(default)]
+    pub last_error: Option<String>,
+    #[serde(default)]
+    pub last_ok: Option<String>,
+}
+
+impl ImapAccount {
+    /// Аккаунт «здоров»: активен и без накопленных ошибок
+    pub fn is_healthy(&self) -> bool {
+        self.is_active && self.fail_count < 3
+    }
+}
+
+/// IMAP-ROUTING: маршрут домена. Домен (zoro.com) жёстко закреплён за ОДНИМ
+/// IMAP-ящиком — UNIQUE на domain это гарантирует (запрет на повторы).
+/// Письма с этого домена собираются только с указанного ящика.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DomainRoute {
+    pub domain: String,
+    pub imap_account_id: i64,
+    pub account_label: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

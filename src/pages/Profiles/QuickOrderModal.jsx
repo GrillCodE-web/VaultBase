@@ -56,9 +56,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal max-w-\[420px\]" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <span>
-            New Order вЂ” {profile.holder_masked || `вЂўвЂўвЂўвЂў${profile.last4 || '?????'}`}
-          </span>
+          <span>New Order — {profile.holder_masked || `••••${profile.last4 || '?????'}`}</span>
           <button className="icon-btn" onClick={onClose}>
             вњ•
           </button>

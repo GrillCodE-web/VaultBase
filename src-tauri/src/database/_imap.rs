@@ -5,13 +5,18 @@ impl Database {
 
     pub fn get_imap_accounts(&self) -> Result<Vec<ImapAccount>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,label,host,port,login,poll_interval,is_active,last_checked FROM imap_accounts ORDER BY id"
+            "SELECT id,label,host,port,login,poll_interval,is_active,last_checked,
+                    fail_count,last_error,last_ok
+             FROM imap_accounts ORDER BY id"
         ).map_err(|e| e.to_string())?;
         let rows = stmt.query_map([], |r| Ok(ImapAccount {
             id: r.get(0)?, label: r.get(1)?, host: r.get(2)?, port: r.get(3)?,
             login: r.get(4)?, poll_interval: r.get(5)?,
             is_active: r.get::<_,i64>(6).unwrap_or(1) != 0,
             last_checked: r.get(7)?,
+            fail_count: r.get::<_,i64>(8).unwrap_or(0),
+            last_error: r.get(9).unwrap_or(None),
+            last_ok: r.get(10).unwrap_or(None),
         })).map_err(|e| e.to_string())?;
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
@@ -52,7 +57,82 @@ impl Database {
             label: input.label.clone(), host: input.host.clone(),
             port: input.port, login: input.login.clone(),
             poll_interval: input.poll_interval, is_active: true, last_checked: None,
+            fail_count: 0, last_error: None, last_ok: None,
         })
+    }
+
+    // ── IMAP-ROUTING: маршруты «домен = почта» ─────────────────────────
+
+    /// Привязать домен к ящику. Повтор домена запрещён — вернёт ошибку
+    /// "domain_already_routed:<domain>", чтобы UI показал понятное сообщение.
+    pub fn add_domain_route(&self, domain: &str, imap_account_id: i64) -> Result<(), String> {
+        if self.is_locked() { return Err("database_locked".into()); }
+        let d = domain.trim().trim_start_matches("www.").to_lowercase();
+        if d.is_empty() { return Err("domain_empty".into()); }
+        let existing: Option<i64> = self.conn.query_row(
+            "SELECT imap_account_id FROM imap_domain_routes WHERE domain=?1",
+            params![d], |r| r.get(0),
+        ).ok();
+        if existing.is_some() {
+            return Err(format!("domain_already_routed:{}", d));
+        }
+        self.conn.execute(
+            "INSERT INTO imap_domain_routes(domain, imap_account_id) VALUES(?1,?2)",
+            params![d, imap_account_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn remove_domain_route(&self, domain: &str) -> Result<(), String> {
+        let d = domain.trim().trim_start_matches("www.").to_lowercase();
+        self.conn.execute("DELETE FROM imap_domain_routes WHERE domain=?1", params![d])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Все маршруты с меткой ящика (для дашборда «домен → почта»).
+    pub fn list_domain_routes(&self) -> Result<Vec<crate::models::DomainRoute>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT r.domain, r.imap_account_id, a.label, r.created_at
+             FROM imap_domain_routes r
+             LEFT JOIN imap_accounts a ON a.id = r.imap_account_id
+             ORDER BY r.domain"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok(crate::models::DomainRoute {
+            domain: r.get(0)?,
+            imap_account_id: r.get(1)?,
+            account_label: r.get(2).unwrap_or(None),
+            created_at: r.get::<_,Option<String>>(3).unwrap_or(None).unwrap_or_default(),
+        })).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Ящик, обслуживающий домен (None — маршрут не задан).
+    pub fn get_account_for_domain(&self, domain: &str) -> Result<Option<i64>, String> {
+        let d = domain.trim().trim_start_matches("www.").to_lowercase();
+        Ok(self.conn.query_row(
+            "SELECT imap_account_id FROM imap_domain_routes WHERE domain=?1",
+            params![d], |r| r.get(0),
+        ).ok())
+    }
+
+    /// IMAP-HEALTH: записать успешный поллинг — сбросить счётчик ошибок.
+    pub fn mark_imap_ok(&self, id: i64) -> Result<(), String> {
+        let _ = self.conn.execute(
+            "UPDATE imap_accounts SET fail_count=0, last_error=NULL, last_ok=datetime('now') WHERE id=?1",
+            params![id],
+        );
+        Ok(())
+    }
+
+    /// IMAP-HEALTH: записать ошибку поллинга — нарастить счётчик и сохранить текст.
+    pub fn mark_imap_error(&self, id: i64, error: &str) -> Result<(), String> {
+        let short: String = error.chars().take(200).collect();
+        let _ = self.conn.execute(
+            "UPDATE imap_accounts SET fail_count=fail_count+1, last_error=?2, last_checked=datetime('now') WHERE id=?1",
+            params![id, short],
+        );
+        Ok(())
     }
 
     pub fn update_imap_account(&self, id: i64, input: &ImapInput) -> Result<(), String> {
@@ -115,13 +195,18 @@ impl Database {
     pub fn get_imap_account_with_password(&self, id: i64) -> Result<(ImapAccount, String), String> {
         if self.is_locked() { return Err("database_locked".into()); }
         let (acc, enc_pw) = self.conn.query_row(
-            "SELECT id,label,host,port,login,password,poll_interval,is_active,last_checked FROM imap_accounts WHERE id=?1",
+            "SELECT id,label,host,port,login,password,poll_interval,is_active,last_checked,
+                    fail_count,last_error,last_ok
+             FROM imap_accounts WHERE id=?1",
             params![id],
             |r| Ok((ImapAccount {
                 id: r.get(0)?, label: r.get(1)?, host: r.get(2)?, port: r.get(3)?,
                 login: r.get(4)?, poll_interval: r.get(6)?,
                 is_active: r.get::<_,i64>(7).unwrap_or(1) != 0,
                 last_checked: r.get(8)?,
+                fail_count: r.get::<_,i64>(9).unwrap_or(0),
+                last_error: r.get(10).unwrap_or(None),
+                last_ok: r.get(11).unwrap_or(None),
             }, r.get::<_,Option<String>>(5)?.unwrap_or_default())),
         ).map_err(|e| e.to_string())?;
         let pw = if enc_pw.is_empty() {
@@ -177,11 +262,24 @@ impl Database {
             ).unwrap_or(0);
             if exists > 0 { return Ok(()); }
         }
+        let from_domain = Self::domain_from_email(from_email);
         self.conn.execute(
-            "INSERT INTO imap_messages(account_id,message_uid,subject,from_email,received_at,extracted_order_number,extracted_tracking,action_taken,processed) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-            params![account_id, uid, subject, from_email, received_at, order_num, tracking, action, processed as i64],
+            "INSERT INTO imap_messages(account_id,message_uid,subject,from_email,from_domain,received_at,extracted_order_number,extracted_tracking,action_taken,processed) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            params![account_id, uid, subject, from_email, from_domain, received_at, order_num, tracking, action, processed as i64],
         ).map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    /// IMAP-ROUTING: домен отправителя из From-заголовка
+    /// ("Shop <orders@zoro.com>" → "zoro.com"), lowercase, без www.
+    pub(crate) fn domain_from_email(from: &str) -> Option<String> {
+        let after_at = from.rsplit('@').next()?;
+        let cleaned: String = after_at
+            .trim_end_matches('>')
+            .trim()
+            .trim_start_matches("www.")
+            .to_lowercase();
+        if cleaned.is_empty() { None } else { Some(cleaned) }
     }
 
     /// FIX B57: проверяет наличие UID в БД для дедупликации до сетевого запроса
@@ -446,9 +544,10 @@ impl Database {
         if let Some(u) = uid {
             if self.imap_uid_exists(account_id, u) { return Ok(()); }
         }
+        let from_domain = Self::domain_from_email(from_email);
         self.conn.execute(
-            "INSERT INTO imap_messages(account_id,message_uid,subject,from_email,to_email,received_at,body,folder,is_read,extracted_order_number,extracted_tracking,action_taken,processed) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,0,?9,?10,?11,?12)",
-            params![account_id, uid, subject, from_email, to_email, received_at, body, folder, order_num, tracking, action, processed as i64],
+            "INSERT INTO imap_messages(account_id,message_uid,subject,from_email,from_domain,to_email,received_at,body,folder,is_read,extracted_order_number,extracted_tracking,action_taken,processed) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,0,?10,?11,?12,?13)",
+            params![account_id, uid, subject, from_email, from_domain, to_email, received_at, body, folder, order_num, tracking, action, processed as i64],
         ).map_err(|e| e.to_string())?;
         Ok(())
     }

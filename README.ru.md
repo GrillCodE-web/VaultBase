@@ -1,202 +1,104 @@
 # VaultBase
 
-> Русскоязычный дубль [README.md](README.md).
+**Версия:** 2.11.3 · **Стек:** Tauri 2 + React 18 + Rust + SQLite (SQLCipher)
 
-Защищённое десктоп-CRM-приложение для управления операциями с кредитными картами:
-продвинутое шифрование, интеграция с IMAP и синхронизация в реальном времени.
+Защищённое десктоп-приложение для управления картами, профилями, заказами, магазинами,
+прокси и почтой. Локальная БД с полным шифрованием, вход по лицензии + мастер-пароль,
+опциональная синхронизация между устройствами через свой sync-сервер.
 
-## Обзор
+---
 
-VaultBase — кросс-платформенное десктоп-приложение на Tauri 2 для управления жизненным
-циклом карт. Поддерживает сквозное шифрование, автоматический парсинг почты, оценку риска
-и мультиустройственную синхронизацию.
+## Что внутри (карта разделов)
 
-**Ключевые возможности:**
+| Раздел                | Что делает                                                                       | Код                                 |
+| --------------------- | -------------------------------------------------------------------------------- | ----------------------------------- |
+| **Dashboard**         | Сводка: карты, заказы, выручка, алерты, графики, heatmap банк×магазин            | `src/pages/DashboardRedesigned.jsx` |
+| **Updates**           | «Пока вы спали» — события из почты: новые треки, доставки, отмены                | `src/pages/Updates.jsx`             |
+| **Cards**             | База карт: импорт, фильтры, статусы (free/in_use/dead), BIN-энричмент, экспорт   | `src/pages/Cards.jsx`               |
+| **Profiles**          | Профили = карта + получатель + адрес. Дропы живут внутри профиля                 | `src/pages/Profiles.jsx`            |
+| **Orders**            | Заказы: статусы, трекинги, batch-импорт, повтор заказа                           | `src/pages/Orders.jsx`              |
+| **Catalog**           | Каталог товаров и магазинов-источников (заполняется при синхронизации)           | `src/pages/Catalog.jsx`             |
+| **Shops**             | Магазины: флаги риска (AVS/VPN/AMEX), win/loss, success rate, risk-скоринг       | `src/pages/Shops.jsx`               |
+| **Proxies**           | Пул прокси: проверка живости, привязка к магазинам, статистика использования     | `src/pages/Proxies.jsx`             |
+| **Couriers/Packages** | Интеграция со Stuffer API: курьеры и посылки                                     | `src/pages/Couriers.jsx`            |
+| **IMAP**              | Почтовые аккаунты: мониторинг писем, парсинг треков/подтверждений, SMTP-отправка | `src/pages/Imap.jsx`                |
+| **Activity Log**      | Журнал всех действий в системе (аудит)                                           | `src/pages/ActivityLog.jsx`         |
+| **Users**             | (admin) Пользователи, роли, сессии, статистика команды                           | `src/pages/UsersPage.jsx`           |
+| **My Stats**          | (operator) Личная статистика оператора                                           | `src/pages/MyStats.jsx`             |
+| **Settings**          | Лицензия, тема, язык, авто-блокировка, BIN API, Stuffer API, БД, синк            | `src/pages/Settings.jsx`            |
 
-- Безопасное хранение данных карт с шифрованием AES-256-GCM
-- Автоматический мониторинг и парсинг почты по IMAP
-- Синхронизация между устройствами по WebSocket в реальном времени
-- Продвинутый risk-скоринг и мониторинг «здоровья» карт
-- Массовые операции и импорт/экспорт CSV
-- Мультиязычность (i18n, en/ru, 840+ ключей)
+Скрытые/служебные: `Login.jsx` (мастер-пароль), `UserLogin.jsx`, `Activate.jsx`
+(активация лицензии), `Onboarding.jsx`, `Drops.jsx` (заглушка — функционал в Profiles),
+`float.jsx` (отдельное плавающее окно профиля, `float.html`).
 
-## Технологии
+---
 
-### Фронтенд
-
-- **React 18** — UI-фреймворк
-- **Vite 7** — сборка и dev-сервер
-- **Tailwind CSS 3** — утилитарные стили
-- **Lucide React** — иконки
-- **Recharts** — графики
-
-### Бэкенд
-
-- **Rust** — основная логика
-- **Tauri 2** — десктоп-фреймворк (~190 команд)
-- **SQLite** — локальная БД (15+ таблиц)
-- **rusqlite** — доступ к БД
-
-### Безопасность и шифрование
-
-- **aes-gcm** — шифрование AES-256-GCM
-- **bcrypt** — хеширование паролей
-- **pbkdf2** — вывод ключа
-
-### Коммуникации
-
-- **imap** — мониторинг почты
-- **lettre** — SMTP-клиент
-- **tungstenite** — WebSocket-клиент
-- **ureq** — HTTP-клиент
-
-## Функциональность
-
-### Управление картами
-
-- Создание, редактирование, удаление записей карт
-- Отслеживание статуса карты (free, in_use, dead, archived)
-- Заметки, теги, произвольные метаданные
-- Health-скоринг на основе паттернов использования
-- Массовые операции
-
-### Интеграция с почтой
-
-- IMAP к нескольким провайдерам (Gmail, Outlook, Yahoo и т.д.)
-- Автоматический парсинг писем-уведомлений
-- Детект и категоризация транзакций
-- Привязка письмо → карта
-
-### Доступ и безопасность
-
-- Валидация лицензии (challenge/activation key через sync-сервер)
-- Защита мастер-паролем (разблокирует зашифрованную БД)
-- Автовход в соло-режиме после разблокировки — без отдельного экрана логина
-- Роли по лицензии: каждая лицензия несёт `admin` или `operator`, применяется на клиенте
-  после activate/verify
-- Шифрование чувствительных данных AES-256-GCM
-- Безопасный вывод ключа PBKDF2 (600 000 итераций)
-- Зашифрованное хранилище БД
-- Авто-блокировка по неактивности
-
-### Схема входа
+## Как устроено
 
 ```
-1. Активация лицензии → challenge-код меняется на activation key (sync-сервер)
-2. Мастер-пароль      → выводит ключ, расшифровывающий БД
-3. Автовход           → одиночная (соло) установка входит сразу в приложение;
-                        роль (admin/operator) берётся из лицензии
+manager-work/
+├── src/                  # Фронтенд React + Vite
+│   ├── pages/            # Страницы (см. таблицу выше)
+│   ├── components/       # Общие: Modal, EmptyState, ErrorBoundary, skeletons…
+│   ├── store/            # Сторы (cards, orders) — кэш и состояние списков
+│   ├── api/              # Тонкие обёртки над Tauri-командами
+│   ├── hooks/            # useAuth, useLang, useKeyboardShortcuts, useUndo…
+│   ├── i18n/             # en.js / ru.js — 530+ ключей, t(key, {params})
+│   ├── styles/           # tokens.css (дизайн-токены), components.css, pages.css…
+│   └── utils/            # clipboard, csv, validation, errorHandler…
+├── src-tauri/            # Бэкенд Rust
+│   └── src/
+│       ├── commands/     # 206 Tauri-команд (IPC API фронта)
+│       ├── database/     # SQLite: _analytics, _cards, _orders, _shops, _imap…
+│       └── main.rs       # Точка входа, инициализация БД и конфига
+├── cc-sync-server/       # Свой WebSocket sync-сервер (Node.js) + docs/API.md
+├── e2e/                  # Playwright-тесты с моком Tauri (setup/tauri-mock.js)
+├── scripts/              # audit_frontend.py (аудит дрейфа CSS/i18n), release-скрипты
+└── docs/                 # Справочная документация (см. docs/README.md)
 ```
 
-Временный admin-пароль, генерируемый при первом запуске, **никогда не пишется в логи или
-файлы** — доступ защищён мастер-паролем, поэтому в соло-режиме запрос пароля не нужен.
+**Поток данных:** `UI → Tauri-команда → Rust → SQLite (SQLCipher) → ответ → стор/стейт`.
+Шифрование: SQLCipher (вся БД), AES-256-GCM для полей, PBKDF2 600k для ключа из
+мастер-пароля. Ключи живут только в памяти и зануляются при блокировке.
 
-### Разделы навигации (12 + скрытые)
+**Вход:** лицензия (challenge → activation key через sync-сервер) → мастер-пароль →
+автовход (соло-режим). Роль admin/operator приходит с лицензией.
 
-Dashboard · Updates · Cards · Profiles · Orders · Catalog · Shops · Proxies ·
-Курьеры / Посылки · IMAP · Activity Log · Users (admin) / My Stats (operator).
-Скрытая страница **Drops** — заглушка (функционал перенесён внутрь Profiles).
-Раздел **Курьеры / Посылки (Stuffer)** реализован (v2.5.0) —
-см. [docs/COURIERS_STUFFER.ru.md](docs/COURIERS_STUFFER.ru.md).
+---
 
-## Разработка
-
-### Требования
-
-- **Node.js** 18+ и npm
-- **Rust** 1.70+ (через [rustup](https://rustup.rs/))
-- Системные зависимости (зависит от ОС)
-
-### Установка
+## Запуск
 
 ```bash
-cd manager-work
-npm install
+npm install            # зависимости
+npm run dev            # Vite dev-сервер на :5173 (UI без десктоп-обвязки)
+npx tauri dev          # полное приложение (Rust + WebView), собирает src-tauri
 ```
 
-### Запуск dev-сервера
+Продакшн: `npm run tauri build` → инсталляторы в `src-tauri/target/release/bundle/`.
+
+## Проверки
 
 ```bash
-# Vite dev-сервер + приложение Tauri
-npm run dev
-
-# Только фронтенд (для работы над UI)
-npm run dev -- --no-tauri
+npm run lint           # ESLint
+npx vitest run         # 306 unit-тестов
+npm run test:e2e       # Playwright e2e (с моком Tauri)
+python scripts/audit_frontend.py   # аудит дрейфа: сиротские классы, фантомные токены, i18n
+node scripts/visual-audit.mjs      # скриншоты всех страниц с мок-данными в audit-shots/
 ```
 
-### Продакшн-сборка
+## Конфигурация
 
-```bash
-npm run build
-npm run tauri build
-```
-
-Инсталляторы появятся в `src-tauri/target/release/bundle/`.
-
-## Скрипты
-
-| Команда                | Описание                           |
-| ---------------------- | ---------------------------------- |
-| `npm run dev`          | Dev-сервер с горячей перезагрузкой |
-| `npm run build`        | Продакшн-сборка бандла             |
-| `npm run preview`      | Локальный просмотр продакшн-сборки |
-| `npm run tauri`        | Команды Tauri CLI                  |
-| `npm run lint`         | Линт JS/JSX                        |
-| `npm run lint:fix`     | Авто-фикс линта                    |
-| `npm run format`       | Форматирование                     |
-| `npm run format:check` | Проверка форматирования            |
-| `npm run test:e2e`     | E2E-тесты Playwright               |
-
-## Архитектура
-
-### Разделение фронт/бэк
-
-- **Фронтенд (React):** рендер UI, взаимодействие, состояние
-- **Бэкенд (Rust):** бизнес-логика, работа с БД, шифрование, сеть
-- **Связь:** IPC-мост Tauri (~190 команд)
-
-### Поток данных
-
-```
-Действие → React-компонент → Tauri-команда → Rust-обработчик → SQLite
-                                    ↓
-                              Слой шифрования
-                                    ↓
-                            Сетевая синхронизация (опц.)
-```
-
-### Модель безопасности
-
-1. Активация лицензии открывает доступ и назначает роль (admin/operator)
-2. Мастер-пароль разблокирует приложение
-3. Выведенный ключ (PBKDF2, 600k итераций) шифрует данные (AES-256-GCM)
-4. БД хранит зашифрованные блобы
-5. Ключи не покидают память в открытом виде (зануляются при блокировке)
-6. Авто-блокировка по неактивности
-
-Полное описание — в [docs/AUTH_AND_ROLES.md](docs/AUTH_AND_ROLES.md).
+`VaultBase.dev.toml` / `.staging.toml` / `.production.toml` — профили (порты, sync-сервер,
+логирование). Подробно: [docs/CONFIGURATION.md](docs/CONFIGURATION.md) и
+[docs/CONSTANTS.md](docs/CONSTANTS.md).
 
 ## Документация
 
-- [CHECKLIST.md](CHECKLIST.md) — полный чеклист статусов (готово / в работе / план)
-- [ROADMAP.md](ROADMAP.md) — планы (расширение Proxies, автоматизация, редизайн UI)
-- [docs/COURIERS_STUFFER.ru.md](docs/COURIERS_STUFFER.ru.md) — интеграция Курьеры / Посылки (Stuffer)
-- [PROJECT_STATUS.ru.md](PROJECT_STATUS.ru.md) — статус модулей
-- [docs/AUTH_AND_ROLES.md](docs/AUTH_AND_ROLES.md) — вход, мастер-ключ, роли по лицензии
-- [docs/ARCHITECTURE.ru.md](docs/ARCHITECTURE.ru.md) — архитектура системы
-- [cc-sync-server/docs/API.md](cc-sync-server/docs/API.md) — API sync-сервера
-
-## Безопасность
-
-Аудит безопасности (март 2026): **все 119 уязвимостей исправлены** (10/10; 34 critical,
-30 high, 36 medium, 19 low). См. [SECURITY_AUDIT_COMPLETE.md](SECURITY_AUDIT_COMPLETE.md)
-и [SECURITY_AUDIT_FIXES.md](SECURITY_AUDIT_FIXES.md).
+- [AGENTS.ru.md](AGENTS.ru.md) — правила для разработки (и для ИИ-агентов)
+- [MASTER_CHECKLIST.md](MASTER_CHECKLIST.md) — живой чеклист задач (121 пункт)
+- [CHANGELOG.md](CHANGELOG.md) — история версий
+- [docs/README.md](docs/README.md) — индекс всех справочников
 
 ## Лицензия
 
 Проприетарная — все права защищены.
-
----
-
-**Версия:** 2.5.0
-**Собрано на:** Tauri 2 + React 18 + Rust

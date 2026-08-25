@@ -45,7 +45,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
   const { toast } = usePremiumToast()
   const { suggestions: smartSuggs } = useSmartSuggestions(shopId, profileDetail?.card?.id)
 
-  // в”Ђв”Ђ Profile search в”Ђв”Ђ
+  // ── Profile search ──
   const searchProfiles = useCallback(async q => {
     try {
       const r = await invoke('get_profiles', {
@@ -60,13 +60,13 @@ export function CreateOrderModal({ onCreated, onClose }) {
   }, [])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Р°СЃРёРЅС…СЂРѕРЅРЅС‹Р№ РїРѕРёСЃРє РїСЂРѕС„РёР»РµР№
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронный поиск профилей
     searchProfiles(profileSearch)
   }, [profileSearch, searchProfiles])
 
   const selectProfile = async p => {
     setProfileId(p.id)
-    setProfileSearch(`${p.holder_masked || 'вЂ”'} В·В·В·${p.last4 || '????'}`)
+    setProfileSearch(`${p.holder_masked || '—'} ···${p.last4 || '????'}`)
     setProfileResults([])
     try {
       const d = await invoke('get_profile_detail', { id: p.id })
@@ -79,7 +79,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
     }
   }
 
-  // в”Ђв”Ђ Shop search в”Ђв”Ђ
+  // ── Shop search ──
   const searchShops = useCallback(async q => {
     if (!q.trim()) {
       setShopResults([])
@@ -117,7 +117,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
   }, [])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Р°СЃРёРЅС…СЂРѕРЅРЅС‹Р№ РїРѕРёСЃРє РјР°РіР°Р·РёРЅРѕРІ
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронный поиск магазинов
     searchShops(shopSearch)
   }, [shopSearch, searchShops])
 
@@ -173,11 +173,11 @@ export function CreateOrderModal({ onCreated, onClose }) {
     setShopObj(s)
     setShopSearch(s.name || s.domain)
     setShopResults([])
-    // allSettled, Р° РЅРµ all: get_emails С‚СЂРµР±СѓРµС‚ manage_emails, get_proxies вЂ”
-    // manage_proxies, Рё Сѓ РѕРїРµСЂР°С‚РѕСЂР° СЌС‚РёС… РїСЂР°РІ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РЅРµС‚. РЎ Promise.all
-    // РѕРґРёРЅ РѕС‚РєР°Р· СЂРѕРЅСЏР» РІСЃСЋ С‚СЂРѕР№РєСѓ, Рё С€Р°Р±Р»РѕРЅС‹ Р·Р°РєР°Р·Р° (РЅР° РєРѕС‚РѕСЂС‹Рµ РїСЂР°РІРѕ РЅРµ
-    // РЅСѓР¶РЅРѕ) С‚РѕР¶Рµ РЅРµ РїРѕРґРіСЂСѓР¶Р°Р»РёСЃСЊ вЂ” РѕРїРµСЂР°С‚РѕСЂ РІРёРґРµР» С‚СЂРё РїСѓСЃС‚С‹С… СЃРїРёСЃРєР° Р±РµР·
-    // РµРґРёРЅРѕРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ. РўРµРїРµСЂСЊ РєР°Р¶РґС‹Р№ СЃРїРёСЃРѕРє Р¶РёРІС‘С‚ СЃРІРѕРµР№ Р¶РёР·РЅСЊСЋ.
+    // allSettled, а не all: get_emails требует manage_emails, get_proxies —
+    // manage_proxies, и у оператора этих прав по умолчанию нет. С Promise.all
+    // один отказ ронял всю тройку, и шаблоны заказа (на которые право не
+    // нужно) тоже не подгружались — оператор видел три пустых списка без
+    // единого сообщения. Теперь каждый список живёт своей жизнью.
     const [em, px, tmpl] = await Promise.allSettled([
       invoke('get_emails', { filter: {}, page: 1, perPage: 100 }),
       invoke('get_proxies', { filter: {}, page: 1, perPage: 100 }),
@@ -187,24 +187,21 @@ export function CreateOrderModal({ onCreated, onClose }) {
     setProxies(px.status === 'fulfilled' ? px.value.items || [] : [])
     setTemplates(tmpl.status === 'fulfilled' ? tmpl.value || [] : [])
 
-    // РћР± РѕС‚РєР°Р·Рµ РїРѕ РїСЂР°РІР°Рј СЃРѕРѕР±С‰Р°РµРј РѕРґРёРЅ СЂР°Р· Рё РјСЏРіРєРѕ: СЃРїРёСЃРѕРє РѕСЃС‚Р°РЅРµС‚СЃСЏ РїСѓСЃС‚С‹Рј,
-    // РЅРѕ РѕС„РѕСЂРјРёС‚СЊ Р·Р°РєР°Р· РјРѕР¶РЅРѕ Рё Р±РµР· РїРёСЃСЊРјР° РёР· РїСѓР»Р° РёР»Рё РїСЂРѕРєСЃРё.
+    // Об отказе по правам сообщаем один раз и мягко: список останется пустым,
+    // но оформить заказ можно и без письма из пула или прокси.
     const denied = [em, px, tmpl]
       .filter(r => r.status === 'rejected')
       .map(r => String(r.reason?.message || r.reason || ''))
       .filter(m => m.startsWith('permission_denied'))
     if (denied.length) {
-      console.warn(
-        '[Orders] selectShop: С‡Р°СЃС‚СЊ СЃРїСЂР°РІРѕС‡РЅРёРєРѕРІ РЅРµРґРѕСЃС‚СѓРїРЅР° РїРѕ РїСЂР°РІР°Рј:',
-        denied
-      )
+      console.warn('[Orders] selectShop: часть справочников недоступна по правам:', denied)
     }
   }
 
-  // в”Ђв”Ђ Risk check в”Ђв”Ђ
+  // ── Risk check ──
   useEffect(() => {
     if (!profileId || !shopId || !dropId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- РѕС‡РёСЃС‚РєР° СЂРµР·СѓР»СЊС‚Р°С‚Р° СЂРёСЃРє-РїСЂРѕРІРµСЂРєРё
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- очистка результата риск-проверки
       setRiskResult(null)
       return
     }
@@ -228,14 +225,14 @@ export function CreateOrderModal({ onCreated, onClose }) {
     return () => clearTimeout(timer)
   }, [profileId, shopId, dropId, emailId, proxyId])
 
-  // в”Ђв”Ђ Items в”Ђв”Ђ
+  // ── Items ──
   const total = items.reduce((s, i) => s + (parseInt(i.qty) || 0) * (parseFloat(i.price) || 0), 0)
   const setItem = (idx, key, val) =>
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, [key]: val } : it)))
   const addItem = () => setItems(prev => [...prev, { ...EMPTY_ITEM }])
   const removeItem = idx => setItems(prev => prev.filter((_, i) => i !== idx))
 
-  // в”Ђв”Ђ Template в”Ђв”Ђ
+  // ── Template ──
   const loadTemplate = tmpl => {
     try {
       const parsed = JSON.parse(tmpl.items_json)
@@ -264,7 +261,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
     }
   }
 
-  // в”Ђв”Ђ Submit в”Ђв”Ђ
+  // ── Submit ──
   const handleCreate = async () => {
     if (!profileId || !shopId || !dropId) {
       toast('Profile, shop and drop are required', 'warn')
@@ -375,7 +372,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
         </div>
 
         <div className="p-6 flex flex-col gap-5">
-          {/* в”Ђв”Ђ 1. Profile в”Ђв”Ђ */}
+          {/* ── 1. Profile ── */}
           <div>
             <label className="form-label">1. Profile *</label>
             <div className="relative">
@@ -394,9 +391,9 @@ export function CreateOrderModal({ onCreated, onClose }) {
                   {profileResults.map(p => (
                     <button key={p.id} onClick={() => selectProfile(p)} className="dropdown-btn">
                       <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-text">{p.holder_masked || 'вЂ”'}</span>
+                        <span className="text-[13px] text-text">{p.holder_masked || '—'}</span>
                         <div className="flex items-center gap-2 text-[12px] text-muted">
-                          <span className="font-mono">В·В·В·{p.last4}</span>
+                          <span className="font-mono">···{p.last4}</span>
                           <span>{p.bank_name || ''}</span>
                           <span
                             className={p.drop_count > 0 ? 'drop-count-safe' : 'drop-count-warning'}
@@ -416,12 +413,12 @@ export function CreateOrderModal({ onCreated, onClose }) {
                 <div>
                   <div className="text-muted mb-0.5">Card</div>
                   <div className="text-text mono">
-                    В·В·В·{profileDetail.profile.last4 || profileDetail.card?.last4}
+                    ···{profileDetail.profile.last4 || profileDetail.card?.last4}
                   </div>
                 </div>
                 <div>
                   <div className="text-muted mb-0.5">Bank</div>
-                  <div className="text-text">{profileDetail.card?.bank_name || 'вЂ”'}</div>
+                  <div className="text-text">{profileDetail.card?.bank_name || '—'}</div>
                 </div>
                 <div>
                   <div className="text-muted mb-0.5">{t('primary_drop')}</div>
@@ -435,7 +432,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
             )}
           </div>
 
-          {/* в”Ђв”Ђ 2. Shop в”Ђв”Ђ */}
+          {/* ── 2. Shop ── */}
           <div>
             <label className="form-label">2. Shop *</label>
             <div className="relative">
@@ -506,7 +503,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
             )}
           </div>
 
-          {/* в”Ђв”Ђ 3. Drop в”Ђв”Ђ */}
+          {/* ── 3. Drop ── */}
           {drops.length > 0 && (
             <div>
               <label className="form-label">3. Shipping Address</label>
@@ -536,7 +533,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
             </div>
           )}
 
-          {/* в”Ђв”Ђ 4+5. Email + Proxy в”Ђв”Ђ */}
+          {/* ── 4+5. Email + Proxy ── */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="form-label">4. Email (optional)</label>
@@ -561,7 +558,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                     onChange={e => setEmailId(e.target.value ? parseInt(e.target.value) : null)}
                     className="inline-select w-full"
                   >
-                    <option value="">вЂ” None вЂ”</option>
+                    <option value="">— None —</option>
                     {emails.map(em => {
                       const usedHere = em.shops_used?.some(s => s.id === shopId)
                       return (
@@ -590,7 +587,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                 onChange={e => setProxyId(e.target.value ? parseInt(e.target.value) : null)}
                 className="inline-select w-full"
               >
-                <option value="">вЂ” None вЂ”</option>
+                <option value="">— None —</option>
                 {proxies.map(px => {
                   const usedHere = px.shops_used?.some(s => s.id === shopId)
                   return (
@@ -601,7 +598,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                   )
                 })}
               </select>
-              {/* G3: Geo-match hint вЂ” show recommended proxies matching profile billing country */}
+              {/* G3: Geo-match hint — show recommended proxies matching profile billing country */}
               {(() => {
                 const billingCountry =
                   profileDetail?.profile?.country || profileDetail?.card?.country
@@ -629,13 +626,13 @@ export function CreateOrderModal({ onCreated, onClose }) {
             </div>
           </div>
 
-          {/* в”Ђв”Ђ 6. Risk Check в”Ђв”Ђ */}
+          {/* ── 6. Risk Check ── */}
           <div>
             <label className="form-label">6. Risk Check</label>
             <RiskBlock result={riskResult} loading={riskLoading} />
           </div>
 
-          {/* в”Ђв”Ђ 7. Order number в”Ђв”Ђ */}
+          {/* ── 7. Order number ── */}
           <div>
             <label className="form-label">7. Order Number (optional)</label>
             <input
@@ -646,7 +643,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
             />
           </div>
 
-          {/* в”Ђв”Ђ 8. Items в”Ђв”Ђ */}
+          {/* ── 8. Items ── */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="form-label mb-0">8. Items</label>
@@ -799,7 +796,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
             )}
           </div>
 
-          {/* в”Ђв”Ђ 9. Notes в”Ђв”Ђ */}
+          {/* ── 9. Notes ── */}
           <div>
             <label className="form-label">9. Notes</label>
             <textarea
@@ -810,7 +807,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
             />
           </div>
 
-          {/* в”Ђв”Ђ Submit в”Ђв”Ђ */}
+          {/* ── Submit ── */}
           <button
             onClick={handleCreate}
             disabled={loading || !profileId || !shopId || !dropId}

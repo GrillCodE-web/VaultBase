@@ -51,11 +51,25 @@ manager-work/
 │
 ├── src-tauri/                    # Бэкенд Rust (Tauri v2)
 │   ├── src/
-│   │   ├── main.rs               # Tauri-команды (~190) + AppState
-│   │   ├── models.rs             # Модели данных + права
-│   │   ├── database/             # Слой БД (11 подмодулей)
+│   │   ├── main.rs               # Точка входа: setup, invoke_handler (206 команд)
+│   │   ├── commands/             # Tauri-команды по доменам
+│   │   │   ├── mod.rs            # Реэкспорт всех команд
+│   │   │   ├── auth.rs           # Вход, сессии, мастер-пароль
+│   │   │   ├── cards.rs          # Карты + магазины (CRUD, фильтры)
+│   │   │   ├── orders.rs         # Заказы
+│   │   │   ├── dashboard.rs      # Статистика дашборда
+│   │   │   ├── imap.rs / smtp.rs # Почта
+│   │   │   ├── license.rs        # Лицензия
+│   │   │   ├── sync.rs           # Синхронизация
+│   │   │   ├── stuffer.rs        # Курьеры/посылки (Stuffer API)
+│   │   │   ├── automation.rs     # Автоматизация
+│   │   │   ├── catalog.rs        # Каталог
+│   │   │   ├── config.rs / misc.rs
+│   │   │   └── *_tests.rs        # Тесты команд рядом с кодом
+│   │   ├── models.rs             # Модели данных + флаги прав (perms)
+│   │   ├── database/             # Слой БД (SQLCipher — вся БД зашифрована)
 │   │   │   ├── mod.rs            # Структура Database + обёртка impl
-│   │   │   ├── _core.rs          # Открытие, пул, шифрование
+│   │   │   ├── _core.rs          # Открытие, пул, ключи
 │   │   │   ├── _cards.rs         # Операции с картами
 │   │   │   ├── _analytics.rs     # Статистика дашборда
 │   │   │   ├── _imap.rs          # Почтовые аккаунты
@@ -65,18 +79,18 @@ manager-work/
 │   │   │   ├── _misc.rs          # Прочие операции
 │   │   │   ├── _users.rs         # Аутентификация, права, автовход
 │   │   │   ├── _helpers.rs       # Вспомогательные функции
+│   │   │   ├── _seed.rs          # Сидинг справочников
 │   │   │   └── _migrations.rs    # Миграции БД
-│   │   ├── encryption.rs         # Пофайловое шифрование
-│   │   ├── imap.rs               # IMAP-клиент
-│   │   ├── smtp.rs               # SMTP-клиент
-│   │   ├── parser.rs             # Парсинг карт
-│   │   ├── sync.rs               # HTTP-синхронизация
-│   │   ├── ws_sync.rs            # WebSocket-пул
+│   │   ├── encryption.rs         # AES-256-GCM для полей
+│   │   ├── imap.rs / smtp.rs     # Почтовые клиенты
+│   │   ├── parser.rs             # Парсинг карт из текста
+│   │   ├── sync.rs / ws_sync.rs  # HTTP + WebSocket синхронизация
 │   │   ├── tracking.rs           # Трекинг заказов
-│   │   ├── rate_limiter.rs       # Rate limiting
 │   │   ├── license.rs            # Валидация лицензии
-│   │   └── Cargo.toml
-│   ├── tauri.conf.json           # Конфиг Tauri
+│   │   ├── config.rs             # TOML-профили (dev/staging/production)
+│   │   ├── logging.rs            # tracing-логи (JSON, ротация по дням)
+│   │   └── background.rs         # Фоновые задачи
+│   ├── tauri.conf.json           # Конфиг Tauri (окна: main + float)
 │   └── icons/                    # Иконки приложения
 │
 ├── package.json                  # Node-зависимости
@@ -179,20 +193,21 @@ npm run tauri build
 
 ### Добавление новой Tauri-команды
 
-1. **Объявить команду в `main.rs`:**
+1. **Объявить команду в подходящем домене `src-tauri/src/commands/`** (например, `cards.rs`)
+   и реэкспортировать в `commands/mod.rs`:
 
 ```rust
 #[tauri::command]
-fn my_new_command(param: String) -> Result<String, String> {
+pub(crate) fn my_new_command(param: String) -> Result<String, String> {
     Ok("result".to_string())
 }
 ```
 
-2. **Зарегистрировать в `invoke_handler`:**
+2. **Зарегистрировать в `invoke_handler` в `main.rs`:**
 
 ```rust
 .invoke_handler(tauri::generate_handler![
-    my_new_command,
+    commands::cards::my_new_command,
 ])
 ```
 
@@ -373,5 +388,5 @@ if (hasPerm('take_cards')) {
 
 ---
 
-**Обновлено:** 6 августа 2026
-**Версия:** 2.5.0
+**Обновлено:** 25 августа 2026
+**Версия:** 2.11.3

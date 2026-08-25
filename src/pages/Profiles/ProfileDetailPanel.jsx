@@ -60,7 +60,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   }, [profileId]) // toast is stable from useToast hook
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Р°СЃРёРЅС…СЂРѕРЅРЅР°СЏ Р·Р°РіСЂСѓР·РєР° РїСЂРѕС„РёР»РµР№
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка профилей
     load()
   }, [load])
 
@@ -170,7 +170,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   return (
     <div className="border-t border-border" style={{ background: 'var(--overlay-loading)' }}>
       <div className="grid grid-cols-3 border-t-0">
-        {/* в”Ђв”Ђ Card info в”Ђв”Ђ */}
+        {/* ── Card info ── */}
         <div className="p-5 border-r border-border">
           <div className="flex items-center gap-2 mb-4">
             <CreditCard size={14} className="text-blue-t" />
@@ -182,18 +182,16 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
             {[
               [
                 t('card_label_number'),
-                card.card_number
-                  ? `${card.bin || ''}вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў${card.last4 || ''}`
-                  : 'вЂ”',
+                card.card_number ? `${card.bin || ''}••••••••${card.last4 || ''}` : '—',
               ],
-              [t('card_label_expiry'), card.expiry_date || 'вЂ”'],
-              [t('card_label_cvv'), 'вЂўвЂўвЂў'],
-              [t('card_label_holder'), card.holder_name || 'вЂ”'],
-              [t('card_label_bank'), card.bank_name || 'вЂ”'],
-              [t('card_label_type'), card.card_type || 'вЂ”'],
-              [t('card_label_level'), card.card_level || 'вЂ”'],
-              [t('card_label_country'), card.country || 'вЂ”'],
-              [t('cc_col_status'), card.status || 'вЂ”'],
+              [t('card_label_expiry'), card.expiry_date || '—'],
+              [t('card_label_cvv'), '•••'],
+              [t('card_label_holder'), card.holder_name || '—'],
+              [t('card_label_bank'), card.bank_name || '—'],
+              [t('card_label_type'), card.card_type || '—'],
+              [t('card_label_level'), card.card_level || '—'],
+              [t('card_label_country'), card.country || '—'],
+              [t('cc_col_status'), card.status || '—'],
             ].map(([label, val]) => (
               <div key={label} className="flex items-center justify-between">
                 <span className="text-[11px] text-muted">{label}</span>
@@ -247,7 +245,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
           </div>
         </div>
 
-        {/* в”Ђв”Ђ Drops в”Ђв”Ђ */}
+        {/* ── Drops ── */}
         <div className="p-5 border-r border-border">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -365,7 +363,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
           </div>
         </div>
 
-        {/* в”Ђв”Ђ Orders в”Ђв”Ђ */}
+        {/* ── Orders ── */}
         <div className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -401,7 +399,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                     <span className={`st ${ORDER_STATUS_CSS[o.status] ?? 'st-archive'}`}>
                       {o.status}
                     </span>
-                    <span className="text-[12px] text-text">{o.shop_name || 'вЂ”'}</span>
+                    <span className="text-[12px] text-text">{o.shop_name || '—'}</span>
                   </div>
                   {o.tracking_number && (
                     <p className="text-[10px] font-mono text-muted m-0">{o.tracking_number}</p>

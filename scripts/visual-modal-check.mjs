@@ -3,56 +3,19 @@
 // Результат: audit-shots/modal-orders.png, modal-couriers.png + вердикты в консоль.
 
 import { chromium } from '@playwright/test'
-
-const admin = { id: 1, username: 'admin', role: 'admin', token: 'mock-token', permissions: [], must_change_password: false }
+import { buildMock, data } from './visual-mock.mjs'
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 page.on('pageerror', e => console.log('[pageerror]', String(e).slice(0, 300)))
+page.on('console', m => {
+  const t = m.text()
+  if (m.type() === 'error') console.log('[err]', t.slice(0, 200))
+  const u = t.match(/\[visual-mock\] unhandled invoke: (\w+)/)
+  if (u) console.log('[unhandled]', u[1])
+})
 
-await page.addInitScript(`
-  try { localStorage.setItem('onboarding_done', '1') } catch {}
-  const ADMIN = ${JSON.stringify(admin)};
-  let evtId = 0;
-  const LIST = { items: [], total: 0 };
-  const DATA = {
-    is_password_set: true,
-    unlock: true,
-    try_auto_login: ADMIN,
-    resume_session: ADMIN,
-    get_license_status: { status: 'active' },
-    get_config: null,
-    get_app_version: '2.11.3',
-    get_sidebar_badges: {},
-    get_user_with_permissions: ADMIN,
-    get_cards: { items: [{ id: 1 }], total: 1, free_total: 1 },
-    get_orders: LIST,
-    get_profiles: LIST,
-    get_shops: LIST,
-    get_emails: LIST,
-    get_proxies: LIST,
-    get_order_templates: [],
-    search_catalog_shops: [],
-    search_catalog_items: [],
-    get_catalog_stats: { items: 1, shops: 1 },
-    stuffer_list_couriers: [{ id: 1, name: 'DHL Courier', status: 'available', phone: '+1 555 000 1' }],
-    stuffer_list_available_couriers: [],
-    stuffer_list_packages: [],
-    stuffer_get_config: {},
-    stuffer_get_labels: [],
-  };
-  window.__TAURI_INTERNALS__ = {
-    transformCallback: () => 1,
-    invoke: (cmd) => {
-      if (cmd.startsWith('plugin:event|listen')) return Promise.resolve(++evtId);
-      if (cmd.startsWith('plugin:')) return Promise.resolve(null);
-      if (Object.prototype.hasOwnProperty.call(DATA, cmd)) return Promise.resolve(DATA[cmd]);
-      return Promise.resolve(null);
-    },
-    metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
-  };
-  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
-`)
+await page.addInitScript(buildMock(data))
 
 const results = []
 const check = (name, ok, detail) => {
@@ -68,14 +31,6 @@ if (await pw.count()) {
   await page.locator('button.auth-btn').first().click()
   await page.waitForTimeout(2500)
 }
-console.log(
-  '[state] sbi:',
-  await page.locator('button.sbi').count(),
-  'page-enter:',
-  await page.locator('.page-enter').count(),
-  'body:',
-  (await page.evaluate(() => document.body.innerText.slice(0, 160))).replace(/\n/g, ' | ')
-)
 
 // 1. Корневой фикс: после анимации .page-enter transform обязан быть none
 await page.waitForTimeout(600)
@@ -86,8 +41,7 @@ const transform = await page.evaluate(() => {
 check('page-enter transform сброшен', transform === 'none', `transform: ${transform}`)
 
 // 2. Orders → модалка создания заказа (шаред Modal → портал)
-const ordersBtn = page.locator('button.sbi', { hasText: /orders|заказ/i }).first()
-await ordersBtn.click()
+await page.locator('button.sbi', { hasText: /orders|заказ/i }).first().click()
 await page.waitForTimeout(1200)
 await page.locator('button', { hasText: /create order|новый заказ/i }).first().click()
 await page.waitForTimeout(900)
@@ -99,19 +53,20 @@ check(
   overlayBox ? `x=${overlayBox.x} y=${overlayBox.y} w=${overlayBox.width} h=${overlayBox.height}` : 'overlay not found'
 )
 
-const dialog = page.locator('[role="dialog"]').first()
-const dBox = await dialog.boundingBox()
+const dBox = await page.locator('[role="dialog"]').first().boundingBox()
 const centered = dBox && Math.abs(dBox.x + dBox.width / 2 - 720) < 40 && Math.abs(dBox.y + dBox.height / 2 - 450) < 120
 check('диалог по центру viewport', !!centered, dBox ? `cx=${Math.round(dBox.x + dBox.width / 2)} cy=${Math.round(dBox.y + dBox.height / 2)} (ожидается 720/450)` : 'dialog not found')
 await page.screenshot({ path: 'audit-shots/modal-orders.png' })
-await page.keyboard.press('Escape')
+// CreateOrderModal — raw-оверлей без Escape: закрываем кнопкой Close
+await page.locator('.modal-overlay [aria-label="Close"]').first().click()
 await page.waitForTimeout(500)
 
 // 3. Couriers → модалка size="lg" (проверка --modal-size: ширина 720, не 560)
-const couriersBtn = page.locator('button.sbi', { hasText: /courier|курьер/i }).first()
-await couriersBtn.click()
+await page.locator('button.sbi', { hasText: /courier|курьер/i }).first().click()
 await page.waitForTimeout(1200)
-const addBtn = page.locator('button', { hasText: /add|добавить|assign|назначить/i }).first()
+await page.locator('button', { hasText: /^packages$|^посылки$|^пакеты$/i }).first().click()
+await page.waitForTimeout(800)
+const addBtn = page.locator('button', { hasText: /new package|нов.*посыл|нов.*пакет/i }).first()
 if (await addBtn.isVisible().catch(() => false)) {
   await addBtn.click()
   await page.waitForTimeout(900)
@@ -124,6 +79,9 @@ if (await addBtn.isVisible().catch(() => false)) {
   await page.screenshot({ path: 'audit-shots/modal-couriers.png' })
   await page.keyboard.press('Escape')
 } else {
+  const btns = await page.locator('.main-content-scroll button').allTextContents()
+  console.log('[debug] кнопки на странице:', btns.map(b => b.trim()).filter(Boolean).join(' | '))
+  await page.screenshot({ path: 'audit-shots/modal-couriers-debug.png' })
   check('модалка lg = 720px (--modal-size работает)', false, 'триггер на Couriers не найден')
 }
 

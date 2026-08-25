@@ -55,13 +55,13 @@ export function DuplicateProfilesModal({ groups, onClose }) {
                 className="border-[var(--color-warning-bg)] rounded-[10px] overflow-hidden"
               >
                 <div className="bg-warning p-\[8px_16px\] text-[12px] text-[var(--orange)] font-medium border-b-[var(--color-warning-bg)]">
-                  Card {group[0].bin}вЂўвЂўвЂўвЂў{group[0].last4} вЂ” {group.length} profiles
+                  Card {group[0].bin}••••{group[0].last4} — {group.length} profiles
                 </div>
                 {group.map(p => (
                   <div key={p.id} className="duplicate-list-item">
                     <span className="text-[12px] font-mono text-text">{shortId(p.id)}</span>
                     <span className="text-[11px] text-muted">
-                      {p.drop_count} drops В· {p.order_count} orders
+                      {p.drop_count} drops · {p.order_count} orders
                     </span>
                   </div>
                 ))}
