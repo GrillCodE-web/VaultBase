@@ -1,4 +1,4 @@
-<#
+﻿<#
 VaultBase — параллельные сессии агентов (подробности: PARALLEL_WORK.md).
 
 Создать worktree для потока (ветка agent/<stream> от main):
@@ -16,24 +16,37 @@ param(
   [switch]$Remove
 )
 
-$ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $wt = Join-Path (Split-Path $repo -Parent) "agent-$Stream"
 $branch = "agent/$Stream"
 
+function Assert-Step([string]$msg) {
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "$msg (код $LASTEXITCODE)"
+    exit 1
+  }
+}
+
 if ($Remove) {
   git -C $repo worktree remove $wt
+  Assert-Step "git worktree remove не смог удалить $wt (может, там незакоммиченное — смотри руками)"
   git -C $repo branch -d $branch
+  Assert-Step "ветка $branch не слита в main — сначала слей (см. PARALLEL_WORK.md)"
   Write-Host "Removed: $wt (branch $branch)"
   exit 0
 }
 
 if (Test-Path $wt) {
-  Write-Error "Worktree уже существует: $wt. Если он от мёртвой сессии — сначала -Remove (коммиты сохранятся в ветке $branch, пока она не слита)."
+  Write-Error "Worktree уже существует: $wt. От мёртвой сессии — сначала -Remove (коммиты сохранятся в ветке $branch, пока она не слита)."
+  exit 1
 }
 
 git -C $repo worktree add -b $branch $wt main
-if ($Install) { npm ci --prefix $wt }
+Assert-Step "git worktree add не смог создать $wt"
+if ($Install) {
+  npm ci --prefix $wt
+  Assert-Step "npm ci упал внутри $wt"
+}
 
 Write-Host ""
 Write-Host "OK: $wt  (ветка $branch)"
