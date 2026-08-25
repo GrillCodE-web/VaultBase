@@ -677,6 +677,8 @@ pub(crate) fn purge_old_webview_cache() {}
 pub(crate) fn maybe_vacuum_db() {
     if let Some(st) = STATE.get() {
         if let Ok(db) = st.db.lock() {
+            // БД заблокирована (мастер-пароль не введён) — пропускаем до следующего запуска
+            if db.is_locked() { return; }
             let should_vacuum = db.conn.query_row(
                 "SELECT value FROM _maintenance WHERE key = 'last_vacuum'",
                 [],

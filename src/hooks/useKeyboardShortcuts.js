@@ -36,10 +36,11 @@ export function useKeyboardShortcuts(shortcuts, options = {}) {
         // Add key to sequence
         sequenceRef.current.keys.push(key)
 
-        // Set timer to reset sequence after 1 second
+        // UX-021: сброс последовательности через 500ms (1000ms было слишком
+        // щедро — соседние буквы слипались в ложные шорткаты)
         sequenceRef.current.timer = setTimeout(() => {
           sequenceRef.current.keys = []
-        }, 1000)
+        }, 500)
 
         // Check if sequence matches any shortcut
         const sequence = sequenceRef.current.keys.join(' ')

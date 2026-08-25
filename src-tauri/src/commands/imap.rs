@@ -1,4 +1,4 @@
-// Tauri commands: imap domain.
+﻿// Tauri commands: imap domain.
 // Extracted from main.rs during module refactor.
 
 use crate::state::*;
@@ -130,7 +130,7 @@ pub(crate) fn refresh_folder_from_imap(account_id: i64, folder: String, app_hand
             _ => return Ok(()),
         }
     };
-    std::thread::spawn(move || {
+    crate::state::spawn_task(move || {
         let known_uids: std::collections::HashSet<String> = {
             let Ok(g) = state().db.lock() else { return };
             g.get_known_imap_uids(account_id).unwrap_or_default().into_iter().collect()
@@ -191,7 +191,7 @@ pub(crate) fn get_imap_folders(id: i64, app_handle: tauri::AppHandle) -> Result<
         let guard = state().db.lock().map_err(|e| e.to_string())?;
         guard.get_cached_imap_folders(id)
     };
-    std::thread::spawn(move || {
+    crate::state::spawn_task(move || {
         let creds = {
             let Ok(g) = state().db.lock() else { return };
             g.get_imap_account_with_password(id)
@@ -228,7 +228,7 @@ pub(crate) fn check_all_imap(app_handle: tauri::AppHandle) -> Result<ImapCheckRe
     let count = accounts.len() as u32;
     for acc in accounts {
         let app = app_handle.clone();
-        std::thread::spawn(move || {
+        crate::state::spawn_task(move || {
             let result = {
                 let Ok(mut g) = state().db.lock() else { return };
                 crate::imap::ImapPoller::check_account(&mut g, acc.id)

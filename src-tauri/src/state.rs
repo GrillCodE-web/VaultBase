@@ -71,6 +71,66 @@ pub(crate) fn ws_handle() -> &'static std::sync::Arc<WsSyncHandle> {
     })
 }
 
+// ─────────────────────────────────────────
+//  ARCH-005: bounded thread-pool для on-demand фоновых задач
+// ─────────────────────────────────────────
+// Раньше каждая IMAP-команда (refresh folder, list folders, check_all)
+// делала `std::thread::spawn` — при N аккаунтах или быстрых повторных
+// вызовах это создавало неограниченное число потоков. Здесь — фиксированный
+// пул из 2 воркеров с bounded-очередью на 64 задачи. При переполнении
+// очереди задача молча отбрасывается (IMAP-операции идемпотентны и
+// повторятся на следующем цикле поллинга).
+
+type BoxedTask = Box<dyn FnOnce() + Send + 'static>;
+
+struct TaskPool {
+    sender: Mutex<std::sync::mpsc::SyncSender<BoxedTask>>,
+}
+
+static TASK_POOL: OnceCell<TaskPool> = OnceCell::new();
+
+fn task_pool() -> &'static TaskPool {
+    TASK_POOL.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<BoxedTask>(64);
+        let rx = std::sync::Arc::new(Mutex::new(rx));
+        for _ in 0..2 {
+            let rx = std::sync::Arc::clone(&rx);
+            std::thread::spawn(move || loop {
+                let task = {
+                    let lock = rx.lock();
+                    match lock {
+                        Ok(guard) => guard.recv(),
+                        Err(_) => return, // отравленный мьютекс — воркер завершается
+                    }
+                };
+                match task {
+                    Ok(job) => job(),
+                    Err(_) => return, // канал закрыт — воркер завершается
+                }
+            });
+        }
+        TaskPool { sender: Mutex::new(tx) }
+    })
+}
+
+/// Поставить фоновую задачу в очередь пула. Возвращает false, если очередь
+/// переполнена (задача не будет выполнена — вызывающий может залогировать).
+pub(crate) fn spawn_task<F>(f: F) -> bool
+where
+    F: FnOnce() + Send + 'static,
+{
+    let pool = task_pool();
+    let Ok(sender) = pool.sender.lock() else { return false };
+    match sender.try_send(Box::new(f)) {
+        Ok(()) => true,
+        Err(std::sync::mpsc::TrySendError::Full(_)) => {
+            eprintln!("[task_pool] очередь переполнена (64), задача отброшена");
+            false
+        }
+        Err(std::sync::mpsc::TrySendError::Disconnected(_)) => false,
+    }
+}
+
 pub(crate) fn db_path() -> PathBuf {
     #[cfg(debug_assertions)]
     {

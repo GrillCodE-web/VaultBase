@@ -101,7 +101,10 @@ impl Database {
             });
 
         Pool::builder()
-            .max_size(8)
+            // PERF-013: 8 → 16 соединений (фоновые IMAP/WS потоки + UI-команды
+            // конкурируют за пул) + явный таймаут ожидания свободного соединения
+            .max_size(16)
+            .connection_timeout(std::time::Duration::from_secs(5))
             .build(manager)
             .ok()
     }

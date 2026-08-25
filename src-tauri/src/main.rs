@@ -134,7 +134,20 @@ fn main() {
         }
 
         loaded.unwrap_or_else(|| {
-            tracing::info!(profile = %profile, "No TOML config found, using built-in defaults");
+            // BUG-020: в production отсутствие конфига — не тихий fallback, а warning
+            if profile == "production" {
+                tracing::warn!(
+                    profile = %profile,
+                    toml = %toml_name,
+                    "Production config NOT FOUND (checked VAULTBASE_CONFIG_DIR, exe dir, cwd) — using built-in defaults"
+                );
+                eprintln!(
+                    "WARNING: {} не найден ни в одном из мест (VAULTBASE_CONFIG_DIR, рядом с exe, cwd) — встроенные дефолты",
+                    toml_name
+                );
+            } else {
+                tracing::info!(profile = %profile, "No TOML config found, using built-in defaults");
+            }
             config::get_default_config(&profile)
         })
     };
@@ -169,6 +182,11 @@ fn main() {
                     }
                 }
             }
+            // PERF-012: VACUUM по расписанию — в отдельном потоке, чтобы не
+            // блокировать запуск (может занять секунды на большой БД).
+            std::thread::spawn(|| {
+                maybe_vacuum_db();
+            });
             start_background_threads(app.handle().clone());
             #[cfg(target_os = "macos")]
             {

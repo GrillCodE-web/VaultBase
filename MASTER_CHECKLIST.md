@@ -80,7 +80,7 @@
 | ARCH-002 | Заменить 7 `.unwrap()` в `stuffer.rs` на `?` / `.unwrap_or_default()`               | 🔴        | `stuffer.rs:384-495`    | ✅     |
 | ARCH-003 | Заменить `.unwrap()` в IMAP regex на `.expect()` с описанием                        | 🟡        | `imap.rs:15-19`         | ✅     |
 | ARCH-004 | Структурные ошибки из commands: JSON `{ code, message, suggestion }` вместо String  | 🟠        | `commands/*.rs`         | ✅ (классификатор + database_locked/invalid_master_password)     |
-| ARCH-005 | IMAP: мигрировать на async-imap или tokio thread pool (blocking I/O)                | 🟠        | `imap.rs`               | ⬜     |
+| ARCH-005 | IMAP: мигрировать на async-imap или tokio thread pool (blocking I/O)                | 🟠        | `imap.rs`               | ✅     |
 
 ### 2.2 Frontend архитектура
 
@@ -143,8 +143,8 @@
 | UX-013 | Onboarding-тур для новых пользователей (react-joyride)                  | 🟢        | `Onboarding.jsx`                      | ⬜     |
 | UX-014 | Кастомизируемый дашборд: drag & drop виджеты (react-grid-layout)        | 🟡        | `DashboardRedesigned.jsx`             | ⬜     |
 | UX-015 | Progress bar для batch import (вместо только спиннера)                  | 🟠        | `BatchImportModal.jsx`                | ⬜     |
-| UX-016 | Offline индикатор в header (badge когда sync server недоступен)         | 🟡        | `App.jsx`, UI header                  | ⬜     |
-| UX-017 | Column picker: persist в localStorage + кнопка reset                    | 🟡        | `Cards.jsx:37-48`, `ColumnPicker.jsx` | ⬜     |
+| UX-016 | Offline индикатор в header (badge когда sync server недоступен)         | 🟡        | `App.jsx`, UI header                  | ✅     |
+| UX-017 | Column picker: persist в localStorage + кнопка reset                    | 🟡        | `Cards.jsx:37-48`, `ColumnPicker.jsx` | ✅     |
 | UX-018 | Email assignment feedback — показывать какой email выбран               | 🟡        | `ProfileModal.jsx:312-336`            | ⬜     |
 | UX-019 | autoCreateDrop: убрать auto=true по умолчанию, добавить подтверждение   | 🟡        | `ProfileModal.jsx:22`                 | ⬜     |
 
@@ -153,7 +153,7 @@
 | #      | Задача                                                             | Приоритет | Файл(ы)                         | Статус |
 | ------ | ------------------------------------------------------------------ | --------- | ------------------------------- | ------ |
 | UX-020 | Расширить: Ctrl+N (новая запись), Ctrl+F (поиск), Ctrl+E (экспорт) | 🟢        | `useKeyboardShortcuts.js`       | ⬜     |
-| UX-021 | Sequence timeout: уменьшить с 1000ms до 500ms                      | 🟢        | `useKeyboardShortcuts.js:47-49` | ⬜     |
+| UX-021 | Sequence timeout: уменьшить с 1000ms до 500ms                      | 🟢        | `useKeyboardShortcuts.js:47-49` | ✅     |
 | UX-022 | Conflict detection: проверка на дублирование shortcuts             | 🟢        | `useKeyboardShortcuts.js`       | ⬜     |
 
 ---
@@ -184,9 +184,9 @@
 
 | #        | Задача                                                                    | Приоритет | Файл(ы)             | Статус |
 | -------- | ------------------------------------------------------------------------- | --------- | ------------------- | ------ |
-| PERF-011 | Добавить индекс для email search: `idx_cards_email_search`                | 🟡        | `_migrations.rs`    | ⬜     |
-| PERF-012 | Добавить VACUUM по расписанию (при старте или ежедневно)                  | 🟢        | `background.rs`     | ⬜     |
-| PERF-013 | Увеличить database pool с 8 до 16 + connection_timeout 5s                 | 🟡        | `_core.rs:34`       | ⬜     |
+| PERF-011 | Добавить индекс для email search: `idx_cards_email_search`                | 🟡        | `_migrations.rs`    | ✅     |
+| PERF-012 | Добавить VACUUM по расписанию (при старте или ежедневно)                  | 🟢        | `background.rs`     | ✅     |
+| PERF-013 | Увеличить database pool с 8 до 16 + connection_timeout 5s                 | 🟡        | `_core.rs:34`       | ✅     |
 | PERF-014 | Bundle size: lazy load recharts и jsPDF (тяжёлые зависимости)             | 🟢        | `vite.config.js`    | ⬜     |
 | PERF-015 | BIN enrichment: debounce запросов (макс 1 req/2sec) + exponential backoff | 🟡        | `_cards.rs:466-530` | ⬜     |
 
@@ -264,15 +264,15 @@
 | BUG-010  | Database pool не закрывается при exit (file locks на Windows)                   | 🟡        | `_core.rs:28`                        | ⬜     |
 | BUG-011  | Float window hide() вместо close() — процесс в памяти после exit                | 🟡        | `main.rs:160-195`                    | ⬜     |
 | BUG-012  | Body overflow не восстанавливается при внезапном unmount ImportModal            | 🟡        | `ImportModal.jsx:112-114`            | ⬜     |
-| BUG-013  | Set vs Array inconsistency: Profiles=Set, Cards=Array для selectedIds           | 🟡        | `Profiles.jsx:39-40`                 | ⬜     |
+| BUG-013  | Set vs Array inconsistency: Profiles=Set, Cards=Array для selectedIds           | 🟡        | `Profiles.jsx:39-40`                 | ✅     |
 | BUG-014  | Missing useCallback deps: stale closures в Cards handleSetSideCard              | 🟡        | `Cards.jsx:545`                      | ⬜     |
-| BUG-015  | Даты hardcoded 'ru-RU' — не учитывают locale пользователя                       | 🟡        | `Shops.jsx:44-50`, `MyStats.jsx`     | ⬜     |
+| BUG-015  | Даты hardcoded 'ru-RU' — не учитывают locale пользователя                       | 🟡        | `Shops.jsx:44-50`, `MyStats.jsx`     | ✅     |
 | BUG-012a | Body overflow: создан `useScrollLock` hook с ref-counting для вложенных модалей | 🟡        | `src/hooks/useScrollLock.js`         | ✅     |
 | BUG-016  | CreateOrderModal: quickCreate race condition                                    | 🟡        | `CreateOrderModal.jsx:108-126`       | ⬜     |
 | BUG-017  | CSV Import: не валидирует пустой preview_rows                                   | 🟡        | `ImportModal.jsx:56-61`              | ⬜     |
 | BUG-018  | Risk scoring offline: RiskCheckOutcome::Offline не показывается пользователю    | 🟡        | `_orders.rs`, `CreateOrderModal.jsx` | ⬜     |
 | BUG-019  | ActionsMenu z-index может конфликтовать с модалями                              | 🟡        | `ActionsMenu.jsx:50-60`              | ⬜     |
-| BUG-020  | Config loading: нет warning если production конфиг не найден                    | 🟡        | `main.rs:96-110`                     | ⬜     |
+| BUG-020  | Config loading: нет warning если production конфиг не найден                    | 🟡        | `main.rs:96-110`                     | ✅     |
 | BUG-021  | Float CopyBtn: race condition при множественных кликах (очередь toast)          | 🟢        | `float.jsx:30-45`                    | ⬜     |
 | BUG-022  | localStorage quota: нет retry и уведомления при overflow                        | 🟢        | `utils/localStorage.js:28-52`        | ⬜     |
 
