@@ -667,32 +667,11 @@
   }
 }
 
-.btn-r:hover,
-.btn-warn:hover {
+.btn-r:hover {
   animation: btn-warn-shake 0.28s ease;
 }
 
-@keyframes btn-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-  50% {
-    box-shadow: 0 0 0 8px transparent;
-  }
-}
-
 /* ── Copy Feedback ──────────────────────────────────────── */
-@keyframes copy-blink {
-  0% {
-    background: transparent;
-    box-shadow: 0 0 12px transparent;
-  }
-  100% {
-    background: transparent;
-    box-shadow: none;
-  }
-}
 
 /* ── Side Panel ─────────────────────────────────────────── */
 @keyframes side-panel-in {
@@ -757,10 +736,5 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-
-  .scanline-overlay,
-  .noise-overlay {
-    display: none;
   }
 }

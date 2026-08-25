@@ -44,7 +44,6 @@
   input,
   textarea,
   [contenteditable],
-  .selectable,
   .mono,
   code,
   pre,
@@ -285,10 +284,6 @@
 
   .pointer {
     cursor: default;
-  }
-
-  .no-select {
-    user-select: none;
   }
 
   .truncate {
