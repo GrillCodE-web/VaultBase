@@ -28,8 +28,6 @@
     'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Mono', Consolas,
     'DejaVu Sans Mono', monospace;
 
-  /* Прежние алиасы — чтобы старые объявления не осиротели */
-
   /* ── Шкала размеров ─────────────────────────────────────── */
   --fs-title: 20px;
   --fs-heading: 15px;
