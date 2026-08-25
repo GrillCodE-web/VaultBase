@@ -307,6 +307,13 @@
 
   --noise-opacity: 0;
   --scanline-opacity: 0;
+
+  /* ── Legacy / поправленные токены, чтобы не осиротели места использования ── */
+  --surface2: var(--surface);
+  --subtle: var(--muted);
+  --green-bright: #22c55e;
+  --indigo-t: #6366f1;
+  --toast-duration: 4s;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -464,6 +471,13 @@
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-item-active: rgba(255, 255, 255, 0.12);
   --sidebar-item-active-text: #f5f5f7;
+
+  /* Legacy / поправленные токены — тёмная тема */
+  --surface2: #1f2429;
+  --subtle: var(--muted);
+  --green-bright: #4ade80;
+  --indigo-t: #818cf8;
+  --toast-duration: 4s;
 }
 
 /* Светлая тема как явный выбор — значения совпадают с :root,
@@ -589,6 +603,25 @@
     --backdrop-blur: rgba(30, 30, 30, 0.75);
     --backdrop-blur-strong: rgba(30, 30, 30, 0.88);
 
+    /* Токены, которые есть в [data-theme='dark'], но отсутствовали здесь —
+       без них system-тёмная тема брала светлые значения из :root */
+    --purple-bright: #d17ff5;
+    --blue: #0a84ff;
+    --color-chart-revenue: #00b3e6;
+    --overlay-modal: rgba(0, 0, 0, 0.75);
+    --overlay-backdrop: rgba(0, 0, 0, 0.35);
+    --overlay-loading: rgba(9, 12, 17, 0.88);
+    --role-admin-bg: rgba(10, 132, 255, 0.2);
+    --role-admin-dim: rgba(10, 132, 255, 0.12);
+    --role-user-bg: rgba(50, 215, 75, 0.15);
+    --role-user-dim: rgba(50, 215, 75, 0.1);
+    --green-border-soft: rgba(50, 215, 75, 0.3);
+    --teal-dim: rgba(20, 184, 166, 0.15);
+    --teal-border: rgba(20, 184, 166, 0.25);
+    --neutral-border: rgba(107, 114, 128, 0.25);
+    --purple-alt-dim: rgba(167, 139, 250, 0.15);
+    --indigo-dim: rgba(129, 140, 248, 0.15);
+
     --hover: rgba(255, 255, 255, 0.06);
     --hover-row: rgba(255, 255, 255, 0.04);
     --active-press: rgba(255, 255, 255, 0.11);
@@ -605,6 +638,13 @@
     --sidebar-border: rgba(255, 255, 255, 0.08);
     --sidebar-item-active: rgba(255, 255, 255, 0.12);
     --sidebar-item-active-text: #f5f5f7;
+
+    /* Legacy / поправленные токены — системный тёмный режим */
+    --surface2: #1f2429;
+    --subtle: var(--muted);
+    --green-bright: #4ade80;
+    --indigo-t: #818cf8;
+    --toast-duration: 4s;
   }
 }
 
@@ -777,7 +817,12 @@
 
 /* Page entrance animation */
 .page-enter {
-  animation: page-in 0.22s ease both;
+  /* fill-mode НЕ forwards/both: после конца анимации transform обязан
+     вернуться в none. Иначе translateY(0) из последнего кадра навсегда
+     делает .page-enter containing block'ом для position:fixed внутри —
+     модалки позиционируются от контента страницы, клипятся скроллом
+     .main-content-scroll и «уезжают» за пределы окна. */
+  animation: page-in 0.22s ease backwards;
 }
 
 /* Spinner: свойство animation убрано отсюда — этот файл не

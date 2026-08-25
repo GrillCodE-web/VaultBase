@@ -891,7 +891,7 @@
   }
 
   .stat-card-cards {
-    --card-accent: var(--cyan);
+    --card-accent: var(--accent);
     --card-accent-dim: rgba(6, 182, 212, 0.1);
     --card-accent-border: rgba(6, 182, 212, 0.3);
   }
@@ -1863,7 +1863,7 @@
   td .filter-link-badge.domain-badge {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), transparent);
     border: 1px solid rgba(99, 102, 241, 0.3);
-    color: var(--indigo-t);
+    color: var(--purple-bright);
     font-family: var(--font-mono);
     font-size: 10px;
     padding: 3px 8px;
@@ -7183,6 +7183,55 @@
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     padding: 14px 16px;
+  }
+
+  .mstats-loading-panel {
+    padding: var(--sp-10);
+    text-align: center;
+  }
+
+  .mstats-loading-panel .spinner,
+  .mstats-spinner {
+    margin: 0 auto;
+  }
+
+  .mstats-panel-header {
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--fs-body);
+    font-weight: 600;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mstats-user-row {
+    cursor: pointer;
+  }
+
+  .mstats-user-row.inactive {
+    opacity: 0.5;
+  }
+
+  .mstats-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-2xl);
+    background: var(--color-info-bg);
+    color: var(--blue-t);
+    font-size: var(--fs-title);
+    font-weight: 700;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mstats-empty {
+    padding: var(--sp-8);
+    text-align: center;
+  }
+
+  .mstats-conversion {
+    font-weight: 600;
   }
 
   /* ── Сайд-табы контента (Обзор / По периодам) ─────────────────

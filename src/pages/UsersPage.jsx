@@ -227,7 +227,7 @@ function UserModal({ user, onClose, onSaved }) {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: isActive ? 'var(--accent-green)' : 'var(--muted)',
+                  color: isActive ? 'var(--green-t)' : 'var(--muted)',
                   padding: 0,
                 }}
               >
@@ -239,7 +239,7 @@ function UserModal({ user, onClose, onSaved }) {
             </label>
           )}
 
-          {error && <p style={{ color: 'var(--accent-red)', fontSize: 13, margin: 0 }}>{error}</p>}
+          {error && <p style={{ color: 'var(--red-t)', fontSize: 13, margin: 0 }}>{error}</p>}
         </div>
 
         <div className="modal-footer">
@@ -356,9 +356,7 @@ function PermissionsPanel({ user, onClose, onSaved }) {
                           width: '100%',
                           padding: '8px 12px',
                           marginBottom: 4,
-                          background: p.granted
-                            ? 'var(--accent-green-alpha, rgba(34,197,94,0.08))'
-                            : 'var(--surface)',
+                          background: p.granted ? 'var(--green-dim)' : 'var(--surface)',
                           border: `1px solid ${p.granted ? 'rgba(34,197,94,0.25)' : 'var(--border)'}`,
                           borderRadius: 8,
                           cursor: 'pointer',
@@ -372,8 +370,8 @@ function PermissionsPanel({ user, onClose, onSaved }) {
                             height: 18,
                             borderRadius: 4,
                             flexShrink: 0,
-                            background: p.granted ? 'var(--accent-green)' : 'transparent',
-                            border: `2px solid ${p.granted ? 'var(--accent-green)' : 'var(--border)'}`,
+                            background: p.granted ? 'var(--green-t)' : 'transparent',
+                            border: `2px solid ${p.granted ? 'var(--green-t)' : 'var(--border)'}`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -475,7 +473,7 @@ function UserDetailPanel({ user, onClose }) {
                 width: 36,
                 height: 36,
                 borderRadius: 8,
-                background: user.role === 'admin' ? 'var(--accent-blue)' : 'var(--accent-green)',
+                background: user.role === 'admin' ? 'var(--blue-t)' : 'var(--green-t)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -518,8 +516,8 @@ function UserDetailPanel({ user, onClose }) {
                 background: 'none',
                 cursor: 'pointer',
                 fontSize: 13,
-                color: tab === t ? 'var(--accent-blue)' : 'var(--muted)',
-                borderBottom: tab === t ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                color: tab === t ? 'var(--blue-t)' : 'var(--muted)',
+                borderBottom: tab === t ? '2px solid var(--blue-t)' : '2px solid transparent',
                 fontWeight: tab === t ? 600 : 400,
               }}
             >
@@ -550,31 +548,31 @@ function UserDetailPanel({ user, onClose }) {
                         icon: <CreditCard size={15} />,
                         label: 'Карт взято',
                         value: stats.cards_taken,
-                        color: 'var(--accent-blue)',
+                        color: 'var(--blue-t)',
                       },
                       {
                         icon: <ShoppingCart size={15} />,
                         label: 'Заказов создано',
                         value: stats.orders_created,
-                        color: 'var(--accent-green)',
+                        color: 'var(--green-t)',
                       },
                       {
                         icon: <Check size={15} />,
                         label: 'Доставлено',
                         value: stats.orders_delivered,
-                        color: 'var(--accent-green)',
+                        color: 'var(--green-t)',
                       },
                       {
                         icon: <X size={15} />,
                         label: 'Отказов',
                         value: stats.orders_declined,
-                        color: 'var(--accent-red)',
+                        color: 'var(--red-t)',
                       },
                       {
                         icon: <TrendingUp size={15} />,
                         label: 'Потрачено',
                         value: fmtMoney(stats.total_spent),
-                        color: 'var(--accent-yellow)',
+                        color: 'var(--yellow-t)',
                       },
                       {
                         icon: <Activity size={15} />,
@@ -656,7 +654,7 @@ function UserDetailPanel({ user, onClose }) {
                             style={{
                               textAlign: 'right',
                               padding: '8px 0',
-                              color: 'var(--accent-green)',
+                              color: 'var(--green-t)',
                             }}
                           >
                             {p.orders_delivered}
@@ -665,7 +663,7 @@ function UserDetailPanel({ user, onClose }) {
                             style={{
                               textAlign: 'right',
                               padding: '8px 0',
-                              color: 'var(--accent-yellow)',
+                              color: 'var(--yellow-t)',
                             }}
                           >
                             {fmtMoney(p.total_spent)}
@@ -702,7 +700,7 @@ function UserDetailPanel({ user, onClose }) {
                       <span style={{ color: 'var(--muted)' }}>Активных сессий (1ч)</span>
                       <span
                         style={{
-                          color: stats.active_sessions > 0 ? 'var(--accent-green)' : 'var(--muted)',
+                          color: stats.active_sessions > 0 ? 'var(--green-t)' : 'var(--muted)',
                         }}
                       >
                         {stats.active_sessions}
@@ -771,27 +769,27 @@ function AdminOverviewBanner({ overview }) {
       style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12, marginBottom: 24 }}
     >
       {[
-        { label: 'Заказов сегодня', value: overview.today_orders, color: 'var(--accent-blue)' },
+        { label: 'Заказов сегодня', value: overview.today_orders, color: 'var(--blue-t)' },
         {
           label: 'Доставлено сегодня',
           value: overview.today_delivered,
-          color: 'var(--accent-green)',
+          color: 'var(--green-t)',
         },
         {
           label: 'Потрачено сегодня',
           value: fmtMoney(overview.today_spent),
-          color: 'var(--accent-yellow)',
+          color: 'var(--yellow-t)',
         },
         { label: 'Карт в пуле', value: overview.total_cards_in_pool, color: 'var(--muted)' },
         {
           label: 'Карт назначено',
           value: overview.total_cards_assigned,
-          color: 'var(--accent-blue)',
+          color: 'var(--blue-t)',
         },
         {
           label: 'Онлайн (1ч)',
           value: overview.online_sessions,
-          color: overview.online_sessions > 0 ? 'var(--accent-green)' : 'var(--muted)',
+          color: overview.online_sessions > 0 ? 'var(--green-t)' : 'var(--muted)',
         },
       ].map((item, i) => (
         <div
@@ -915,7 +913,7 @@ export default function UsersPage() {
                   justifyContent: 'center',
                   fontWeight: 700,
                   fontSize: 16,
-                  color: u.role === 'admin' ? 'var(--accent-blue)' : 'var(--accent-green)',
+                  color: u.role === 'admin' ? 'var(--blue-t)' : 'var(--green-t)',
                 }}
               >
                 {(u.display_name || u.username)[0].toUpperCase()}
@@ -935,14 +933,14 @@ export default function UsersPage() {
                       borderRadius: 20,
                       background:
                         u.role === 'admin' ? 'rgba(59,130,246,0.12)' : 'rgba(34,197,94,0.10)',
-                      color: u.role === 'admin' ? 'var(--accent-blue)' : 'var(--accent-green)',
+                      color: u.role === 'admin' ? 'var(--blue-t)' : 'var(--green-t)',
                       fontWeight: 500,
                     }}
                   >
                     {u.role === 'admin' ? 'Admin' : 'Оператор'}
                   </span>
                   {!u.is_active && (
-                    <span style={{ fontSize: 11, color: 'var(--accent-red)', fontWeight: 500 }}>
+                    <span style={{ fontSize: 11, color: 'var(--red-t)', fontWeight: 500 }}>
                       деактивирован
                     </span>
                   )}
@@ -953,7 +951,7 @@ export default function UsersPage() {
                         padding: '2px 6px',
                         borderRadius: 20,
                         background: 'rgba(34,197,94,0.12)',
-                        color: 'var(--accent-green)',
+                        color: 'var(--green-t)',
                         fontWeight: 500,
                       }}
                     >
@@ -966,11 +964,9 @@ export default function UsersPage() {
                   &nbsp;·&nbsp;Заказов:{' '}
                   <strong style={{ color: 'var(--text)' }}>{u.orders_created}</strong>
                   &nbsp;·&nbsp;Доставлено:{' '}
-                  <strong style={{ color: 'var(--accent-green)' }}>{u.orders_delivered}</strong>
+                  <strong style={{ color: 'var(--green-t)' }}>{u.orders_delivered}</strong>
                   &nbsp;·&nbsp;Сумма:{' '}
-                  <strong style={{ color: 'var(--accent-yellow)' }}>
-                    {fmtMoney(u.total_spent)}
-                  </strong>
+                  <strong style={{ color: 'var(--yellow-t)' }}>{fmtMoney(u.total_spent)}</strong>
                   &nbsp;·&nbsp;Треков:{' '}
                   <strong style={{ color: 'var(--text)' }}>{u.tracking_count}</strong>
                   {u.last_ip && (
@@ -1042,7 +1038,7 @@ export default function UsersPage() {
                     borderRadius: 6,
                     padding: '5px 8px',
                     cursor: 'pointer',
-                    color: 'var(--accent-red)',
+                    color: 'var(--red-t)',
                   }}
                 >
                   <Trash2 size={14} />

@@ -65,7 +65,10 @@ function AccountModal({ account, onSave, onClose }) {
   }
 
   const handleSave = async () => {
-    if (!form.label || !form.host || !form.login || !form.password) {
+    // SEC-017: при редактировании пустой пароль = оставить текущий
+    // (backend update_imap_account пропускает password, если он пустой).
+    // Ротация пароля — просто ввести новый в это же поле.
+    if (!form.label || !form.host || !form.login || (!isEdit && !form.password)) {
       toastErr(t('imap_fields_required'))
       return
     }
@@ -163,7 +166,9 @@ function AccountModal({ account, onSave, onClose }) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Password</label>
+              <label className="form-label">
+                {isEdit ? t('imap_leave_blank') : t('imap_app_password')}
+              </label>
               <input
                 type="password"
                 value={form.password}

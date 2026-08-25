@@ -152,8 +152,8 @@ export default function MyStats() {
             <Users size={14} /> Общая статистика
           </div>
         </div>
-        <div className="panel" style={{ padding: 40, textAlign: 'center' }}>
-          <div className="spinner" style={{ margin: '0 auto' }} />
+        <div className="panel mstats-loading-panel">
+          <div className="spinner" />
         </div>
       </div>
     )
@@ -217,12 +217,7 @@ export default function MyStats() {
       <div className="stats-split-layout">
         {/* Список операторов — кликабельная таблица */}
         <div className="panel p-0 overflow-hidden">
-          <div
-            className="px-4 py-3 text-[13px] font-semibold text-text-2"
-            style={{ borderBottom: '1px solid var(--border)' }}
-          >
-            Пользователи
-          </div>
+          <div className="mstats-panel-header">Пользователи</div>
           <div className="overflow-x-auto">
             <table className="tbl w-full">
               <thead>
@@ -241,18 +236,11 @@ export default function MyStats() {
                     <tr
                       key={u.user_id}
                       onClick={() => setSelectedId(u.user_id)}
-                      className={u.user_id === selectedId ? 'row-selected' : ''}
-                      style={{ cursor: 'pointer', opacity: u.is_active ? 1 : 0.5 }}
+                      className={`mstats-user-row ${u.user_id === selectedId ? 'row-selected' : ''}${u.is_active ? '' : ' inactive'}`}
                     >
                       <td>
                         <div className="flex items-center gap-2">
-                          <span
-                            className="status-dot"
-                            style={{
-                              background:
-                                u.active_sessions > 0 ? 'var(--green-t)' : 'var(--border)',
-                            }}
-                          />
+                          <span className={u.active_sessions > 0 ? 'status-dot active' : 'status-dot inactive'} />
                           <div>
                             <div className="text-text-1">{u.display_name || u.username}</div>
                             <div className="text-[10px] text-muted flex items-center gap-1">
@@ -269,7 +257,8 @@ export default function MyStats() {
                           <span className="text-muted">—</span>
                         ) : (
                           <span
-                            style={{ color: getDeliveryRateColor(u.conversion), fontWeight: 600 }}
+                            className="mstats-conversion"
+                            style={{ color: getDeliveryRateColor(u.conversion) }}
                           >
                             {u.conversion.toFixed(1)}%
                           </span>
@@ -280,7 +269,7 @@ export default function MyStats() {
                   ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="text-center text-muted" style={{ padding: 32 }}>
+                    <td colSpan={4} className="mstats-empty text-muted">
                       Нет пользователей
                     </td>
                   </tr>
@@ -303,19 +292,7 @@ export default function MyStats() {
           ) : (
             <>
               <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="flex items-center justify-center"
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: 'var(--color-info-bg)',
-                    color: 'var(--blue-t)',
-                    fontSize: 18,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                  }}
-                >
+                <div className="mstats-avatar">
                   {(selected.display_name || selected.username || '?')[0].toUpperCase()}
                 </div>
                 <div>
@@ -405,10 +382,11 @@ export default function MyStats() {
                       <div>
                         <div className="text-[11px] text-muted mb-1">Активных сессий (1ч)</div>
                         <div
-                          className="text-[13px]"
-                          style={{
-                            color: selected.active_sessions > 0 ? 'var(--green-t)' : 'var(--muted)',
-                          }}
+                          className={
+                            selected.active_sessions > 0
+                              ? 'text-[13px] text-green-t'
+                              : 'text-[13px] text-muted'
+                          }
                         >
                           {selected.active_sessions}
                         </div>

@@ -149,7 +149,11 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
 
     // SPRINT3-DAY4: License check thread - use config interval
     let h = handle.clone();
-    std::thread::spawn(move || loop {
+    std::thread::spawn(move || {
+        // SEC-018: счётчик подряд идущих ошибок поллинга по каждому аккаунту,
+        // чтобы алертить UI только при устойчивом отвале, а не при единичном сбое.
+        let mut imap_fail_counts: std::collections::HashMap<i64, u32> = std::collections::HashMap::new();
+        loop {
         if let Some(st) = STATE.get() {
             let interval = st.config.background.license_check_interval as u64;
             std::thread::sleep(std::time::Duration::from_secs(interval));
@@ -228,11 +232,22 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                             // get_automation_health всегда показывает OFFLINE.
                             let _ = db.log_event("imap.poll_completed",
                                 &format!("IMAP poll completed for {}", acc.label), Some("imap"), None);
+                            // SEC-018: сбрасываем счётчик ошибок при успешном опросе.
+                            imap_fail_counts.remove(&acc.id);
                         }
                     }
                     Err(e) => {
                         if let Ok(db) = st.db.lock() {
                             let _ = db.log_event("imap.poll_error", &e, Some("imap"), None);
+                        }
+                        // SEC-018: алертим UI только после 3 подряд идущих ошибок
+                        // на одном аккаунте, чтобы не сыпать шумом из-за единичных сбоев.
+                        let count = imap_fail_counts.entry(acc.id).and_modify(|c| *c += 1).or_insert(1);
+                        if *count >= 3 {
+                            let _ = h.emit("imap_connection_alert", serde_json::json!({
+                                "account_id": acc.id,
+                                "error": &e,
+                            }));
                         }
                     }
                 }
@@ -251,6 +266,7 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                     set_dock_badge(badge_count);
                 }
             }
+        }
         }
     });
 

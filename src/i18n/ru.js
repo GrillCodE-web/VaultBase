@@ -684,6 +684,7 @@ export const ru = {
   imap_port: 'Порт',
   imap_app_password: 'Пароль приложения *',
   imap_leave_blank: 'Оставьте пустым, чтобы не менять',
+  imap_conn_alert: 'IMAP: устойчивый сбой подключения, аккаунт',
   imap_app_password_hint: 'Пароль приложения (не веб-пароль!)',
   imap_poll_interval: 'Интервал проверки (сек)',
   imap_login_label: 'Логин (email) *',

@@ -683,6 +683,7 @@ export const en = {
   imap_port: 'Port',
   imap_app_password: 'App Password *',
   imap_leave_blank: 'Leave blank to keep',
+  imap_conn_alert: 'IMAP connection failing for account',
   imap_app_password_hint: 'App password (not web password!)',
   imap_poll_interval: 'Poll interval (sec)',
   imap_login_label: 'Login (email) *',

@@ -502,7 +502,10 @@ function ShopDetailPanel({ shopId, onNavigate }) {
   }
   if (!detail) return null
 
-  const { stats, recent_orders, products } = detail
+  const shop = detail.shop || {}
+  const stats = detail.stats || {}
+  const recent_orders = detail.recent_orders || []
+  const products = detail.products || []
 
   return (
     <div className="border-t border-border bg-surface px-[18px] py-4">
@@ -538,9 +541,9 @@ function ShopDetailPanel({ shopId, onNavigate }) {
         <StatCard label={t('stat_shipped')} value={stats.shipped} accent={STATUS_COLORS.info} />
         <StatCard
           label={t('stat_success_rate')}
-          value={`${stats.success_rate.toFixed(1)}%`}
+          value={stats.success_rate != null ? `${stats.success_rate.toFixed(1)}%` : '—'}
           accent={getDeliveryRateColor(stats.success_rate)}
-          sub={`${t('stat_decline_rate')}: ${stats.decline_rate.toFixed(1)}%`}
+          sub={`${t('stat_decline_rate')}: ${stats.decline_rate != null ? `${stats.decline_rate.toFixed(1)}%` : '—'}`}
         />
       </div>
 
@@ -564,7 +567,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
                       p.url ?? '',
                     ])
                     exportToCSV(
-                      `${detail.shop.name}_products.csv`,
+                      `${shop.name || 'shop'}_products.csv`,
                       'Name,ASIN,Amazon Price,Shop Price,Margin,URL',
                       rows
                     )
@@ -973,7 +976,8 @@ export default function ShopList({ onNavigate }) {
               {rowVirtualizer.getVirtualItems().map(virtualRow => {
                 const shop = shops[virtualRow.index]
                 const successPct = shop.total_orders > 0 ? shop.success_rate : null
-                const declinePct = shop.total_orders > 0 ? shop.decline_rate : null
+                const declinePct =
+                  shop.total_orders > 0 ? (shop.declined / shop.total_orders) * 100 : null
                 const successColor =
                   successPct === null
                     ? 'var(--muted)'
@@ -1139,7 +1143,8 @@ export default function ShopList({ onNavigate }) {
               {shops.map(shop => {
                 const isExpanded = expanded === shop.id
                 const successPct = shop.total_orders > 0 ? shop.success_rate : null
-                const declinePct = shop.total_orders > 0 ? shop.decline_rate : null
+                const declinePct =
+                  shop.total_orders > 0 ? (shop.declined / shop.total_orders) * 100 : null
                 const successColor =
                   successPct === null
                     ? 'var(--muted)'

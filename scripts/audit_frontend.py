@@ -86,7 +86,8 @@ def css_files() -> list[Path]:
 
 
 # ── 1. Определённые классы в CSS ────────────────────────────────────────────
-CLASS_DEF_RE = re.compile(r"\.(-?[a-zA-Z_][\w-]*)")
+# Поддерживаем escape-последовательности (например, .xl\\:grid-cols-4 → xl:grid-cols-4)
+CLASS_DEF_RE = re.compile(r"\.(-?[a-zA-Z_][\w\\:-]*)")
 
 
 def defined_classes() -> set[str]:
@@ -99,7 +100,7 @@ def defined_classes() -> set[str]:
             head = line.split("{", 1)[0]
             if "." in head:
                 for m in CLASS_DEF_RE.finditer(head):
-                    defined.add(m.group(1))
+                    defined.add(m.group(1).replace("\:", ":"))
     return defined
 
 

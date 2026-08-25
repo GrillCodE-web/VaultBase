@@ -16,7 +16,7 @@
   }
 
   .text-secondary {
-    color: var(--text-secondary);
+    color: var(--text-2);
   }
   .text-accent {
     color: var(--accent-text);
@@ -25,6 +25,18 @@
   /* ── Status Colors ──────────────────────────────────────── */
   .text-green-t {
     color: var(--green-t);
+  }
+
+  .text-blue-t {
+    color: var(--blue-t);
+  }
+
+  .text-red-t {
+    color: var(--red-t);
+  }
+
+  .text-yellow-t {
+    color: var(--yellow-t);
   }
 
   .text-cyan-t {
@@ -38,6 +50,17 @@
   }
   .text-success {
     color: var(--color-success);
+  }
+
+  /* ── Content Text Colors ────────────────────────────────── */
+  .text-text-1 {
+    color: var(--text);
+  }
+  .text-text-2 {
+    color: var(--text-2);
+  }
+  .text-text-3 {
+    color: var(--text-3);
   }
 
   /* ── Monospace Font ─────────────────────────────────────── */
@@ -1935,7 +1958,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    background: var(--surface2);
+    background: var(--surface);
     border-radius: 6px;
     padding: 4px 8px;
   }
@@ -1947,7 +1970,7 @@
     border: none;
     cursor: pointer;
     font-size: 12px;
-    color: var(--fg);
+    color: var(--text);
   }
 
   /* ── Inline Input Small ─────────────────────────────────── */
@@ -3823,7 +3846,7 @@
     border: none;
     border-radius: var(--r-xl);
     width: 100%;
-    max-width: var(--modal-size, 560px);
+    max-width: var(--modal-md, 560px);
     max-height: calc(100vh - 60px);
     overflow-y: auto;
     padding: var(--sp-5);
@@ -6961,10 +6984,10 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: var(--clr-warning-bg, #fef3c7);
-  color: var(--clr-warning-text, #92400e);
+  background: var(--yellow-dim);
+  color: var(--yellow-t);
   font-size: 12px;
-  border-bottom: 1px solid var(--clr-warning-border, #fcd34d);
+  border-bottom: 1px solid var(--yellow-border);
   animation: slideDown 0.2s ease-out;
 }
 .session-warning-banner strong {
@@ -6979,4 +7002,170 @@
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+
+/* —— Orphan class fixes (visual audit) —— */
+
+/* Auth / Login */
+.auth-logo-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Card padding helper used by skeletons and error boundary */
+.card-pad {
+  padding: var(--sp-4);
+}
+
+/* DataLoader states */
+.data-loader-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+.data-loader-loading .loading-spinner {
+  color: var(--accent);
+}
+.data-loader-error {
+  color: var(--red-t);
+}
+.data-loader-empty {
+  color: var(--muted);
+}
+
+/* SVG fill utility for status colors */
+.fill-green-t {
+  fill: var(--green-t);
+}
+
+/* Legacy input alias used in float and quick order */
+.inp {
+  width: 100%;
+  height: var(--h-control);
+  padding: 0 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-control);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  outline: none;
+}
+.inp::placeholder {
+  color: var(--text-3);
+}
+.inp:hover {
+  border-color: var(--border-hi);
+}
+.inp:focus,
+.inp:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+/* Modal size modifiers */
+.modal-sm {
+  max-width: var(--modal-sm, 420px);
+}
+
+/* Premium empty state wrapper (Drops page) */
+.premium-empty-state-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: var(--sp-6);
+}
+
+/* Progress ring (Dashboard) */
+.progress-ring-bg {
+  fill: none;
+  stroke: var(--separator);
+}
+
+/* Proxy badge */
+.proxy-bound-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+}
+
+/* Status dropdown anchor */
+.status-menu-anchor {
+  position: relative;
+}
+
+/* Virtual scroll container (Proxies page) */
+.virtual-scroll-container {
+  height: 600px;
+  overflow: auto;
+}
+
+/* Tailwind grid utility used in JSX */
+.xl\:grid-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ── Orphan class fixes, part 2 ── */
+
+/* Чекбокс в таблицах (Catalog, Shops) */
+.cb {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Базовые цвета иконко-кнопок (hover-варианты уже есть выше) */
+.icon-btn-blue {
+  color: var(--blue-t);
+}
+.icon-btn-green {
+  color: var(--green-t);
+}
+.icon-btn-purple {
+  color: var(--purple);
+}
+.icon-btn-red {
+  color: var(--red-t);
+}
+.icon-btn-yellow {
+  color: var(--yellow-t);
+}
+
+/* a11y: контейнер skip-ссылок — невидим, пока ссылка не в фокусе */
+.sr-only-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.sr-only-focusable:focus-within {
+  width: auto;
+  height: auto;
+  overflow: visible;
+}
+
+/* Якорь для template-dropdown-menu (показывается по hover группы) */
+.template-group {
+  position: relative;
 }

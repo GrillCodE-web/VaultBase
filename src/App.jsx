@@ -554,6 +554,23 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // SEC-018: алерт при устойчивом отвале IMAP-аккаунта (3+ подряд ошибки поллинга)
+  useEffect(() => {
+    let unlistenFn = null
+    listen('imap_connection_alert', e => {
+      const p = e.payload
+      if (!p) return
+      const shortErr = String(p.error || '').slice(0, 120)
+      toast(`${t('imap_conn_alert')} #${p.account_id}: ${shortErr}`, 'error')
+    }).then(fn => {
+      unlistenFn = fn
+    })
+    return () => {
+      if (unlistenFn) unlistenFn()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // J: Server online/offline events
   // FIX FE-03: Properly handle Promise.all cleanup with error handling
   useEffect(() => {
@@ -991,8 +1008,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         <div className="sidebar-drag-region" data-tauri-drag-region />
 
         <div className="sidebar-logo">
-          CC
-          {sidebarExpanded && <span className="sidebar-logo-text">Manager</span>}
+          VB
+          {sidebarExpanded && <span className="sidebar-logo-text">VaultBase</span>}
         </div>
 
         {/* #27 — sorted nav with drag-to-reorder */}
