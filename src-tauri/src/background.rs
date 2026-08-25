@@ -29,11 +29,14 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
     // SPRINT3-DAY4: Use autolock_timeout from config
     let h = handle.clone();
     std::thread::spawn(move || loop {
+        // CLEAN-004: fallback-интервал до инициализации STATE — опрашиваем чаще,
+        // чем реальный autolock-таймаут, иначе lock сработал бы слишком поздно
+        const AUTOLOCK_FALLBACK_POLL_SECS: u64 = 30;
         if let Some(st) = STATE.get() {
             let autolock_timeout = st.config.security.autolock_timeout as u64;
             std::thread::sleep(std::time::Duration::from_secs(autolock_timeout));
         } else {
-            std::thread::sleep(std::time::Duration::from_secs(30)); // fallback
+            std::thread::sleep(std::time::Duration::from_secs(AUTOLOCK_FALLBACK_POLL_SECS));
         }
         if let Some(st) = STATE.get() {
             // Быстрая проверка атомарного флага без lock
