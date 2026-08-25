@@ -133,11 +133,11 @@ function UsageStatsModal({ onClose }) {
           <table className="tbl">
             <thead>
               <tr>
-                <th>Proxy ID</th>
-                <th>Total Orders</th>
-                <th>Success</th>
-                <th>Declined</th>
-                <th>Success Rate</th>
+                <th scope="col">Proxy ID</th>
+                <th scope="col">Total Orders</th>
+                <th scope="col">Success</th>
+                <th scope="col">Declined</th>
+                <th scope="col">Success Rate</th>
               </tr>
             </thead>
             <tbody>
@@ -859,13 +859,25 @@ export default function ProxyList() {
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
-                <th className="bg-card">{t('col_label')}</th>
-                <th className="bg-card">{t('col_host_port')}</th>
-                <th className="bg-card">{t('col_type')}</th>
-                <th className="bg-card">{t('col_status')}</th>
-                <th className="bg-card">{t('proxy_used_in')}</th>
-                <th className="bg-card">Last Checked</th>
-                <th className="bg-card"></th>
+                <th scope="col" className="bg-card">
+                  {t('col_label')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('col_host_port')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('col_type')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('col_status')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('proxy_used_in')}
+                </th>
+                <th scope="col" className="bg-card">
+                  Last Checked
+                </th>
+                <th scope="col" className="bg-card"></th>
               </tr>
             </thead>
             <tbody>
@@ -876,13 +888,25 @@ export default function ProxyList() {
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
-                <th className="bg-card">{t('col_label')}</th>
-                <th className="bg-card">{t('col_host_port')}</th>
-                <th className="bg-card">{t('col_type')}</th>
-                <th className="bg-card">{t('col_status')}</th>
-                <th className="bg-card">{t('proxy_used_in')}</th>
-                <th className="bg-card">Last Checked</th>
-                <th className="bg-card"></th>
+                <th scope="col" className="bg-card">
+                  {t('col_label')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('col_host_port')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('col_type')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('col_status')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('proxy_used_in')}
+                </th>
+                <th scope="col" className="bg-card">
+                  Last Checked
+                </th>
+                <th scope="col" className="bg-card"></th>
               </tr>
             </thead>
             <tbody>
@@ -904,13 +928,25 @@ export default function ProxyList() {
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
-                  <th className="bg-card">{t('col_label')}</th>
-                  <th className="bg-card">{t('col_host_port')}</th>
-                  <th className="bg-card">{t('col_type')}</th>
-                  <th className="bg-card">{t('col_status')}</th>
-                  <th className="bg-card">{t('proxy_used_in')}</th>
-                  <th className="bg-card">Last Checked</th>
-                  <th className="bg-card"></th>
+                  <th scope="col" className="bg-card">
+                    {t('col_label')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('col_host_port')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('col_type')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('col_status')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('proxy_used_in')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    Last Checked
+                  </th>
+                  <th scope="col" className="bg-card"></th>
                 </tr>
               </thead>
             </table>
@@ -1024,13 +1060,25 @@ export default function ProxyList() {
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
-                  <th className="bg-card">{t('col_label')}</th>
-                  <th className="bg-card">{t('col_host_port')}</th>
-                  <th className="bg-card">{t('col_type')}</th>
-                  <th className="bg-card">{t('col_status')}</th>
-                  <th className="bg-card">{t('proxy_used_in')}</th>
-                  <th className="bg-card">Last Checked</th>
-                  <th className="bg-card"></th>
+                  <th scope="col" className="bg-card">
+                    {t('col_label')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('col_host_port')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('col_type')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('col_status')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    {t('proxy_used_in')}
+                  </th>
+                  <th scope="col" className="bg-card">
+                    Last Checked
+                  </th>
+                  <th scope="col" className="bg-card"></th>
                 </tr>
               </thead>
               <tbody>

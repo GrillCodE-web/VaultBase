@@ -202,10 +202,16 @@ export default function MyStats() {
             <table className="tbl w-full">
               <thead>
                 <tr>
-                  <th>Пользователь</th>
-                  <th className="text-right">Заказов</th>
-                  <th className="text-right">Конверсия</th>
-                  <th className="text-right">Оборот</th>
+                  <th scope="col">Пользователь</th>
+                  <th scope="col" className="text-right">
+                    Заказов
+                  </th>
+                  <th scope="col" className="text-right">
+                    Конверсия
+                  </th>
+                  <th scope="col" className="text-right">
+                    Оборот
+                  </th>
                 </tr>
               </thead>
               <tbody>

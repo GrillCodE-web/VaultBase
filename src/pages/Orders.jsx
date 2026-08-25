@@ -61,7 +61,10 @@ export default function OrderList({
   const [showBatchImport, setShowBatchImport] = useState(false)
 
   // ARCH-013: debounced search через общий хук
-  const applySearchToStore = useCallback(f => setFilters({ search: f.search || null }), [setFilters])
+  const applySearchToStore = useCallback(
+    f => setFilters({ search: f.search || null }),
+    [setFilters]
+  )
   const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
 
   // Virtual scrolling setup
@@ -257,7 +260,7 @@ export default function OrderList({
         <table className="tbl">
           <thead>
             <tr>
-              <th>
+              <th scope="col">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -265,20 +268,20 @@ export default function OrderList({
                   className="accent-accent cursor-pointer"
                 />
               </th>
-              <th>{t('col_order_num')}</th>
-              <th>
+              <th scope="col">{t('col_order_num')}</th>
+              <th scope="col">
                 {t('cc_col_holder')} / {t('section_card')}
               </th>
-              <th>{t('col_shop')}</th>
-              <th>{t('cc_col_status')}</th>
-              <th>{t('col_amount')}</th>
-              <th>{t('col_tracking')}</th>
-              <th>{t('carrier')}</th>
-              <th>{t('nav_proxies')}</th>
-              <th>{t('col_email')}</th>
-              <th>{t('cc_col_notes')}</th>
-              <th>{t('col_date')}</th>
-              <th></th>
+              <th scope="col">{t('col_shop')}</th>
+              <th scope="col">{t('cc_col_status')}</th>
+              <th scope="col">{t('col_amount')}</th>
+              <th scope="col">{t('col_tracking')}</th>
+              <th scope="col">{t('carrier')}</th>
+              <th scope="col">{t('nav_proxies')}</th>
+              <th scope="col">{t('col_email')}</th>
+              <th scope="col">{t('cc_col_notes')}</th>
+              <th scope="col">{t('col_date')}</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody>

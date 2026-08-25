@@ -604,19 +604,34 @@ function UserDetailPanel({ user, onClose }) {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ color: 'var(--muted)', fontSize: 12 }}>
-                        <th style={{ textAlign: 'left', padding: '6px 0', fontWeight: 500 }}>
+                        <th
+                          scope="col"
+                          style={{ textAlign: 'left', padding: '6px 0', fontWeight: 500 }}
+                        >
                           Период
                         </th>
-                        <th style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}>
+                        <th
+                          scope="col"
+                          style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}
+                        >
                           Заказы
                         </th>
-                        <th style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}>
+                        <th
+                          scope="col"
+                          style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}
+                        >
                           Доставка
                         </th>
-                        <th style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}>
+                        <th
+                          scope="col"
+                          style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}
+                        >
                           Сумма
                         </th>
-                        <th style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}>
+                        <th
+                          scope="col"
+                          style={{ textAlign: 'right', padding: '6px 0', fontWeight: 500 }}
+                        >
                           Карт
                         </th>
                       </tr>
@@ -818,7 +833,12 @@ export default function UsersPage() {
   const handleDelete = async user => {
     // FEAT-014: soft delete — пользователь деактивируется, сессии отзываются,
     // но история операций сохраняется. Полное удаление — hard_delete_user_cmd.
-    if (!confirm(`Отключить пользователя "${user.username}"? Доступ будет закрыт, сессии отозваны. Запись и история сохранятся.`)) return
+    if (
+      !confirm(
+        `Отключить пользователя "${user.username}"? Доступ будет закрыт, сессии отозваны. Запись и история сохранятся.`
+      )
+    )
+      return
     try {
       await invoke('delete_user_cmd', { id: user.user_id })
       load()

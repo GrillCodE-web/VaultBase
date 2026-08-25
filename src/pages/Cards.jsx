@@ -948,9 +948,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
-                <th className="w-9 bg-card"></th>
+                <th scope="col" className="w-9 bg-card" aria-label={t('select_all')}></th>
                 {visibleHeaders.map(c => (
-                  <th key={c.id} className="bg-card">
+                  <th key={c.id} scope="col" className="bg-card">
                     {t(c.label)}
                   </th>
                 ))}
@@ -985,7 +985,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
                   {/* #48 — frozen checkbox column */}
-                  <th className="bg-card w-9 sticky left-0 z-[4]">
+                  <th
+                    scope="col"
+                    className="bg-card w-9 sticky left-0 z-[4]"
+                    aria-label={t('select_all')}
+                  >
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -1000,6 +1004,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                   {visibleHeaders.map((c, i) => (
                     <th
                       key={c.id}
+                      scope="col"
                       draggable={c.id !== 'actions'}
                       onDragStart={() => handleColDragStart(c.id)}
                       onDragOver={handleColDragOver}

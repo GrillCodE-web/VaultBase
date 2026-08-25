@@ -483,7 +483,7 @@ export default function ProfileList({
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
-                <th className="bg-card w-8">
+                <th scope="col" className="bg-card w-8">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -491,18 +491,40 @@ export default function ProfileList({
                     className="accent-accent"
                   />
                 </th>
-                <th className="bg-card"></th>
-                <th className="bg-card">{t('prof_col_profile')}</th>
-                <th className="bg-card">{t('prof_col_card')}</th>
-                <th className="bg-card">{t('prof_col_type')}</th>
-                <th className="bg-card">{t('prof_col_bank')}</th>
-                <th className="bg-card">{t('prof_col_country')}</th>
-                <th className="bg-card">{t('prof_col_status')}</th>
-                <th className="bg-card">{t('prof_col_drops')}</th>
-                <th className="bg-card">{t('prof_col_orders')}</th>
-                <th className="bg-card">{t('cc_col_notes')}</th>
-                <th className="bg-card">{t('prof_col_created')}</th>
-                <th className="bg-card">{t('cc_col_actions')}</th>
+                <th scope="col" className="bg-card"></th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_profile')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_card')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_type')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_bank')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_country')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_status')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_drops')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_orders')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('cc_col_notes')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_created')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('cc_col_actions')}
+                </th>
               </tr>
             </thead>
             <tbody ref={tableBodyRef}>

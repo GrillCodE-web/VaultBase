@@ -591,12 +591,12 @@ function ShopDetailPanel({ shopId, onNavigate }) {
               <table className="tbl">
                 <thead>
                   <tr>
-                    <th>{t('col_asin')}</th>
-                    <th>{t('col_product_name')}</th>
-                    <th>{t('col_amazon_price')}</th>
-                    <th>{t('col_shop_price')}</th>
-                    <th>{t('col_margin')}</th>
-                    <th></th>
+                    <th scope="col">{t('col_asin')}</th>
+                    <th scope="col">{t('col_product_name')}</th>
+                    <th scope="col">{t('col_amazon_price')}</th>
+                    <th scope="col">{t('col_shop_price')}</th>
+                    <th scope="col">{t('col_margin')}</th>
+                    <th scope="col"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -949,7 +949,7 @@ export default function ShopList({ onNavigate }) {
             <table className="tbl">
               <thead className="sticky top-0 z-[3] bg-card">
                 <tr>
-                  <th className="w-8">
+                  <th scope="col" className="w-8">
                     <input
                       type="checkbox"
                       checked={shops.length > 0 && selected.size === shops.length}
@@ -959,19 +959,19 @@ export default function ShopList({ onNavigate }) {
                       className="cb"
                     />
                   </th>
-                  <th className="w-8"></th>
-                  <th>{t('col_shop_name')}</th>
-                  <th>{t('col_name_domain').split(' / ')[1] || 'Domain'}</th>
-                  <th>{t('col_category')}</th>
-                  <th>{t('col_flags')}</th>
-                  <th>{t('col_orders_count')}</th>
-                  <th>{t('col_success_rate')}</th>
-                  <th>{t('col_declined')}</th>
-                  <th>{t('revenue')}</th>
-                  <th>Risk</th>
-                  <th>Delivery %</th>
-                  <th>Exp. Value</th>
-                  <th>{t('cc_col_actions')}</th>
+                  <th scope="col" className="w-8"></th>
+                  <th scope="col">{t('col_shop_name')}</th>
+                  <th scope="col">{t('col_name_domain').split(' / ')[1] || 'Domain'}</th>
+                  <th scope="col">{t('col_category')}</th>
+                  <th scope="col">{t('col_flags')}</th>
+                  <th scope="col">{t('col_orders_count')}</th>
+                  <th scope="col">{t('col_success_rate')}</th>
+                  <th scope="col">{t('col_declined')}</th>
+                  <th scope="col">{t('revenue')}</th>
+                  <th scope="col">Risk</th>
+                  <th scope="col">Delivery %</th>
+                  <th scope="col">Exp. Value</th>
+                  <th scope="col">{t('cc_col_actions')}</th>
                 </tr>
               </thead>
             </table>
@@ -1117,7 +1117,7 @@ export default function ShopList({ onNavigate }) {
           <table className="tbl">
             <thead>
               <tr>
-                <th className="w-8">
+                <th scope="col" className="w-8">
                   <input
                     type="checkbox"
                     checked={shops.length > 0 && selected.size === shops.length}
@@ -1127,19 +1127,19 @@ export default function ShopList({ onNavigate }) {
                     className="cb"
                   />
                 </th>
-                <th className="w-8"></th>
-                <th>{t('col_shop_name')}</th>
-                <th>{t('col_name_domain').split(' / ')[1] || 'Domain'}</th>
-                <th>{t('col_category')}</th>
-                <th>{t('col_flags')}</th>
-                <th>{t('col_orders_count')}</th>
-                <th>{t('col_success_rate')}</th>
-                <th>{t('col_declined')}</th>
-                <th>{t('revenue')}</th>
-                <th>Risk</th>
-                <th>Delivery %</th>
-                <th>Exp. Value</th>
-                <th>{t('cc_col_actions')}</th>
+                <th scope="col" className="w-8"></th>
+                <th scope="col">{t('col_shop_name')}</th>
+                <th scope="col">{t('col_name_domain').split(' / ')[1] || 'Domain'}</th>
+                <th scope="col">{t('col_category')}</th>
+                <th scope="col">{t('col_flags')}</th>
+                <th scope="col">{t('col_orders_count')}</th>
+                <th scope="col">{t('col_success_rate')}</th>
+                <th scope="col">{t('col_declined')}</th>
+                <th scope="col">{t('revenue')}</th>
+                <th scope="col">Risk</th>
+                <th scope="col">Delivery %</th>
+                <th scope="col">Exp. Value</th>
+                <th scope="col">{t('cc_col_actions')}</th>
               </tr>
             </thead>
             <tbody>
