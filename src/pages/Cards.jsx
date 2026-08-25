@@ -13,6 +13,7 @@ import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { copyToClipboard, copySensitive } from '../utils/clipboard.js'
 import { buildPageNumbers, getTotalPages, getPageRange } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+import { isInInputField } from '../config/shortcuts.js'
 import { ImportModal } from './Cards/ImportModal.jsx'
 import { CardFilters } from './Cards/CardFilters.jsx'
 import { CardRow } from './Cards/CardRow.jsx'
@@ -344,6 +345,31 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       page: 'cards',
     },
   ]
+
+  // UX-005: стрелки ↑/↓ двигают выделение по таблице, Enter открывает side panel.
+  // Здесь, а не в useKeyboardShortcuts: там только single-key/sequence, и
+  // state (selected/cards) нужен свежий через замыкание — пересоздаём слушатель.
+  useEffect(() => {
+    const handler = e => {
+      if (isInInputField()) return
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return
+      const list = useCardsStore.getState().cards
+      if (!list.length) return
+      const sel = useCardsStore.getState().selected
+      const cur = list.findIndex(c => sel.includes(c.id))
+      if (e.key === 'Enter') {
+        if (cur >= 0) setSideCard(list[cur], cur)
+        return
+      }
+      e.preventDefault()
+      const next = e.key === 'ArrowDown' ? Math.min(cur + 1, list.length - 1) : Math.max(cur - 1, 0)
+      const idx = cur < 0 ? (e.key === 'ArrowDown' ? 0 : list.length - 1) : next
+      clearSelection()
+      toggleSelect(list[idx].id)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [setSideCard, clearSelection, toggleSelect])
 
   useKeyboardShortcuts(pageShortcuts, { currentPage: 'cards' })
 
