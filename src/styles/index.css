@@ -52,6 +52,7 @@
   --color-blue-t: var(--blue-t);
   --color-orange-t: var(--orange-t);
   --color-teal-t: var(--teal-t);
+  --color-cyan-t: var(--cyan-t);
   --color-gray-t: var(--text-3);
 
   --color-success: var(--color-success);

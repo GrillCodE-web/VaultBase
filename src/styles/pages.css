@@ -28,7 +28,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.3;
   }
 
@@ -77,7 +77,7 @@
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--accent-text);
-    background: var(--gradient-accent);
+    background: var(--accent);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -106,7 +106,7 @@
 
   /* ── Stat Card ──────────────────────────────────────────── */
   .sc {
-    background: var(--gradient-card);
+    background: var(--card);
     border-radius: var(--r-lg);
     padding: 20px;
     cursor: pointer;
@@ -264,20 +264,12 @@
     color: var(--purple-bright);
   }
 
-  .cp:hover {
-    box-shadow: 0 8px 24px var(--purple-glow);
-  }
-
   .cp2 {
     border-top-color: var(--accent);
   }
 
   .cp2 .sc-val {
     color: var(--accent-text);
-  }
-
-  .cp2:hover {
-    box-shadow: 0 8px 24px var(--accent-glow);
   }
 
   /* ── Chart Container ────────────────────────────────────── */
@@ -316,7 +308,6 @@
     background: var(--accent-dim);
     border-color: var(--accent-border);
     color: var(--accent-text);
-    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
   .pb:focus-visible {
@@ -380,7 +371,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.2;
   }
 
@@ -400,7 +391,7 @@
     content: '';
     width: 3px;
     height: 18px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: 2px;
   }
 
@@ -441,7 +432,6 @@
     background: var(--accent-dim);
     border-color: var(--accent-border);
     color: var(--accent-text);
-    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
   .period-btn:focus-visible {
@@ -644,7 +634,7 @@
   /* ─── Premium Stat Card ───────────────────────────────────── */
   .stat-card-premium {
     position: relative;
-    background: var(--gradient-card);
+    background: var(--card);
     border-radius: var(--r-xl);
     padding: var(--sp-5);
     overflow: hidden;
@@ -670,7 +660,6 @@
 
   .stat-card-premium:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-glow);
     border-color: var(--accent-border);
   }
 
@@ -872,31 +861,6 @@
     font-size: 9px;
     font-weight: 700;
     color: var(--text);
-  }
-
-  /* ─── Card Variants ───────────────────────────────────────── */
-  .stat-card-revenue {
-    --card-accent: var(--blue);
-    --card-accent-dim: var(--blue-dim);
-    --card-accent-border: var(--blue-border);
-  }
-
-  .stat-card-profit {
-    --card-accent: var(--green);
-    --card-accent-dim: var(--green-dim);
-    --card-accent-border: var(--green-border);
-  }
-
-  .stat-card-orders {
-    --card-accent: var(--purple);
-    --card-accent-dim: var(--purple-dim);
-    --card-accent-border: var(--purple-border);
-  }
-
-  .stat-card-cards {
-    --card-accent: var(--accent);
-    --card-accent-dim: rgba(6, 182, 212, 0.1);
-    --card-accent-border: rgba(6, 182, 212, 0.3);
   }
 
   /* ─── Alert Cards ─────────────────────────────────────────── */
@@ -1271,7 +1235,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: var(--r-xl) var(--r-xl) 0 0;
     opacity: 0.6;
   }
@@ -1332,7 +1296,7 @@
     left: -2px;
     border-radius: var(--r-lg);
     padding: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
@@ -1724,7 +1688,7 @@
     background: linear-gradient(
       180deg,
       var(--color-success) 0%,
-      var(--green-bright, #22c55e) 50%,
+      #22c55e 50%,
       var(--color-success) 100%
     );
     background-size: 100% 200%;
@@ -1792,7 +1756,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -2080,7 +2044,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.2;
   }
 
@@ -2268,7 +2232,6 @@
     border-radius: var(--r-lg);
     margin-bottom: var(--sp-4);
     animation: none;
-    box-shadow: 0 4px 16px var(--accent-glow);
   }
 
   .bulk-actions-text {
@@ -2313,7 +2276,6 @@
   .import-zone.dragover {
     border-color: var(--accent);
     background: var(--accent-dim);
-    box-shadow: 0 0 20px var(--accent-glow);
   }
 
   .import-icon {
@@ -2554,7 +2516,7 @@
 
   /* ── Profile Card ───────────────────────────────────────── */
   .profile-card {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 20px;
@@ -2571,7 +2533,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -2589,7 +2551,6 @@
   .profile-card.selected {
     border-color: var(--accent-border);
     background: var(--accent-dim);
-    box-shadow: var(--active-glow);
   }
 
   .profile-card.selected::before {
@@ -3054,7 +3015,7 @@
   /* ── Summary Bar ────────────────────────────────────────── */
   .sum-bar {
     display: flex;
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     overflow: hidden;
@@ -3069,7 +3030,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.2;
   }
 
@@ -3128,7 +3089,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -3577,7 +3538,7 @@
   }
 
   .order-stat-card {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 20px;
@@ -3933,7 +3894,7 @@
     top: 0;
     bottom: 0;
     width: 3px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -4159,7 +4120,7 @@
     content: '';
     width: 3px;
     height: 14px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: 2px;
   }
 
@@ -4293,7 +4254,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -4458,7 +4419,7 @@
 
   .proxy-health-fill {
     height: 100%;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: 3px;
     transition: width var(--t-mid);
   }
@@ -4519,7 +4480,7 @@
 
   .proxy-usage-fill {
     height: 100%;
-    background: var(--gradient-accent);
+    background: var(--accent);
     transition: width var(--t-mid);
     display: flex;
     align-items: center;
@@ -4780,7 +4741,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -4996,7 +4957,7 @@
   }
 
   .email-stat-card {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 18px 20px;
@@ -5251,7 +5212,7 @@
     top: 0;
     bottom: 0;
     width: 3px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -5615,7 +5576,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.2;
   }
 
@@ -5737,7 +5698,7 @@
 
   /* ── Sync Group Card ────────────────────────────────────── */
   .sync-group-card {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 20px;
@@ -5877,7 +5838,7 @@
 
   /* ── License Info Card ──────────────────────────────────── */
   .license-info-card {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 20px;
@@ -6218,11 +6179,10 @@
     background: var(--accent-dim);
     border-color: var(--accent-border);
     color: var(--accent-text);
-    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
   .log-stat-card {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 16px 18px;
@@ -6475,7 +6435,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -6662,7 +6622,7 @@
   }
 
   .catalog-overview-card {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 20px;
@@ -6754,7 +6714,7 @@
 
   .sync-progress-fill {
     height: 100%;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: 4px;
     transition: width var(--t-mid);
     position: relative;
@@ -6871,7 +6831,7 @@
     font-family: var(--font-ui);
     letter-spacing: -0.02em;
     margin-bottom: 12px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -6901,7 +6861,7 @@
 
   .onboarding-progress-fill {
     height: 100%;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: 4px;
     transition: width var(--t-mid);
   }
@@ -6941,7 +6901,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -7043,7 +7003,7 @@
   /* ── Complete Button ────────────────────────────────────── */
   .onboarding-complete-btn {
     padding: 14px 32px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border: none;
     border-radius: var(--r-md);
     font-size: 15px;
@@ -7672,7 +7632,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.5;
   }
 
@@ -7729,14 +7689,14 @@
 
   /* ─── Text Gradient ─────────────────────────────────────── */
   .text-gradient-premium {
-    background: var(--gradient-accent);
+    background: var(--accent);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-purple {
-    background: var(--gradient-purple);
+    background: var(--purple);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -7753,7 +7713,7 @@
 
   .scroll-progress-bar {
     height: 100%;
-    background: var(--gradient-accent);
+    background: var(--accent);
     width: 0%;
     transition: width 0.1s ease;
   }
@@ -7891,7 +7851,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     transform: scaleX(0);
     transition: transform var(--t-fast);
   }

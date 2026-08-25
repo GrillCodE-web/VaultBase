@@ -533,20 +533,6 @@
     box-shadow: var(--glass-shadow);
   }
 
-  /* ── Glow Effects ───────────────────────────────────────── */
-  .glow-sm {
-    box-shadow: var(--glow-sm);
-  }
-  .glow-md {
-    box-shadow: var(--glow-md);
-  }
-  .glow-lg {
-    box-shadow: var(--glow-lg);
-  }
-  .glow-accent-hover:hover {
-    box-shadow: var(--glow-lg);
-  }
-
   /* ── Gradient Border Box ────────────────────────────────── */
   /* Сам блок определён в base.css (там же border); ниже — декоративный ::before. */
   .gradient-border-box::before {
@@ -555,7 +541,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
@@ -1243,7 +1229,7 @@
     background: var(--border);
   }
   .bg-gradient-accent {
-    background: var(--gradient-accent);
+    background: var(--accent);
   }
 
   /* ── Conditional Text Colors ────────────────────────────── */
@@ -3632,7 +3618,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.15;
   }
 
@@ -3863,7 +3849,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.5;
   }
 
@@ -4537,7 +4523,7 @@
 
   /* Float quick order form */
   .float-quick-order {
-    background: var(--surface2, #1f2429);
+    background: var(--surface, #1f2429);
     border-radius: var(--r-md);
     padding: var(--sp-2);
   }
@@ -4560,7 +4546,7 @@
   /* Float status select */
   .float-status-select {
     border: 1px solid var(--border);
-    background: var(--surface2, #1f2429);
+    background: var(--surface, #1f2429);
     color: var(--text);
   }
 
@@ -5365,7 +5351,6 @@
   .count-badge.accent {
     background: var(--accent);
     color: var(--bg);
-    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
   .count-badge.success {
@@ -5446,7 +5431,7 @@
 
   .progress-bar-fill {
     height: 100%;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: 2px;
     transition: width var(--t-mid);
   }
@@ -5603,7 +5588,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.15;
   }
 
@@ -5725,7 +5710,6 @@
     background: var(--accent-dim);
     border-color: var(--accent-border);
     color: var(--accent-text);
-    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
   .filter-chip-count {
@@ -6109,7 +6093,7 @@
     content: '';
     width: 3px;
     height: 16px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: 2px;
   }
 
@@ -6155,7 +6139,7 @@
     top: 0;
     bottom: 0;
     width: 3px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     border-radius: var(--r-lg) 0 0 var(--r-lg);
   }
 
@@ -6224,7 +6208,7 @@
 
   /* ── Stat Panel ─────────────────────────────────────────── */
   .stat-panel {
-    background: var(--gradient-card);
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
     padding: 20px;
@@ -6344,7 +6328,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0;
     transition: opacity var(--t-fast);
   }
@@ -6393,7 +6377,7 @@
     left: 0;
     bottom: 0;
     width: 2px;
-    background: var(--gradient-accent);
+    background: var(--accent);
     opacity: 0.4;
   }
 

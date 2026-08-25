@@ -383,8 +383,6 @@
     flex-shrink: 0;
     height: var(--h-toolbar);
     position: relative;
-    /* Табы как segmented control: паддинг подложки */
-    --seg-pad: 2px;
   }
 
   /* Градиентная линия под тулбаром убрана: в macOS это

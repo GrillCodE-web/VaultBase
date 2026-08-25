@@ -1,8 +1,8 @@
 /**
- * Card type/network badge configurations
+ * Card type/network badge configurations.
+ * UX-001: colors reference theme tokens (tokens.css) — payment network
+ * chips (--color-visa/mastercard/amex/discover, AA in both themes).
  */
-
-import { HEX_COLORS } from './colors.js'
 
 /**
  * Get badge configuration for card type
@@ -13,12 +13,12 @@ export function getBinBadge(cardType) {
   if (!cardType) return null
   const t = cardType.toLowerCase()
   if (t.includes('visa'))
-    return { label: 'VISA', color: HEX_COLORS.blueLight, bg: 'rgba(59,130,246,.15)' }
+    return { label: 'VISA', color: 'var(--color-visa)', bg: 'var(--color-visa-bg)' }
   if (t.includes('mastercard'))
-    return { label: 'MC', color: HEX_COLORS.redLight, bg: 'rgba(239,68,68,.15)' }
+    return { label: 'MC', color: 'var(--color-mastercard)', bg: 'var(--color-mastercard-bg)' }
   if (t.includes('amex'))
-    return { label: 'AMEX', color: HEX_COLORS.greenLight, bg: 'rgba(34,197,94,.15)' }
+    return { label: 'AMEX', color: 'var(--color-amex)', bg: 'var(--color-amex-bg)' }
   if (t.includes('discover'))
-    return { label: 'DISC', color: HEX_COLORS.orangeLight, bg: 'rgba(249,115,22,.15)' }
+    return { label: 'DISC', color: 'var(--color-discover)', bg: 'var(--color-discover-bg)' }
   return null
 }
