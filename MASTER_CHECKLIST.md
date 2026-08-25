@@ -1,7 +1,7 @@
 ﻿# VaultBase — Мастер-чеклист улучшений, багов и доработок
 
 > **Создан:** 2026-08-11 · **Обновлён:** 2026-08-25  
-> **Всего пунктов:** 121 · **Выполнено:** 91 · **Уже было:** 7  
+> **Всего пунктов:** 121 · **Выполнено:** 93 · **Уже было:** 7  
 > **Статусы:** ⬜ Не начато · 🔄 В работе · ✅ Готово · ❌ Отклонено  
 > **Приоритеты:** 🔴 Критичный · 🟠 Важный · 🟡 Средний · 🟢 Желательный
 
@@ -86,8 +86,8 @@
 
 | #        | Задача                                                                                          | Приоритет | Файл(ы)                                | Статус |
 | -------- | ----------------------------------------------------------------------------------------------- | --------- | -------------------------------------- | ------ |
-| ARCH-006 | Разбить Cards.jsx (1302 строки): CardTable, CardFilters, CardActions, SidePanelManager          | 🟠        | `src/pages/Cards.jsx`                  | ⬜     |
-| ARCH-007 | Разбить DashboardRedesigned.jsx (1383 строки): RevenueChart, Heatmap, StatCards, PeriodSelector | 🟠        | `src/pages/DashboardRedesigned.jsx`    | ⬜     |
+| ARCH-006 | Разбить Cards.jsx (1302 строки): CardTable, CardFilters, CardActions, SidePanelManager          | 🟠        | `src/pages/Cards.jsx`                  | ✅     |
+| ARCH-007 | Разбить DashboardRedesigned.jsx (1383 строки): RevenueChart, Heatmap, StatCards, PeriodSelector | 🟠        | `src/pages/DashboardRedesigned.jsx`    | ✅     |
 | ARCH-008 | Разбить Orders.jsx (558 строк) и Profiles.jsx (643 строки)                                      | 🟡        | `src/pages/Orders.jsx`, `Profiles.jsx` | ⬜     |
 | ARCH-009 | Централизованный API-слой: `src/api/cards.js`, `api/orders.js` и т.д.                           | 🟠        | `src/api/`                             | ✅     |
 | ARCH-010 | TypeScript миграция: начать с хуков и утилит (.jsx → .tsx)                                      | 🟡        | `src/hooks/`, `src/utils/`             | ✅     |
