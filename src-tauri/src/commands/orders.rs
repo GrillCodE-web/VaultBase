@@ -111,6 +111,16 @@ pub(crate) fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i
         match server_result {
             sync::RiskCheckOutcome::Offline => {
                 result.offline = true;
+                // BUG-018: offline-режим раньше был невидим пользователю —
+                // добавляем явное предупреждение, что серверная проверка
+                // не выполнена и результат только локальный
+                result.warnings.push(crate::models::RiskWarning {
+                    kind: "server_offline".into(),
+                    severity: "info".into(),
+                    message: "Risk server unreachable — only local checks applied".into(),
+                    related_order_id: None,
+                    related_order_status: None,
+                });
             }
             sync::RiskCheckOutcome::Clean => {
                 result.offline = false;
