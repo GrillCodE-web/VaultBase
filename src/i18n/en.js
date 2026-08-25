@@ -376,6 +376,9 @@ export const en = {
   license_retry: 'Retry Connection',
   license_retrying: 'Retrying…',
   license_verified: 'License verified successfully.',
+  license_offline_warn: 'License not verified — server unreachable. Working offline; sync, risk check and BIN lookup are unavailable.',
+  offline_pill_label: 'Offline',
+  offline_pill_title: 'License not verified. Unavailable: sync, risk check, BIN lookup',
   offline_mode: 'Offline',
 
   // Dashboard
@@ -671,6 +674,8 @@ export const en = {
 
   // Settings extras
   settings_bin_api_saved: 'BIN API key saved',
+  settings_bin_api_configured: 'Configured',
+  settings_bin_api_not_configured: 'Not configured',
   settings_backup_created: 'Backup created',
   settings_backup_restored: 'Backup restored. Restarting...',
   settings_pw_mismatch: "New passwords don't match",
@@ -945,4 +950,27 @@ export const en = {
   btn_batch_import: 'Batch Import',
   batch_import_title: 'Batch Import Orders',
   settings_bin_enrichment: 'BIN Enrichment',
+
+  // ── Added keys (i18n drift fix) ──
+  session_expiring_soon: 'Session expires in',
+  session_seconds_short: 's',
+  session_move_mouse: 'Move the mouse to stay signed in.',
+  copy: 'Copy',
+  log_try_different_filter: 'Try changing filters or date range',
+  cc_filter_presets: 'Filter presets',
+  cc_save_filter: 'Save filter',
+  cc_preset_name: 'Preset name',
+  cc_delete_last_preset: 'Delete last preset',
+  usage_history: 'Usage history',
+  no_orders_for_card: 'No orders for this card',
+  cc_import_no_data: 'No data to import',
+  pkg_shop_required: 'Shop is required',
+  pkg_select_pay_option: '— Select —',
+  drops_step_1: 'Create a drop with an address and contacts',
+  drops_step_2: 'Link the drop to a profile',
+  drops_step_3: 'Use it when creating orders',
+  orders_deleted_many: 'Deleted orders: {n}',
+  btn_clear: 'Clear',
+  shops_search_no_results: 'Nothing found for this search',
+  shops_add_first: 'Add your first shop',
 }

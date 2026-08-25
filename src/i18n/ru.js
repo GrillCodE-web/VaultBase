@@ -377,6 +377,9 @@ export const ru = {
   license_retry: 'Повторить подключение',
   license_retrying: 'Подключение…',
   license_verified: 'Лицензия успешно проверена.',
+  license_offline_warn: 'Лицензия не проверена — сервер недоступен. Автономный режим: sync, risk check и BIN lookup недоступны.',
+  offline_pill_label: 'Офлайн',
+  offline_pill_title: 'Лицензия не проверена. Недоступны: sync, risk check, BIN lookup',
   offline_mode: 'Офлайн',
 
   // Dashboard
@@ -672,6 +675,8 @@ export const ru = {
 
   // Settings extras
   settings_bin_api_saved: 'BIN API ключ сохранён',
+  settings_bin_api_configured: 'Настроен',
+  settings_bin_api_not_configured: 'Не настроен',
   settings_backup_created: 'Резервная копия создана',
   settings_backup_restored: 'Резервная копия восстановлена. Перезапуск...',
   settings_pw_mismatch: 'Новые пароли не совпадают',
@@ -946,4 +951,27 @@ export const ru = {
   btn_batch_import: 'Пакетный импорт',
   batch_import_title: 'Пакетный импорт заказов',
   settings_bin_enrichment: 'BIN Обогащение',
+
+  // ── Added keys (i18n drift fix) ──
+  session_expiring_soon: 'Сессия истекает через',
+  session_seconds_short: 'с',
+  session_move_mouse: 'Двигайте мышь, чтобы остаться в системе.',
+  copy: 'Копировать',
+  log_try_different_filter: 'Попробуйте изменить фильтры или диапазон дат',
+  cc_filter_presets: 'Пресеты фильтров',
+  cc_save_filter: 'Сохранить фильтр',
+  cc_preset_name: 'Название пресета',
+  cc_delete_last_preset: 'Удалить последний пресет',
+  usage_history: 'История использования',
+  no_orders_for_card: 'По этой карте нет заказов',
+  cc_import_no_data: 'Нет данных для импорта',
+  pkg_shop_required: 'Укажите магазин',
+  pkg_select_pay_option: '— Выберите —',
+  drops_step_1: 'Создайте дропа с адресом и контактами',
+  drops_step_2: 'Привяжите дропа к профилю',
+  drops_step_3: 'Используйте его при создании заказов',
+  orders_deleted_many: 'Удалено заказов: {n}',
+  btn_clear: 'Очистить',
+  shops_search_no_results: 'По этому запросу ничего не найдено',
+  shops_add_first: 'Добавьте первый магазин',
 }

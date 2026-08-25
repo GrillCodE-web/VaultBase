@@ -571,6 +571,17 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // SEC-024: предупреждение при работе на непроверенной лицензии (offline grace)
+  const licenseOfflineWarnedRef = useRef(false)
+  useEffect(() => {
+    if (offlineMode && !licenseOfflineWarnedRef.current) {
+      licenseOfflineWarnedRef.current = true
+      toast(t('license_offline_warn'), 'warning', { duration: 8000 })
+    }
+    if (!offlineMode) licenseOfflineWarnedRef.current = false
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offlineMode])
+
   // J: Server online/offline events
   // FIX FE-03: Properly handle Promise.all cleanup with error handling
   useEffect(() => {
@@ -1222,10 +1233,10 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           <span className="sbi-label">{sidebarExpanded ? t('sidebar_collapse') : ''}</span>
         </button>
 
-        {/* Offline */}
+        {/* Offline + SEC-024: лицензия не проверена */}
         {offlineMode && (
-          <div className="offline-pill" title="Risk check, Sync, BIN lookup unavailable">
-            ⚠ Off
+          <div className="offline-pill" title={t('offline_pill_title')}>
+            ⚠ {sidebarExpanded ? t('offline_pill_label') : 'Off'}
           </div>
         )}
 
