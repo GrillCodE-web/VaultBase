@@ -320,7 +320,7 @@
 | CLEAN-001 | console.log → error: заменить на logger.js или убрать                          | 🟡        | ESLint config, все файлы                                | ⬜     |
 | CLEAN-002 | React Compiler: исправить 17 мест setState в useEffect + 7 ref в render        | 🟡        | ESLint warnings                                         | ⬜     |
 | CLEAN-003 | Удалить дубликаты документации (оставить 1 язык или настроить автоперевод)     | 🟢        | `AGENTS.md`, `README.md`, `PROJECT_STATUS.md`           | ⬜     |
-| CLEAN-004 | Magic numbers → constants с комментариями                                      | 🟡        | `Cards.jsx:500`, `ws_sync.rs:20,60`, `background.rs:45` | 🔄 @b  |
+| CLEAN-004 | Magic numbers → constants с комментариями                                      | 🟡        | `Cards.jsx:500`, `ws_sync.rs:20,60`, `background.rs:45` | ✅     |
 | CLEAN-005 | `.env.example`: добавить USPS_API_USER_ID и другие undocumented vars           | 🟢        | `.env.example`                                          | ✅     |
 | CLEAN-006 | PostCSS: добавить autoprefixer                                                 | 🟢        | `postcss.config.js`                                     | ✅     |
 | CLEAN-007 | ESLint: убрать generic `eslint-disable-next-line` (указать конкретное правило) | 🟢        | Все файлы                                               | ✅     |
