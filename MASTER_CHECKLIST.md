@@ -132,7 +132,7 @@
 | UX-004 | ARIA-labels на иконочные кнопки                  | 🟡        | Все компоненты                     | ⬜     |
 | UX-005 | Keyboard navigation по таблицам (стрелки, Enter) | 🟡        | Cards, Orders, Profiles            | ✅     |
 | UX-006 | `aria-live` regions для анонсирования изменений  | 🟡        | Все страницы                       | ✅     |
-| UX-007 | Контрастность по WCAG AA (status badges)         | 🟡        | `constants/colors.js`, `status.js` | 🔄 @b  |
+| UX-007 | Контрастность по WCAG AA (status badges)         | 🟡        | `constants/colors.js`, `status.js` | ✅     |
 | UX-008 | Focus trap в модальных окнах Profiles            | 🟡        | `Profiles.jsx:420`                 | ✅     |
 | UX-009 | `role="columnheader"` для заголовков таблиц      | 🟡        | `Cards.jsx:900-920`                | ✅     |
 
