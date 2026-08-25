@@ -404,4 +404,115 @@ mod tests {
             assert!(c.chars().all(|ch| "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".contains(ch)));
         }
     }
+
+    // ── TEST-008: edge cases ──
+
+    fn test_enc() -> FieldEncryption {
+        FieldEncryption::new("pw123456789012", &generate_salt())
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_empty_string() {
+        let enc = test_enc();
+        let blob = enc.encrypt("").unwrap();
+        assert_eq!(enc.decrypt(&blob).unwrap(), "");
+    }
+
+    #[test]
+    fn test_encrypt_unique_nonces() {
+        // Один и тот же plaintext дважды → разный шифротекст (случайный nonce)
+        let enc = test_enc();
+        let a = enc.encrypt("same plaintext").unwrap();
+        let b = enc.encrypt("same plaintext").unwrap();
+        assert_ne!(a, b);
+        assert_eq!(enc.decrypt(&a).unwrap(), "same plaintext");
+        assert_eq!(enc.decrypt(&b).unwrap(), "same plaintext");
+    }
+
+    #[test]
+    fn test_decrypt_invalid_base64() {
+        let enc = test_enc();
+        assert!(enc.decrypt("!!!not-base64!!!").is_err());
+        assert!(enc.decrypt("").is_err());
+    }
+
+    #[test]
+    fn test_decrypt_too_short_ciphertext() {
+        // Валидный base64, но < 13 байт (nonce[12] + минимум 1 байт)
+        let enc = test_enc();
+        let short = B64.encode([0u8; 12]);
+        let err = enc.decrypt(&short).unwrap_err();
+        assert!(err.contains("too short"), "got: {err}");
+    }
+
+    #[test]
+    fn test_decrypt_corrupted_ciphertext() {
+        let enc = test_enc();
+        let blob = enc.encrypt("sensitive data").unwrap();
+        let mut raw = B64.decode(&blob).unwrap();
+        // Портим байт в середине ciphertext (после nonce)
+        let idx = raw.len() - 1;
+        raw[idx] ^= 0xFF;
+        let corrupted = B64.encode(raw);
+        let err = enc.decrypt(&corrupted).unwrap_err();
+        assert!(err.contains("decrypt failed"), "got: {err}");
+    }
+
+    #[test]
+    fn test_decrypt_truncated_ciphertext() {
+        let enc = test_enc();
+        let blob = enc.encrypt("sensitive data").unwrap();
+        let raw = B64.decode(&blob).unwrap();
+        let truncated = B64.encode(&raw[..raw.len() - 5]);
+        assert!(enc.decrypt(&truncated).is_err());
+    }
+
+    #[test]
+    fn test_decrypt_wrong_key() {
+        let enc1 = test_enc();
+        let enc2 = test_enc(); // другой salt → другой ключ
+        let blob = enc1.encrypt("secret").unwrap();
+        assert!(enc2.decrypt(&blob).is_err());
+    }
+
+    #[test]
+    fn test_decrypt_non_utf8_ciphertext() {
+        // Шифруем сырые байты, не являющиеся UTF-8, напрямую через cipher
+        let enc = test_enc();
+        let k = Key::<Aes256Gcm>::from_slice(enc.key_bytes());
+        let cipher = Aes256Gcm::new(k);
+        let nonce_bytes = [7u8; 12];
+        let nonce = Nonce::from_slice(&nonce_bytes);
+        let bad_utf8 = vec![0xFF, 0xFE, 0xFD, 0x80];
+        let ct = cipher.encrypt(nonce, bad_utf8.as_slice()).unwrap();
+        let mut combined = nonce_bytes.to_vec();
+        combined.extend_from_slice(&ct);
+        let blob = B64.encode(combined);
+        let err = enc.decrypt(&blob).unwrap_err();
+        assert!(err.contains("utf8"), "got: {err}");
+    }
+
+    #[test]
+    fn test_unicode_roundtrip() {
+        let enc = test_enc();
+        let s = "Карта №4111 — держатель: Иван Иванов 💳";
+        let blob = enc.encrypt(s).unwrap();
+        assert_eq!(enc.decrypt(&blob).unwrap(), s);
+    }
+
+    #[test]
+    fn test_password_validation_edge_cases() {
+        assert!(!PasswordValidation::check("").is_valid());
+        assert!(!PasswordValidation::check("Short1!").is_valid()); // < 12
+        assert!(!PasswordValidation::check("alllowercase1!").is_valid());
+        assert!(!PasswordValidation::check("ALLUPPERCASE1!").is_valid());
+        assert!(!PasswordValidation::check("NoDigitsHere!!").is_valid());
+        assert!(!PasswordValidation::check("NoSpecialChar123").is_valid());
+        // 73 ASCII-байта → превышен bcrypt-лимит
+        let long = format!("{}A1!", "a".repeat(70));
+        let v = PasswordValidation::check(&long);
+        assert!(v.exceeds_bcrypt_limit);
+        assert!(!v.is_valid());
+        assert!(PasswordValidation::check("ValidPass123!").is_valid());
+    }
 }

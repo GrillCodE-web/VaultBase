@@ -533,3 +533,205 @@ pub fn extract_bin_last4(card_number: &str) -> (Option<String>, Option<String>) 
     let last4 = if digits.len() >= 4 { Some(digits[digits.len()-4..].to_string()) } else { None };
     (bin, last4)
 }
+
+
+// ─────────────────────────────────────────
+//  Tests (TEST-009)
+// ─────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mapping(fields: &[&str]) -> Vec<String> {
+        fields.iter().map(|s| s.to_string()).collect()
+    }
+
+    // ── Luhn ──
+
+    #[test]
+    fn test_luhn_valid_known_numbers() {
+        assert!(luhn_valid("4111111111111111")); // Visa test
+        assert!(luhn_valid("5500005555555559")); // Mastercard test
+        assert!(luhn_valid("378282246310005"));  // Amex test (15 digits)
+    }
+
+    #[test]
+    fn test_luhn_invalid_checksum() {
+        assert!(!luhn_valid("4111111111111112"));
+        assert!(!luhn_valid("5500005555555550"));
+    }
+
+    #[test]
+    fn test_luhn_length_bounds() {
+        assert!(!luhn_valid("411111111111"));      // 12 digits — too short
+        assert!(!luhn_valid("41111111111111111111")); // 20 digits — too long
+        assert!(!luhn_valid(""));
+    }
+
+    #[test]
+    fn test_luhn_ignores_spaces_and_dashes() {
+        assert!(luhn_valid("4111 1111 1111 1111"));
+        assert!(luhn_valid("4111-1111-1111-1111"));
+    }
+
+    // ── detect_mapping ──
+
+    #[test]
+    fn test_detect_mapping_comma_csv() {
+        let raw = "\
+4111111111111111,12/29,123,John Doe
+5500005555555559,11/29,456,Jane Smith
+340000000000009,10/29,789,Bob Johnson";
+        let m = detect_mapping(raw);
+        assert_eq!(m, mapping(&["card_number", "expiry_date", "cvv", "holder_name"]));
+    }
+
+    #[test]
+    fn test_detect_mapping_pipe_delimited() {
+        let raw = "\
+4111111111111111|12/29|123
+5500005555555559|11/29|456
+378282246310005|10/29|7890";
+        let m = detect_mapping(raw);
+        assert_eq!(m, mapping(&["card_number", "expiry_date", "cvv"]));
+    }
+
+    #[test]
+    fn test_detect_mapping_email_formats() {
+        // TEST-009: разные форматы email — plain, plus-tag, поддомен, точки в local part
+        let raw = "\
+4111111111111111|user@gmail.com
+5500005555555559|jane.doe+shop@outlook.com
+378282246310005|bob@mail.sub.domain.co.uk";
+        let m = detect_mapping(raw);
+        assert_eq!(m, mapping(&["card_number", "email"]));
+    }
+
+    #[test]
+    fn test_detect_mapping_duplicate_card_columns_second_skipped() {
+        let raw = "\
+4111111111111111|5500005555555559|12/29
+5500005555555559|4111111111111111|11/29
+378282246310005|4111111111111111|10/29";
+        let m = detect_mapping(raw);
+        assert_eq!(m, mapping(&["card_number", "skip", "expiry_date"]));
+    }
+
+    #[test]
+    fn test_detect_mapping_empty_input() {
+        assert!(detect_mapping("").is_empty());
+        assert!(detect_mapping("\n\n  \n").is_empty());
+    }
+
+    // ── mapping_preview ──
+
+    #[test]
+    fn test_mapping_preview_limits_rows_and_detects() {
+        let raw = "\
+4111111111111111|12/29
+5500005555555559|11/29
+378282246310005|10/29
+4111111111111111|09/29
+5500005555555559|08/29
+378282246310005|07/29";
+        let p = mapping_preview(raw);
+        assert_eq!(p.preview_rows.len(), 5); // max 5 preview rows
+        assert_eq!(p.preview_rows[0], vec!["4111111111111111".to_string(), "12/29".to_string()]);
+        assert_eq!(p.detected_mapping, mapping(&["card_number", "expiry_date"]));
+    }
+
+    // ── parse_cards ──
+
+    #[test]
+    fn test_parse_cards_valid_full_row() {
+        let raw = "4111111111111111|12/29|123|John Doe";
+        let res = parse_cards(raw, mapping(&["card_number", "expiry_date", "cvv", "holder_name"]), "test-src");
+        assert_eq!(res.parsed.len(), 1);
+        assert_eq!(res.skipped, 0);
+        assert!(res.errors.is_empty());
+        let c = &res.parsed[0];
+        assert_eq!(c.card_number, "4111111111111111");
+        assert_eq!(c.expiry_date.as_deref(), Some("12/29"));
+        assert_eq!(c.cvv.as_deref(), Some("123"));
+        assert_eq!(c.holder_name.as_deref(), Some("John Doe"));
+        assert_eq!(c.source, "test-src");
+    }
+
+    #[test]
+    fn test_parse_cards_invalid_luhn_skipped_with_error() {
+        let raw = "4111111111111112|12/29";
+        let res = parse_cards(raw, mapping(&["card_number", "expiry_date"]), "t");
+        assert_eq!(res.parsed.len(), 0);
+        assert_eq!(res.skipped, 1);
+        assert_eq!(res.errors.len(), 1);
+        assert!(res.errors[0].contains("invalid card number"));
+    }
+
+    #[test]
+    fn test_parse_cards_missing_card_number() {
+        let raw = "12/29|123";
+        let res = parse_cards(raw, mapping(&["expiry_date", "cvv"]), "t");
+        assert_eq!(res.parsed.len(), 0);
+        assert_eq!(res.skipped, 1);
+        assert!(res.errors[0].contains("missing card_number"));
+    }
+
+    #[test]
+    fn test_parse_cards_empty_lines_ignored_and_line_numbers() {
+        // FIX B69: пустые строки не считаются — ошибка на 2-й строке данных = "Line 2"
+        let raw = "4111111111111111|12/29\n\n\n4111111111111112|11/29\n";
+        let res = parse_cards(raw, mapping(&["card_number", "expiry_date"]), "t");
+        assert_eq!(res.parsed.len(), 1);
+        assert_eq!(res.skipped, 1);
+        assert!(res.errors[0].starts_with("Line 2:"), "got: {}", res.errors[0]);
+    }
+
+    #[test]
+    fn test_parse_cards_log_line_metadata() {
+        let raw = "[2026-03-04 01:25:38] IP: 107.218.77.158 | Domain: tristatecamera.com | Data: 4111111111111111|12/29|123";
+        let res = parse_cards(raw, mapping(&["card_number", "expiry_date", "cvv"]), "log");
+        assert_eq!(res.parsed.len(), 1);
+        let c = &res.parsed[0];
+        assert_eq!(c.card_number, "4111111111111111");
+        assert_eq!(c.domain.as_deref(), Some("tristatecamera.com"));
+        assert_eq!(c.acquired_at.as_deref(), Some("2026-03-04 01:25:38"));
+        assert_eq!(c.ip_address.as_deref(), Some("107.218.77.158"));
+    }
+
+    #[test]
+    fn test_parse_cards_expired_expiry_becomes_none_but_card_kept() {
+        // Истёкший срок → expiry_date=None, но карта всё равно парсится (Luhn валиден)
+        let raw = "4111111111111111|01/20";
+        let res = parse_cards(raw, mapping(&["card_number", "expiry_date"]), "t");
+        assert_eq!(res.parsed.len(), 1);
+        assert_eq!(res.parsed[0].expiry_date, None);
+    }
+
+    // ── extract_bin_last4 ──
+
+    #[test]
+    fn test_extract_bin_last4_normal() {
+        let (bin, last4) = extract_bin_last4("4111111111111111");
+        assert_eq!(bin.as_deref(), Some("411111"));
+        assert_eq!(last4.as_deref(), Some("1111"));
+    }
+
+    #[test]
+    fn test_extract_bin_last4_with_separators() {
+        let (bin, last4) = extract_bin_last4("4111-1111-1111-1111");
+        assert_eq!(bin.as_deref(), Some("411111"));
+        assert_eq!(last4.as_deref(), Some("1111"));
+    }
+
+    #[test]
+    fn test_extract_bin_last4_short_numbers() {
+        let (bin, last4) = extract_bin_last4("12345");
+        assert_eq!(bin, None); // < 6 digits → no BIN
+        assert_eq!(last4.as_deref(), Some("2345"));
+
+        let (bin, last4) = extract_bin_last4("123");
+        assert_eq!(bin, None);
+        assert_eq!(last4, None); // < 4 digits → no last4
+    }
+}
