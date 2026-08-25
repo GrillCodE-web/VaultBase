@@ -3,7 +3,17 @@ impl Database {
 
     fn extract_domain(url: &str) -> String {
         let s = url.trim_start_matches("https://").trim_start_matches("http://");
-        s.split('/').next().unwrap_or(s).to_lowercase()
+        let host = s.split('/').next().unwrap_or(s).to_lowercase();
+        // DB-004: strip port + validate hostname shape (labels + TLD)
+        let host = host.split(':').next().unwrap_or(&host);
+        let valid = host.len() <= 253
+            && host.contains('.')
+            && host.split('.').all(|l| !l.is_empty()
+                && l.len() <= 63
+                && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+                && !l.starts_with('-') && !l.ends_with('-'))
+            && host.rsplit('.').next().is_some_and(|tld| tld.len() >= 2 && tld.chars().all(|c| c.is_ascii_alphabetic()));
+        if valid { host.to_string() } else { String::new() }
     }
 
     fn build_shop(&self, id: i64) -> Result<Shop, String> {

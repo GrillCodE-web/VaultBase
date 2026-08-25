@@ -485,6 +485,14 @@ pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult
             match field.as_str() {
                 "card_number" => {
                     let clean: String = val.chars().filter(|c| c.is_ascii_digit()).collect();
+                    // DB-006: явная проверка длины (13-19 цифр по ISO/IEC 7812)
+                    // с отдельным сообщением — иначе Luhn-молчание скрывало
+                    // очевидные ошибки парсинга столбцов (телефон вместо карты)
+                    if clean.len() < 13 || clean.len() > 19 {
+                        errors.push(format!("Line {}: invalid card length ({} digits)", line_no, clean.len()));
+                        skipped += 1;
+                        break;
+                    }
                     if luhn_valid(&clean) {
                         input.card_number = clean;
                         has_card_number = true;
