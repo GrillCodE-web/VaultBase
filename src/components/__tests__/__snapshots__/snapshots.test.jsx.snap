@@ -1,0 +1,302 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`EmptyState snapshots > as table row 1`] = `
+<table>
+  <tbody>
+    <tr>
+      <td
+        class="p-0"
+        colspan="5"
+      >
+        <div
+          class="flex flex-col items-center justify-center gap-2.5 py-[52px] px-5"
+        >
+          <div
+            class="opacity-25"
+            style="font-size: 38px; line-height: 1;"
+          >
+            📭
+          </div>
+          <div
+            class="text-[14px] font-semibold text-text mt-1"
+          >
+            Empty
+          </div>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+`;
+
+exports[`EmptyState snapshots > standalone 1`] = `
+<div
+  class="flex flex-col items-center justify-center gap-2.5 py-[52px] px-5"
+>
+  <div
+    class="opacity-25"
+    style="font-size: 38px; line-height: 1;"
+  >
+    📦
+  </div>
+  <div
+    class="text-[14px] font-semibold text-text mt-1"
+  >
+    No items
+  </div>
+</div>
+`;
+
+exports[`EmptyState snapshots > with subtitle and action 1`] = `
+<div
+  class="flex flex-col items-center justify-center gap-2.5 py-[52px] px-5"
+>
+  <div
+    class="opacity-25"
+    style="font-size: 38px; line-height: 1;"
+  >
+    🔍
+  </div>
+  <div
+    class="text-[14px] font-semibold text-text mt-1"
+  >
+    No results
+  </div>
+  <div
+    class="text-[12px] text-muted text-center"
+    style="max-width: 260px;"
+  >
+    Try adjusting filters
+  </div>
+  <div
+    class="mt-2"
+  >
+    <button>
+      Add
+    </button>
+  </div>
+</div>
+`;
+
+exports[`LoadingSpinner snapshots > custom size and color 1`] = `
+<div
+  aria-label="Loading cards"
+  class="spinner inline-block border-2 border-transparent rounded-full"
+  role="status"
+  style="width: 40px; height: 40px; border-top-color: red;"
+/>
+`;
+
+exports[`LoadingSpinner snapshots > default 1`] = `
+<div
+  aria-label="Loading content"
+  class="spinner inline-block border-2 border-transparent rounded-full"
+  role="status"
+  style="width: 20px; height: 20px; border-top-color: var(--accent);"
+/>
+`;
+
+exports[`LoadingSpinner snapshots > dots 1`] = `
+<div
+  class="flex gap-1 items-center"
+>
+  <div
+    class="w-1.5 h-1.5 rounded-full bg-accent"
+    style="animation: pulse 1.4s ease-in-out infinite; animation-delay: 0s;"
+  />
+  <div
+    class="w-1.5 h-1.5 rounded-full bg-accent"
+    style="animation: pulse 1.4s ease-in-out infinite; animation-delay: 0.16s;"
+  />
+  <div
+    class="w-1.5 h-1.5 rounded-full bg-accent"
+    style="animation: pulse 1.4s ease-in-out infinite; animation-delay: 0.32s;"
+  />
+</div>
+`;
+
+exports[`ProgressBar snapshots > clamped over 100 1`] = `
+<div
+  class="w-full"
+>
+  <div
+    class="h-1 bg-border rounded-[2px] overflow-hidden"
+  >
+    <div
+      class="h-full bg-gradient-accent"
+      style="width: 100%; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);"
+    />
+  </div>
+</div>
+`;
+
+exports[`ProgressBar snapshots > half with label 1`] = `
+<div
+  class="w-full"
+>
+  <div
+    class="h-1 bg-border rounded-[2px] overflow-hidden"
+  >
+    <div
+      class="h-full bg-gradient-accent"
+      style="width: 50%; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);"
+    />
+  </div>
+  <div
+    class="mt-1 text-[11px] text-text-3 text-right"
+  >
+    50
+    %
+  </div>
+</div>
+`;
+
+exports[`SkeletonRow snapshots > multiple rows 1`] = `
+<table>
+  <tbody>
+    <tr
+      class="fade-in border-b"
+    >
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 40%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 70%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 55%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 80%;"
+        />
+      </td>
+    </tr>
+    <tr
+      class="fade-in border-b"
+    >
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 40%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 70%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 55%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 80%;"
+        />
+      </td>
+    </tr>
+    <tr
+      class="fade-in border-b"
+    >
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 40%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 70%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 55%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 80%;"
+        />
+      </td>
+    </tr>
+  </tbody>
+</table>
+`;
+
+exports[`SkeletonRow snapshots > single row, 3 cols 1`] = `
+<table>
+  <tbody>
+    <tr
+      class="fade-in border-b"
+    >
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 40%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 70%;"
+        />
+      </td>
+      <td
+        class="p-[10px_12px]"
+      >
+        <div
+          class="h-[11px] rounded-[5px]"
+          style="background: linear-gradient(90deg, var(--card) 25%, var(--card-hi) 50%, var(--card) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s ease-in-out infinite; width: 55%;"
+        />
+      </td>
+    </tr>
+  </tbody>
+</table>
+`;

@@ -292,7 +292,7 @@
 | TEST-008 | Rust: edge cases для encryption.rs (пустые данные, повреждённый шифротекст) | 🟡        | `encryption.rs`         | ✅     |
 | TEST-009 | Rust: тесты parser.rs (разные форматы email)                                | 🟡        | `parser.rs`             | ✅     |
 | TEST-010 | Rust: concurrent access rate_limiter.rs                                     | 🟡        | `rate_limiter.rs`       | ✅     |
-| TEST-011 | Frontend: snapshot тесты для компонентов (Vitest)                           | 🟡        | `src/`                  | ⬜     |
+| TEST-011 | Frontend: snapshot тесты для компонентов (Vitest)                           | 🟡        | `src/`                  | ✅     |
 | TEST-012 | Frontend: тесты для clipboard.js, pagination.js, formatting.js, csv.js      | 🟡        | `src/utils/__tests__/`  | ✅     |
 | TEST-013 | Performance: benchmark для БД с 100k карт (criterion)                       | 🟢        | `src-tauri/`            | ⬜     |
 
