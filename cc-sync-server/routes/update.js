@@ -33,12 +33,12 @@ const router = express.Router();
 router.get('/', (req, res) => {
   const db = getDb();
 
+  // «Последняя» версия — максимум по semver, а не по published_at: перевыпуск
+  // старой версии обновляет published_at и иначе вытеснил бы свежий релиз.
   const row = db.prepare(`
     SELECT * FROM versions
     WHERE is_published = 1 AND download_url IS NOT NULL AND signature IS NOT NULL
-    ORDER BY published_at DESC
-    LIMIT 1
-  `).get();
+  `).all().reduce((best, r) => (best === null || compareSemver(r.version, best.version) > 0 ? r : best), null);
 
   if (!row) {
     return res.status(204).end(); // no update available
@@ -110,8 +110,7 @@ router.get('/check', (req, res) => {
     SELECT version, notes, published_at, is_published, download_url, file_size
     FROM versions
     WHERE is_published = 1
-    ORDER BY published_at DESC LIMIT 1
-  `).get();
+  `).all().reduce((best, r) => (best === null || compareSemver(r.version, best.version) > 0 ? r : best), null);
 
   if (!row) return res.json({ update_available: false, message: 'No published versions' });
 
@@ -129,16 +128,20 @@ router.get('/check', (req, res) => {
   });
 });
 
-// Simple semver: is `a` newer than `b`?
-function isNewer(a, b) {
+// Simple semver compare: positive when a > b, negative when a < b, 0 when equal.
+function compareSemver(a, b) {
   const pa = (a || '0').split('.').map(Number);
   const pb = (b || '0').split('.').map(Number);
   for (let i = 0; i < 3; i++) {
     const diff = (pa[i] || 0) - (pb[i] || 0);
-    if (diff > 0) return true;
-    if (diff < 0) return false;
+    if (diff !== 0) return diff;
   }
-  return false; // equal
+  return 0;
+}
+
+// Simple semver: is `a` newer than `b`?
+function isNewer(a, b) {
+  return compareSemver(a, b) > 0;
 }
 
 module.exports = router;

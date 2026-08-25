@@ -1,57 +1,10 @@
 const { Server } = require('socket.io');
 const { getDb } = require('./database');
+const { applyCardPush, MAX_CARDS_PER_BATCH } = require('./card-push');
+const { registerViolation, isBanned, makeWindowCounter } = require('./rate-limit');
 
 const activeConnections = new Map();
 const eventLog = [];
-
-const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
-const VALID_STATUSES = ['free', 'in_use', 'archive', 'declined', 'dead'];
-
-/** SQL expression computing the monotonic status weight of `col`. */
-function weightExpr(col) {
-  return Object.entries(STATUS_WEIGHT)
-    .map(([s, w]) => `${w} * (${col}='${s}')`)
-    .join(' + ');
-}
-
-/**
- * Apply a batch of card updates atomically.
- *
- * The conflict resolver uses monotonic status weights (higher always wins), so a
- * partially-applied batch can never be repaired by a later sync — the client
- * believes it already pushed those rows. All writes therefore go through a single
- * better-sqlite3 transaction. Transactions are synchronous: nothing inside the
- * transaction callback may await.
- *
- * @returns {Array<{card_hash: string, status: string}>} rows that were written
- */
-function applyCardPush(db, groupId, installationId, cards) {
-  const cur = weightExpr('status');
-  const inc = weightExpr('excluded.status');
-  const stmt = db.prepare(`
-    INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(card_hash, group_id) DO UPDATE SET
-      encrypted_data = CASE WHEN (${cur}) >= (${inc}) THEN sync_cards.encrypted_data ELSE excluded.encrypted_data END,
-      status         = CASE WHEN (${cur}) >= (${inc}) THEN sync_cards.status         ELSE excluded.status         END,
-      notes          = CASE WHEN (${cur}) >= (${inc}) THEN sync_cards.notes          ELSE excluded.notes          END,
-      updated_by     = excluded.updated_by,
-      updated_at     = CURRENT_TIMESTAMP
-  `);
-
-  return db.transaction(() => {
-    const written = [];
-    for (const card of cards) {
-      // FIX WS-VALIDATION-02: Strict validation of card_hash and status
-      if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
-      if (!card.status || !VALID_STATUSES.includes(card.status)) continue;
-      const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
-      stmt.run(card.card_hash, groupId, card.encrypted_data || null, card.status, notes, installationId);
-      written.push({ card_hash: card.card_hash, status: card.status });
-    }
-    return written;
-  })();
-}
 
 function logSocketEvent(type, data) {
   eventLog.push({ type, data: typeof data === 'object' ? JSON.stringify(data).slice(0, 200) : String(data), ts: new Date().toISOString() });
@@ -77,6 +30,9 @@ function initSocket(httpServer) {
   const tokenMap = new Map();
 
   io.use((socket, next) => {
+    // SEC-023: IP is in a backoff ban after repeated rate-limit violations
+    // (shared with the raw-WS channel via rate-limit.js).
+    if (isBanned(socket.handshake.address)) return next(new Error('rate_limit_backoff'));
     const token = socket.handshake.auth?.token || socket.handshake.headers?.['x-license-token'];
     if (!token) return next(new Error('missing_token'));
     const db = getDb();
@@ -91,6 +47,20 @@ function initSocket(httpServer) {
 
   io.on('connection', (socket) => {
     const db = getDb();
+
+    // SEC-023: sliding 1-second window over every incoming event; on violation
+    // the socket is disconnected and the IP gets an exponential backoff ban.
+    const rateExceeded = makeWindowCounter();
+    socket.use((packet, next) => {
+      if (rateExceeded()) {
+        registerViolation(socket.handshake.address);
+        logSocketEvent('rate_limit_exceeded', { socketId: socket.id, installation_id: socket.installationId });
+        socket.disconnect(true);
+        return;
+      }
+      next();
+    });
+
     // Find group for this user
     const member = db.prepare(`
       SELECT sgm.group_id FROM sync_group_members sgm
@@ -145,7 +115,7 @@ function initSocket(httpServer) {
       const { cards } = data || {};
       if (!Array.isArray(cards)) return;
       // FIX WS-VALIDATION-01: Validate card data before processing
-      if (cards.length > 100) {
+      if (cards.length > MAX_CARDS_PER_BATCH) {
         socket.emit('error', { message: 'too_many_cards' });
         return;
       }

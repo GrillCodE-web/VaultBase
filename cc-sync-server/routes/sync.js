@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { getDb } = require('../database');
 const { requireToken } = require('../middleware');
+const { applyCardPush, MAX_CARDS_PER_BATCH } = require('../card-push');
 const rateLimit = require('express-rate-limit');
 
 // Max 10 join attempts per IP per 15 minutes (pair codes expire in 15min)
@@ -26,13 +27,6 @@ const pairLimiter = rateLimit({
 
 const router = express.Router();
 router.use(requireToken);
-
-const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
-
-/** SQL expression computing the monotonic status weight of `col`. */
-const weightExpr = (col) => Object.entries(STATUS_WEIGHT)
-  .map(([s, w]) => `${w} * (${col}='${s}')`)
-  .join(' + ');
 
 function generateGroupKey() {
   return crypto.randomBytes(32).toString('hex');
@@ -262,45 +256,14 @@ router.post('/cards', (req, res) => {
 
   const { cards } = req.body || {};
   if (!Array.isArray(cards)) return res.status(400).json({ error: 'cards array required' });
-  // FIX: REST-push раньше пропускал то, что WS-канал (ws-tauri.js) отсекает:
-  // невалидные статусы, короткие хэши, неограниченные notes и батчи любого
-  // размера. Валидация должна совпадать на всех каналах синка.
-  const VALID_STATUSES = ['free', 'in_use', 'archive', 'declined', 'dead'];
-  if (cards.length > 100) {
+  // Валидация и conflict-resolution общие для всех каналов синка (card-push.js).
+  if (cards.length > MAX_CARDS_PER_BATCH) {
     return res.status(400).json({ error: 'too_many_cards' });
   }
 
-  const stmt = db.prepare(`
-    INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(card_hash, group_id) DO UPDATE SET
-      encrypted_data = CASE WHEN (${weightExpr('status')}) >= (${weightExpr('excluded.status')})
-                            THEN sync_cards.encrypted_data ELSE excluded.encrypted_data END,
-      status = CASE WHEN (${weightExpr('status')}) >= (${weightExpr('excluded.status')})
-                    THEN sync_cards.status ELSE excluded.status END,
-      notes  = CASE WHEN (${weightExpr('status')}) >= (${weightExpr('excluded.status')})
-                    THEN sync_cards.notes ELSE excluded.notes END,
-      updated_by = excluded.updated_by,
-      updated_at = CURRENT_TIMESTAMP
-  `);
-
-  // The conflict resolver uses monotonic status weights (higher always wins), so a
-  // partially-applied batch can never be repaired by a later sync — the client
-  // believes it already pushed those rows. All writes go through one transaction.
-  // better-sqlite3 transactions are synchronous; nothing inside may await.
   let updated;
   try {
-    updated = db.transaction(() => {
-      const written = [];
-      for (const card of cards) {
-        if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
-        if (!card.status || !VALID_STATUSES.includes(card.status)) continue;
-        const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
-        stmt.run(card.card_hash, member.group_id, card.encrypted_data || null, card.status, notes, installation_id);
-        written.push({ card_hash: card.card_hash, status: card.status });
-      }
-      return written;
-    })();
+    updated = applyCardPush(db, member.group_id, installation_id, cards);
   } catch (e) {
     console.error('[sync/cards] batch transaction failed:', e.message);
     return res.status(500).json({ error: 'push_failed' });

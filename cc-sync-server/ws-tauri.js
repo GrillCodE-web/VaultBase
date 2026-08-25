@@ -12,20 +12,14 @@
 //!   Server → Client: {"type":"pong"}
 
 const { getDb } = require('./database');
+const { applyCardPush, MAX_CARDS_PER_BATCH } = require('./card-push');
+const { registerViolation, isBanned, makeWindowCounter, pruneViolations, _clearViolationsForTest } = require('./rate-limit');
 
 // Map: installation_id → WebSocket
 const clients = new Map();
 
 // Keep-alive timer handle, cleared on graceful shutdown.
 let pingInterval = null;
-
-// SEC-023: rate limit per connection + per-IP backoff after violations.
-// Limit lowered 50 -> 20 msg/sec: normal clients send a handful of messages
-// per sync cycle; 50/sec only enabled abuse.
-const RATE_LIMIT_MAX_PER_SEC = 20;
-// ip -> { count, bannedUntil }. Each violation doubles the ban: 10s, 20s, 40s, ...
-// capped at 1 hour. Entries are pruned 1h after the ban expires.
-const ipViolations = new Map();
 let violationPruneInterval = null;
 
 // Mirrors index.js 'trust proxy': only a same-host proxy may supply
@@ -39,69 +33,8 @@ function clientIp(req) {
   return remote;
 }
 
-function registerViolation(ip) {
-  const e = ipViolations.get(ip) || { count: 0, bannedUntil: 0 };
-  e.count += 1;
-  e.bannedUntil = Date.now() + Math.min(2 ** e.count * 5000, 3_600_000);
-  ipViolations.set(ip, e);
-}
-
-function isBanned(ip) {
-  const e = ipViolations.get(ip);
-  return !!e && e.bannedUntil > Date.now();
-}
-
-const STATUS_WEIGHT = { dead: 5, declined: 4, archive: 3, in_use: 2, free: 1 };
-const VALID_STATUSES = ['free', 'in_use', 'archive', 'declined', 'dead'];
-function weight(s) { return STATUS_WEIGHT[s] || 0; }
-
 function send(ws, obj) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj));
-}
-
-/**
- * Apply a batch of card updates atomically.
- *
- * The conflict resolver uses monotonic status weights (higher always wins), so a
- * partially-applied batch can never be repaired by a later sync — the client
- * believes it already pushed those rows. All writes therefore go through a single
- * better-sqlite3 transaction. Transactions are synchronous: nothing inside the
- * transaction callback may await.
- *
- * @returns {Array<{card_hash: string, status: string}>} rows that were written
- */
-function applyCardPush(db, groupId, installationId, cards) {
-  const stmt = db.prepare(`
-    INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(card_hash, group_id) DO UPDATE SET
-      status         = CASE WHEN ? > ? THEN excluded.status ELSE sync_cards.status END,
-      encrypted_data = CASE WHEN ? > ? THEN excluded.encrypted_data ELSE sync_cards.encrypted_data END,
-      notes          = CASE WHEN ? > ? THEN excluded.notes ELSE sync_cards.notes END,
-      updated_by     = CASE WHEN ? > ? THEN excluded.updated_by ELSE sync_cards.updated_by END,
-      updated_at     = CASE WHEN ? > ? THEN CURRENT_TIMESTAMP ELSE sync_cards.updated_at END
-  `);
-  const lookup = db.prepare('SELECT status FROM sync_cards WHERE card_hash=? AND group_id=?');
-
-  return db.transaction(() => {
-    const written = [];
-    for (const card of cards) {
-      // FIX WS-VALIDATION-04: Strict validation of card data
-      if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
-      if (!card.status || !VALID_STATUSES.includes(card.status)) continue;
-      const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
-      const inW = weight(card.status);
-      const curW = weight(lookup.get(card.card_hash, groupId)?.status || 'free');
-      stmt.run(
-        card.card_hash, groupId, card.encrypted_data || null,
-        card.status, notes, installationId,
-        // CASE WHEN params (new_weight > cur_weight)
-        inW, curW, inW, curW, inW, curW, inW, curW, inW, curW,
-      );
-      written.push({ card_hash: card.card_hash, status: card.status });
-    }
-    return written;
-  })();
 }
 
 module.exports = function initWsTauri(wss, io) {
@@ -117,8 +50,8 @@ module.exports = function initWsTauri(wss, io) {
     ws.authenticated = false;
     ws.installationId = null;
     ws.groupId = null;
-    ws.messageCount = 0;
-    ws.windowStart = Date.now();
+    // SEC-023: sliding 1-second window, max RATE_LIMIT_MAX_PER_SEC messages.
+    const rateExceeded = makeWindowCounter();
 
     // Auth timeout — 10 seconds
     const authTimeout = setTimeout(() => {
@@ -126,16 +59,9 @@ module.exports = function initWsTauri(wss, io) {
     }, 10_000);
 
     ws.on('message', (raw) => {
-      // SEC-023: sliding 1-second window, max RATE_LIMIT_MAX_PER_SEC messages.
-      // On violation the connection is closed and the IP gets an exponential
-      // backoff ban, so an abusive client cannot just reconnect and resume.
-      const now = Date.now();
-      if (now - ws.windowStart >= 1000) {
-        ws.windowStart = now;
-        ws.messageCount = 0;
-      }
-      ws.messageCount++;
-      if (ws.messageCount > RATE_LIMIT_MAX_PER_SEC) {
+      // SEC-023: on violation the connection is closed and the IP gets an
+      // exponential backoff ban, so an abusive client cannot just reconnect.
+      if (rateExceeded()) {
         registerViolation(ip);
         ws.close(4002, 'rate_limit_exceeded');
         return;
@@ -248,7 +174,7 @@ module.exports = function initWsTauri(wss, io) {
         const { cards } = msg;
         if (!Array.isArray(cards)) return;
         // FIX WS-VALIDATION-03: Validate batch size
-        if (cards.length > 100) {
+        if (cards.length > MAX_CARDS_PER_BATCH) {
           send(ws, { type: 'error', error: 'too_many_cards' });
           return;
         }
@@ -319,12 +245,7 @@ module.exports = function initWsTauri(wss, io) {
   }, 30_000);
 
   // Prune cooled-down violation entries (ban expired more than 1h ago)
-  violationPruneInterval = setInterval(() => {
-    const cutoff = Date.now() - 3_600_000;
-    for (const [ip, e] of ipViolations) {
-      if (e.bannedUntil < cutoff) ipViolations.delete(ip);
-    }
-  }, 60_000);
+  violationPruneInterval = setInterval(pruneViolations, 60_000);
 };
 
 function broadcastToGroup(groupId, msg, excludeInstallationId) {
@@ -344,7 +265,7 @@ function broadcastCatalogUpdate(wss, type, data) {
 }
 module.exports.broadcastCatalogUpdate = broadcastCatalogUpdate;
 // Test-only: reset per-IP backoff state.
-module.exports._clearViolationsForTest = () => ipViolations.clear();
+module.exports._clearViolationsForTest = _clearViolationsForTest;
 
 /** Stop the keep-alive timer and close every tracked client. Used on shutdown. */
 function shutdown() {
