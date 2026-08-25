@@ -1,24 +1,21 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 // FIX P2-3: AbortController for fetch cancellation
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { invoke } from '@tauri-apps/api/core'
-import { User, X, SearchCode, Download } from 'lucide-react'
+import { X, SearchCode, Download } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useTableFilters } from '../hooks/useTableFilters.js'
 import { useBulkActions } from '../hooks/useBulkActions.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
-import { EmptyState } from '../components/EmptyState.jsx'
-import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { shortId } from '../utils/formatting.js'
-import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
+import { DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
+import { Pagination } from '../components/Pagination.jsx'
 import { exportToCSV } from '../utils/csv.js'
 import { copyText } from '../utils/clipboard.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ProfileModal } from './Profiles/ProfileModal.jsx'
 import { ProfileFilters } from './Profiles/ProfileFilters.jsx'
-import { ProfileRow } from './Profiles/ProfileRow.jsx'
-import { ProfileDetailPanel } from './Profiles/ProfileDetailPanel.jsx'
+import { ProfilesTable } from './Profiles/ProfilesTable.jsx'
 import { QuickOrderModal } from './Profiles/QuickOrderModal.jsx'
 import { DuplicateProfilesModal } from './Profiles/DuplicateProfilesModal.jsx'
 
@@ -33,35 +30,15 @@ export default function ProfileList({
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({ has_drop: null, search: '', card_status: null })
   const [deletingIds, setDeletingIds] = useState(new Set())
-  const [expanded, setExpanded] = useState(null)
-  const [hoveredProfile, setHoveredProfile] = useState(null)
-  const hoverTimer = useRef(null)
   const [showCreate, setShowCreate] = useState(initOpenCreate)
   const [showDupProfiles, setShowDupProfiles] = useState(false)
   const [dupProfileGroups, setDupProfileGroups] = useState([])
   const [quickOrderProfile, setQuickOrderProfile] = useState(null)
-  const [selectedIdx, setSelectedIdx] = useState(null)
   const [enrichProgress, setEnrichProgress] = useState(null)
-  const tableBodyRef = useRef(null)
-  const tableContainerRef = useRef(null)
   const deleteTimersRef = useRef(new Map()) // FIX P2-1: Track delete timers for cleanup
   const fetchAbortRef = useRef(null) // FIX P2-3: AbortController for fetch cancellation
   const { toast } = usePremiumToast()
   const { t } = useLang()
-
-  // Virtual scrolling setup
-  // ★ Insight: overscan увеличен до 20, estimateSize вынесен из useCallback
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
-  const rowVirtualizer = useVirtualizer({
-    count: profiles.length,
-    getScrollElement: () => tableContainerRef.current,
-    estimateSize: index => {
-      // Base row height + expanded detail panel if open
-      const profile = profiles[index]
-      return expanded === profile?.id ? 450 : 50
-    },
-    overscan: 20, // Увеличено с 5 до 20
-  })
 
   const load = useCallback(
     async (p = page, f = filter) => {
@@ -126,16 +103,11 @@ export default function ProfileList({
     count: selectedCount,
   } = useBulkActions(profiles)
 
-  // FIX FE-H02: Cleanup hover timer on unmount to prevent memory leak
   // FIX P2-1: Cleanup all delete timers on unmount
   useEffect(() => {
     // Copy ref to a local variable inside the effect to avoid stale-ref warning
     const timers = deleteTimersRef.current
     return () => {
-      if (hoverTimer.current) {
-        clearTimeout(hoverTimer.current)
-        hoverTimer.current = null
-      }
       // Clear all pending delete timers
       timers.forEach(timerId => {
         clearTimeout(timerId)
@@ -163,50 +135,6 @@ export default function ProfileList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]) // filter and load intentionally omitted to avoid infinite loop
 
-  // H4: Keyboard navigation with virtual scrolling
-  useEffect(() => {
-    const onKey = e => {
-      // Don't intercept when typing in an input/textarea
-      if (
-        e.target.tagName === 'INPUT' ||
-        e.target.tagName === 'TEXTAREA' ||
-        e.target.isContentEditable
-      )
-        return
-      if (profiles.length === 0) return
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setSelectedIdx(i => {
-          const next = i === null ? 0 : Math.min(i + 1, profiles.length - 1)
-          // Scroll to row using virtualizer
-          rowVirtualizer.scrollToIndex(next, { align: 'auto' })
-          return next
-        })
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setSelectedIdx(i => {
-          const prev = i === null ? 0 : Math.max(i - 1, 0)
-          // Scroll to row using virtualizer
-          rowVirtualizer.scrollToIndex(prev, { align: 'auto' })
-          return prev
-        })
-      } else if (e.key === 'Enter' && selectedIdx !== null) {
-        e.preventDefault()
-        const p = profiles[selectedIdx]
-        if (p) {
-          invoke('open_float_window', { profileId: p.id }).catch(e =>
-            console.error('[Profiles] Failed to open float window:', e)
-          )
-        }
-      } else if (e.key === 'Escape') {
-        setSelectedIdx(null)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [profiles, selectedIdx, rowVirtualizer])
-
   // ── Page-specific keyboard shortcuts ──────────────────────────────────
 
   const pageShortcuts = [
@@ -219,14 +147,8 @@ export default function ProfileList({
     {
       keys: ['d'],
       handler: () => {
-        // Add drop to first selected/expanded profile
-        if (expanded) {
-          const profile = profiles.find(p => p.id === expanded)
-          if (profile) {
-            // Trigger add drop action - this would need to be implemented
-            // For now, just expand the profile if not already expanded
-          }
-        }
+        // Добавление drop к выбранному/expanded профилю: UI пока не реализован
+        // (стейт expanded переехал в ProfilesTable в рамках ARCH-008)
       },
       requireNoInput: true,
       page: 'profiles',
@@ -474,194 +396,37 @@ export default function ProfileList({
         </div>
       )}
 
-      {/* Table */}
-      <div className="panel p-0 overflow-x-auto">
-        <div
-          ref={tableContainerRef}
-          className="flex-1 min-h-0 overflow-y-auto max-h-[calc(100vh-280px)]"
-        >
-          <table className="tbl">
-            <thead className="sticky top-0 z-[3] bg-card">
-              <tr>
-                <th scope="col" className="bg-card w-8">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleSelectAll}
-                    className="accent-accent"
-                  />
-                </th>
-                <th scope="col" className="bg-card"></th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_profile')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_card')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_type')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_bank')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_country')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_status')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_drops')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_orders')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('cc_col_notes')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_created')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('cc_col_actions')}
-                </th>
-              </tr>
-            </thead>
-            <tbody ref={tableBodyRef}>
-              {loading && profiles.length === 0 && <SkeletonRows count={6} cols={12} />}
-              {profiles.length === 0 && !loading && (
-                <EmptyState
-                  colSpan={13}
-                  icon={<User size={38} />}
-                  title={t('no_profiles')}
-                  subtitle={t('new_profile')}
-                  action={
-                    <button className="btn btn-g btn-sm" onClick={() => setShowCreate(true)}>
-                      + Create Profile
-                    </button>
-                  }
-                />
-              )}
-              {!loading && profiles.length > 0 && (
-                <>
-                  {/* Spacer for virtual scroll offset */}
-                  {rowVirtualizer.getVirtualItems().length > 0 && (
-                    <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                      <td colSpan={13} className="p-0 border-none"></td>
-                    </tr>
-                  )}
-
-                  {/* Render visible rows */}
-                  {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                    const idx = virtualRow.index
-                    const p = profiles[idx]
-                    if (!p) return null
-
-                    const isExpanded = expanded === p.id
-                    const isDeleting = deletingIds.has(p.id)
-                    const isSelected = selectedIdx === idx
-
-                    return (
-                      <React.Fragment key={p.id}>
-                        <ProfileRow
-                          profile={p}
-                          idx={idx}
-                          isExpanded={isExpanded}
-                          isDeleting={isDeleting}
-                          isSelected={isSelected}
-                          isChecked={selectedSet.has(p.id)}
-                          onToggleSelect={toggleSelect}
-                          onRowClick={() => {
-                            setSelectedIdx(idx)
-                            setExpanded(isExpanded ? null : p.id)
-                            // Remeasure after state change
-                            setTimeout(() => rowVirtualizer.measure(), 0)
-                          }}
-                          onMouseEnter={e => {
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            hoverTimer.current = setTimeout(
-                              () => setHoveredProfile({ p, rect }),
-                              400
-                            )
-                          }}
-                          onMouseLeave={() => {
-                            clearTimeout(hoverTimer.current)
-                            setHoveredProfile(null)
-                          }}
-                          onDelete={() => handleDelete(p)}
-                          onDuplicate={() => handleDuplicate(p)}
-                          onCopyProfile={() => copyProfile(p)}
-                          onCopyBilling={() => copyBilling(p)}
-                          onCopyShipping={() => copyShipping(p)}
-                          onQuickOrder={() => setQuickOrderProfile(p)}
-                        />
-                        {isExpanded && (
-                          <tr key={`${p.id}-detail`}>
-                            <td colSpan={13} className="p-0">
-                              <ProfileDetailPanel
-                                profileId={p.id}
-                                onRefresh={load}
-                                onNavigate={onNavigate}
-                              />
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-
-                  {/* Spacer for remaining virtual scroll space */}
-                  {rowVirtualizer.getVirtualItems().length > 0 && (
-                    <tr
-                      style={{
-                        height: `${
-                          rowVirtualizer.getTotalSize() -
-                          (rowVirtualizer.getVirtualItems()[
-                            rowVirtualizer.getVirtualItems().length - 1
-                          ]?.end || 0)
-                        }px`,
-                      }}
-                    >
-                      <td colSpan={13} className="p-0 border-none"></td>
-                    </tr>
-                  )}
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Table (ARCH-008: вынесена в Profiles/ProfilesTable.jsx) */}
+      <ProfilesTable
+        profiles={profiles}
+        loading={loading}
+        selectedSet={selectedSet}
+        toggleSelect={toggleSelect}
+        allSelected={allSelected}
+        toggleSelectAll={toggleSelectAll}
+        deletingIds={deletingIds}
+        onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
+        onCopyProfile={copyProfile}
+        onCopyBilling={copyBilling}
+        onCopyShipping={copyShipping}
+        onQuickOrder={setQuickOrderProfile}
+        onRefresh={load}
+        onNavigate={onNavigate}
+        onCreate={() => setShowCreate(true)}
+      />
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-[12px] text-muted">{total} profiles</span>
-          <div className="flex gap-1">
-            {buildPageNumbers(page, totalPages).map((p, idx) =>
-              p === '…' ? (
-                <span key={`ellipsis-${idx}`} className="px-2 py-1 text-[12px] text-muted">
-                  …
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  onClick={() => {
-                    setPage(p)
-                    load(p, filter)
-                  }}
-                  className={
-                    page === p
-                      ? 'btn btn-ghost btn-sm active pagination-btn-active'
-                      : 'btn btn-ghost btn-sm'
-                  }
-                >
-                  {p}
-                </button>
-              )
-            )}
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        label="profiles"
+        onPageChange={p => {
+          setPage(p)
+          load(p, filter)
+        }}
+      />
 
       {/* Modals */}
       {showCreate && <ProfileModal onCreated={() => load()} onClose={() => setShowCreate(false)} />}
@@ -678,50 +443,6 @@ export default function ProfileList({
           onCreated={() => load()}
         />
       )}
-      {hoveredProfile &&
-        (() => {
-          const { p, rect } = hoveredProfile
-          const top = Math.min(rect.top + rect.height / 2 - 55, window.innerHeight - 130)
-          const left = Math.min(rect.right + 10, window.innerWidth - 240)
-          return (
-            <div
-              className="fixed z-200 pointer-events-none bg-card border rounded-[10px] p-\[12px_14px\] min-w-\[200px\] max-w-\[240px\] shadow-lg"
-              style={{
-                top,
-                left,
-              }}
-            >
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-mono text-text text-[13px] font-medium">
-                  ••••-{p.last4 || '????'}
-                </span>
-                <span
-                  className="text-[10px] py-\[1px\] px-1.5 rounded-sm"
-                  style={{
-                    background:
-                      p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)',
-                    border: `1px solid ${p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)'}`,
-                    color: p.drop_count > 0 ? 'var(--color-success)' : 'var(--color-warning)',
-                  }}
-                >
-                  {p.drop_count > 0 ? t('profile_ready') : t('profile_no_drop')}
-                </span>
-              </div>
-              {p.holder_masked && (
-                <div className="text-muted text-[12px] mb-1">{p.holder_masked}</div>
-              )}
-              <div className="flex flex-wrap gap-1.5">
-                {p.bin && <span className="text-muted text-[11px] font-mono">BIN {p.bin}</span>}
-                {p.bank_name && <span className="text-[11px] text-muted">· {p.bank_name}</span>}
-              </div>
-              {p.drop_count !== undefined && (
-                <div className="mt-\[5px\] text-muted text-[11px]">
-                  {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
-                </div>
-              )}
-            </div>
-          )
-        })()}
     </div>
   )
 }

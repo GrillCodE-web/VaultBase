@@ -1,0 +1,278 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { invoke } from '@tauri-apps/api/core'
+import { User } from 'lucide-react'
+import { useLang } from '../../hooks/useLang'
+import { EmptyState } from '../../components/EmptyState.jsx'
+import { SkeletonRows } from '../../components/SkeletonRow.jsx'
+import { ProfileRow } from './ProfileRow.jsx'
+import { ProfileDetailPanel } from './ProfileDetailPanel.jsx'
+import { ProfileHoverCard } from './ProfileHoverCard.jsx'
+
+/**
+ * ProfilesTable — выделенный компонент таблицы профилей
+ *
+ * ★ Insight: виртуализация, expanded-строки, клавиатурная навигация (H4) и
+ * hover-карточка живут здесь, чтобы Profiles.jsx остался только оркестрацией
+ * (загрузка данных, фильтры, bulk-действия, модалки). Обработчики приходят
+ * пропсами.
+ */
+export function ProfilesTable({
+  profiles,
+  loading,
+  selectedSet,
+  toggleSelect,
+  allSelected,
+  toggleSelectAll,
+  deletingIds,
+  onDelete,
+  onDuplicate,
+  onCopyProfile,
+  onCopyBilling,
+  onCopyShipping,
+  onQuickOrder,
+  onRefresh,
+  onNavigate,
+  onCreate,
+}) {
+  const { t } = useLang()
+  const [expanded, setExpanded] = useState(null)
+  const [hoveredProfile, setHoveredProfile] = useState(null)
+  const [selectedIdx, setSelectedIdx] = useState(null)
+  const hoverTimer = useRef(null)
+  const tableBodyRef = useRef(null)
+  const tableContainerRef = useRef(null)
+
+  // Virtual scrolling setup
+  // ★ Insight: overscan увеличен до 20, estimateSize вынесен из useCallback
+  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
+  const rowVirtualizer = useVirtualizer({
+    count: profiles.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: index => {
+      // Base row height + expanded detail panel if open
+      const profile = profiles[index]
+      return expanded === profile?.id ? 450 : 50
+    },
+    overscan: 20, // Увеличено с 5 до 20
+  })
+
+  // H4: Keyboard navigation with virtual scrolling
+  useEffect(() => {
+    const onKey = e => {
+      // Don't intercept when typing in an input/textarea
+      if (
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable
+      )
+        return
+      if (profiles.length === 0) return
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIdx(i => {
+          const next = i === null ? 0 : Math.min(i + 1, profiles.length - 1)
+          // Scroll to row using virtualizer
+          rowVirtualizer.scrollToIndex(next, { align: 'auto' })
+          return next
+        })
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIdx(i => {
+          const prev = i === null ? 0 : Math.max(i - 1, 0)
+          // Scroll to row using virtualizer
+          rowVirtualizer.scrollToIndex(prev, { align: 'auto' })
+          return prev
+        })
+      } else if (e.key === 'Enter' && selectedIdx !== null) {
+        e.preventDefault()
+        const p = profiles[selectedIdx]
+        if (p) {
+          invoke('open_float_window', { profileId: p.id }).catch(e =>
+            console.error('[Profiles] Failed to open float window:', e)
+          )
+        }
+      } else if (e.key === 'Escape') {
+        setSelectedIdx(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [profiles, selectedIdx, rowVirtualizer])
+
+  // FIX FE-H02: Cleanup hover timer on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) {
+        clearTimeout(hoverTimer.current)
+        hoverTimer.current = null
+      }
+    }
+  }, [])
+
+  return (
+    <>
+      {/* Table */}
+      <div className="panel p-0 overflow-x-auto">
+        <div
+          ref={tableContainerRef}
+          className="flex-1 min-h-0 overflow-y-auto max-h-[calc(100vh-280px)]"
+        >
+          <table className="tbl">
+            <thead className="sticky top-0 z-[3] bg-card">
+              <tr>
+                <th scope="col" className="bg-card w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="accent-accent"
+                  />
+                </th>
+                <th scope="col" className="bg-card"></th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_profile')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_card')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_type')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_bank')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_country')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_status')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_drops')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_orders')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('cc_col_notes')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('prof_col_created')}
+                </th>
+                <th scope="col" className="bg-card">
+                  {t('cc_col_actions')}
+                </th>
+              </tr>
+            </thead>
+            <tbody ref={tableBodyRef}>
+              {loading && profiles.length === 0 && <SkeletonRows count={6} cols={12} />}
+              {profiles.length === 0 && !loading && (
+                <EmptyState
+                  colSpan={13}
+                  icon={<User size={38} />}
+                  title={t('no_profiles')}
+                  subtitle={t('new_profile')}
+                  action={
+                    <button className="btn btn-g btn-sm" onClick={onCreate}>
+                      + Create Profile
+                    </button>
+                  }
+                />
+              )}
+              {!loading && profiles.length > 0 && (
+                <>
+                  {/* Spacer for virtual scroll offset */}
+                  {rowVirtualizer.getVirtualItems().length > 0 && (
+                    <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
+                      <td colSpan={13} className="p-0 border-none"></td>
+                    </tr>
+                  )}
+
+                  {/* Render visible rows */}
+                  {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                    const idx = virtualRow.index
+                    const p = profiles[idx]
+                    if (!p) return null
+
+                    const isExpanded = expanded === p.id
+                    const isDeleting = deletingIds.has(p.id)
+                    const isSelected = selectedIdx === idx
+
+                    return (
+                      <React.Fragment key={p.id}>
+                        <ProfileRow
+                          profile={p}
+                          idx={idx}
+                          isExpanded={isExpanded}
+                          isDeleting={isDeleting}
+                          isSelected={isSelected}
+                          isChecked={selectedSet.has(p.id)}
+                          onToggleSelect={toggleSelect}
+                          onRowClick={() => {
+                            setSelectedIdx(idx)
+                            setExpanded(isExpanded ? null : p.id)
+                            // Remeasure after state change
+                            setTimeout(() => rowVirtualizer.measure(), 0)
+                          }}
+                          onMouseEnter={e => {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            hoverTimer.current = setTimeout(
+                              () => setHoveredProfile({ p, rect }),
+                              400
+                            )
+                          }}
+                          onMouseLeave={() => {
+                            clearTimeout(hoverTimer.current)
+                            setHoveredProfile(null)
+                          }}
+                          onDelete={() => onDelete(p)}
+                          onDuplicate={() => onDuplicate(p)}
+                          onCopyProfile={() => onCopyProfile(p)}
+                          onCopyBilling={() => onCopyBilling(p)}
+                          onCopyShipping={() => onCopyShipping(p)}
+                          onQuickOrder={() => onQuickOrder(p)}
+                        />
+                        {isExpanded && (
+                          <tr key={`${p.id}-detail`}>
+                            <td colSpan={13} className="p-0">
+                              <ProfileDetailPanel
+                                profileId={p.id}
+                                onRefresh={onRefresh}
+                                onNavigate={onNavigate}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+
+                  {/* Spacer for remaining virtual scroll space */}
+                  {rowVirtualizer.getVirtualItems().length > 0 && (
+                    <tr
+                      style={{
+                        height: `${
+                          rowVirtualizer.getTotalSize() -
+                          (rowVirtualizer.getVirtualItems()[
+                            rowVirtualizer.getVirtualItems().length - 1
+                          ]?.end || 0)
+                        }px`,
+                      }}
+                    >
+                      <td colSpan={13} className="p-0 border-none"></td>
+                    </tr>
+                  )}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Hover profile card */}
+      {hoveredProfile && <ProfileHoverCard profile={hoveredProfile.p} rect={hoveredProfile.rect} />}
+    </>
+  )
+}
