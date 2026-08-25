@@ -17,7 +17,9 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['list']],
 
   use: {
-    baseURL: 'http://localhost:5173',
+    // Свой порт (5199): порт 5173 занят dev-сервером РАБОЧЕЙ копии или
+    // параллельной сессии — у vite.config.js strictPort, второй инстанс там падает.
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5199',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -37,8 +39,8 @@ export default defineConfig({
   outputDir: 'test-results/',
 
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: 'npm run dev -- --port 5199',
+    url: 'http://localhost:5199',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

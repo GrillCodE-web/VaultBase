@@ -1,66 +1,405 @@
 /**
- * Мок Tauri invoke() для Playwright E2E тестов.
- * Инжектируется через globalSetup или addInitScript в каждый тест.
+ * Tauri v2 IPC mock for Playwright E2E.
  *
- * Позволяет запускать E2E против Vite dev-сервера без полного Tauri-бинаря.
- * Команды с неизвестным именем возвращают пустые данные вместо краша.
- */
-
-const MOCK_DATA = {
-  user_login: { success: true, user: { id: 1, username: 'admin', role: 'admin' } },
-  try_auto_login: null,
-  is_locked: true,
-  is_password_set: true,
-  get_current_user: { id: 1, username: 'admin', role: 'admin' },
-  get_dashboard_stats: {
-    total_cards: 0, active_cards: 0, total_orders: 0, revenue: 0,
-    success_rate: 0, avg_order_value: 0,
-  },
-  get_sidebar_badges: { orders_pending: 0, cards_expiring: 0, imap_unread: 0 },
-  get_cards: { items: [], total: 0 },
-  get_orders: { items: [], total: 0 },
-  get_app_version: '2.11.2',
-  get_license_status: { status: 'active', plan: 'dev' },
-  stuffer_get_config: { api_key_set: false, base_url: '' },
-  get_config: {},
-};
-
-/**
- * Возвращает строку скрипта для инжекции через page.addInitScript().
+ * IMPORTANT: реальный invoke() из node_modules/@tauri-apps/api/core.js идёт через
+ * window.__TAURI_INTERNALS__.invoke(cmd, args, options) — мокать нужно именно его.
+ * Старая версия мока подменяла window.__TAURI__.core.invoke и не перехватывала
+ * ни один вызов из src/.
+ *
+ * Мок stateful: команды create_/update_/delete_ реально меняют state, поэтому
+ * UI-тесты видят последствия своих действий после reload-а списка.
+ *
+ * Тестам доступно:
+ *   window.__e2e.state            — текущие данные (cards/profiles/shops/orders)
+ *   window.__e2e.commands         — список вызванных команд (порядок появления)
+ *   window.__e2e.handlers         — хендлеры; можно переопределить из addInitScript
+ *   window.__e2e.autoLogin        — try_auto_login возвращает сессию (true) или null (false)
  */
 export function getTauriMockScript() {
-  return `
-(function() {
-  const MOCK = ${JSON.stringify(MOCK_DATA)};
+  return `(function () {
+  'use strict'
 
-  // Tauri v2 IPC stub
-  window.__TAURI_IPC__ = function(message) {
-    const { cmd, callback, error } = message;
-    const result = MOCK[cmd] !== undefined ? MOCK[cmd] : null;
-    setTimeout(() => {
-      if (typeof window[callback] === 'function') {
-        window[callback](result);
-      }
-    }, 0);
-  };
+  var seq = 1000
+  function nextId() { seq += 1; return seq }
+  function nowStr() { return new Date().toISOString().replace('T', ' ').slice(0, 19) }
+  function clone(x) { return JSON.parse(JSON.stringify(x)) }
+  function paged(list, a) {
+    var p = parseInt((a && a.page) || 1, 10)
+    var pp = parseInt((a && a.perPage) || 50, 10)
+    if (!p || p < 1) p = 1
+    if (!pp || pp < 1) pp = 50
+    return { items: list.slice((p - 1) * pp, p * pp), total: list.length }
+  }
+  function hits(text, q) { return String(text || '').toLowerCase().indexOf(String(q).toLowerCase()) !== -1 }
+  function hostOf(url) {
+    try { return new URL(url).hostname } catch (e) {
+      return String(url || '').replace(/^https?:\\/\\//, '').split('/')[0]
+    }
+  }
 
-  // Tauri v2 invoke()
-  window.__TAURI__ = window.__TAURI__ || {};
-  window.__TAURI__.core = window.__TAURI__.core || {};
-  window.__TAURI__.core.invoke = function(cmd, args) {
-    return new Promise((resolve) => {
-      const result = MOCK[cmd] !== undefined ? MOCK[cmd] : null;
-      setTimeout(() => resolve(result), 10);
-    });
-  };
+  // ── Seed data (поля ровно те, что читают строки списков) ──
+  var state = {
+    cards: [
+      { id: 1, bin: '411111', last4: '1111', holder_name: 'John Doe', status: 'free',
+        card_type: 'debit', card_level: 'classic', orders_count: 0, country: 'US',
+        city: 'Wilmington', state: 'DE', zip: '19801', bank_name: 'Chase Bank',
+        source: 'manual', acquired_at: '2026-06-01 10:00:00', created_at: '2026-06-01 10:00:00',
+        expiry_date: '12/28' },
+      { id: 2, bin: '555555', last4: '2222', holder_name: 'Jane Roe', status: 'in_use',
+        card_type: 'credit', card_level: 'platinum', orders_count: 3, country: 'US',
+        city: 'Austin', state: 'TX', zip: '73301', bank_name: 'Capital One',
+        source: 'manual', acquired_at: '2026-06-01 09:00:00', created_at: '2026-06-01 09:00:00',
+        expiry_date: '09/27' },
+    ],
+    profiles: [
+      { id: 'p1', card_id: 1, holder_masked: 'John Doe', bin: '411111', last4: '1111',
+        card_type: 'debit', bank_name: 'Chase Bank', country: 'US', card_status: 'in_use',
+        drop_count: 1, order_count: 0, notes: 'e2e seed profile', created_at: '2026-08-20 11:00:00' },
+    ],
+    drops: {
+      p1: [
+        { id: 'd1', profile_id: 'p1', recipient_name: 'John Doe', address: '1 Main St',
+          city: 'Wilmington', state: 'DE', zip: '19801', country: 'US',
+          phone: '+15550001111', is_primary: true },
+      ],
+    },
+    shops: [
+      { id: 's1', name: 'Acme Store', domain: 'acme.com', url: 'https://acme.com',
+        category: 'Retail', notes: '', requires_cvv_match: false, blocks_vpn: false,
+        phone_must_match: false, accepts_amex: false, requires_avs: false,
+        high_cancel_risk: false, total_orders: 3, success_rate: 66.7, declined: 1, revenue: 199.5 },
+    ],
+    orders: [
+      { id: 'o1', order_number: 'ORD-1001', profile_id: 'p1', card_id: 1, shop_id: 's1',
+        holder_masked: 'John Doe', last4: '1111', shop_name: 'Acme Store', status: 'pending',
+        total_amount: 59.98, tracking_number: null, carrier: null, email_addr: 'john@example.com',
+        proxy_label: 'proxy-1', notes: 'e2e seed order', created_at: '2026-08-24 10:00:00',
+        updated_at: '2026-08-24 10:00:00' },
+      { id: 'o2', order_number: 'ORD-1002', profile_id: 'p1', card_id: 1, shop_id: 's1',
+        holder_masked: 'John Doe', last4: '1111', shop_name: 'Acme Store', status: 'delivered',
+        total_amount: 120.0, tracking_number: '1Z999AA1OLD', carrier: 'FedEx', email_addr: null,
+        proxy_label: null, notes: null, created_at: '2026-08-15 08:00:00',
+        updated_at: '2026-08-22 08:00:00' },
+    ],
+  }
 
-  // Tauri v2 plugin API stubs
-  window.__TAURI__.updater = { check: () => Promise.resolve(null) };
-  window.__TAURI__.process = { relaunch: () => Promise.resolve() };
-  window.__TAURI__.dialog = {
-    open: () => Promise.resolve(null),
-    save: () => Promise.resolve(null),
-  };
-})();
-`;
+  var session = {
+    token: 'e2e-token', username: 'admin', role: 'admin',
+    expires_at: '2099-12-31 23:59:59',
+    permissions: { cards: 7, orders: 7, profiles: 7, shops: 7 },
+  }
+
+  function freeCardList() { return state.cards.filter(function (c) { return c.status === 'free' }) }
+
+  var handlers = {
+    // ── boot / auth ──
+    get_app_version: function () { return '99.9.9-e2e' },
+    get_license_status: function () { return 'active' },
+    get_config: function () { return { theme: 'dark', language: 'en' } },
+    set_config: function () { return true },
+    is_password_set: function () { return true },
+    is_locked: function () { return false },
+    unlock: function () { return true },
+    setup_password: function () { return true },
+    verify_master_password: function () { return true },
+    try_auto_login: function () { return window.__e2e.autoLogin === false ? null : clone(session) },
+    resume_session: function () { return null },
+    user_login: function (a) { return clone(Object.assign({}, session, { username: (a && a.username) || 'admin' })) },
+    user_logout: function () { return true },
+    get_current_user: function () { return { username: 'admin', role: 'admin', permissions: session.permissions } },
+    refresh_session: function () { return clone(session) },
+
+    // ── shell / dashboard ──
+    get_sidebar_badges: function () {
+      return { expiring_cards: 0, no_drop_profiles: 0, pending_orders: 1,
+               orders_pending: 1, cards_expiring: 0, imap_unread: 0 }
+    },
+    get_dashboard_stats: function () {
+      return { cards_total: state.cards.length, cards_free: freeCardList().length,
+               profiles_total: state.profiles.length, orders_total: state.orders.length,
+               orders_pending: state.orders.filter(function (o) { return o.status === 'pending' }).length,
+               shops_total: state.shops.length, revenue_total: 0 }
+    },
+    seed_catalog: function () { return { seeded: 0 } },
+
+    // ── cards ──
+    get_cards: function (a) {
+      var f = (a && a.filter) || {}
+      var list = state.cards.filter(function (c) {
+        if (f.status && f.status !== 'all' && c.status !== f.status) return false
+        if (f.country && c.country !== f.country) return false
+        if (f.bank_name && c.bank_name !== f.bank_name) return false
+        if (f.source && c.source !== f.source) return false
+        if (f.search) {
+          var q = f.search
+          if (!(hits(c.holder_name, q) || hits(c.bin, q) || hits(c.last4, q) || hits(c.bank_name, q))) return false
+        }
+        return true
+      })
+      var res = paged(list, a)
+      res.free_total = freeCardList().length
+      return res
+    },
+    get_card_filter_meta: function () {
+      return { countries: ['US'], banks: ['Chase Bank', 'Capital One'], sources: ['manual'] }
+    },
+    reveal_card: function (a) {
+      var c = state.cards.filter(function (x) { return String(x.id) === String(a.id) })[0]
+      if (!c) throw new Error('card not found')
+      return clone(Object.assign({ pan_full: '4111111111111111', cvv: '123',
+        billing_address: '1 Main St', phone: '+15550001111' }, c))
+    },
+    update_card_status: function (a) {
+      var c = state.cards.filter(function (x) { return String(x.id) === String(a.id) })[0]
+      if (!c) throw new Error('card not found')
+      c.status = a.status
+      return clone(c)
+    },
+    update_card_notes: function (a) {
+      var c = state.cards.filter(function (x) { return String(x.id) === String(a.id) })[0]
+      if (!c) throw new Error('card not found')
+      c.notes = a.notes
+      return clone(c)
+    },
+    delete_card: function (a) {
+      state.cards = state.cards.filter(function (x) { return String(x.id) !== String(a.id) })
+      return true
+    },
+    bulk_delete_cards: function (a) {
+      var ids = (a && a.ids) || []
+      state.cards = state.cards.filter(function (c) { return !ids.some(function (i) { return String(c.id) === String(i) }) })
+      return true
+    },
+    bulk_update_card_status: function (a) {
+      var ids = (a && a.ids) || []
+      state.cards.forEach(function (c) {
+        if (ids.some(function (i) { return String(c.id) === String(i) })) c.status = a.status
+      })
+      return true
+    },
+    bulk_enrich_cards: function (a) { return { enriched: 0, total: (a && a.ids && a.ids.length) || 0 } },
+
+    // ── profiles ──
+    get_profiles: function (a) {
+      var f = (a && a.filter) || {}
+      var list = state.profiles.filter(function (p) {
+        if (f.has_drop && !(p.drop_count > 0)) return false
+        if (f.card_status && f.card_status !== 'all' && p.card_status !== f.card_status) return false
+        if (f.search) {
+          var q = f.search
+          if (!(hits(p.holder_masked, q) || hits(p.bin, q) || hits(p.last4, q) || hits(p.bank_name, q))) return false
+        }
+        return true
+      })
+      return paged(list, a)
+    },
+    get_profile_detail: function (a) {
+      var p = state.profiles.filter(function (x) { return x.id === a.id })[0]
+      if (!p) throw new Error('profile not found')
+      var card = state.cards.filter(function (c) { return String(c.id) === String(p.card_id) })[0] || {}
+      return clone({ profile: p, card: card, drops: state.drops[p.id] || [] })
+    },
+    create_profile: function (a) {
+      var card = state.cards.filter(function (c) { return String(c.id) === String(a.cardId) })[0]
+      if (!card) throw new Error('card not found')
+      card.status = 'in_use'
+      seq += 1
+      var p = { id: 'p' + seq, card_id: card.id, holder_masked: card.holder_name,
+        bin: card.bin, last4: card.last4, card_type: card.card_type,
+        bank_name: card.bank_name, country: card.country, card_status: 'in_use',
+        drop_count: 0, order_count: 0, notes: a.notes || null, created_at: nowStr() }
+      state.profiles.push(p)
+      return clone(p)
+    },
+    add_drop: function (a) {
+      var p = state.profiles.filter(function (x) { return x.id === a.profileId })[0]
+      if (!p) throw new Error('profile not found')
+      seq += 1
+      var drop = Object.assign({ id: 'd' + seq, profile_id: p.id }, a.drop)
+      if (drop.is_primary === undefined) drop.is_primary = (p.drop_count || 0) === 0
+      state.drops[p.id] = state.drops[p.id] || []
+      state.drops[p.id].push(drop)
+      p.drop_count = state.drops[p.id].length
+      return clone(drop)
+    },
+    delete_profile: function (a) {
+      state.profiles = state.profiles.filter(function (x) { return x.id !== a.id })
+      delete state.drops[a.id]
+      return true
+    },
+    duplicate_profile: function (a) {
+      var p = state.profiles.filter(function (x) { return x.id === a.id })[0]
+      if (!p) throw new Error('profile not found')
+      seq += 1
+      var copy = Object.assign({}, p, { id: 'p' + seq, order_count: 0, created_at: nowStr() })
+      state.profiles.push(copy)
+      return clone(copy)
+    },
+    find_duplicate_profiles: function () { return [] },
+    get_profile_templates: function () { return [] },
+    get_available_emails: function () { return [] },
+    get_free_email_for_shop: function () { return null },
+    set_profile_email: function () { return true },
+    open_float_window: function () { return { ok: true } },
+
+    // ── shops ──
+    get_shops: function (a) {
+      var q = a && a.search
+      var list = state.shops.filter(function (s) {
+        if (q) { return hits(s.name, q) || hits(s.domain, q) || hits(s.url, q) }
+        return true
+      })
+      return paged(list, a)
+    },
+    get_shop: function (a) {
+      var s = state.shops.filter(function (x) { return x.id === a.id })[0]
+      if (!s) throw new Error('shop not found')
+      return clone(Object.assign({}, s, { products: [], orders: [] }))
+    },
+    create_shop: function (a) {
+      var input = (a && a.input) || {}
+      seq += 1
+      var shop = { id: 's' + seq, name: input.name || '', domain: hostOf(input.url || input.name || ''),
+        url: input.url || '', category: input.category || '', notes: input.notes || '',
+        requires_cvv_match: !!input.requires_cvv_match, blocks_vpn: !!input.blocks_vpn,
+        phone_must_match: !!input.phone_must_match, accepts_amex: !!input.accepts_amex,
+        requires_avs: !!input.requires_avs, high_cancel_risk: !!input.high_cancel_risk,
+        total_orders: 0, success_rate: 0, declined: 0, revenue: 0 }
+      state.shops.push(shop)
+      return clone(shop)
+    },
+    update_shop: function (a) {
+      var s = state.shops.filter(function (x) { return x.id === a.id })[0]
+      if (!s) throw new Error('shop not found')
+      Object.assign(s, a.input, { domain: hostOf(a.input.url || s.url) })
+      return clone(s)
+    },
+    delete_shop: function (a) {
+      state.shops = state.shops.filter(function (x) { return x.id !== a.id })
+      return true
+    },
+    get_shop_risk_score: function () { return 25 },
+    get_shop_smart_suggestions: function () { return [] },
+    search_catalog_shops: function () { return [] },
+    search_catalog_items: function () { return [] },
+
+    // ── orders ──
+    get_orders: function (a) {
+      var f = (a && a.filter) || {}
+      var list = state.orders.filter(function (o) {
+        if (f.status && f.status !== 'all' && o.status !== f.status) return false
+        if (f.shop_id && o.shop_id !== f.shop_id) return false
+        if (f.profile_id && o.profile_id !== f.profile_id) return false
+        if (f.card_id && String(o.card_id) !== String(f.card_id)) return false
+        if (f.search) {
+          var q = f.search
+          if (!(hits(o.order_number, q) || hits(o.holder_masked, q) || hits(o.last4, q))) return false
+        }
+        return true
+      })
+      return paged(list, a)
+    },
+    create_order: function (a) {
+      var input = (a && a.input) || {}
+      var prof = state.profiles.filter(function (x) { return x.id === input.profile_id })[0]
+      var shop = state.shops.filter(function (x) { return x.id === input.shop_id })[0]
+      seq += 1
+      var amount = (input.items || []).reduce(function (sum, it) {
+        return sum + (parseInt(it.qty, 10) || 1) * (parseFloat(it.price) || 0)
+      }, 0)
+      var order = { id: 'o' + seq, order_number: input.order_number || 'ORD-' + (1000 + seq),
+        profile_id: input.profile_id, card_id: prof ? prof.card_id : null,
+        shop_id: input.shop_id, holder_masked: prof ? prof.holder_masked : null,
+        last4: prof ? prof.last4 : null, shop_name: shop ? shop.name : null,
+        status: 'pending', total_amount: amount || null, tracking_number: null,
+        carrier: null, email_addr: null, proxy_label: null, notes: input.notes || null,
+        created_at: nowStr(), updated_at: nowStr() }
+      state.orders.unshift(order)
+      if (prof) prof.order_count += 1
+      return clone(order)
+    },
+    update_order_status: function (a) {
+      var o = state.orders.filter(function (x) { return x.id === a.id })[0]
+      if (!o) throw new Error('order not found')
+      o.status = a.status
+      var meta = a.meta
+      if (meta && meta.tracking_number) o.tracking_number = meta.tracking_number
+      if (meta && meta.carrier) o.carrier = meta.carrier
+      o.updated_at = nowStr()
+      return clone(o)
+    },
+    delete_order: function (a) {
+      state.orders = state.orders.filter(function (x) { return x.id !== a.id })
+      return true
+    },
+    bulk_update_orders: function (a) {
+      var ids = (a && a.ids) || []
+      state.orders.forEach(function (o) {
+        if (ids.some(function (i) { return o.id === i })) o.status = a.status
+      })
+      return true
+    },
+    bulk_delete_orders: function (a) {
+      var ids = (a && a.ids) || []
+      state.orders = state.orders.filter(function (o) { return !ids.some(function (i) { return o.id === i }) })
+      return true
+    },
+    update_order_tracking: function (a) {
+      var o = state.orders.filter(function (x) { return x.id === a.id })[0]
+      if (!o) throw new Error('order not found')
+      var track = a.trackingNumber !== undefined ? a.trackingNumber : a.tracking_number
+      var carrier = a.carrier !== undefined ? a.carrier : a.carrier
+      if (track !== undefined) o.tracking_number = track
+      if (carrier) o.carrier = carrier
+      return clone(o)
+    },
+    run_risk_check: function () { return { level: 'safe', score: 6, warnings: [], offline: false } },
+    get_order_templates: function () { return [] },
+    save_order_template: function () { return true },
+
+    // ── справочники (создание заказа тянет их allSettled) ──
+    get_emails: function () { return { items: [], total: 0 } },
+    get_proxies: function () { return { items: [], total: 0 } },
+  }
+
+  window.__e2e = {
+    autoLogin: true,
+    state: state,
+    handlers: handlers,
+    commands: [],
+  }
+
+  var cbSeq = 0
+  var callbacks = {}
+
+  function invoke(cmd, args) {
+    if (window.__e2e.commands.indexOf(cmd) === -1) window.__e2e.commands.push(cmd)
+    var h = window.__e2e.handlers[cmd]
+    if (!h) {
+      // Неизвестная команда — не роняем приложение: undefined/[] выбирается компонентами.
+      if (window.console) console.warn('[tauri-mock] unhandled command: ' + cmd)
+      return Promise.resolve(null)
+    }
+    try {
+      var result = h(args || {})
+      if (result && typeof result.then === 'function') return result
+      return Promise.resolve(result)
+    } catch (e) {
+      return Promise.reject(String(e && e.message ? e.message : e))
+    }
+  }
+
+  window.__TAURI_INTERNALS__ = {
+    invoke: invoke,
+    transformCallback: function (cb) { cbSeq += 1; callbacks[cbSeq] = cb; return cbSeq },
+    unregisterCallback: function (id) { delete callbacks[id] },
+    convertFileSrc: function (p) { return p },
+    metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
+  }
+  // Легаси-путь (вдруг что-то всё ещё зовёт через window.__TAURI__.core)
+  window.__TAURI__ = window.__TAURI__ || {}
+  window.__TAURI__.core = window.__TAURI__.core || {}
+  window.__TAURI__.core.invoke = invoke
+})()
+`
 }
