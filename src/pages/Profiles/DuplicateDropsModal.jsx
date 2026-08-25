@@ -1,11 +1,14 @@
-﻿import { useEffect } from 'react'
+﻿import { useEffect, useRef } from 'react'
 import { SearchCode, X, CheckCircle2 } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { shortId } from '../../utils/formatting.js'
 import { useEscapeKey } from '../../hooks/useEscapeKey.js'
+import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 
 export function DuplicateDropsModal({ groups, onClose }) {
   useEscapeKey(onClose)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, true)
   const { t } = useLang()
   // Scroll lock
   useEffect(() => {
@@ -18,6 +21,7 @@ export function DuplicateDropsModal({ groups, onClose }) {
   return (
     <div className="modal-overlay">
       <div
+        ref={modalRef}
         className="modal w-[620px] max-h-[75vh] flex flex-col"
         role="dialog"
         aria-modal="true"

@@ -6,6 +6,7 @@ import { useLang } from '../../hooks/useLang'
 import { STATUS_COLORS } from '../../constants/colors'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { useEscapeKey } from '../../hooks/useEscapeKey.js'
+import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 
 export function BatchImportModal({ onCreated, onClose }) {
   useEscapeKey(onClose)
@@ -16,6 +17,7 @@ export function BatchImportModal({ onCreated, onClose }) {
   const [loading, setLoading] = useState(false)
   const { toast } = usePremiumToast()
   const modalRef = useRef(null)
+  useFocusTrap(modalRef, true)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'

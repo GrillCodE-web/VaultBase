@@ -1,10 +1,13 @@
-﻿import { useState } from 'react'
+﻿import { useState, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useEscapeKey } from '../../hooks/useEscapeKey.js'
+import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 
 export function QuickOrderModal({ profile, onClose, onCreated }) {
   useEscapeKey(onClose)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef, true)
   const [url, setUrl] = useState('')
   const [shop, setShop] = useState(null) // { id, domain, is_new }
   const [lookingUp, setLookingUp] = useState(false)
@@ -56,7 +59,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal max-w-\[420px\]" onClick={e => e.stopPropagation()}>
+      <div ref={modalRef} className="modal max-w-\[420px\]" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <span>New Order — {profile.holder_masked || `••••${profile.last4 || '?????'}`}</span>
           <button className="icon-btn" onClick={onClose}>
