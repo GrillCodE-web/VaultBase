@@ -855,6 +855,7 @@ export const en = {
   // Orders
   export_coming_soon: 'Export coming soon',
   orders_deselect_all: 'Deselect All',
+  select_all: 'Select all',
   primary_drop: 'Primary Drop',
 
   // IMAP tabs

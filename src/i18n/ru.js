@@ -856,6 +856,7 @@ export const ru = {
   // Orders
   export_coming_soon: 'Экспорт скоро появится',
   orders_deselect_all: 'Снять выделение',
+  select_all: 'Выбрать все',
   primary_drop: 'Основной дроп',
 
   // IMAP tabs
