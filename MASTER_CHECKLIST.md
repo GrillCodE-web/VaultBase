@@ -76,10 +76,10 @@
 
 | #        | Задача                                                                              | Приоритет | Файл(ы)                 | Статус |
 | -------- | ----------------------------------------------------------------------------------- | --------- | ----------------------- | ------ |
-| ARCH-001 | Разбить `main.rs` (3100 строк) на модули: команды, инициализация, обработка событий | 🟠        | `src-tauri/src/main.rs` | ⬜     |
+| ARCH-001 | Разбить `main.rs` (3100 строк) на модули: команды, инициализация, обработка событий | 🟠        | `src-tauri/src/main.rs` | ✅ (уже сделано — main.rs 277 строк)     |
 | ARCH-002 | Заменить 7 `.unwrap()` в `stuffer.rs` на `?` / `.unwrap_or_default()`               | 🔴        | `stuffer.rs:384-495`    | ✅     |
 | ARCH-003 | Заменить `.unwrap()` в IMAP regex на `.expect()` с описанием                        | 🟡        | `imap.rs:15-19`         | ✅     |
-| ARCH-004 | Структурные ошибки из commands: JSON `{ code, message, suggestion }` вместо String  | 🟠        | `commands/*.rs`         | ⬜     |
+| ARCH-004 | Структурные ошибки из commands: JSON `{ code, message, suggestion }` вместо String  | 🟠        | `commands/*.rs`         | ✅ (классификатор + database_locked/invalid_master_password)     |
 | ARCH-005 | IMAP: мигрировать на async-imap или tokio thread pool (blocking I/O)                | 🟠        | `imap.rs`               | ⬜     |
 
 ### 2.2 Frontend архитектура

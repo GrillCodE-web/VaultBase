@@ -140,6 +140,30 @@ export function handleError(error, context = '') {
     }
   }
 
+  // База заблокирована (приложение заперто / мастер-пароль не введён).
+  // Приходит из практически каждой команды Rust как "database_locked".
+  if (message === 'database_locked' || message.includes('database is locked')) {
+    return {
+      type: 'DatabaseError',
+      code: 'DATABASE_LOCKED',
+      message: 'База данных заблокирована. Разблокируйте приложение мастер-паролем.',
+      suggestion: 'Если приложение только что запущено — введите мастер-пароль.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+
+  if (message === 'invalid_master_password') {
+    return {
+      type: 'AuthenticationError',
+      code: 'INVALID_MASTER_PASSWORD',
+      message: 'Неверный мастер-пароль.',
+      suggestion: 'Проверьте раскладку клавиатуры и попробуйте ещё раз.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+
   // Ошибки интеграции Stuffer. Ветка стоит ДО общих проверок на
   // `invalid`/`validation`: текст ошибки Stuffer-сервера подставляется
   // дословно и часто содержит слово "invalid", из-за чего пользователь видел
