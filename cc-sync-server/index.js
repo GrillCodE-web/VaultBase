@@ -81,6 +81,10 @@ app.use('/api/catalog',  require('./routes/catalog'));
 // BIN cache (shared across all clients)
 app.use('/api/bin',      require('./routes/bin'));
 
+// VaultBase Manager (docs/MANAGER_APP.md)
+app.use('/manager/api',  require('./routes/manager-api'));
+app.use('/api/telemetry', require('./routes/telemetry'));
+
 // Admin (hidden path for security)
 const ADMIN_PATH = process.env.ADMIN_PATH || '/ghostadmin/1asfd-54-local';
 // Login routes mount first and are deliberately unauthenticated — the gate below
@@ -130,6 +134,9 @@ app.use((err, req, res, _next) => { console.error(err.stack || err.message); res
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`[vaultbase-sync] port ${PORT}`));
 
+// Background alert engine (worker-offline detection)
+require('./alerts-engine').start();
+
 // ── Graceful shutdown ───────────────────────────────────────────────────────
 // Stop accepting new connections, close both WebSocket servers, then close the
 // SQLite handle so WAL data is checkpointed. Force-exits if clients hang.
@@ -150,6 +157,7 @@ function shutdown(signal) {
   // Close live WebSocket clients first: server.close() only invokes its callback
   // once every open connection has ended, and WS connections are long-lived.
   require('./ws-tauri').shutdown();
+  require('./alerts-engine').shutdown();
   wssTauri.close();
   io.close();
 

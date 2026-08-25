@@ -207,6 +207,116 @@ function migrate(db) {
       PRAGMA user_version = 10;
     `);
   }
+
+  // VaultBase Manager: telemetry pipeline, worker policies, news, shop
+  // priorities and alerts. Payloads arrive as sealed envelopes — the server
+  // stores ciphertext only (see docs/MANAGER_APP.md for the crypto contract).
+  if (ver < 11) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS manager_keys (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        installation_id  TEXT NOT NULL,
+        pubkey           TEXT NOT NULL,
+        key_type         TEXT NOT NULL DEFAULT 'x25519',
+        label            TEXT DEFAULT '',
+        is_active        INTEGER NOT NULL DEFAULT 1,
+        created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+        revoked_at       DATETIME
+      );
+      CREATE INDEX IF NOT EXISTS idx_manager_keys_active ON manager_keys(is_active, id);
+
+      CREATE TABLE IF NOT EXISTS manager_news (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        severity      TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info','warning','critical')),
+        title         TEXT NOT NULL,
+        body          TEXT NOT NULL DEFAULT '',
+        target_role   TEXT NOT NULL DEFAULT 'all',
+        target_iid    TEXT,
+        created_by    TEXT,
+        is_published  INTEGER NOT NULL DEFAULT 0,
+        created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+        published_at  DATETIME,
+        expires_at    DATETIME
+      );
+
+      CREATE TABLE IF NOT EXISTS news_reads (
+        news_id          INTEGER NOT NULL,
+        installation_id  TEXT NOT NULL,
+        read_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (news_id, installation_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS worker_policies (
+        installation_id      TEXT PRIMARY KEY,
+        banned               INTEGER NOT NULL DEFAULT 0,
+        banned_reason        TEXT,
+        ban_until            DATETIME,
+        permissions_override TEXT,
+        quota_cards_day      INTEGER,
+        quota_orders_day     INTEGER,
+        min_version          TEXT,
+        version_exempt       INTEGER NOT NULL DEFAULT 0,
+        force_logout         INTEGER NOT NULL DEFAULT 0,
+        updated_by           TEXT,
+        updated_at           DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS worker_heartbeats (
+        installation_id  TEXT PRIMARY KEY,
+        last_seen        DATETIME NOT NULL,
+        key_id           INTEGER,
+        envelope         TEXT,
+        received_at      DATETIME
+      );
+
+      CREATE TABLE IF NOT EXISTS worker_heartbeat_history (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        installation_id  TEXT NOT NULL,
+        ts               DATETIME NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_hb_history ON worker_heartbeat_history(installation_id, ts);
+
+      CREATE TABLE IF NOT EXISTS stats_reports (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        installation_id  TEXT NOT NULL,
+        kind             TEXT NOT NULL,
+        report_date      TEXT NOT NULL,
+        key_id           INTEGER,
+        envelopes        TEXT NOT NULL,
+        received_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(installation_id, kind, report_date)
+      );
+
+      CREATE TABLE IF NOT EXISTS shop_priorities (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        shop_domain  TEXT NOT NULL,
+        target       TEXT NOT NULL DEFAULT '',
+        weight       INTEGER NOT NULL DEFAULT 5,
+        notes        TEXT DEFAULT '',
+        updated_by   TEXT,
+        updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(shop_domain, target)
+      );
+
+      CREATE TABLE IF NOT EXISTS manager_alerts (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        severity        TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info','warning','critical')),
+        category        TEXT NOT NULL,
+        installation_id TEXT,
+        title           TEXT NOT NULL,
+        message         TEXT DEFAULT '',
+        status          TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','ack','closed')),
+        dedupe_key      TEXT UNIQUE,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        acked_by        TEXT,
+        acked_at        DATETIME,
+        closed_at       DATETIME
+      );
+      CREATE INDEX IF NOT EXISTS idx_manager_alerts_status ON manager_alerts(status, created_at);
+
+      PRAGMA user_version = 11;
+    `);
+  }
 }
 
 /**

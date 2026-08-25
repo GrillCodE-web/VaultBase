@@ -1,61 +1,88 @@
 const auth = require('./auth');
 const { getDb } = require('./database');
 
-// FIX API-H01: TOCTOU - Atomically check and update token in single transaction
-function requireToken(req, res, next) {
+// Shared token authentication for license-token channels.
+//
+// rolePolicy:
+//   'any'     — any active license (historical requireToken behaviour)
+//   'manager' — only licenses with role='manager'
+//   'worker'  — any active license except role='manager'
+//
+// FIX API-H01: verification and last_seen update run in one transaction, so a
+// token revoked between the SELECT and the UPDATE cannot slip through.
+//
+// Worker bans (worker_policies.banned) reject every authenticated channel with
+// 403 + the full policy row, so the client can display *why* it is locked and
+// every entry point (REST sync, footprint, WS, telemetry) stays consistent.
+function authenticateToken(req, rolePolicy) {
   const header = req.headers['authorization'] || '';
   const match = header.match(/^Bearer\s+(.+)$/i);
-  if (!match) return res.status(401).json({ error: 'missing_token' });
+  if (!match) return { status: 401, body: { error: 'missing_token' } };
 
   const token = match[1].trim();
-
   if (!token || token.length < 10) {
-    return res.status(401).json({ error: 'invalid_token_format' });
+    return { status: 401, body: { error: 'invalid_token_format' } };
   }
 
   const db = getDb();
-
-  // FIX API-H01: Use transaction to atomically verify and update last_seen
-  // This prevents race condition where token could be revoked between check and use
   try {
-    const result = db.transaction(() => {
-      // Check token exists and is active
-      const row = db.prepare('SELECT token, is_active, installation_id FROM licenses WHERE token = ?').get(token);
+    return db.transaction(() => {
+      const row = db.prepare('SELECT token, is_active, installation_id, role FROM licenses WHERE token = ?').get(token);
 
-      if (!row) {
-        return { valid: false, error: 'invalid_token' };
+      if (!row) return { status: 401, body: { error: 'invalid_token' } };
+      if (!row.is_active) return { status: 401, body: { error: 'revoked' } };
+
+      if (rolePolicy === 'manager' && row.role !== 'manager') {
+        return { status: 403, body: { error: 'manager_required' } };
+      }
+      if (rolePolicy === 'worker' && row.role === 'manager') {
+        return { status: 403, body: { error: 'worker_required' } };
       }
 
-      if (!row.is_active) {
-        return { valid: false, error: 'revoked' };
-      }
-
-      // Update last_seen atomically within the same transaction
       db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ? AND is_active = 1').run(token);
-
-      // Verify the update succeeded (token wasn't revoked concurrently)
       const verifyRow = db.prepare('SELECT is_active FROM licenses WHERE token = ?').get(token);
-      if (!verifyRow?.is_active) {
-        return { valid: false, error: 'revoked_concurrent' };
+      if (!verifyRow?.is_active) return { status: 401, body: { error: 'revoked_concurrent' } };
+
+      if (row.role !== 'manager') {
+        const banned = db.prepare(`
+          SELECT banned, banned_reason, ban_until, permissions_override,
+                 quota_cards_day, quota_orders_day, min_version, version_exempt,
+                 force_logout, updated_by, updated_at
+          FROM worker_policies
+          WHERE installation_id = ? AND banned = 1
+            AND (ban_until IS NULL OR ban_until > datetime('now'))
+        `).get(row.installation_id);
+        if (banned) {
+          return { status: 403, body: { error: 'banned', reason: banned.banned_reason || '', policy: banned } };
+        }
       }
 
-      return { valid: true, installation_id: row.installation_id };
+      return { status: 0, installation_id: row.installation_id, role: row.role, token };
     })();
-
-    if (!result.valid) {
-      return res.status(401).json({ error: result.error });
-    }
-
-    // Exposed for request logging; never log the token itself.
-    req.installationId = result.installation_id;
-
   } catch (e) {
-    console.error('[middleware/requireToken] Transaction error:', e);
-    return res.status(500).json({ error: 'database_error' });
+    console.error('[middleware/authenticateToken] Transaction error:', e);
+    return { status: 500, body: { error: 'database_error' } };
   }
+}
 
-  req.userToken = token;
+function finishAuth(req, res, next, result) {
+  if (result.status !== 0) return res.status(result.status).json(result.body);
+  req.installationId = result.installation_id;
+  req.licenseRole = result.role;
+  req.userToken = result.token;
   next();
+}
+
+function requireToken(req, res, next) {
+  finishAuth(req, res, next, authenticateToken(req, 'any'));
+}
+
+function requireManagerToken(req, res, next) {
+  finishAuth(req, res, next, authenticateToken(req, 'manager'));
+}
+
+function requireWorkerToken(req, res, next) {
+  finishAuth(req, res, next, authenticateToken(req, 'worker'));
 }
 
 /**
@@ -97,4 +124,4 @@ function requireAdmin(req, res, next) {
   return res.redirect(302, `${adminPath}/login?next=${next_}`);
 }
 
-module.exports = { requireToken, requireAdmin };
+module.exports = { requireToken, requireManagerToken, requireWorkerToken, requireAdmin };

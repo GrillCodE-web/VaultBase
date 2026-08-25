@@ -33,6 +33,44 @@ const router = express.Router();
 router.get('/', (req, res) => {
   const db = getDb();
 
+  // Second app (VaultBase Manager): publishes its own updater artifacts under
+  // file_type='manager-updater'. Version selection looks only at those rows,
+  // never at the worker `versions` table.
+  if (req.query.app === 'manager') {
+    const mRows = db.prepare(`
+      SELECT version, notes, published_at, platform, download_url, signature, file_size
+      FROM release_files
+      WHERE file_type = 'manager-updater' AND is_published = 1
+        AND download_url IS NOT NULL AND signature IS NOT NULL
+    `).all();
+    if (mRows.length === 0) return res.status(204).end();
+
+    const latest = mRows.reduce(
+      (best, r) => (best === null || compareSemver(r.version, best.version) > 0 ? r : best),
+      null
+    );
+    const currentVersion = req.query.current_version || '';
+    if (currentVersion && !isNewer(latest.version, currentVersion)) return res.status(204).end();
+
+    const platforms = {};
+    for (const r of mRows) {
+      if (r.version !== latest.version) continue;
+      platforms[r.platform || 'windows-x86_64'] = {
+        url: r.download_url,
+        signature: r.signature,
+        ...(r.file_size ? { size: r.file_size } : {}),
+      };
+    }
+    return res.json({
+      version: latest.version,
+      notes: latest.notes || '',
+      pub_date: latest.published_at
+        ? new Date(latest.published_at + 'Z').toISOString()
+        : new Date().toISOString(),
+      platforms,
+    });
+  }
+
   // «Последняя» версия — максимум по semver, а не по published_at: перевыпуск
   // старой версии обновляет published_at и иначе вытеснил бы свежий релиз.
   const row = db.prepare(`

@@ -101,9 +101,16 @@ module.exports = function initWsTauri(wss, io) {
         // the UPDATE still authenticated this socket (TOCTOU).
         const authTx = db.transaction((tkn) => {
           const row = db.prepare(
-            'SELECT installation_id, is_active FROM licenses WHERE token = ?'
+            'SELECT installation_id, is_active, role FROM licenses WHERE token = ?'
           ).get(tkn);
           if (!row || !row.is_active) return null;
+          // Manager licenses never join the card-sync WS channel.
+          if (row.role === 'manager') return { forbidden: 'manager_ws_forbidden' };
+          // Worker policy ban (worker_policies) applies at connection auth too.
+          const banned = db.prepare(
+            "SELECT banned_reason FROM worker_policies WHERE installation_id = ? AND banned = 1 AND (ban_until IS NULL OR ban_until > datetime('now'))"
+          ).get(row.installation_id);
+          if (banned) return { banned: banned.banned_reason || '' };
           db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?').run(tkn);
           const member = db.prepare(`
             SELECT sgm.group_id FROM sync_group_members sgm
@@ -115,6 +122,16 @@ module.exports = function initWsTauri(wss, io) {
 
         if (!auth) {
           send(ws, { type: 'auth_error', error: 'invalid_token' });
+          ws.close();
+          return;
+        }
+        if (auth.forbidden) {
+          send(ws, { type: 'auth_error', error: auth.forbidden });
+          ws.close();
+          return;
+        }
+        if (auth.banned !== undefined) {
+          send(ws, { type: 'auth_error', error: 'banned', reason: auth.banned });
           ws.close();
           return;
         }
@@ -264,6 +281,27 @@ function broadcastCatalogUpdate(wss, type, data) {
   });
 }
 module.exports.broadcastCatalogUpdate = broadcastCatalogUpdate;
+
+// Targeted delivery to one installation (used for policy_update pushes).
+function sendToInstallation(iid, msg) {
+  const ws = clients.get(iid);
+  if (ws && ws.readyState === ws.OPEN) {
+    send(ws, msg);
+    return true;
+  }
+  return false;
+}
+
+// Broadcast to every authenticated WS client (used for news pushes).
+function broadcastAll(wss, msg) {
+  if (!wss) return;
+  const raw = typeof msg === 'string' ? msg : JSON.stringify(msg);
+  wss.clients.forEach(client => {
+    if (client.readyState === 1 && client.authenticated) client.send(raw);
+  });
+}
+module.exports.sendToInstallation = sendToInstallation;
+module.exports.broadcastAll = broadcastAll;
 // Test-only: reset per-IP backoff state.
 module.exports._clearViolationsForTest = _clearViolationsForTest;
 
