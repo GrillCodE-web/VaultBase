@@ -63,7 +63,7 @@ export const SHORTCUTS = {
       action: 'global:search',
     },
     focusSearch: {
-      keys: ['/', 'f'],
+      keys: ['/', 'f', 'Cmd+F', 'Ctrl+F'],
       description: 'Focus search input',
       action: 'global:focus-search',
       requireNoInput: true,
@@ -115,7 +115,7 @@ export const SHORTCUTS = {
       page: 'cards',
     },
     export: {
-      keys: ['e'],
+      keys: ['e', 'Cmd+E', 'Ctrl+E'],
       description: 'Export cards',
       action: 'cards:export',
       requireNoInput: true,
@@ -166,6 +166,31 @@ export const SHORTCUTS = {
       page: 'settings',
     },
   },
+}
+
+// UX-022: conflict detection — та же клавиша/комбо на двух разных действиях
+// одной области видимости (global или одна страница). Вызывается один раз при
+// загрузке config; в dev кидает, чтобы конфликт не прошёл незамеченным.
+export function findShortcutConflicts() {
+  const seen = new Map() // key -> "category:action"
+  const conflicts = []
+  Object.entries(SHORTCUTS).forEach(([category, shortcuts]) => {
+    Object.entries(shortcuts).forEach(([action, config]) => {
+      for (const rawKey of config.keys) {
+        // секвенции ('g d') не конфликтуют с одиночными/модификаторными
+        if (rawKey.includes(' ')) continue
+        const norm = rawKey.replace(/Cmd/gi, 'Ctrl').toLowerCase()
+        const scope = config.page || 'global'
+        const id = `${scope}:${norm}`
+        const prev = seen.get(id)
+        if (prev && prev !== `${category}:${action}`) {
+          conflicts.push({ key: rawKey, scope, a: prev, b: `${category}:${action}` })
+        }
+        seen.set(id, `${category}:${action}`)
+      }
+    })
+  })
+  return conflicts
 }
 
 // Helper to get all shortcuts as flat array
