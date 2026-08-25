@@ -28,6 +28,8 @@ import { STATUS_COLORS, getDeliveryRateColor } from '../constants/colors'
 import { PROXIES_OVERSCAN } from '../constants/virtualization.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { useEscapeKey } from '../hooks/useEscapeKey.js'
+import { useAuth } from '../hooks/useAuth'
+import ProxiesUpanelTab from './Proxies/upanel'
 
 // ─── Helpers ──────────────────────────────────────────────────
 function TypeBadge({ type }) {
@@ -568,6 +570,7 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
 
 // ─── Main ProxyList ───────────────────────────────────────────
 export default function ProxyList() {
+  const [activeTab, setActiveTab] = useState('proxies') // 'proxies' | 'pptp' (FEAT-018)
   const [proxies, setProxies] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -591,6 +594,7 @@ export default function ProxyList() {
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
+  const { hasPerm } = useAuth()
 
   // Virtualization setup
   const parentRef = useRef(null)
@@ -773,207 +777,349 @@ export default function ProxyList() {
 
   return (
     <div className="content">
-      {/* Header */}
-      <div className="ph">
-        <div>
-          <div className="ph-title">
-            <Globe size={14} /> {t('proxy_manager')}
+      {/* Tabs: список прокси / PPTP-серверы uPanel (FEAT-018) */}
+      <div className="tabs mb-3">
+        <button
+          className={`tab${activeTab === 'proxies' ? ' active' : ''}`}
+          onClick={() => setActiveTab('proxies')}
+        >
+          {t('proxy_tab_list')}
+        </button>
+        {hasPerm('manage_proxies') && (
+          <button
+            className={`tab${activeTab === 'pptp' ? ' active' : ''}`}
+            onClick={() => setActiveTab('pptp')}
+          >
+            {t('proxy_tab_pptp')}
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'pptp' ? (
+        <ProxiesUpanelTab />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="ph">
+            <div>
+              <div className="ph-title">
+                <Globe size={14} /> {t('proxy_manager')}
+              </div>
+              <div className="ph-sub">{t('proxy_pool_count', { n: total })}</div>
+            </div>
+            <div className="ph-actions">
+              <button className="btn btn-b" onClick={() => setModal('import')}>
+                <Upload size={13} /> {t('btn_import')}
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handleTestAll}
+                disabled={testingAll || proxies.length === 0}
+              >
+                <RefreshCw
+                  size={13}
+                  style={{ animation: testingAll ? 'spin 1s linear infinite' : 'none' }}
+                />
+                {testingAll
+                  ? `${t('btn_test')} ${testAllProgress.current}/${testAllProgress.total}…`
+                  : t('proxy_test_all')}
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handleCheckNow}
+                disabled={checkingHealth || proxies.length === 0}
+              >
+                <Wifi
+                  size={13}
+                  style={{ animation: checkingHealth ? 'spin 1s linear infinite' : 'none' }}
+                />
+                {checkingHealth ? 'Checking…' : 'Check Now'}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setModal('stats')}>
+                <BarChart2 size={13} /> Usage Stats
+              </button>
+              <button className="btn btn-g" onClick={() => setModal('add')}>
+                + {t('add_proxy')}
+              </button>
+            </div>
           </div>
-          <div className="ph-sub">{t('proxy_pool_count', { n: total })}</div>
-        </div>
-        <div className="ph-actions">
-          <button className="btn btn-b" onClick={() => setModal('import')}>
-            <Upload size={13} /> {t('btn_import')}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={handleTestAll}
-            disabled={testingAll || proxies.length === 0}
-          >
-            <RefreshCw
-              size={13}
-              style={{ animation: testingAll ? 'spin 1s linear infinite' : 'none' }}
-            />
-            {testingAll
-              ? `${t('btn_test')} ${testAllProgress.current}/${testAllProgress.total}…`
-              : t('proxy_test_all')}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={handleCheckNow}
-            disabled={checkingHealth || proxies.length === 0}
-          >
-            <Wifi
-              size={13}
-              style={{ animation: checkingHealth ? 'spin 1s linear infinite' : 'none' }}
-            />
-            {checkingHealth ? 'Checking…' : 'Check Now'}
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setModal('stats')}>
-            <BarChart2 size={13} /> Usage Stats
-          </button>
-          <button className="btn btn-g" onClick={() => setModal('add')}>
-            + {t('add_proxy')}
-          </button>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="filters mb-3">
-        {[
-          [null, null, t('filter_all')],
-          [false, null, `${t('filter_clean')} (${cleanCount})`],
-          [null, true, `${t('filter_used')} (${usedCount})`],
-          [true, null, `${t('filter_blocked')} (${blockedCount})`],
-        ].map(([blockVal, usedVal, label]) => {
-          const isActive = filterBlocked === blockVal && filterUsed === usedVal
-          return (
-            <button
-              key={label}
-              onClick={() => applyStatusFilter(blockVal, usedVal)}
-              className={`flt${isActive ? ' active' : ''}`}
-            >
-              {label}
-            </button>
-          )
-        })}
-        <div className="w-px bg-border mx-1" />
-        {[
-          ['http', 'HTTP'],
-          ['socks5', 'SOCKS5'],
-          ['socks4', 'SOCKS4'],
-          ['pptp', 'PPTP'],
-        ].map(([val, label]) => (
-          <button
-            key={val}
-            onClick={() => applyTypeFilter(val)}
-            className={`flt mono${filterType === val ? ' active' : ''}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+          {/* Filters */}
+          <div className="filters mb-3">
+            {[
+              [null, null, t('filter_all')],
+              [false, null, `${t('filter_clean')} (${cleanCount})`],
+              [null, true, `${t('filter_used')} (${usedCount})`],
+              [true, null, `${t('filter_blocked')} (${blockedCount})`],
+            ].map(([blockVal, usedVal, label]) => {
+              const isActive = filterBlocked === blockVal && filterUsed === usedVal
+              return (
+                <button
+                  key={label}
+                  onClick={() => applyStatusFilter(blockVal, usedVal)}
+                  className={`flt${isActive ? ' active' : ''}`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+            <div className="w-px bg-border mx-1" />
+            {[
+              ['http', 'HTTP'],
+              ['socks5', 'SOCKS5'],
+              ['socks4', 'SOCKS4'],
+              ['pptp', 'PPTP'],
+            ].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => applyTypeFilter(val)}
+                className={`flt mono${filterType === val ? ' active' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      {/* Table */}
-      <div className="panel p-0">
-        {proxies.length === 0 && loading ? (
-          <table className="tbl">
-            <thead className="sticky top-0 z-[3] bg-card">
-              <tr>
-                <th scope="col" className="bg-card">
-                  {t('col_label')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('col_host_port')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('col_type')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('col_status')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('proxy_used_in')}
-                </th>
-                <th scope="col" className="bg-card">
-                  Last Checked
-                </th>
-                <th scope="col" className="bg-card"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <SkeletonRows count={6} cols={7} />
-            </tbody>
-          </table>
-        ) : proxies.length === 0 ? (
-          <table className="tbl">
-            <thead className="sticky top-0 z-[3] bg-card">
-              <tr>
-                <th scope="col" className="bg-card">
-                  {t('col_label')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('col_host_port')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('col_type')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('col_status')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('proxy_used_in')}
-                </th>
-                <th scope="col" className="bg-card">
-                  Last Checked
-                </th>
-                <th scope="col" className="bg-card"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <EmptyState
-                colSpan={7}
-                icon={<Shield size={14} />}
-                title={t('no_proxies')}
-                subtitle={t('proxy_empty_hint')}
-                action={
-                  <button className="btn btn-g btn-sm" onClick={() => setModal('add')}>
-                    <Plus size={12} /> Add Proxy
-                  </button>
-                }
-              />
-            </tbody>
-          </table>
-        ) : useVirtual ? (
-          <div ref={parentRef} className="virtual-scroll-container">
-            <table className="tbl">
-              <thead className="sticky top-0 z-[3] bg-card">
-                <tr>
-                  <th scope="col" className="bg-card">
-                    {t('col_label')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('col_host_port')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('col_type')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('col_status')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('proxy_used_in')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    Last Checked
-                  </th>
-                  <th scope="col" className="bg-card"></th>
-                </tr>
-              </thead>
-            </table>
-            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
-              {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                const proxy = proxies[virtualRow.index]
-                const rawResult = testResults[proxy.id]
-                let healthStatus = null
-                if (rawResult === true || rawResult === 'online') healthStatus = 'online'
-                if (rawResult === false || rawResult === 'failed') healthStatus = 'offline'
-                const boundShop = proxyBindings[proxy.id] || null
-                return (
-                  <div
-                    key={virtualRow.key}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  >
-                    <table className="tbl mb-0">
-                      <tbody>
-                        <tr style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
+          {/* Table */}
+          <div className="panel p-0">
+            {proxies.length === 0 && loading ? (
+              <table className="tbl">
+                <thead className="sticky top-0 z-[3] bg-card">
+                  <tr>
+                    <th scope="col" className="bg-card">
+                      {t('col_label')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('col_host_port')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('col_type')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('col_status')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('proxy_used_in')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      Last Checked
+                    </th>
+                    <th scope="col" className="bg-card"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <SkeletonRows count={6} cols={7} />
+                </tbody>
+              </table>
+            ) : proxies.length === 0 ? (
+              <table className="tbl">
+                <thead className="sticky top-0 z-[3] bg-card">
+                  <tr>
+                    <th scope="col" className="bg-card">
+                      {t('col_label')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('col_host_port')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('col_type')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('col_status')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      {t('proxy_used_in')}
+                    </th>
+                    <th scope="col" className="bg-card">
+                      Last Checked
+                    </th>
+                    <th scope="col" className="bg-card"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <EmptyState
+                    colSpan={7}
+                    icon={<Shield size={14} />}
+                    title={t('no_proxies')}
+                    subtitle={t('proxy_empty_hint')}
+                    action={
+                      <button className="btn btn-g btn-sm" onClick={() => setModal('add')}>
+                        <Plus size={12} /> Add Proxy
+                      </button>
+                    }
+                  />
+                </tbody>
+              </table>
+            ) : useVirtual ? (
+              <div ref={parentRef} className="virtual-scroll-container">
+                <table className="tbl">
+                  <thead className="sticky top-0 z-[3] bg-card">
+                    <tr>
+                      <th scope="col" className="bg-card">
+                        {t('col_label')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('col_host_port')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('col_type')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('col_status')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('proxy_used_in')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        Last Checked
+                      </th>
+                      <th scope="col" className="bg-card"></th>
+                    </tr>
+                  </thead>
+                </table>
+                <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+                  {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                    const proxy = proxies[virtualRow.index]
+                    const rawResult = testResults[proxy.id]
+                    let healthStatus = null
+                    if (rawResult === true || rawResult === 'online') healthStatus = 'online'
+                    if (rawResult === false || rawResult === 'failed') healthStatus = 'offline'
+                    const boundShop = proxyBindings[proxy.id] || null
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: `${virtualRow.size}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <table className="tbl mb-0">
+                          <tbody>
+                            <tr style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
+                              <td className="text-secondary">
+                                {proxy.label || '—'}
+                                {boundShop && (
+                                  <span className="proxy-bound-badge">
+                                    → {boundShop.name || boundShop.domain}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="mono text-[11px] text-muted">
+                                {proxy.host}
+                                <span className="text-border">:</span>
+                                {proxy.port}
+                              </td>
+                              <td>
+                                <TypeBadge type={proxy.proxy_type} />
+                              </td>
+                              <td>
+                                <StatusBadge proxy={proxy} healthStatus={healthStatus} />
+                              </td>
+                              <td className="text-[11px] text-muted">{usedInLabel(proxy)}</td>
+                              <td className="text-[11px] text-muted">
+                                {timeAgo(proxy.last_checked)}
+                              </td>
+                              <td>
+                                <div className="tbl-actions">
+                                  <button
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={() => handleTestProxy(proxy)}
+                                    disabled={
+                                      testingId === proxy.id || testResults[proxy.id] === 'testing'
+                                    }
+                                    title={t('btn_test')}
+                                    aria-label={t('btn_test')}
+                                  >
+                                    {testingId === proxy.id ||
+                                    testResults[proxy.id] === 'testing' ? (
+                                      <Loader2 size={12} className="animate-spin" />
+                                    ) : testResults[proxy.id] === true ||
+                                      testResults[proxy.id] === 'online' ? (
+                                      <Wifi size={12} style={{ color: STATUS_COLORS.success }} />
+                                    ) : testResults[proxy.id] === false ||
+                                      testResults[proxy.id] === 'failed' ? (
+                                      <WifiOff size={12} className="text-red-t" />
+                                    ) : (
+                                      <Wifi size={12} />
+                                    )}
+                                  </button>
+                                  <BindToShopDropdown
+                                    proxy={proxy}
+                                    currentBinding={boundShop}
+                                    onBound={shop =>
+                                      setProxyBindings(prev => ({ ...prev, [proxy.id]: shop }))
+                                    }
+                                    onUnbound={() =>
+                                      setProxyBindings(prev => {
+                                        const n = { ...prev }
+                                        delete n[proxy.id]
+                                        return n
+                                      })
+                                    }
+                                  />
+                                  <button
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={() => setModal(proxy)}
+                                    aria-label={t('btn_edit')}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="btn btn-r btn-sm"
+                                    onClick={() => handleDelete(proxy)}
+                                    aria-label={t('btn_delete')}
+                                  >
+                                    {t('btn_delete')}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1-overflow">
+                <table className="tbl">
+                  <thead className="sticky top-0 z-[3] bg-card">
+                    <tr>
+                      <th scope="col" className="bg-card">
+                        {t('col_label')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('col_host_port')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('col_type')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('col_status')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        {t('proxy_used_in')}
+                      </th>
+                      <th scope="col" className="bg-card">
+                        Last Checked
+                      </th>
+                      <th scope="col" className="bg-card"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proxies.map(proxy => {
+                      const rawResult = testResults[proxy.id]
+                      let healthStatus = null
+                      if (rawResult === true || rawResult === 'online') healthStatus = 'online'
+                      if (rawResult === false || rawResult === 'failed') healthStatus = 'offline'
+                      const boundShop = proxyBindings[proxy.id] || null
+                      return (
+                        <tr key={proxy.id} style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
                           <td className="text-secondary">
                             {proxy.label || '—'}
                             {boundShop && (
@@ -1049,154 +1195,41 @@ export default function ProxyList() {
                             </div>
                           </td>
                         </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1-overflow">
-            <table className="tbl">
-              <thead className="sticky top-0 z-[3] bg-card">
-                <tr>
-                  <th scope="col" className="bg-card">
-                    {t('col_label')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('col_host_port')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('col_type')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('col_status')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    {t('proxy_used_in')}
-                  </th>
-                  <th scope="col" className="bg-card">
-                    Last Checked
-                  </th>
-                  <th scope="col" className="bg-card"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {proxies.map(proxy => {
-                  const rawResult = testResults[proxy.id]
-                  let healthStatus = null
-                  if (rawResult === true || rawResult === 'online') healthStatus = 'online'
-                  if (rawResult === false || rawResult === 'failed') healthStatus = 'offline'
-                  const boundShop = proxyBindings[proxy.id] || null
-                  return (
-                    <tr key={proxy.id} style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
-                      <td className="text-secondary">
-                        {proxy.label || '—'}
-                        {boundShop && (
-                          <span className="proxy-bound-badge">
-                            → {boundShop.name || boundShop.domain}
-                          </span>
-                        )}
-                      </td>
-                      <td className="mono text-[11px] text-muted">
-                        {proxy.host}
-                        <span className="text-border">:</span>
-                        {proxy.port}
-                      </td>
-                      <td>
-                        <TypeBadge type={proxy.proxy_type} />
-                      </td>
-                      <td>
-                        <StatusBadge proxy={proxy} healthStatus={healthStatus} />
-                      </td>
-                      <td className="text-[11px] text-muted">{usedInLabel(proxy)}</td>
-                      <td className="text-[11px] text-muted">{timeAgo(proxy.last_checked)}</td>
-                      <td>
-                        <div className="tbl-actions">
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleTestProxy(proxy)}
-                            disabled={testingId === proxy.id || testResults[proxy.id] === 'testing'}
-                            title={t('btn_test')}
-                            aria-label={t('btn_test')}
-                          >
-                            {testingId === proxy.id || testResults[proxy.id] === 'testing' ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : testResults[proxy.id] === true ||
-                              testResults[proxy.id] === 'online' ? (
-                              <Wifi size={12} style={{ color: STATUS_COLORS.success }} />
-                            ) : testResults[proxy.id] === false ||
-                              testResults[proxy.id] === 'failed' ? (
-                              <WifiOff size={12} className="text-red-t" />
-                            ) : (
-                              <Wifi size={12} />
-                            )}
-                          </button>
-                          <BindToShopDropdown
-                            proxy={proxy}
-                            currentBinding={boundShop}
-                            onBound={shop =>
-                              setProxyBindings(prev => ({ ...prev, [proxy.id]: shop }))
-                            }
-                            onUnbound={() =>
-                              setProxyBindings(prev => {
-                                const n = { ...prev }
-                                delete n[proxy.id]
-                                return n
-                              })
-                            }
-                          />
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => setModal(proxy)}
-                            aria-label={t('btn_edit')}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-r btn-sm"
-                            onClick={() => handleDelete(proxy)}
-                            aria-label={t('btn_delete')}
-                          >
-                            {t('btn_delete')}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-[11px] text-muted">{total} proxies</span>
-          <div className="flex gap-1">
-            {buildPageNumbers(page, totalPages).map((p, idx) =>
-              p === '…' ? (
-                <span key={`ellipsis-${idx}`} className="btn btn-sm btn-ghost cursor-default">
-                  …
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  onClick={() => {
-                    setPage(p)
-                    load(p, filterBlocked, filterType, filterUsed)
-                  }}
-                  className={`btn btn-sm ${page === p ? 'btn-b' : 'btn-ghost'}`}
-                >
-                  {p}
-                </button>
-              )
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-        </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-3">
+              <span className="text-[11px] text-muted">{total} proxies</span>
+              <div className="flex gap-1">
+                {buildPageNumbers(page, totalPages).map((p, idx) =>
+                  p === '…' ? (
+                    <span key={`ellipsis-${idx}`} className="btn btn-sm btn-ghost cursor-default">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setPage(p)
+                        load(p, filterBlocked, filterType, filterUsed)
+                      }}
+                      className={`btn btn-sm ${page === p ? 'btn-b' : 'btn-ghost'}`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Modals */}

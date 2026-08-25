@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 17;
+    const LATEST_VERSION: u32 = 18;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -75,7 +75,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
-        (16, migration_v16), (17, migration_v17),
+        (16, migration_v16), (17, migration_v17), (18, migration_v18),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -651,8 +651,6 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     // courier_hash — SHA-256 нормализованной личности курьера
     // (provider|name|address1|city|state|zip) — по нему применяются
     // приходящие из группы теги, не раскрывая данные курьера серверу.
-    // ВНИМАНИЕ: ветка agent/upanel (FEAT-018) тоже несёт миграцию "v15"
-    // (upanel_connections) — при её влитии перенумеровать её в v17.
     fn migration_v16(conn: &Connection) -> SqlResult<()> {
         conn.execute_batch(r#"
             CREATE TABLE IF NOT EXISTS courier_tags (
@@ -692,5 +690,30 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 updated_at  TEXT
             );
         "#)?;
+        Ok(())
+    }
+
+    // FEAT-018: сохранённые подключения к uPanel API (PPTP-серверы).
+    // api_token хранится зашифрованным (AES-256-GCM, encryption.rs) —
+    // наружу отдаётся только маска token_preview.
+    // NOTE: на ветке была "v15"; при влитии в main перенумерована в v18 —
+    // v15/v16/v17 уже заняты (FEAT-009, FEAT-010, MGR-006).
+    fn migration_v18(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS upanel_connections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                base_url TEXT NOT NULL,
+                api_token TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                last_check_at TEXT,
+                last_check_status TEXT,
+                last_check_error TEXT,
+                last_http_code INTEGER,
+                last_latency_ms INTEGER,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );",
+        )?;
         Ok(())
     }

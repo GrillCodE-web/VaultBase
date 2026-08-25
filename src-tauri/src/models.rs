@@ -308,6 +308,76 @@ pub struct PaginatedProxies {
 }
 
 // ─────────────────────────────────────────
+//  uPanel API connections (FEAT-018)
+// ─────────────────────────────────────────
+
+/// Сохранённое подключение к uPanel API (PPTP-серверы). Токен наружу не
+/// отдаётся — только маска `token_preview`.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UpanelConnection {
+    pub id: i64,
+    pub name: String,
+    pub base_url: String,
+    pub is_active: bool,
+    /// Маска токена вида `upl_…4f2a` (сам токен не покидает бэкенд).
+    pub token_preview: String,
+    #[serde(default)]
+    pub last_check_at: Option<String>,
+    /// online | offline | error | NULL (не проверялся)
+    #[serde(default)]
+    pub last_check_status: Option<String>,
+    #[serde(default)]
+    pub last_check_error: Option<String>,
+    #[serde(default)]
+    pub last_http_code: Option<u16>,
+    #[serde(default)]
+    pub last_latency_ms: Option<u64>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UpanelConnectionInput {
+    pub name: String,
+    /// Пустая строка — использовать дефолтный URL uPanel.
+    pub base_url: String,
+    /// Пустая строка при редактировании = не менять токен.
+    pub api_token: String,
+    pub is_active: Option<bool>,
+}
+
+/// Фильтры /live-запроса (пробрасываются в uPanel как query-параметры).
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct UpanelLiveFilter {
+    pub country_code: Option<String>,
+    pub state: Option<String>,
+    pub city: Option<String>,
+    pub ip: Option<String>,
+    pub fraud_min: Option<i64>,
+    pub fraud_max: Option<i64>,
+    pub mtu_min: Option<i64>,
+    pub mtu_max: Option<i64>,
+    pub order_by: Option<String>,
+    pub order_dir: Option<String>,
+}
+
+/// Результат live-проверки соединения (виджет Online/Offline на дашборде).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UpanelApiStatus {
+    pub connection_id: i64,
+    pub name: String,
+    pub base_url: String,
+    pub online: bool,
+    /// online | offline | error | disabled
+    pub status: String,
+    pub http_code: Option<u16>,
+    #[serde(default)]
+    pub error: Option<String>,
+    pub latency_ms: Option<u64>,
+    pub checked_at: String,
+}
+
+// ─────────────────────────────────────────
 //  Shops + Products (M05)
 // ─────────────────────────────────────────
 

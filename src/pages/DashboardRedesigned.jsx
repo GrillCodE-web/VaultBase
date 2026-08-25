@@ -35,6 +35,7 @@ import {
   ExpiringTable,
 } from './Dashboard/tables'
 import { CollapsePanel, PremiumStatCard, SmartAlertCard } from './Dashboard/cards'
+import { UpanelApiStatusWidget } from './Dashboard/upanelApiStatus'
 
 // Стили дашборд-карточек — в общем styles/pages.css (через index.css).
 
@@ -328,6 +329,9 @@ export default function DashboardRedesigned({ onNavigate }) {
           </>
         )}
       </div>
+
+      {/* ── uPanel APIs: Online/Offline (FEAT-018) ── */}
+      <UpanelApiStatusWidget />
 
       {/* ── Smart Alerts ── */}
       {s.alerts && s.alerts.length > 0 && (

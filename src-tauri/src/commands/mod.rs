@@ -17,6 +17,7 @@ pub(crate) mod smtp;
 pub(crate) mod stuffer;
 pub(crate) mod sync;
 pub(crate) mod telemetry;
+pub(crate) mod upanel;
 
 pub(crate) use auth::*;
 pub(crate) use automation::*;
@@ -32,3 +33,4 @@ pub(crate) use smtp::*;
 pub(crate) use stuffer::*;
 pub(crate) use sync::*;
 pub(crate) use telemetry::*;
+pub(crate) use upanel::*;

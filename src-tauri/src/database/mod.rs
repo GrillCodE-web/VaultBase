@@ -36,6 +36,7 @@ include!("_cards.rs");
 include!("_analytics.rs");
 include!("_imap.rs");
 include!("_profiles.rs");
+include!("_upanel.rs");
 include!("_shops.rs");
 include!("_orders.rs");
 include!("_stuffer.rs");

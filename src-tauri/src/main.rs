@@ -296,6 +296,13 @@ fn main() {
             commands::catalog::get_catalog_items, commands::catalog::get_catalog_shops,
             commands::catalog::toggle_catalog_item_stop, commands::catalog::delete_catalog_items, commands::catalog::toggle_catalog_shop_excluded,
             commands::catalog::check_proxy_health_now, commands::catalog::get_proxy_usage_stats,
+            // FEAT-018: uPanel API (PPTP servers) — connections + live proxies
+            commands::upanel::upanel_connections_list, commands::upanel::upanel_connection_add,
+            commands::upanel::upanel_connection_update, commands::upanel::upanel_connection_delete,
+            commands::upanel::upanel_connection_test, commands::upanel::upanel_check_all_apis,
+            commands::upanel::upanel_live_list, commands::upanel::upanel_live_stats,
+            commands::upanel::upanel_live_credentials, commands::upanel::upanel_live_take,
+            commands::upanel::upanel_map_states,
             commands::orders::batch_create_orders,
             commands::catalog::set_proxy_shop_binding, commands::catalog::remove_proxy_shop_binding, commands::catalog::get_proxy_for_shop, commands::catalog::get_all_proxy_shop_bindings,
             commands::misc::get_auto_delivered_orders,

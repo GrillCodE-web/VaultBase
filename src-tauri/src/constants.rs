@@ -25,6 +25,18 @@ pub const IINAPI_BASE_URL: &str = "https://api.iinapi.com/api/v1/";
 /// Track17 API for package tracking
 pub const TRACK17_API_URL: &str = "https://api.17track.net/track/v2.2/gettrackinfo";
 
+/// FEAT-018: base URL of the uPanel REST API (PPTP servers). The Bearer
+/// token is issued in the uPanel profile and is stored encrypted
+/// (AES-256-GCM) per connection.
+pub const UPANEL_API_BASE_URL: &str = "https://upanel.ushubpulse.com/api/v1";
+
+/// FEAT-018: timeout for a regular uPanel request (list/take), seconds.
+pub const UPANEL_REQUEST_TIMEOUT_SECS: u64 = 15;
+
+/// FEAT-018: shorter timeout for Online/Offline status pings (`GET /me`)
+/// so a dead node does not stall the dashboard refresh.
+pub const UPANEL_STATUS_TIMEOUT_SECS: u64 = 6;
+
 // ─────────────────────────────────────────────────────────────────────
 //  Tracking APIs (Carrier Detection)
 // ─────────────────────────────────────────────────────────────────────
