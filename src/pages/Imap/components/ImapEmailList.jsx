@@ -25,6 +25,7 @@ export function ImapEmailList({
   onDelete: _onDelete,
   msgSearch,
   onMsgContextMenu,
+  domainRoutes = [],
 }) {
   const totalPages = Math.ceil(msgTotal / MSG_PAGE_SIZE)
   const searchRef = useRef(null)
@@ -46,6 +47,13 @@ export function ImapEmailList({
     debounceRef.current = setTimeout(() => {
       onSearch(val)
     }, 400)
+  }
+
+  // IMAP-ROUTING: клик по чипу домена = мгновенный фильтр (from_email содержит домен)
+  const applyDomainFilter = domain => {
+    if (searchRef.current !== null) searchRef.current.value = domain
+    clearTimeout(debounceRef.current)
+    onSearch(domain)
   }
 
   return (
@@ -76,6 +84,28 @@ export function ImapEmailList({
           className="flex-1 border-none bg-transparent outline-none text-[12px] text-text min-w-0"
         />
       </div>
+
+      {domainRoutes.length > 0 && (
+        <div className="px-[10px] py-[6px] border-b flex flex-wrap gap-1 bg-surface">
+          {domainRoutes.map(r => {
+            const active = msgSearch === r.domain
+            return (
+              <button
+                key={r.domain}
+                onClick={() => applyDomainFilter(active ? '' : r.domain)}
+                className={`px-2 py-[2px] rounded-full text-[11px] border transition-colors ${
+                  active
+                    ? 'bg-accent text-white border-accent'
+                    : 'bg-transparent text-muted border-border hover:bg-hover'
+                }`}
+                title={r.account_label ?? ''}
+              >
+                {r.domain}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {loadingMsgs ? (
         <div className="p-3">

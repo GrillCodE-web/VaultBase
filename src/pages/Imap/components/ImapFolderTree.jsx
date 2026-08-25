@@ -1,4 +1,5 @@
-import { Inbox, Plus, ChevronDown, ChevronRight } from 'lucide-react'
+import { Inbox, Plus, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { useLang } from '../../../hooks/useLang.jsx'
 import { ImapFolderRow } from './ImapFolderRow.jsx'
 
 // Virtual "All Inboxes" account pseudo-object
@@ -19,6 +20,7 @@ export function ImapFolderTree({
   onSelectFolder,
   onAddImap,
 }) {
+  const { t } = useLang()
   const allUnread = Object.values(stats).reduce((s, a) => s + (a?.unread ?? 0), 0)
 
   return (
@@ -64,6 +66,13 @@ export function ImapFolderTree({
         const s = stats[acc.id]
         const unread = s?.unread ?? 0
         const isSelected = selectedAccount?.id === acc.id
+        const failCount = acc.fail_count ?? 0
+        const isDead = failCount >= 3
+        const healthTip = isDead
+          ? `${t('imap_health_dead')} (${failCount})${acc.last_error ? `: ${acc.last_error}` : ''}`
+          : failCount > 0
+            ? `${t('imap_health_flaky')} (${failCount})`
+            : ''
 
         return (
           <div key={acc.id}>
@@ -85,6 +94,14 @@ export function ImapFolderTree({
               <span className="text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                 {acc.label}
               </span>
+              {failCount > 0 && (
+                <span
+                  title={healthTip}
+                  className={`shrink-0 flex ${isDead ? 'text-error' : 'text-warning'}`}
+                >
+                  <AlertTriangle size={12} />
+                </span>
+              )}
               {unread > 0 && <span className="unread-badge">{unread}</span>}
             </div>
 

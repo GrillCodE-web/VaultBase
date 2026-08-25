@@ -14,12 +14,14 @@ import {
   AlertCircle,
   CheckCircle,
   X,
+  Globe,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ImapFolderTree, ImapEmailList, ImapMessageViewer } from './Imap/components/index.js'
+import { ImapDomainRoutes } from './Imap/components/ImapDomainRoutes.jsx'
 
 // ─── IMAP Account Modal ─────────────────────────────────────────────────────
 function AccountModal({ account, onSave, onClose }) {
@@ -343,6 +345,7 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
 
 // ─── Main Imap Page ───────────────────────────────────────────────────────
 export default function Imap({ onNavigate: _onNavigate }) {
+  const { t } = useLang()
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
 
@@ -376,6 +379,9 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const [editAccount, setEditAccount] = useState(null)
   const [showCompose, setShowCompose] = useState(false)
   const [composeReply, setComposeReply] = useState(null)
+  // IMAP-ROUTING: маршруты «домен = почта» + модалка управления
+  const [domainRoutes, setDomainRoutes] = useState([])
+  const [showDomainRoutes, setShowDomainRoutes] = useState(false)
 
   // Load folders for an account
   const loadFolders = useCallback(async account => {
@@ -397,12 +403,14 @@ export default function Imap({ onNavigate: _onNavigate }) {
   // Load accounts
   const loadAccounts = useCallback(async () => {
     try {
-      const [imap, smtp] = await Promise.all([
+      const [imap, smtp, routes] = await Promise.all([
         invoke('get_imap_accounts'),
         invoke('get_smtp_configs'),
+        invoke('list_domain_routes'),
       ])
       setAccounts(imap)
       setSmtpConfigs(smtp)
+      setDomainRoutes(routes)
       if (imap.length > 0 && !selectedAccount) {
         setSelectedAccount(imap[0])
         loadFolders(imap[0])
@@ -625,6 +633,14 @@ export default function Imap({ onNavigate: _onNavigate }) {
           </button>
 
           <button
+            onClick={() => setShowDomainRoutes(true)}
+            className="btn btn-ghost btn-sm p-2"
+            title={t('imap_domain_routes_title')}
+          >
+            <Globe size={16} />
+          </button>
+
+          <button
             onClick={() => setShowAddImap(true)}
             className="btn btn-ghost btn-sm p-2"
             title="Add Account"
@@ -673,6 +689,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
             onDelete={handleDeleteMessage}
             msgSearch={msgSearch}
             onMsgContextMenu={info => setContextMenu(info)}
+            domainRoutes={domainRoutes}
           />
 
           <ImapMessageViewer
@@ -723,6 +740,16 @@ export default function Imap({ onNavigate: _onNavigate }) {
             setShowCompose(false)
             setComposeReply(null)
           }}
+        />
+      )}
+      {showDomainRoutes && (
+        <ImapDomainRoutes
+          accounts={accounts}
+          onClose={() => {
+            setShowDomainRoutes(false)
+            loadAccounts()
+          }}
+          onError={e => toastErr(typeof e === 'string' ? e : getErrorMessage(e))}
         />
       )}
 
