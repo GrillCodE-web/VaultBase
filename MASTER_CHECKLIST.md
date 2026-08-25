@@ -1,7 +1,7 @@
 ﻿# VaultBase — Мастер-чеклист улучшений, багов и доработок
 
-> **Создан:** 2026-08-11 · **Обновлён:** 2026-08-24  
-> **Всего пунктов:** 121 · **Выполнено:** 84 · **Уже было:** 7  
+> **Создан:** 2026-08-11 · **Обновлён:** 2026-08-25  
+> **Всего пунктов:** 121 · **Выполнено:** 88 · **Уже было:** 7  
 > **Статусы:** ⬜ Не начато · 🔄 В работе · ✅ Готово · ❌ Отклонено  
 > **Приоритеты:** 🔴 Критичный · 🟠 Важный · 🟡 Средний · 🟢 Желательный
 
@@ -74,13 +74,13 @@
 
 ### 2.1 Rust бэкенд
 
-| #        | Задача                                                                              | Приоритет | Файл(ы)                 | Статус |
-| -------- | ----------------------------------------------------------------------------------- | --------- | ----------------------- | ------ |
-| ARCH-001 | Разбить `main.rs` (3100 строк) на модули: команды, инициализация, обработка событий | 🟠        | `src-tauri/src/main.rs` | ✅ (уже сделано — main.rs 277 строк)     |
-| ARCH-002 | Заменить 7 `.unwrap()` в `stuffer.rs` на `?` / `.unwrap_or_default()`               | 🔴        | `stuffer.rs:384-495`    | ✅     |
-| ARCH-003 | Заменить `.unwrap()` в IMAP regex на `.expect()` с описанием                        | 🟡        | `imap.rs:15-19`         | ✅     |
-| ARCH-004 | Структурные ошибки из commands: JSON `{ code, message, suggestion }` вместо String  | 🟠        | `commands/*.rs`         | ✅ (классификатор + database_locked/invalid_master_password)     |
-| ARCH-005 | IMAP: мигрировать на async-imap или tokio thread pool (blocking I/O)                | 🟠        | `imap.rs`               | ✅     |
+| #        | Задача                                                                              | Приоритет | Файл(ы)                 | Статус                                                       |
+| -------- | ----------------------------------------------------------------------------------- | --------- | ----------------------- | ------------------------------------------------------------ |
+| ARCH-001 | Разбить `main.rs` (3100 строк) на модули: команды, инициализация, обработка событий | 🟠        | `src-tauri/src/main.rs` | ✅ (уже сделано — main.rs 277 строк)                         |
+| ARCH-002 | Заменить 7 `.unwrap()` в `stuffer.rs` на `?` / `.unwrap_or_default()`               | 🔴        | `stuffer.rs:384-495`    | ✅                                                           |
+| ARCH-003 | Заменить `.unwrap()` в IMAP regex на `.expect()` с описанием                        | 🟡        | `imap.rs:15-19`         | ✅                                                           |
+| ARCH-004 | Структурные ошибки из commands: JSON `{ code, message, suggestion }` вместо String  | 🟠        | `commands/*.rs`         | ✅ (классификатор + database_locked/invalid_master_password) |
+| ARCH-005 | IMAP: мигрировать на async-imap или tokio thread pool (blocking I/O)                | 🟠        | `imap.rs`               | ✅                                                           |
 
 ### 2.2 Frontend архитектура
 
@@ -128,9 +128,9 @@
 | ------ | ------------------------------------------------ | --------- | ---------------------------------- | ------ |
 | UX-004 | ARIA-labels на иконочные кнопки                  | 🟡        | Все компоненты                     | ⬜     |
 | UX-005 | Keyboard navigation по таблицам (стрелки, Enter) | 🟡        | Cards, Orders, Profiles            | ⬜     |
-| UX-006 | `aria-live` regions для анонсирования изменений  | 🟡        | Все страницы                       | ⬜     |
+| UX-006 | `aria-live` regions для анонсирования изменений  | 🟡        | Все страницы                       | ✅     |
 | UX-007 | Контрастность по WCAG AA (status badges)         | 🟡        | `constants/colors.js`, `status.js` | ⬜     |
-| UX-008 | Focus trap в модальных окнах Profiles            | 🟡        | `Profiles.jsx:420`                 | ⬜     |
+| UX-008 | Focus trap в модальных окнах Profiles            | 🟡        | `Profiles.jsx:420`                 | ✅     |
 | UX-009 | `role="columnheader"` для заголовков таблиц      | 🟡        | `Cards.jsx:900-920`                | ⬜     |
 
 ### 3.3 Функциональные UX улучшения
@@ -152,9 +152,9 @@
 
 | #      | Задача                                                             | Приоритет | Файл(ы)                         | Статус |
 | ------ | ------------------------------------------------------------------ | --------- | ------------------------------- | ------ |
-| UX-020 | Расширить: Ctrl+N (новая запись), Ctrl+F (поиск), Ctrl+E (экспорт) | 🟢        | `useKeyboardShortcuts.js`       | ⬜     |
+| UX-020 | Расширить: Ctrl+N (новая запись), Ctrl+F (поиск), Ctrl+E (экспорт) | 🟢        | `useKeyboardShortcuts.js`       | ✅     |
 | UX-021 | Sequence timeout: уменьшить с 1000ms до 500ms                      | 🟢        | `useKeyboardShortcuts.js:47-49` | ✅     |
-| UX-022 | Conflict detection: проверка на дублирование shortcuts             | 🟢        | `useKeyboardShortcuts.js`       | ⬜     |
+| UX-022 | Conflict detection: проверка на дублирование shortcuts             | 🟢        | `useKeyboardShortcuts.js`       | ✅     |
 
 ---
 
@@ -357,15 +357,15 @@
 
 ## 12. ERROR HANDLING
 
-| #       | Задача                                                      | Приоритет | Файл(ы)                    | Статус        |
-| ------- | ----------------------------------------------------------- | --------- | -------------------------- | ------------- |
-| ERR-001 | Float ErrorBoundary (сейчас белый экран при ошибке)         | 🟠        | `float.jsx`                | ✅            |
-| ERR-002 | Suspense + ErrorBoundary для lazy pages                     | 🟡        | `App.jsx:1287-1299`        | ✅ (уже было) |
-| ERR-003 | Sync ошибки: показывать на всех страницах (не только Cards) | 🟡        | `App.jsx`, все страницы    | ✅            |
-| ERR-004 | IMAP ошибки: emit event в React                             | 🟡        | `imap.rs`, `background.rs` | ✅ (imap_connection_alert + toast)            |
-| ERR-005 | Stuffer ошибки: humanize (HTTP коды → user-friendly текст)  | 🟡        | `errorHandler.js:155-175`  | ✅            |
-| ERR-006 | Auto-retry для failed invoke() (с backoff)                  | 🟡        | `src/api/` (новый)         | ✅            |
-| ERR-007 | Clipboard copy error: показывать toast в Float              | 🟢        | `float.jsx:50-80`          | ✅            |
+| #       | Задача                                                      | Приоритет | Файл(ы)                    | Статус                             |
+| ------- | ----------------------------------------------------------- | --------- | -------------------------- | ---------------------------------- |
+| ERR-001 | Float ErrorBoundary (сейчас белый экран при ошибке)         | 🟠        | `float.jsx`                | ✅                                 |
+| ERR-002 | Suspense + ErrorBoundary для lazy pages                     | 🟡        | `App.jsx:1287-1299`        | ✅ (уже было)                      |
+| ERR-003 | Sync ошибки: показывать на всех страницах (не только Cards) | 🟡        | `App.jsx`, все страницы    | ✅                                 |
+| ERR-004 | IMAP ошибки: emit event в React                             | 🟡        | `imap.rs`, `background.rs` | ✅ (imap_connection_alert + toast) |
+| ERR-005 | Stuffer ошибки: humanize (HTTP коды → user-friendly текст)  | 🟡        | `errorHandler.js:155-175`  | ✅                                 |
+| ERR-006 | Auto-retry для failed invoke() (с backoff)                  | 🟡        | `src/api/` (новый)         | ✅                                 |
+| ERR-007 | Clipboard copy error: показывать toast в Float              | 🟢        | `float.jsx:50-80`          | ✅                                 |
 
 ---
 
