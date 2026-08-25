@@ -225,7 +225,24 @@ pub(crate) fn update_user_cmd(id: i64, display_name: Option<String>, is_active: 
 pub(crate) fn delete_user_cmd(id: i64) -> Result<(), String> {
     let admin = require_admin()?;
     if admin.user_id == id { return Err("cannot_delete_self".into()); }
-    with_db!(db, { db.delete_user(id) })
+    // FEAT-014: soft delete — деактивация + отзыв сессий, запись остаётся
+    with_db!(db, {
+        db.delete_user(id)?;
+        let _ = db.log_event("user.deactivated", &format!("User {} deactivated", id), Some("user"), None);
+        Ok(())
+    })
+}
+
+/// FEAT-014: полное удаление — только после деактивации
+#[tauri::command]
+pub(crate) fn hard_delete_user_cmd(id: i64) -> Result<(), String> {
+    let admin = require_admin()?;
+    if admin.user_id == id { return Err("cannot_delete_self".into()); }
+    with_db!(db, {
+        db.hard_delete_user(id)?;
+        let _ = db.log_event("user.hard_deleted", &format!("User {} permanently deleted", id), Some("user"), None);
+        Ok(())
+    })
 }
 
 #[tauri::command]

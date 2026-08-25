@@ -222,7 +222,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::auth::user_login, commands::auth::try_auto_login, commands::auth::user_logout, commands::auth::get_current_user, commands::auth::resume_session, commands::auth::refresh_session,
-            commands::auth::get_users, commands::auth::create_user, commands::auth::update_user_cmd, commands::auth::delete_user_cmd,
+            commands::auth::get_users, commands::auth::create_user, commands::auth::update_user_cmd, commands::auth::delete_user_cmd, commands::auth::hard_delete_user_cmd,
             commands::auth::set_user_password_cmd, commands::auth::get_user_with_permissions,
             commands::auth::set_user_permission_cmd, commands::auth::reset_user_permissions_cmd,
             commands::auth::get_users_stats, commands::auth::get_user_period_stats, commands::auth::get_user_activity_log,

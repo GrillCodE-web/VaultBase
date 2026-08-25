@@ -359,16 +359,40 @@ impl Database {
     }
 
     /// Удалить пользователя (нельзя удалить последнего admin)
+    /// FEAT-014: soft delete — пользователь деактивируется (is_active=0),
+    /// сессии отзываются, но запись и история операций сохраняются.
+    /// Полное удаление — только hard_delete_user (данные + сессии).
     pub fn delete_user(&self, id: i64) -> Result<(), String> {
         let role: String = self.conn.query_row(
             "SELECT role FROM users WHERE id=?1", params![id], |r| r.get(0)
         ).map_err(|_| "user_not_found")?;
         if role == "admin" {
             let count: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM users WHERE role='admin' AND is_active=1", [], |r| r.get(0)
+            ).unwrap_or(0);
+            if count <= 1 { return Err("last_admin".into()); }
+        }
+        self.conn.execute("UPDATE users SET is_active=0 WHERE id=?1", params![id])
+            .map_err(|e| e.to_string())?;
+        self.conn.execute("DELETE FROM user_sessions WHERE user_id=?1", params![id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// FEAT-014: полное удаление (только для деактивированных).
+    pub fn hard_delete_user(&self, id: i64) -> Result<(), String> {
+        let (role, active): (String, i64) = self.conn.query_row(
+            "SELECT role, is_active FROM users WHERE id=?1", params![id], |r| Ok((r.get(0)?, r.get(1)?))
+        ).map_err(|_| "user_not_found")?;
+        if active != 0 { return Err("user_must_be_deactivated_first".into()); }
+        if role == "admin" {
+            let count: i64 = self.conn.query_row(
                 "SELECT COUNT(*) FROM users WHERE role='admin'", [], |r| r.get(0)
             ).unwrap_or(0);
             if count <= 1 { return Err("last_admin".into()); }
         }
+        self.conn.execute("DELETE FROM user_sessions WHERE user_id=?1", params![id])
+            .map_err(|e| e.to_string())?;
         self.conn.execute("DELETE FROM users WHERE id=?1", params![id])
             .map_err(|e| e.to_string())?;
         Ok(())

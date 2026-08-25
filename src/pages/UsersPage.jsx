@@ -816,7 +816,9 @@ export default function UsersPage() {
   }, [load])
 
   const handleDelete = async user => {
-    if (!confirm(`Удалить пользователя "${user.username}"? Это действие необратимо.`)) return
+    // FEAT-014: soft delete — пользователь деактивируется, сессии отзываются,
+    // но история операций сохраняется. Полное удаление — hard_delete_user_cmd.
+    if (!confirm(`Отключить пользователя "${user.username}"? Доступ будет закрыт, сессии отозваны. Запись и история сохранятся.`)) return
     try {
       await invoke('delete_user_cmd', { id: user.user_id })
       load()
