@@ -168,7 +168,7 @@
 | PERF-002 | React.memo() для PremiumStatCard + SmartAlertCard в Dashboard           | 🟡        | `DashboardRedesigned.jsx` | ✅     |
 | PERF-003 | useCallback с правильными deps в Cards (handleSearch, handleBulkEnrich) | 🟡        | `Cards.jsx:160-200`       | ✅     |
 | PERF-004 | useCallback для handleDelete, handleBulkStatus в Orders                 | 🟡        | `Orders.jsx:90-140`       | ✅     |
-| PERF-005 | useMemo для recentOrders в Float ProfileFloat                           | 🟡        | `float.jsx:200+`          | ⬜     |
+| PERF-005 | useMemo для recentOrders в Float ProfileFloat                           | 🟡        | `float.jsx:200+`          | ✅     |
 
 ### 4.2 Загрузка данных
 
@@ -273,8 +273,8 @@
 | BUG-018  | Risk scoring offline: RiskCheckOutcome::Offline не показывается пользователю    | 🟡        | `_orders.rs`, `CreateOrderModal.jsx` | ⬜     |
 | BUG-019  | ActionsMenu z-index может конфликтовать с модалями                              | 🟡        | `ActionsMenu.jsx:50-60`              | ✅     |
 | BUG-020  | Config loading: нет warning если production конфиг не найден                    | 🟡        | `main.rs:96-110`                     | ✅     |
-| BUG-021  | Float CopyBtn: race condition при множественных кликах (очередь toast)          | 🟢        | `float.jsx:30-45`                    | ⬜     |
-| BUG-022  | localStorage quota: нет retry и уведомления при overflow                        | 🟢        | `utils/localStorage.js:28-52`        | ⬜     |
+| BUG-021  | Float CopyBtn: race condition при множественных кликах (очередь toast)          | 🟢        | `float.jsx:30-45`                    | ✅     |
+| BUG-022  | localStorage quota: нет retry и уведомления при overflow                        | 🟢        | `utils/localStorage.js:28-52`        | ✅     |
 
 ---
 

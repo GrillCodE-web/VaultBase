@@ -18,11 +18,18 @@ import './index.css'
 // SEC-013: Use copySensitive for auto-clear after 30s
 const CopyBtn = React.memo(function CopyBtn({ value }) {
   const [state, setState] = useState('idle')
+  // BUG-021: один таймер на кнопку — быстрые повторные клики не должны
+  // сбрасывать состояние раньше времени чужим протухшим setTimeout
+  const timerRef = useRef(null)
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+  }, [])
   const handleCopy = () => {
     if (!value) return
     copySensitive(String(value)).then(ok => {
       setState(ok ? 'copied' : 'error')
-      setTimeout(() => setState('idle'), 1800)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setState('idle'), 1800)
     })
   }
   return (
