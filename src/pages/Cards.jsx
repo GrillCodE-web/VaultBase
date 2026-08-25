@@ -10,7 +10,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { usePersistedState } from '../hooks/usePersistedState.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
-import { copyToClipboard } from '../utils/clipboard.js'
+import { copyToClipboard, copySensitive } from '../utils/clipboard.js'
 import { buildPageNumbers, getTotalPages, getPageRange } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ImportModal } from './Cards/ImportModal.jsx'
@@ -517,8 +517,16 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   }, [resetFilters, setSearchInput])
 
   // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
+  // SEC-013: copySensitive (auto-clear буфера через 30с) для раскрытых PAN/CVV;
+  // второй аргумент — true только из CardRow при копировании reveal-полей.
   const handleCopyToast = useCallback(
-    text => {
+    (text, sensitive = false) => {
+      if (sensitive) {
+        copySensitive(String(text)).then(ok => {
+          toast(t(ok ? 'copied' : 'copy_failed'), ok ? 'success' : 'error')
+        })
+        return
+      }
       copyToClipboard(
         text,
         () => toast(t('copied'), 'success'),

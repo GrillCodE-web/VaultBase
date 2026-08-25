@@ -182,7 +182,7 @@ export const CardRow = React.memo(
             onClick={e => {
               if (rev?.cvv) {
                 e.stopPropagation()
-                handleCopyToast(rev.cvv)
+                handleCopyToast(rev.cvv, true)
               }
             }}
             title={rev?.cvv ? t('btn_copy') : undefined}
@@ -501,13 +501,13 @@ export const CardRow = React.memo(
                     const num = rev?.card_number
                       ? formatCardNumber(rev.card_number)
                       : formatBinMasked(card.bin, card.last4)
-                    handleCopyToast(num)
+                    handleCopyToast(num, !!rev?.card_number)
                   },
                 },
                 {
                   label: t('cards_copy_full'),
                   icon: Copy,
-                  onClick: () => handleCopyToast(buildPipeString(card, rev)),
+                  onClick: () => handleCopyToast(buildPipeString(card, rev), !!rev),
                 },
                 { divider: true },
                 {
