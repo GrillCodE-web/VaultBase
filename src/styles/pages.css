@@ -3386,7 +3386,7 @@
   .st-used {
     background: rgba(168, 85, 247, 0.12);
     border-color: rgba(168, 85, 247, 0.25);
-    color: var(--purple-bright);
+    color: var(--purple-t);
   }
 
   .st-clean {

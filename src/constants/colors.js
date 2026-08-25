@@ -1,11 +1,11 @@
 /**
  * Centralized color constants
  * Now using CSS variables for theme support
- * All colors reference CSS custom properties from tokens-redesign.css
+ * All colors reference CSS custom properties from tokens.css
  */
 
 // Raw hex colors (for contexts where CSS variables can't be used, e.g. chart series).
-// Values aligned with the native macOS palette in tokens-redesign.css.
+// Values aligned with the native macOS palette in tokens.css.
 export const HEX_COLORS = {
   green: '#28cd41',
   greenLight: '#5be07a',

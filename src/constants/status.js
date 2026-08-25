@@ -1,8 +1,8 @@
 /**
- * Card and order status definitions with colors
+ * Card and order status definitions.
+ * UX-007: colors reference theme tokens (tokens.css) so status badges
+ * meet WCAG AA (>= 4.5:1) in both light and dark themes.
  */
-
-import { HEX_COLORS } from './colors.js'
 
 export const CARD_STATUS = {
   FREE: 'free',
@@ -13,23 +13,23 @@ export const CARD_STATUS = {
 
 export const CARD_STATUS_COLORS = {
   [CARD_STATUS.FREE]: {
-    bg: 'rgba(34, 197, 94, 0.1)',
-    text: HEX_COLORS.greenLight,
+    bg: 'var(--color-card-free-bg)',
+    text: 'var(--color-card-free)',
     label: 'Free',
   },
   [CARD_STATUS.IN_USE]: {
-    bg: 'rgba(59, 130, 246, 0.1)',
-    text: HEX_COLORS.blueLight,
+    bg: 'var(--color-card-in-use-bg)',
+    text: 'var(--color-card-in-use)',
     label: 'In Use',
   },
   [CARD_STATUS.DEAD]: {
-    bg: 'rgba(239, 68, 68, 0.1)',
-    text: HEX_COLORS.redLight,
+    bg: 'var(--color-card-dead-bg)',
+    text: 'var(--color-card-dead)',
     label: 'Dead',
   },
   [CARD_STATUS.ARCHIVE]: {
-    bg: 'rgba(156, 163, 175, 0.1)',
-    text: HEX_COLORS.gray,
+    bg: 'var(--color-card-archive-bg)',
+    text: 'var(--color-card-archive)',
     label: 'Archive',
   },
 }
@@ -47,37 +47,37 @@ export const ORDER_STATUS = {
 export const ORDER_STATUS_COLORS = {
   [ORDER_STATUS.PENDING]: {
     bg: 'rgba(234, 179, 8, 0.1)',
-    text: HEX_COLORS.yellowLight,
+    text: 'var(--yellow-t)',
     label: 'Pending',
   },
   [ORDER_STATUS.PROCESSING]: {
     bg: 'rgba(59, 130, 246, 0.1)',
-    text: HEX_COLORS.blueLight,
+    text: 'var(--blue-t)',
     label: 'Processing',
   },
   [ORDER_STATUS.SHIPPED]: {
     bg: 'rgba(168, 85, 247, 0.1)',
-    text: HEX_COLORS.purple,
+    text: 'var(--purple-t)',
     label: 'Shipped',
   },
   [ORDER_STATUS.DELIVERED]: {
     bg: 'rgba(34, 197, 94, 0.1)',
-    text: HEX_COLORS.greenLight,
+    text: 'var(--green-t)',
     label: 'Delivered',
   },
   [ORDER_STATUS.CANCELLED]: {
     bg: 'rgba(156, 163, 175, 0.1)',
-    text: HEX_COLORS.gray,
+    text: 'var(--text-2)',
     label: 'Cancelled',
   },
   [ORDER_STATUS.REFUNDED]: {
     bg: 'rgba(251, 146, 60, 0.1)',
-    text: HEX_COLORS.orangeLight,
+    text: 'var(--orange-t)',
     label: 'Refunded',
   },
   [ORDER_STATUS.FAILED]: {
     bg: 'rgba(239, 68, 68, 0.1)',
-    text: HEX_COLORS.redLight,
+    text: 'var(--red-t)',
     label: 'Failed',
   },
 }

@@ -91,43 +91,44 @@
   --purple: #af52de;
   --purple-bright: #9f3fd0;
   --purple-dark: #8944ab;
+  --purple-t: #7d3ba3; /* UX-007: текстовый фиолетовый — AA на светлых тинтах */
   --purple-dim: rgba(175, 82, 222, 0.1);
   --purple-border: rgba(175, 82, 222, 0.3);
 
   /* ── Системные статусные цвета (Apple) ──────────────────── */
   --green: #28cd41;
-  --green-t: #1faf35;
+  --green-t: #177a2b;
   --red: #ff3b30;
-  --red-t: #e0271d;
+  --red-t: #c62012;
   --yellow: #ffcc00;
-  --yellow-t: #b38f00;
+  --yellow-t: #856600;
   --blue: #0a84ff;
-  --blue-t: #0071e3;
+  --blue-t: #0067cc;
   --orange: #ff9500;
-  --orange-t: #e08600;
+  --orange-t: #995600;
   --teal: #59adc4;
-  --teal-t: #4592a8;
+  --teal-t: #1d5f70;
 
   /* ── Семантические ──────────────────────────────────────── */
-  --color-success: #1faf35;
+  --color-success: #177a2b;
   --color-success-bg: rgba(40, 205, 65, 0.12);
-  --color-warning: #b38f00;
+  --color-warning: #856600;
   --color-warning-bg: rgba(255, 204, 0, 0.14);
-  --color-error: #e0271d;
+  --color-error: #c62012;
   --color-error-bg: rgba(255, 59, 48, 0.1);
-  --color-info: #0071e3;
+  --color-info: #0067cc;
   --color-info-bg: rgba(10, 132, 255, 0.1);
-  --color-neutral: rgba(0, 0, 0, 0.42);
+  --color-neutral: rgba(0, 0, 0, 0.62);
   --color-neutral-bg: rgba(0, 0, 0, 0.05);
 
   /* ── Статусы карт ───────────────────────────────────────── */
-  --color-card-free: #1faf35;
+  --color-card-free: #177a2b;
   --color-card-free-bg: rgba(40, 205, 65, 0.12);
-  --color-card-in-use: #0071e3;
+  --color-card-in-use: #0067cc;
   --color-card-in-use-bg: rgba(10, 132, 255, 0.1);
-  --color-card-dead: #e0271d;
+  --color-card-dead: #c62012;
   --color-card-dead-bg: rgba(255, 59, 48, 0.1);
-  --color-card-archive: rgba(0, 0, 0, 0.42);
+  --color-card-archive: rgba(0, 0, 0, 0.62);
   --color-card-archive-bg: rgba(0, 0, 0, 0.05);
 
   /* ── Платёжные системы ──────────────────────────────────── */
@@ -356,6 +357,7 @@
 
   --purple: #bf5af2;
   --purple-bright: #d17ff5;
+  --purple-t: #d17ff5; /* UX-007: текстовый фиолетовый — AA на тёмных тинтах */
   --purple-dim: rgba(191, 90, 242, 0.18);
   --purple-border: rgba(191, 90, 242, 0.4);
 
@@ -363,7 +365,7 @@
   --green: #32d74b;
   --green-t: #4ae363;
   --red: #ff453a;
-  --red-t: #ff6961;
+  --red-t: #ff756b;
   --yellow: #ffd60a;
   --yellow-t: #ffe14d;
   --blue: #0a84ff;
@@ -377,20 +379,20 @@
   --color-success-bg: rgba(50, 215, 75, 0.16);
   --color-warning: #ffd60a;
   --color-warning-bg: rgba(255, 214, 10, 0.16);
-  --color-error: #ff453a;
+  --color-error: #ff5d54;
   --color-error-bg: rgba(255, 69, 58, 0.16);
   --color-info: #64b0ff;
   --color-info-bg: rgba(10, 132, 255, 0.16);
-  --color-neutral: rgba(255, 255, 255, 0.44);
+  --color-neutral: rgba(255, 255, 255, 0.64);
   --color-neutral-bg: rgba(255, 255, 255, 0.08);
 
   --color-card-free: #32d74b;
   --color-card-free-bg: rgba(50, 215, 75, 0.16);
   --color-card-in-use: #64b0ff;
   --color-card-in-use-bg: rgba(10, 132, 255, 0.16);
-  --color-card-dead: #ff453a;
+  --color-card-dead: #ff5d54;
   --color-card-dead-bg: rgba(255, 69, 58, 0.16);
-  --color-card-archive: rgba(255, 255, 255, 0.44);
+  --color-card-archive: rgba(255, 255, 255, 0.64);
   --color-card-archive-bg: rgba(255, 255, 255, 0.08);
 
   --color-visa: #5e8bff;
@@ -526,13 +528,14 @@
     --accent-text: #4dd2f5;
 
     --purple: #bf5af2;
+    --purple-t: #d17ff5;
     --purple-dim: rgba(191, 90, 242, 0.18);
     --purple-border: rgba(191, 90, 242, 0.4);
 
     --green: #32d74b;
     --green-t: #4ae363;
     --red: #ff453a;
-    --red-t: #ff6961;
+    --red-t: #ff756b;
     --yellow: #ffd60a;
     --yellow-t: #ffe14d;
     --blue-t: #64b0ff;
@@ -545,20 +548,20 @@
     --color-success-bg: rgba(50, 215, 75, 0.16);
     --color-warning: #ffd60a;
     --color-warning-bg: rgba(255, 214, 10, 0.16);
-    --color-error: #ff453a;
+    --color-error: #ff5d54;
     --color-error-bg: rgba(255, 69, 58, 0.16);
     --color-info: #64b0ff;
     --color-info-bg: rgba(10, 132, 255, 0.16);
-    --color-neutral: rgba(255, 255, 255, 0.44);
+    --color-neutral: rgba(255, 255, 255, 0.64);
     --color-neutral-bg: rgba(255, 255, 255, 0.08);
 
     --color-card-free: #32d74b;
     --color-card-free-bg: rgba(50, 215, 75, 0.16);
     --color-card-in-use: #64b0ff;
     --color-card-in-use-bg: rgba(10, 132, 255, 0.16);
-    --color-card-dead: #ff453a;
+    --color-card-dead: #ff5d54;
     --color-card-dead-bg: rgba(255, 69, 58, 0.16);
-    --color-card-archive: rgba(255, 255, 255, 0.44);
+    --color-card-archive: rgba(255, 255, 255, 0.64);
     --color-card-archive-bg: rgba(255, 255, 255, 0.08);
 
     --color-visa: #5e8bff;
