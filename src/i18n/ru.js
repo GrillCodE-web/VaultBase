@@ -773,6 +773,8 @@ export const ru = {
   // Cards extras
   cards_zip_filter_hint: 'Фильтр по ZIP-префиксу',
   bin_enrich: 'BIN обогащение',
+  bin_refresh_title: 'Обновить данные BIN (минуя кеш)',
+  bin_refreshed: 'Данные BIN обновлены',
   bin_enrichment: 'BIN обогащение',
   batch_import: 'Массовый импорт',
   batch_import_orders: 'Массовый импорт заказов',

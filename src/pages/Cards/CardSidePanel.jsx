@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { RefreshCw } from 'lucide-react'
 import { useLang } from '../../hooks/useLang.jsx'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import {
@@ -25,10 +26,28 @@ export function CardSidePanel({
   onCopy,
 }) {
   const { t } = useLang()
-  const { toast } = usePremiumToast()
+  const { success: toastSuccess, error: toastError } = usePremiumToast()
   const rev = revealed[card.id]
   const [recentOrders, setRecentOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(false)
+  const [binRefreshing, setBinRefreshing] = useState(false)
+
+  // DB-007: ручной refresh BIN мимо 30-дневного кеша
+  const handleRefreshBin = async () => {
+    if (binRefreshing) return
+    setBinRefreshing(true)
+    try {
+      await invoke('enrich_bin', { id: card.id, force: true })
+      const { useCardsStore } = await import('../../store/cards.js')
+      await useCardsStore.getState().fetchCards(true)
+      toastSuccess(t('bin_refreshed'))
+    } catch (e) {
+      handleError(e, 'CardSidePanel.refreshBin')
+      toastError(getErrorMessage(e))
+    } finally {
+      setBinRefreshing(false)
+    }
+  }
   const displayNum = rev?.card_number
     ? formatCardNumber(rev.card_number)
     : formatBinMasked(card.bin, card.last4)
@@ -223,7 +242,23 @@ export function CardSidePanel({
             <CardField label={t('drop_field_phone')} value={rev?.phone} mono onCopy={copyField} />
             <div className="h-px bg-border my-1.5" />
             <CardField label={t('card_label_bank')} value={card.bank_name} onCopy={copyField} />
-            <CardField label="BIN" value={card.bin} mono onCopy={copyField} />
+            <CardField
+              label="BIN"
+              value={card.bin}
+              mono
+              onCopy={copyField}
+              action={
+                <button
+                  onClick={handleRefreshBin}
+                  disabled={binRefreshing}
+                  className="float-copy ml-1 shrink-0"
+                  title={t('bin_refresh_title')}
+                  aria-label={t('bin_refresh_title')}
+                >
+                  <RefreshCw size={12} className={binRefreshing ? 'animate-spin' : ''} />
+                </button>
+              }
+            />
             <CardField label={t('card_label_type')} value={card.card_type} onCopy={copyField} />
             <CardField label={t('card_label_level')} value={card.card_level} onCopy={copyField} />
             <CardField label={t('cc_col_source')} value={card.source} onCopy={copyField} />
@@ -307,7 +342,9 @@ export function CardSidePanel({
             onClick={async () => {
               try {
                 await invoke('create_profile', { cardId: card.id, notes: null })
-                toast(t('profile_created'), 'success')
+                // usePremiumToast не возвращает поле `toast` — только методы.
+                // Старый вызов toast(...) падал с "toast is not a function".
+                toastSuccess(t('profile_created'))
                 onClose()
                 onNavigate?.('profiles')
               } catch (e) {
@@ -316,7 +353,7 @@ export function CardSidePanel({
                   error.details?.originalMessage === 'card_already_in_use'
                     ? t('card_already_in_use')
                     : getErrorMessage(error)
-                toast(msg, 'error')
+                toastError(msg)
               }
             }}
           >

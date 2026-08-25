@@ -1,4 +1,4 @@
-export function CardField({ label, value, mono, onCopy }) {
+export function CardField({ label, value, mono, onCopy, action }) {
   if (!value) return null
   return (
     <div className="card-field-row">
@@ -7,6 +7,7 @@ export function CardField({ label, value, mono, onCopy }) {
       <button onClick={() => onCopy(value)} className="float-copy ml-2 shrink-0" title="Copy">
         ⧉
       </button>
+      {action}
     </div>
   )
 }

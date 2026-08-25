@@ -1,4 +1,4 @@
-import { useSmartToast } from './useSmartToast'
+import { useSmartToast, useToast } from './useSmartToast'
 
 /**
  * usePremiumToast — расширенный hook для премиум-уведомлений
@@ -6,6 +6,10 @@ import { useSmartToast } from './useSmartToast'
  */
 export function usePremiumToast() {
   const { success, error, warning, info, dismissAll } = useSmartToast()
+  // Старый API toast(msg, type) — 24 файла деструктурируют `toast` отсюда;
+  // без этого поля он был undefined и каждый вызов падал
+  // с "toast is not a function".
+  const { toast } = useToast()
 
   // CRUD операции
   const successCreate = (entityName, _count = 1) =>
@@ -102,6 +106,9 @@ export function usePremiumToast() {
     })
 
   return {
+    // Старый API: toast(msg, 'success' | 'error' | ...)
+    toast,
+
     // Базовые методы
     success,
     error,

@@ -772,6 +772,8 @@ export const en = {
   // Cards extras
   cards_zip_filter_hint: 'ZIP prefix match',
   bin_enrich: 'BIN Enrich',
+  bin_refresh_title: 'Refresh BIN data (bypass cache)',
+  bin_refreshed: 'BIN data refreshed',
   bin_enrichment: 'BIN Enrichment',
   batch_import: 'Batch Import',
   batch_import_orders: 'Batch Import Orders',
