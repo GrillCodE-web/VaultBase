@@ -188,7 +188,7 @@
 | PERF-012 | Добавить VACUUM по расписанию (при старте или ежедневно)                  | 🟢        | `background.rs`     | ✅     |
 | PERF-013 | Увеличить database pool с 8 до 16 + connection_timeout 5s                 | 🟡        | `_core.rs:34`       | ✅     |
 | PERF-014 | Bundle size: lazy load recharts и jsPDF (тяжёлые зависимости)             | 🟢        | `vite.config.js`    | ⬜     |
-| PERF-015 | BIN enrichment: debounce запросов (макс 1 req/2sec) + exponential backoff | 🟡        | `_cards.rs:466-530` | ⬜     |
+| PERF-015 | BIN enrichment: debounce запросов (макс 1 req/2sec) + exponential backoff | 🟡        | `_cards.rs:466-530` | ✅     |
 
 ---
 

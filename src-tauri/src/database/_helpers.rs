@@ -5,12 +5,42 @@
     pub fn fetch_bin_info(bin: &str, api_key: &str) -> Result<BinInfo, String> {
     if api_key.is_empty() { return Err("no_api_key".into()); }
 
+    // PERF-015: глобальный debounce — максимум 1 запрос к iinapi.com в 2 секунды
+    // (платный API, burst при массовом импорте карт сжигал квоту)
+    static LAST_CALL: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+    {
+        let mut last = LAST_CALL.lock().map_err(|_| "bin_lock_poisoned".to_string())?;
+        if let Some(prev) = *last {
+            let elapsed = prev.elapsed();
+            let min_interval = std::time::Duration::from_secs(2);
+            if elapsed < min_interval {
+                std::thread::sleep(min_interval - elapsed);
+            }
+        }
+        *last = Some(std::time::Instant::now());
+    }
+
     // FIX B08: api_key передаётся в заголовке X-Api-Key, а не в URL (иначе попадает в логи сервера)
     let url = format!("https://api.iinapi.com/api/v1/{}", bin);
-    let resp = ureq::get(&url)
-        .set("X-Api-Key", api_key)
-        .call()
-        .map_err(|e| format!("bin_api_error: {e}"))?;
+    // PERF-015: exponential backoff при сбоях (1s, 2s, 4s)
+    let mut last_err = String::new();
+    let mut resp = None;
+    for attempt in 0..3u32 {
+        match ureq::get(&url).set("X-Api-Key", api_key).call() {
+            Ok(r) => { resp = Some(r); break; }
+            Err(ureq::Error::Status(code, _)) if (400..500).contains(&code) && code != 429 => {
+                // 4xx (кроме 429) — ретраить бессмысленно
+                return Err(format!("bin_api_error: HTTP {code}"));
+            }
+            Err(e) => {
+                last_err = e.to_string();
+                if attempt < 2 {
+                    std::thread::sleep(std::time::Duration::from_secs(1 << attempt));
+                }
+            }
+        }
+    }
+    let resp = resp.ok_or_else(|| format!("bin_api_error: {last_err}"))?;
 
     let json: serde_json::Value = resp.into_json()
         .map_err(|e| format!("bin_api_parse: {e}"))?;
