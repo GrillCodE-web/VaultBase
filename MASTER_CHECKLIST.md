@@ -1,12 +1,12 @@
 ﻿# VaultBase — Мастер-чеклист улучшений, багов и доработок
 
 > **Создан:** 2026-08-11 · **Обновлён:** 2026-08-25  
-> **Всего пунктов:** 184 · **Выполнено:** 140 (из них 9 «уже было») · **Открыто:** 44  
+> **Всего пунктов:** 184 · **Выполнено:** 141 (из них 9 «уже было») · **Открыто:** 43  
 > **Статусы:** ⬜ Не начато · 🔄 В работе · ✅ Готово · ❌ Отклонено  
 > **Приоритеты:** 🔴 Критичный · 🟠 Важный · 🟡 Средний · 🟢 Желательный  
 > **Параллельная работа:** пункт сначала клеймится (⬜ → `🔄 @a`/`🔄 @b`, коммит одного
-> чеклиста), потоки/правила — [PARALLEL_WORK.md](PARALLEL_WORK.md). Открытые 44 пункта
-> распределены: 20 → STREAM A (backend), 24 → STREAM B (frontend).
+> чеклиста), потоки/правила — [PARALLEL_WORK.md](PARALLEL_WORK.md). Открытые 43 пункта
+> распределены: 20 → STREAM A (backend), 23 → STREAM B (frontend).
 
 ---
 
@@ -271,7 +271,7 @@
 | BUG-014  | Missing useCallback deps: stale closures в Cards handleSetSideCard              | 🟡        | `Cards.jsx:545`                      | ✅     |
 | BUG-015  | Даты hardcoded 'ru-RU' — не учитывают locale пользователя                       | 🟡        | `Shops.jsx:44-50`, `MyStats.jsx`     | ✅     |
 | BUG-012a | Body overflow: создан `useScrollLock` hook с ref-counting для вложенных модалей | 🟡        | `src/hooks/useScrollLock.js`         | ✅     |
-| BUG-016  | CreateOrderModal: quickCreate race condition                                    | 🟡        | `CreateOrderModal.jsx:108-126`       | 🔄 @b  |
+| BUG-016  | CreateOrderModal: quickCreate race condition                                    | 🟡        | `CreateOrderModal.jsx`               | ✅     |
 | BUG-017  | CSV Import: не валидирует пустой preview_rows                                   | 🟡        | `ImportModal.jsx:56-61`              | ✅     |
 | BUG-018  | Risk scoring offline: RiskCheckOutcome::Offline не показывается пользователю    | 🟡        | `_orders.rs`, `CreateOrderModal.jsx` | ✅     |
 | BUG-019  | ActionsMenu z-index может конфликтовать с модалями                              | 🟡        | `ActionsMenu.jsx:50-60`              | ✅     |
