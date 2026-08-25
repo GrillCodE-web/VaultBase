@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
+import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import { safeSetItem, safeGetItem, safeRemoveItem } from '../utils/localStorage'
 import { useCardsStore } from '../store/cards'
@@ -60,7 +61,8 @@ export function AuthProvider({ children }) {
         console.warn('[Auth] Failed to save session token:', e.message)
       }
       return result
-    } catch {
+    } catch (e) {
+      handleError(e)
       return null
     }
   }, [])
@@ -72,10 +74,12 @@ export function AuthProvider({ children }) {
       const result = await invoke('resume_session', { token })
       setCurrentUser(result)
       return result
-    } catch {
+    } catch (e) {
+      handleError(e)
       try {
         safeRemoveItem('cc_session_token')
-      } catch {
+      } catch (e) {
+        handleError(e)
         /* ignore */
       }
       return null

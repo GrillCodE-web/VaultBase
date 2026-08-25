@@ -29,6 +29,8 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 // ─── Helpers ──────────────────────────────────────────────────
 function TypeBadge({ type }) {
+  // Нет типа — не рисуем пустой чип (выглядит как мусорная точка в таблице)
+  if (!type) return <span className="text-muted">—</span>
   const colorMap = {
     http: { color: STATUS_COLORS.info, bg: 'var(--color-info-bg)' },
     socks5: { color: 'var(--blue-t)', bg: 'var(--purple-alt-dim)' },
@@ -691,7 +693,8 @@ export default function ProxyList() {
           failed++
           setTestResults(prev => ({ ...prev, [p.id]: 'failed' }))
         }
-      } catch {
+      } catch (e) {
+        handleError(e)
         failed++
         setTestResults(prev => ({ ...prev, [p.id]: 'failed' }))
       }

@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { ShieldCheck, ShieldAlert, WifiOff, RefreshCw, Copy, Check } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
+import { handleError } from '../utils/errorHandler.js'
 
 export function LicenseSection() {
   const { t } = useLang()
@@ -34,7 +35,8 @@ export function LicenseSection() {
       if (s === 'active') {
         toastOk(t('license_verified') || 'License verified.')
       }
-    } catch {
+    } catch (e) {
+      handleError(e)
       setStatus('offline')
     } finally {
       setRetrying(false)

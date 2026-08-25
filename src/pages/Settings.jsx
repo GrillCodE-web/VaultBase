@@ -158,8 +158,8 @@ export default function Settings() {
     })
     return () => {
       cancelled = true
-      u1.then(fn => fn()).catch(() => {})
-      u2.then(fn => fn()).catch(() => {})
+      u1.then(fn => fn()).catch(e => handleError(e))
+      u2.then(fn => fn()).catch(e => handleError(e))
     }
   }, [])
 

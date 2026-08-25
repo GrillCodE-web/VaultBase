@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import { getDateLocale } from '../utils/dateLocale'
 import {
@@ -88,7 +89,8 @@ function fmtDate(s) {
       dateStyle: 'short',
       timeStyle: 'short',
     })
-  } catch {
+  } catch (e) {
+    handleError(e)
     return s
   }
 }

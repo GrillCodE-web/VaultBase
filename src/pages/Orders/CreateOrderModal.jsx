@@ -54,7 +54,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
         perPage: 20,
       })
       setProfileResults(r.items || [])
-    } catch {
+    } catch (e) {
+      handleError(e)
       setProfileResults([])
     }
   }, [])
@@ -74,7 +75,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
       // Default to primary drop
       const primary = d.drops?.find(dd => dd.is_primary) || d.drops?.[0]
       if (primary) setDropId(primary.id)
-    } catch {
+    } catch (e) {
+      handleError(e)
       setProfileDetail(null)
     }
   }
@@ -98,7 +100,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
       const localDomains = new Set(local.map(s => s.domain))
       const merged = [...local, ...catalog.filter(s => !localDomains.has(s.domain))]
       setShopResults(merged)
-    } catch {
+    } catch (e) {
+      handleError(e)
       setShopResults([])
     }
   }, [])
@@ -111,7 +114,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
     try {
       const results = await invoke('search_catalog_items', { q, limit: 8 })
       setItemSuggestions(p => ({ ...p, [idx]: results }))
-    } catch {
+    } catch (e) {
+      handleError(e)
       setItemSuggestions(p => ({ ...p, [idx]: [] }))
     }
   }, [])
@@ -142,7 +146,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
         setShopId(created.id)
         setShopObj(created)
         setShopSearch(created.domain)
-      } catch {
+      } catch (e) {
+        handleError(e)
         // Fallback: create shop with minimal info
         try {
           const created = await invoke('create_shop', {
@@ -162,7 +167,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
           setShopId(created.id)
           setShopObj(created)
           setShopSearch(created.domain)
-        } catch {
+        } catch (e) {
+          handleError(e)
           /* ignore */
         }
       }
@@ -216,7 +222,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
           proxyId: proxyId || null,
         })
         setRiskResult(r)
-      } catch {
+      } catch (e) {
+        handleError(e)
         setRiskResult({ level: 'safe', score: 0, warnings: [], offline: true })
       } finally {
         setRiskLoading(false)
@@ -237,7 +244,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
     try {
       const parsed = JSON.parse(tmpl.items_json)
       setItems(parsed.map(it => ({ ...it, price: String(it.price) })))
-    } catch {
+    } catch (e) {
+      handleError(e)
       toast(t('template_invalid'), 'error')
     }
   }

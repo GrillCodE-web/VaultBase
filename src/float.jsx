@@ -21,9 +21,12 @@ const CopyBtn = React.memo(function CopyBtn({ value }) {
   // BUG-021: один таймер на кнопку — быстрые повторные клики не должны
   // сбрасывать состояние раньше времени чужим протухшим setTimeout
   const timerRef = useRef(null)
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    },
+    []
+  )
   const handleCopy = () => {
     if (!value) return
     copySensitive(String(value)).then(ok => {
@@ -156,7 +159,8 @@ function ProfileFloat() {
       try {
         const order = await invoke('get_latest_order_by_profile', { profileId: String(id) })
         if (!abortSignal?.aborted && order) setLatestOrderId(order.id)
-      } catch {
+      } catch (e) {
+        handleError(e)
         // Ignore if no orders found
       }
       // Load recent orders (for Orders tab)
@@ -166,7 +170,8 @@ function ProfileFloat() {
           limit: 5,
         })
         if (!abortSignal?.aborted) setRecentOrders(orders ?? [])
-      } catch {
+      } catch (e) {
+        handleError(e)
         // Ignore if no orders found
       }
     } catch (e) {
@@ -494,7 +499,7 @@ function ProfileFloat() {
                   <div
                     key={order.id}
                     onClick={() =>
-                      invoke('open_main_window_page', { page: 'orders' }).catch(() => {})
+                      invoke('open_main_window_page', { page: 'orders' }).catch(e => handleError(e))
                     }
                     className="float-order-row flex flex-col cursor-pointer"
                   >

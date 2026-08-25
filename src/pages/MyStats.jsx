@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useAuth } from '../hooks/useAuth'
 import { getDateLocale } from '../utils/dateLocale'
 import { getDeliveryRateColor } from '../constants/colors.js'
+import { handleError } from '../utils/errorHandler.js'
 import {
   Users,
   CreditCard,
@@ -36,7 +37,8 @@ function fmtDate(s) {
       dateStyle: 'medium',
       timeStyle: 'short',
     })
-  } catch {
+  } catch (e) {
+    handleError(e)
     return s
   }
 }
@@ -245,7 +247,11 @@ export default function MyStats() {
                     >
                       <td>
                         <div className="flex items-center gap-2">
-                          <span className={u.active_sessions > 0 ? 'status-dot active' : 'status-dot inactive'} />
+                          <span
+                            className={
+                              u.active_sessions > 0 ? 'status-dot active' : 'status-dot inactive'
+                            }
+                          />
                           <div>
                             <div className="text-text-1">{u.display_name || u.username}</div>
                             <div className="text-[10px] text-muted flex items-center gap-1">

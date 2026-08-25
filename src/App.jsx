@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { handleError } from './utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -84,7 +85,8 @@ const THEME_SHORT = { system: 'System', light: 'Light', dark: 'Dark' }
 const safeParseJSON = (str, fallback) => {
   try {
     return str ? JSON.parse(str) : fallback
-  } catch {
+  } catch (e) {
+    handleError(e)
     return fallback
   }
 }
@@ -430,7 +432,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {
     try {
       return safeGetItem('cc_sidebar_expanded') === '1'
-    } catch {
+    } catch (e) {
+      handleError(e)
       return false
     }
   })
@@ -441,18 +444,28 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   const prevImapRef = useRef(0)
 
   // Navigate from Dashboard quick actions / heatmap click
-  const handleNavigate = useCallback((targetPage, props = {}) => {
-    setPage(targetPage)
-    setPageProps(props)
-    setActiveTab('list')
-  }, [])
+  // setActiveTab в deps: сеттер передаётся пропом onTabChange в PageComponent,
+  // и React Compiler перестаёт считать его доказуемо стабильным — без deps
+  // падает react-hooks/preserve-manual-memoization. Рантайм-эффекта нет:
+  // сеттеры useState стабильны.
+  const handleNavigate = useCallback(
+    (targetPage, props = {}) => {
+      setPage(targetPage)
+      setPageProps(props)
+      setActiveTab('list')
+    },
+    [setActiveTab]
+  )
 
   // Navigate from sidebar / keyboard shortcuts
-  const handlePageChange = useCallback(p => {
-    setPage(p)
-    setPageProps({})
-    setActiveTab(p === 'couriers' ? 'assigned' : 'list')
-  }, [])
+  const handlePageChange = useCallback(
+    p => {
+      setPage(p)
+      setPageProps({})
+      setActiveTab(p === 'couriers' ? 'assigned' : 'list')
+    },
+    [setActiveTab]
+  )
 
   const loadBadges = useCallback(async () => {
     try {
@@ -493,7 +506,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         let notified = null
         try {
           notified = sessionStorage.getItem(notifiedKey)
-        } catch {
+        } catch (e) {
+          handleError(e)
           /* ignore */
         }
         if (notified !== update.version) {
@@ -502,7 +516,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           })
           try {
             sessionStorage.setItem(notifiedKey, update.version)
-          } catch {
+          } catch (e) {
+            handleError(e)
             /* ignore */
           }
         }
@@ -522,7 +537,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     let done
     try {
       done = !!safeGetItem('onboarding_done')
-    } catch {
+    } catch (e) {
+      handleError(e)
       done = false
     }
     if (!done) {
@@ -810,7 +826,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     try {
       await logout()
       await invoke('lock')
-    } catch {
+    } catch (e) {
+      handleError(e)
       // Lock command failed - user can retry manually
     }
   }
@@ -1076,7 +1093,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
                   setNavOrder(order)
                   try {
                     safeSetJSON('cc_nav_order', JSON.stringify(order))
-                  } catch {
+                  } catch (e) {
+                    handleError(e)
                     // localStorage may be unavailable - order will reset on reload
                   }
                 }}
@@ -1229,7 +1247,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             setSidebarExpanded(next)
             try {
               safeSetItem('cc_sidebar_expanded', next ? '1' : '0')
-            } catch {
+            } catch (e) {
+              handleError(e)
               // localStorage may be unavailable
             }
           }}
@@ -1335,7 +1354,12 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
               }
             >
               <div key={page} className="page-enter">
-                <PageComponent onNavigate={handleNavigate} activeTab={activeTab} {...pageProps} />
+                <PageComponent
+                  onNavigate={handleNavigate}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  {...pageProps}
+                />
               </div>
             </Suspense>
           </ErrorBoundary>
@@ -1417,7 +1441,8 @@ function AppInner() {
     try {
       const aot = await invoke('get_config', { key: 'always_on_top' })
       if (aot === '1') await getCurrentWindow().setAlwaysOnTop(true)
-    } catch {
+    } catch (e) {
+      handleError(e)
       // Config read failed - continue without always_on_top
     }
     // Try to resume existing session from localStorage
@@ -1465,7 +1490,8 @@ function AppInner() {
           await invoke('import_catalog_shops', { shops: shops.slice(i, i + BATCH) })
         }
       }
-    } catch {
+    } catch (e) {
+      handleError(e)
       // Silent — catalog is optional
     }
   }
@@ -1480,7 +1506,8 @@ function AppInner() {
     await logout()
     try {
       await invoke('lock')
-    } catch {
+    } catch (e) {
+      handleError(e)
       /* already locked */
     }
     setView('auth')

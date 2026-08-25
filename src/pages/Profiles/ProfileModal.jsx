@@ -155,7 +155,8 @@ export function ProfileModal({ onCreated, onClose }) {
               },
             })
           }
-        } catch {
+        } catch (e) {
+          handleError(e)
           /* billing reveal failed — profile still created */
         }
       }
@@ -174,7 +175,8 @@ export function ProfileModal({ onCreated, onClose }) {
       if (emailId) {
         try {
           await invoke('set_profile_email', { profileId: p.id, emailPoolId: emailId })
-        } catch {
+        } catch (e) {
+          handleError(e)
           /* email linking failed — profile still created */
         }
       }

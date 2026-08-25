@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import {
   AreaChart,
@@ -931,7 +932,8 @@ export default function DashboardRedesigned({ onNavigate }) {
         ;[s, c, hm, b, co, so, dm, ex, ro, bp].forEach((r, i) => {
           if (r.status === 'rejected') console.warn('Dashboard load error [' + i + ']:', r.reason)
         })
-      } catch {
+      } catch (e) {
+        handleError(e)
         // Dashboard load failed
       }
       setLoading(false)

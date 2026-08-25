@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import { CreditCard, Mail, User, ShoppingCart, CheckCircle, ChevronRight } from 'lucide-react'
 
@@ -58,7 +59,8 @@ export default function Onboarding({ onComplete, onNavigate }) {
     try {
       const done = await step.checkFn()
       if (done) setCompleted(prev => ({ ...prev, [step.id]: true }))
-    } catch {
+    } catch (e) {
+      handleError(e)
       // Step check failed, ignore
     }
     setChecking(false)

@@ -383,7 +383,8 @@ export default function ProfileList({
       try {
         await invoke('enrich_bin', { id: p.card_id })
         enriched++
-      } catch {
+      } catch (e) {
+        handleError(e)
         /* skip */
       }
       setEnrichProgress({ done: enriched, total: ids.length })
