@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
-import { getDateLocale } from '../utils/dateLocale'
+import { fmtDate, fmtMoney } from '../utils/formatting.js'
 import {
   Users,
   Plus,
@@ -74,33 +73,6 @@ const PERM_GROUPS = [
   },
   { label: 'Управление', keys: ['manage_shops', 'manage_emails', 'manage_proxies'] },
 ]
-
-function fmtDate(s) {
-  if (!s) return '—'
-  try {
-    const locale = getDateLocale(localStorage.getItem('vaultbase_lang') || 'en')
-    // SQLite отдаёт "YYYY-MM-DD HH:MM:SS" (UTC), из JS прилетает ISO с 'T' и 'Z' —
-    // поддерживаем оба: добавляем 'T'/'Z' только если их нет.
-    const iso = s.includes('T') ? s : s.replace(' ', 'T')
-    const withTz = /Z$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z'
-    const d = new Date(withTz)
-    if (isNaN(d)) return s
-    return d.toLocaleString(locale, {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    })
-  } catch (e) {
-    handleError(e)
-    return s
-  }
-}
-
-function fmtMoney(v) {
-  if (!v) return '$0'
-  return (
-    '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  )
-}
 
 // ── Create/Edit User Modal ────────────────────────────────────────────────
 function UserModal({ user, onClose, onSaved }) {

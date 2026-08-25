@@ -1,6 +1,8 @@
 /**
  * Formatting utilities for cards, dates, and display
  */
+import { getDateLocale } from './dateLocale'
+import { handleError } from './errorHandler.js'
 
 /**
  * Convert country code to flag emoji
@@ -181,4 +183,37 @@ export function formatCurrency(value) {
 export function formatNumber(value) {
   if (value == null || isNaN(value)) return '0'
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+/**
+ * Locale-aware дата/время. Поддерживает SQLite "YYYY-MM-DD HH:MM:SS" (UTC)
+ * и ISO с 'T'/'Z'. Была в трёх копиях (MyStats, UsersPage, float) — общая здесь.
+ * @param {string} s
+ * @param {'short'|'medium'} [style='short']
+ */
+export function fmtDate(s, style = 'short') {
+  if (!s) return '—'
+  try {
+    const locale = getDateLocale(localStorage.getItem('vaultbase_lang') || 'en')
+    const iso = s.includes('T') ? s : s.replace(' ', 'T')
+    const withTz = /Z$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z'
+    const d = new Date(withTz)
+    if (isNaN(d)) return s
+    return d.toLocaleString(locale, { dateStyle: style, timeStyle: 'short' })
+  } catch (e) {
+    handleError(e)
+    return s
+  }
+}
+
+/**
+ * Деньги с двумя знаками и разделителями тысяч.
+ * @param {number} v
+ * @param {string} [zero='$0.00'] — что показать для falsy
+ */
+export function fmtMoney(v, zero = '$0.00') {
+  if (!v) return zero
+  return (
+    '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  )
 }

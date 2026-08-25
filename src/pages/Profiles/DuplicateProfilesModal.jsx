@@ -3,8 +3,10 @@ import { Layers, X, CheckCircle2 } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { shortId } from '../../utils/formatting.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function DuplicateProfilesModal({ groups, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const dupProfRef = useRef(null)
   useFocusTrap(dupProfRef, true)

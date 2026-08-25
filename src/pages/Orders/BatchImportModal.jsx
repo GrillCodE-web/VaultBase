@@ -5,8 +5,10 @@ import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useLang } from '../../hooks/useLang'
 import { STATUS_COLORS } from '../../constants/colors'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function BatchImportModal({ onCreated, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const [parsedRows, setParsedRows] = useState([])
   const [fileName, setFileName] = useState('')
@@ -177,7 +179,13 @@ export function BatchImportModal({ onCreated, onClose }) {
                 disabled={loading || parsedRows.length === 0}
                 className="btn btn-b btn-sm flex-1 disabled:opacity-40"
               >
-                {loading ? ('Creating ' + (progress?.done ?? 0) + '/' + (progress?.total ?? parsedRows.length) + '...') : ('Create ' + parsedRows.length + ' Orders')}
+                {loading
+                  ? 'Creating ' +
+                    (progress?.done ?? 0) +
+                    '/' +
+                    (progress?.total ?? parsedRows.length) +
+                    '...'
+                  : 'Create ' + parsedRows.length + ' Orders'}
               </button>
             </div>
           </div>

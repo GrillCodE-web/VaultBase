@@ -5,8 +5,10 @@ import { useLang } from '../../hooks/useLang'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function ImportDropsModal({ profileId, onDone, onClose }) {
+  useEscapeKey(onClose)
   const [step, setStep] = useState(1)
   const [raw, setRaw] = useState('')
   const [mapping, setMapping] = useState([])

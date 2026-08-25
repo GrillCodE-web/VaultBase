@@ -22,9 +22,11 @@ import { useConfirm } from '../hooks/useConfirm'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ImapFolderTree, ImapEmailList, ImapMessageViewer } from './Imap/components/index.js'
 import { ImapDomainRoutes } from './Imap/components/ImapDomainRoutes.jsx'
+import { useEscapeKey } from '../hooks/useEscapeKey.js'
 
 // ─── IMAP Account Modal ─────────────────────────────────────────────────────
 function AccountModal({ account, onSave, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const [form, setForm] = useState({
     label: account?.label ?? '',
@@ -213,6 +215,7 @@ function AccountModal({ account, onSave, onClose }) {
 
 // ─── Compose Modal ──────────────────────────────────────────────────────────
 function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onClose, onSent }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const [form, setForm] = useState({

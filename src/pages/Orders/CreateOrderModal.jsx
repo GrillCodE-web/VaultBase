@@ -8,10 +8,12 @@ import { useSmartSuggestions, SuggestionBadge } from '../Shops'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { STATUS_COLORS } from '../../constants/colors.js'
 import { RiskBlock } from './RiskBlock.jsx'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 const EMPTY_ITEM = { name: '', sku: '', qty: 1, price: '' }
 
 export function CreateOrderModal({ onCreated, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   // Step state
   const [profileId, setProfileId] = useState('')

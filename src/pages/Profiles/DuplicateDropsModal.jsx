@@ -2,8 +2,10 @@
 import { SearchCode, X, CheckCircle2 } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { shortId } from '../../utils/formatting.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function DuplicateDropsModal({ groups, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   // Scroll lock
   useEffect(() => {

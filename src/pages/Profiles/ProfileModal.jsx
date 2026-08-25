@@ -6,8 +6,10 @@ import { useLang } from '../../hooks/useLang'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { HEX_COLORS } from '../../constants/colors.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function ProfileModal({ onCreated, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const [mode, setMode] = useState('quick') // "quick" | "full"
   const [cardId, setCardId] = useState('')

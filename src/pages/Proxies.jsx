@@ -26,6 +26,7 @@ import { timeAgo } from '../utils/formatting'
 import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination'
 import { STATUS_COLORS, getDeliveryRateColor } from '../constants/colors'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+import { useEscapeKey } from '../hooks/useEscapeKey.js'
 
 // ─── Helpers ──────────────────────────────────────────────────
 function TypeBadge({ type }) {
@@ -64,6 +65,7 @@ function StatusBadge({ proxy, healthStatus }) {
 }
 
 function UsageStatsModal({ onClose }) {
+  useEscapeKey(onClose)
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const { toast } = usePremiumToast()
@@ -211,6 +213,7 @@ const EMPTY_PROXY = {
 }
 
 function ProxyModal({ initial, onSave, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const [form, setForm] = useState(
     initial
@@ -362,6 +365,7 @@ function ProxyModal({ initial, onSave, onClose }) {
 
 // ─── Import modal ─────────────────────────────────────────────
 function ImportModal({ onDone, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const [raw, setRaw] = useState('')
   const [result, setResult] = useState(null)

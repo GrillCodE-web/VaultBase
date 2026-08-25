@@ -1,8 +1,10 @@
 ﻿import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function QuickOrderModal({ profile, onClose, onCreated }) {
+  useEscapeKey(onClose)
   const [url, setUrl] = useState('')
   const [shop, setShop] = useState(null) // { id, domain, is_new }
   const [lookingUp, setLookingUp] = useState(false)

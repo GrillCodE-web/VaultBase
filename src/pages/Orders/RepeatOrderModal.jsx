@@ -4,8 +4,10 @@ import { RotateCcw, X } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function RepeatOrderModal({ order, onCreated, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const { toast } = usePremiumToast()
   const [profiles, setProfiles] = useState([])

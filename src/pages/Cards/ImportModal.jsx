@@ -7,6 +7,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { useScrollLock } from '../../hooks/useScrollLock.js'
 import { normalizeExpiry } from '../../utils/formatting.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 const FIELD_OPTIONS = [
   'skip',
@@ -34,6 +35,7 @@ function Spinner() {
 }
 
 export function ImportModal({ onClose, onImported }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const { toast } = usePremiumToast()
   const modalRef = useRef(null)

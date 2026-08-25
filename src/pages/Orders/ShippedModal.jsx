@@ -2,8 +2,10 @@
 import { Truck, X } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
+import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 export function ShippedModal({ onConfirm, onClose }) {
+  useEscapeKey(onClose)
   const { t } = useLang()
   const [track, setTrack] = useState('')
   const [carrier, setCarrier] = useState('')

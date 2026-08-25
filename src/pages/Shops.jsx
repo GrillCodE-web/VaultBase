@@ -14,6 +14,7 @@ import { SHOP_FLAGS, getActiveShopFlags } from '../constants/shops.js'
 import { exportToCSV } from '../utils/csv.js'
 import { DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+import { useEscapeKey } from '../hooks/useEscapeKey.js'
 
 // ─── ShopRiskBadge ────────────────────────────────────────────────────────
 
@@ -115,6 +116,7 @@ function SuggestionBadge({ s }) {
 const EMPTY_PRODUCT = { asin: '', name: '', amazon_price: '', shop_price: '', url: '', notes: '' }
 
 function ProductModal({ initial, onSave, onClose }) {
+  useEscapeKey(onClose)
   const [form, setForm] = useState(
     initial
       ? {
@@ -293,6 +295,7 @@ const EMPTY_SHOP = {
 }
 
 function ShopModal({ initial, onSave, onClose }) {
+  useEscapeKey(onClose)
   const [form, setForm] = useState(
     initial
       ? {

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useAuth } from '../hooks/useAuth'
-import { getDateLocale } from '../utils/dateLocale'
+import { fmtDate as fmtDateShared, fmtMoney } from '../utils/formatting.js'
 import { getDeliveryRateColor } from '../constants/colors.js'
-import { handleError } from '../utils/errorHandler.js'
 import {
   Users,
   CreditCard,
@@ -16,32 +15,6 @@ import {
   Activity,
   Shield,
 } from 'lucide-react'
-
-function fmtMoney(v) {
-  if (!v) return '$0.00'
-  return (
-    '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  )
-}
-
-function fmtDate(s) {
-  if (!s) return '—'
-  try {
-    const locale = getDateLocale(localStorage.getItem('vaultbase_lang') || 'en')
-    // Поддержка обоих форматов: SQLite "YYYY-MM-DD HH:MM:SS" и ISO с 'T'/'Z'
-    const iso = s.includes('T') ? s : s.replace(' ', 'T')
-    const withTz = /Z$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z'
-    const d = new Date(withTz)
-    if (isNaN(d)) return s
-    return d.toLocaleString(locale, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    })
-  } catch (e) {
-    handleError(e)
-    return s
-  }
-}
 
 const PERIOD_MAP = { today: 'Сегодня', '7d': '7 дней', '30d': '30 дней' }
 
@@ -382,7 +355,9 @@ export default function MyStats() {
                     <div className="flex gap-8">
                       <div>
                         <div className="text-[11px] text-muted mb-1">Последний вход</div>
-                        <div className="text-[13px]">{fmtDate(selected.last_seen)}</div>
+                        <div className="text-[13px]">
+                          {fmtDateShared(selected.last_seen, 'medium')}
+                        </div>
                       </div>
                       {selected.last_ip && (
                         <div>
@@ -476,7 +451,9 @@ export default function MyStats() {
                   {a.details && <div className="text-[12px] text-muted">{a.details}</div>}
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-[12px] text-muted">{fmtDate(a.created_at)}</div>
+                  <div className="text-[12px] text-muted">
+                    {fmtDateShared(a.created_at, 'medium')}
+                  </div>
                   {a.ip_address && (
                     <div className="text-[11px] text-muted mono">{a.ip_address}</div>
                   )}
