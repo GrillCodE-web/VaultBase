@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import { safeSetItem, safeGetItem, safeRemoveItem } from '../utils/localStorage'
@@ -7,6 +7,25 @@ import { useOrdersStore } from '../store/orders'
 import { useUIStore } from '../store/ui'
 
 const AuthContext = createContext(null)
+
+const EXPIRES_KEY = 'cc_session_expires'
+
+/** FEAT-017: true, если сохранённая сессия уже истекла (по клиентским часам). */
+// eslint-disable-next-line react-refresh/only-export-components -- утилита рядом с провайдером намеренно
+export function isSessionExpired() {
+  const raw = safeGetItem(EXPIRES_KEY)
+  if (!raw) return false // срок неизвестен — не блокируем
+  const expires = Date.parse(raw.replace(' ', 'T') + 'Z')
+  return Number.isFinite(expires) && expires <= Date.now()
+}
+
+function persistExpiry(result) {
+  if (result?.expires_at) safeSetItem(EXPIRES_KEY, result.expires_at)
+}
+
+// FEAT-016: sliding-refresh — если до истечения < 24ч, просим бэкенд продлить
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000
+const REFRESH_THRESHOLD_MS = 24 * 3600 * 1000
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
@@ -19,6 +38,7 @@ export function AuthProvider({ children }) {
       deviceInfo: navigator.userAgent ?? null,
     })
     setCurrentUser(result)
+    persistExpiry(result)
     // FINAL-013: Check if token was saved, warn if localStorage is full
     const saved = safeSetItem('cc_session_token', result.token)
     if (!saved) {
@@ -42,6 +62,7 @@ export function AuthProvider({ children }) {
     useUIStore.getState().clearSensitiveData()
     try {
       safeRemoveItem('cc_session_token')
+      safeRemoveItem(EXPIRES_KEY)
     } catch (e) {
       console.warn('[Auth] Failed to remove session token:', e.message)
     }
@@ -55,6 +76,7 @@ export function AuthProvider({ children }) {
       })
       if (!result) return null
       setCurrentUser(result)
+      persistExpiry(result)
       try {
         safeSetItem('cc_session_token', result.token)
       } catch (e) {
@@ -73,6 +95,7 @@ export function AuthProvider({ children }) {
       if (!token) return null
       const result = await invoke('resume_session', { token })
       setCurrentUser(result)
+      persistExpiry(result)
       return result
     } catch (e) {
       handleError(e)
@@ -96,6 +119,39 @@ export function AuthProvider({ children }) {
   )
 
   const isAdmin = currentUser?.role === 'admin'
+
+  // FEAT-016: периодический sliding-refresh сессии. Раз в 5 минут смотрим на
+  // сохранённый expires_at; если до истечения < 24ч — продлеваем на бэкенде.
+  // session_expired → полный logout (токен мёртв, refresh бессмысленнен).
+  const logoutRef = useRef(logout)
+  useEffect(() => {
+    logoutRef.current = logout
+  }, [logout])
+  useEffect(() => {
+    if (!currentUser?.token) return undefined
+    const tick = async () => {
+      const raw = safeGetItem(EXPIRES_KEY)
+      if (!raw) return
+      const expires = Date.parse(raw.replace(' ', 'T') + 'Z')
+      if (!Number.isFinite(expires)) return
+      const left = expires - Date.now()
+      if (left > REFRESH_THRESHOLD_MS) return
+      try {
+        const refreshed = await invoke('refresh_session', { token: currentUser.token })
+        setCurrentUser(refreshed)
+        persistExpiry(refreshed)
+      } catch (e) {
+        const msg = String(e?.message ?? e)
+        if (msg.includes('session_expired')) {
+          await logoutRef.current()
+        } else {
+          console.warn('[Auth] Session refresh failed:', msg)
+        }
+      }
+    }
+    const timer = setInterval(tick, REFRESH_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [currentUser?.token])
 
   return (
     <AuthContext.Provider

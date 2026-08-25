@@ -82,6 +82,7 @@ impl Database {
             display_name,
             role,
             permissions,
+            expires_at: Some(expires.format("%Y-%m-%d %H:%M:%S").to_string()),
         }))
     }
 
@@ -126,7 +127,50 @@ impl Database {
             display_name,
             role,
             permissions,
+            expires_at: Some(expires.format("%Y-%m-%d %H:%M:%S").to_string()),
         })
+    }
+
+    /// FEAT-016: sliding-refresh сессии. Если токен валиден и до истечения
+    /// осталось меньше 7 дней — продлеваем до +30 дней.
+    /// Возвращает (expires_at, was_extended); None — сессия мертва.
+    pub fn refresh_session(&self, token: &str) -> Option<(String, bool)> {
+        let expiry: Option<String> = self.conn.query_row(
+            "SELECT expires_at FROM user_sessions
+             WHERE token=?1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
+            params![token],
+            |r| r.get::<_, Option<String>>(0),
+        ).ok()?;
+
+        let now = chrono::Utc::now();
+        let threshold = now + chrono::Duration::days(7);
+        let current = expiry.as_deref()
+            .and_then(|s| chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").ok())
+            .map(|dt| dt.and_utc());
+
+        match current {
+            // Бессрочная сессия — продлевать нечего
+            None => Some((expiry.unwrap_or_default(), false)),
+            Some(exp) if exp < threshold => {
+                let new_exp = now + chrono::Duration::days(30);
+                let new_exp_str = new_exp.format("%Y-%m-%d %H:%M:%S").to_string();
+                self.conn.execute(
+                    "UPDATE user_sessions SET expires_at=?1 WHERE token=?2",
+                    params![new_exp_str, token],
+                ).ok()?;
+                Some((new_exp_str, true))
+            }
+            Some(exp) => Some((exp.format("%Y-%m-%d %H:%M:%S").to_string(), false)),
+        }
+    }
+
+    /// FEAT-017: срок действия сессии по токену (без продления).
+    pub fn get_session_expiry(&self, token: &str) -> Option<String> {
+        self.conn.query_row(
+            "SELECT expires_at FROM user_sessions WHERE token=?1",
+            params![token],
+            |r| r.get::<_, Option<String>>(0),
+        ).ok().flatten()
     }
 
     /// Завершает сессию по токену

@@ -1379,6 +1379,10 @@ pub struct LoginResult {
     pub display_name: Option<String>,
     pub role: String,
     pub permissions: Vec<String>,
+    /// FEAT-016: срок действия сессии (UTC, "YYYY-MM-DD HH:MM:SS").
+    /// Клиент по нему решает, когда делать sliding-refresh.
+    #[serde(default)]
+    pub expires_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

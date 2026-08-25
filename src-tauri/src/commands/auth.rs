@@ -141,6 +141,10 @@ pub(crate) fn user_logout(token: String) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn get_current_user() -> Result<Option<LoginResult>, String> {
     let u = state().current_user.lock().map_err(|e| e.to_string())?;
+    let expires_at = match u.as_ref().map(|x| x.token.clone()) {
+        Some(t) => with_db!(db, { Ok::<Option<String>, String>(db.get_session_expiry(&t)) }).ok().flatten(),
+        None => None,
+    };
     Ok(u.as_ref().map(|u| LoginResult {
         token: u.token.clone(),
         user_id: u.user_id,
@@ -148,11 +152,36 @@ pub(crate) fn get_current_user() -> Result<Option<LoginResult>, String> {
         display_name: None,
         role: u.role.clone(),
         permissions: u.permissions.clone(),
+        expires_at: expires_at.clone(),
     }))
 }
 
 #[tauri::command]
 pub(crate) fn resume_session(token: String) -> Result<LoginResult, String> {
+    let result = with_db!(db, {
+        db.get_active_user_by_token(&token).ok_or("session_expired".to_string())
+    })?;
+    let expires_at = with_db!(db, { Ok::<Option<String>, String>(db.get_session_expiry(&token)) }).ok().flatten();
+    let login = LoginResult {
+        token: result.token.clone(),
+        user_id: result.user_id,
+        username: result.username.clone(),
+        display_name: None,
+        role: result.role.clone(),
+        permissions: result.permissions.clone(),
+        expires_at,
+    };
+    if let Ok(mut u) = state().current_user.lock() { *u = Some(result); }
+    Ok(login)
+}
+
+/// FEAT-016: sliding-refresh сессии — продлевает expires_at до +30 дней,
+/// если до истечения осталось меньше недели. Идемпотентно.
+#[tauri::command]
+pub(crate) fn refresh_session(token: String) -> Result<LoginResult, String> {
+    let new_expiry = with_db!(db, {
+        db.refresh_session(&token).ok_or("session_expired".to_string())
+    })?;
     let result = with_db!(db, {
         db.get_active_user_by_token(&token).ok_or("session_expired".to_string())
     })?;
@@ -163,6 +192,7 @@ pub(crate) fn resume_session(token: String) -> Result<LoginResult, String> {
         display_name: None,
         role: result.role.clone(),
         permissions: result.permissions.clone(),
+        expires_at: Some(new_expiry.0),
     };
     if let Ok(mut u) = state().current_user.lock() { *u = Some(result); }
     Ok(login)

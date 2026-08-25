@@ -1,4 +1,17 @@
 import { invoke } from '@tauri-apps/api/core'
+import { safeGetItem } from '../utils/localStorage'
+
+// FEAT-017: эти команды сами работают с сессией — их expiry-чек не блокирует
+const SESSION_CMDS = new Set(['user_login', 'try_auto_login', 'resume_session', 'refresh_session', 'user_logout'])
+
+// Дублирует isSessionExpired() из useAuth.jsx — импорт хука сюда создавал бы
+// циклическую зависимость (store/cards → invokeWithRetry → useAuth → store/cards)
+function isSessionExpired() {
+  const raw = safeGetItem('cc_session_expires')
+  if (!raw) return false
+  const expires = Date.parse(raw.replace(' ', 'T') + 'Z')
+  return Number.isFinite(expires) && expires <= Date.now()
+}
 
 /**
  * ERR-006: auto-retry для failed invoke() с экспоненциальным backoff.
@@ -32,6 +45,12 @@ const BASE_DELAY_MS = 400
  */
 export async function invokeWithRetry(cmd, args, opts = {}) {
   const { retries = DEFAULT_RETRIES, baseDelay = BASE_DELAY_MS, shouldRetry } = opts
+
+  // FEAT-017: не тратим вызов на заведомо мёртвую сессию — бросаем
+  // session_expired, чтобы верхний уровень (App.jsx) разлогинил пользователя
+  if (!SESSION_CMDS.has(cmd) && isSessionExpired()) {
+    throw new Error('session_expired')
+  }
 
   let lastError
   for (let attempt = 0; attempt <= retries; attempt++) {

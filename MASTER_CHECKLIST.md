@@ -243,8 +243,8 @@
 
 | #        | Задача                                              | Приоритет | Файл(ы)                          | Статус |
 | -------- | --------------------------------------------------- | --------- | -------------------------------- | ------ |
-| FEAT-016 | Token refresh mechanism (auto-refresh перед expiry) | 🟠        | `useAuth.jsx`                    | ⬜     |
-| FEAT-017 | Проверка token expiry перед каждым invoke()         | 🟠        | `useAuth.jsx`, `errorHandler.js` | ⬜     |
+| FEAT-016 | Token refresh mechanism (auto-refresh перед expiry) | 🟠        | `useAuth.jsx`                    | ✅     |
+| FEAT-017 | Проверка token expiry перед каждым invoke()         | 🟠        | `useAuth.jsx`, `errorHandler.js` | ✅     |
 
 ---
 
