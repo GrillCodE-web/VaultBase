@@ -171,4 +171,73 @@ mod tests {
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
     }
+
+    // ── TEST-010: concurrent access ──
+
+    #[test]
+    fn test_concurrent_same_key_never_exceeds_limit() {
+        // 10 потоков × 10 запросов на один ключ при лимите 50 → ровно 50 успешных
+        let limiter = Arc::new(SimpleRateLimiter::new(50, 60));
+        let successes = Arc::new(Mutex::new(0u32));
+
+        let handles: Vec<_> = (0..10).map(|_| {
+            let limiter = Arc::clone(&limiter);
+            let successes = Arc::clone(&successes);
+            std::thread::spawn(move || {
+                for _ in 0..10 {
+                    if limiter.check(42).is_ok() {
+                        *successes.lock().unwrap() += 1;
+                    }
+                }
+            })
+        }).collect();
+
+        for h in handles { h.join().unwrap(); }
+        assert_eq!(*successes.lock().unwrap(), 50);
+    }
+
+    #[test]
+    fn test_concurrent_distinct_keys_isolated() {
+        // Разные ключи не делят bucket: каждый поток со своим ключом получает полный лимит
+        let limiter = Arc::new(SimpleRateLimiter::new(5, 60));
+
+        let handles: Vec<_> = (0..8u64).map(|key| {
+            let limiter = Arc::clone(&limiter);
+            std::thread::spawn(move || {
+                let mut ok = 0u32;
+                for _ in 0..10 {
+                    if limiter.check(key).is_ok() { ok += 1; }
+                }
+                ok
+            })
+        }).collect();
+
+        for h in handles {
+            assert_eq!(h.join().unwrap(), 5);
+        }
+    }
+
+    #[test]
+    fn test_window_reset_allows_requests_again() {
+        let limiter = SimpleRateLimiter::new(2, 1);
+        assert!(limiter.check(7).is_ok());
+        assert!(limiter.check(7).is_ok());
+        assert!(limiter.check(7).is_err());
+        std::thread::sleep(Duration::from_millis(1100));
+        assert!(limiter.check(7).is_ok());
+    }
+
+    #[test]
+    fn test_lock_not_poisoned_by_concurrent_errors() {
+        // Превышение лимита в конкурентной среде не ломает последующие вызовы
+        let limiter = Arc::new(SimpleRateLimiter::new(1, 60));
+        let handles: Vec<_> = (0..4).map(|_| {
+            let limiter = Arc::clone(&limiter);
+            std::thread::spawn(move || { let _ = limiter.check(9); })
+        }).collect();
+        for h in handles { h.join().unwrap(); }
+        // Лимитер жив и продолжает корректно отклонять
+        assert!(limiter.check(9).is_err());
+        assert!(limiter.check(10).is_ok());
+    }
 }

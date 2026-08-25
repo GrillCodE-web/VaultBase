@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 13;
+    const LATEST_VERSION: u32 = 14;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -74,7 +74,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (4, migration_v4), (5, migration_v5), (6, migration_v6),
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
-        (13, migration_v13),
+        (13, migration_v13), (14, migration_v14),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -599,6 +599,25 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         // imap_messages: домен отправителя (zoro.com) — по нему фильтруют вид
         let _ = conn.execute_batch("ALTER TABLE imap_messages ADD COLUMN from_domain TEXT;");
         let _ = conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_imap_msg_domain ON imap_messages(from_domain);");
+        Ok(())
+    }
+
+    fn migration_v14(conn: &Connection) -> SqlResult<()> {
+        // FIX TEST-007: триггер v12 разрешал ('free','in_use','burned','reserved','frozen'),
+        // а приложение работает со статусами ('free','in_use','archive','dead') —
+        // WS-синхронизация dead/archive молча отклонялась БД. Пересоздаём триггер
+        // с реальным словарём статусов.
+        conn.execute_batch(r#"
+            DROP TRIGGER IF EXISTS trg_card_status_check;
+            CREATE TRIGGER trg_card_status_check
+            BEFORE UPDATE OF status ON credit_cards
+            BEGIN
+                SELECT CASE
+                    WHEN NEW.status NOT IN ('free','in_use','archive','dead')
+                    THEN RAISE(ABORT, 'invalid card status')
+                END;
+            END;
+        "#)?;
         Ok(())
     }
 

@@ -480,3 +480,242 @@ fn apply_card_updates(pool: &crate::database::DbPool, cards: &[serde_json::Value
     // COMMIT транзакции — все изменения применяются атомарно
     let _ = conn.execute_batch("COMMIT");
 }
+
+
+// ─────────────────────────────────────────
+//  Tests (TEST-007)
+// ─────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::AtomicBool;
+
+    fn test_db() -> (tempfile::TempDir, crate::database::Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.db");
+        let db = crate::database::Database::open(path.to_str().unwrap()).unwrap();
+        (dir, db)
+    }
+
+    // ── status_weight ──
+
+    #[test]
+    fn test_status_weight_ordering() {
+        assert!(status_weight("dead") > status_weight("archive"));
+        assert!(status_weight("archive") > status_weight("in_use"));
+        assert!(status_weight("in_use") > status_weight("free"));
+        assert!(status_weight("free") > status_weight("unknown"));
+        assert_eq!(status_weight(""), 0);
+        assert_eq!(status_weight("declined"), 0); // FIX AUDIT-17: не статус карты
+    }
+
+    // ── WsSyncHandle ──
+
+    #[test]
+    fn test_handle_stop_and_creds() {
+        let handle = WsSyncHandle {
+            running: Arc::new(AtomicBool::new(true)),
+            creds: new_credentials(),
+        };
+        assert!(handle.is_running());
+        handle.set_creds(Some("tok".into()), Some("grp".into()));
+        handle.set_group_key(Some([7u8; 32]));
+        {
+            let c = handle.creds.read().unwrap();
+            assert_eq!(c.token.as_deref(), Some("tok"));
+            assert_eq!(c.group_id.as_deref(), Some("grp"));
+            assert_eq!(c.group_key, Some([7u8; 32]));
+        }
+        handle.stop();
+        assert!(!handle.is_running());
+    }
+
+    #[test]
+    fn test_credentials_default_empty() {
+        let c = WsCredentials::default();
+        assert!(c.token.is_none());
+        assert!(c.group_id.is_none());
+        assert!(c.group_key.is_none());
+    }
+
+    // ── apply_card_updates ──
+
+    fn insert_card(db: &crate::database::Database, hash: &str, status: &str) {
+        db.conn.execute(
+            "INSERT INTO credit_cards(card_hash, status) VALUES(?1, ?2)",
+            rusqlite::params![hash, status],
+        ).unwrap();
+    }
+
+    fn card_status(db: &crate::database::Database, hash: &str) -> String {
+        db.conn.query_row(
+            "SELECT status FROM credit_cards WHERE card_hash = ?1",
+            rusqlite::params![hash],
+            |r| r.get(0),
+        ).unwrap()
+    }
+
+    #[test]
+    fn test_apply_card_updates_escalates_status() {
+        let (_dir, db) = test_db();
+        insert_card(&db, "abcdef0123456789", "free");
+        let pool = db.pool.as_ref().unwrap();
+
+        apply_card_updates(pool, &[serde_json::json!({
+            "card_hash": "abcdef0123456789",
+            "status": "dead",
+            "notes": "killed by sync"
+        })]);
+
+        assert_eq!(card_status(&db, "abcdef0123456789"), "dead");
+        let notes: String = db.conn.query_row(
+            "SELECT notes FROM credit_cards WHERE card_hash = 'abcdef0123456789'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(notes, "killed by sync");
+    }
+
+    #[test]
+    fn test_apply_card_updates_no_downgrade() {
+        // dead (5) → free (1): эскалация только вверх, даунгрейд запрещён
+        let (_dir, db) = test_db();
+        insert_card(&db, "abcdef0123456789", "dead");
+        let pool = db.pool.as_ref().unwrap();
+
+        apply_card_updates(pool, &[serde_json::json!({
+            "card_hash": "abcdef0123456789",
+            "status": "free"
+        })]);
+
+        assert_eq!(card_status(&db, "abcdef0123456789"), "dead");
+    }
+
+    #[test]
+    fn test_apply_card_updates_skips_invalid_hash() {
+        let (_dir, db) = test_db();
+        insert_card(&db, "abcdef0123456789", "free");
+        let pool = db.pool.as_ref().unwrap();
+
+        // Слишком короткий хеш
+        apply_card_updates(pool, &[serde_json::json!({ "card_hash": "abc", "status": "dead" })]);
+        // Не-hex символы
+        apply_card_updates(pool, &[serde_json::json!({ "card_hash": "zzzzzzzzzzzz", "status": "dead" })]);
+        // Хеш отсутствует
+        apply_card_updates(pool, &[serde_json::json!({ "status": "dead" })]);
+
+        assert_eq!(card_status(&db, "abcdef0123456789"), "free");
+    }
+
+    #[test]
+    fn test_apply_card_updates_skips_invalid_status() {
+        let (_dir, db) = test_db();
+        insert_card(&db, "abcdef0123456789", "free");
+        let pool = db.pool.as_ref().unwrap();
+
+        apply_card_updates(pool, &[serde_json::json!({
+            "card_hash": "abcdef0123456789",
+            "status": "declined" // недопустимый статус карты
+        })]);
+
+        assert_eq!(card_status(&db, "abcdef0123456789"), "free");
+    }
+
+    #[test]
+    fn test_apply_card_updates_notes_length_limit() {
+        let (_dir, db) = test_db();
+        insert_card(&db, "abcdef0123456789", "free");
+        let pool = db.pool.as_ref().unwrap();
+
+        let long_notes = "x".repeat(501);
+        apply_card_updates(pool, &[serde_json::json!({
+            "card_hash": "abcdef0123456789",
+            "status": "in_use",
+            "notes": long_notes
+        })]);
+
+        // Статус применён, а слишком длинные notes — нет
+        assert_eq!(card_status(&db, "abcdef0123456789"), "in_use");
+        let notes: Option<String> = db.conn.query_row(
+            "SELECT notes FROM credit_cards WHERE card_hash = 'abcdef0123456789'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert!(notes.is_none());
+    }
+
+    #[test]
+    fn test_apply_card_updates_unknown_hash_ignored() {
+        let (_dir, db) = test_db();
+        let pool = db.pool.as_ref().unwrap();
+        // Карты с таким хешем нет — просто не падаем
+        apply_card_updates(pool, &[serde_json::json!({
+            "card_hash": "00000000deadbeef",
+            "status": "dead"
+        })]);
+        let count: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM credit_cards", [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(count, 0);
+    }
+
+    // ── catalog upserts ──
+
+    #[test]
+    fn test_apply_catalog_item_upsert() {
+        let (_dir, db) = test_db();
+        let pool = db.pool.as_ref().unwrap().clone();
+
+        let item = models::CatalogItemInput {
+            id: Some(1),
+            name: "Test Item".into(),
+            asin: Some("B000TEST".into()),
+            price: Some(99.99),
+            pct: Some(50),
+            category: Some("electronics".into()),
+            notes_en: None,
+            stop: false,
+        };
+        apply_catalog_item(&pool, item.clone());
+        apply_catalog_item(&pool, models::CatalogItemInput { name: "Updated".into(), ..item });
+
+        let name: String = db.conn.query_row(
+            "SELECT name FROM catalog_items WHERE id = 1", [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(name, "Updated");
+    }
+
+    #[test]
+    fn test_apply_catalog_shop_upsert() {
+        let (_dir, db) = test_db();
+        let pool = db.pool.as_ref().unwrap().clone();
+
+        let shop = models::CatalogShopInput {
+            domain: "example.com".into(),
+            category: Some("electronics".into()),
+            score: Some(80),
+            ship_us: true,
+            fraud_level: Some("low".into()),
+            top_brands: None,
+            top_products: None,
+            excluded: false,
+        };
+        apply_catalog_shop(&pool, shop);
+        apply_catalog_shop(&pool, models::CatalogShopInput {
+            domain: "example.com".into(),
+            category: None,
+            score: Some(95),
+            ship_us: true,
+            fraud_level: None,
+            top_brands: None,
+            top_products: None,
+            excluded: false,
+        });
+
+        let (count, score): (i64, i64) = db.conn.query_row(
+            "SELECT COUNT(*), MAX(score) FROM catalog_shops WHERE domain = 'example.com'",
+            [], |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(score, 95);
+    }
+}

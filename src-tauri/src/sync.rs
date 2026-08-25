@@ -459,8 +459,9 @@ impl SyncGroupClient {
     }
 
     pub fn get_group_status(db: &Database) -> crate::models::SyncGroupStatus {
-        let group_id = db.get_config("sync_group_id").ok().flatten();
-        let group_name = db.get_config("sync_group_name").ok().flatten();
+        // FIX TEST-007: пустая строка (после disconnect) — не членство в группе
+        let group_id = db.get_config("sync_group_id").ok().flatten().filter(|s| !s.is_empty());
+        let group_name = db.get_config("sync_group_name").ok().flatten().filter(|s| !s.is_empty());
         let in_group = group_id.is_some();
         crate::models::SyncGroupStatus {
             in_group,
@@ -706,4 +707,110 @@ pub struct PushResult {
     pub failed: u32,
     pub message: String,
     pub server_reached: bool,
+}
+
+
+// ─────────────────────────────────────────
+//  Tests (TEST-007)
+// ─────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_db() -> (tempfile::TempDir, Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.db");
+        let db = Database::open(path.to_str().unwrap()).unwrap();
+        (dir, db)
+    }
+
+    // ── sync_footprints: offline-пути без сети ──
+
+    #[test]
+    fn test_sync_footprints_no_token() {
+        let (_dir, mut db) = test_db();
+        let res = SyncClient::sync_footprints(&mut db).unwrap();
+        assert_eq!(res.synced, 0);
+        assert_eq!(res.failed, 0);
+        assert_eq!(res.message, "no_token");
+        assert!(!res.server_reached);
+    }
+
+    #[test]
+    fn test_check_risk_no_token_is_offline() {
+        let (_dir, db) = test_db();
+        match SyncClient::check_risk_detailed(&db, "profile1", 1) {
+            RiskCheckOutcome::Offline => {}
+            _ => panic!("expected Offline without token"),
+        }
+        // Старый интерфейс маппит Offline → пустой список
+        assert!(SyncClient::check_risk(&db, "profile1", 1).is_empty());
+    }
+
+    // ── SyncGroupClient ──
+
+    #[test]
+    fn test_get_group_status_not_in_group() {
+        let (_dir, db) = test_db();
+        let status = SyncGroupClient::get_group_status(&db);
+        assert!(!status.in_group);
+        assert!(status.group_id.is_none());
+        assert!(status.group_name.is_none());
+        assert!(!status.connected);
+    }
+
+    #[test]
+    fn test_get_group_status_in_group() {
+        let (_dir, db) = test_db();
+        db.set_config("sync_group_id", "grp-123").unwrap();
+        db.set_config("sync_group_name", "Test Group").unwrap();
+        let status = SyncGroupClient::get_group_status(&db);
+        assert!(status.in_group);
+        assert_eq!(status.group_id.as_deref(), Some("grp-123"));
+        assert_eq!(status.group_name.as_deref(), Some("Test Group"));
+    }
+
+    #[test]
+    fn test_disconnect_without_token_clears_config() {
+        let (_dir, db) = test_db();
+        db.set_config("sync_group_id", "grp-123").unwrap();
+        db.set_config("sync_group_name", "Test Group").unwrap();
+        // Без токена — локальный конфиг всё равно очищается, без обращения к серверу
+        SyncGroupClient::disconnect(&db).unwrap();
+        let status = SyncGroupClient::get_group_status(&db);
+        assert!(!status.in_group);
+    }
+
+    #[test]
+    fn test_push_card_updates_no_token() {
+        let (_dir, db) = test_db();
+        let updates = vec![crate::models::CardSyncUpdate {
+            card_hash: "abcdef0123456789".into(),
+            status: "dead".into(),
+            notes: None,
+            encrypted_data: None,
+        }];
+        let res = SyncGroupClient::push_card_updates(&db, &updates).unwrap();
+        assert_eq!(res.synced, 0);
+        assert_eq!(res.failed, 1);
+        assert_eq!(res.message, "no_token");
+        assert!(!res.server_reached);
+    }
+
+    #[test]
+    fn test_push_card_updates_not_in_group() {
+        let (_dir, db) = test_db();
+        // Токен есть, но группы нет → not_in_group, сеть не дёргается
+        db.set_config("license_token", "tok123").unwrap();
+        let updates = vec![crate::models::CardSyncUpdate {
+            card_hash: "abcdef0123456789".into(),
+            status: "dead".into(),
+            notes: None,
+            encrypted_data: None,
+        }];
+        let res = SyncGroupClient::push_card_updates(&db, &updates).unwrap();
+        assert_eq!(res.message, "not_in_group");
+        assert!(!res.server_reached);
+    }
 }
