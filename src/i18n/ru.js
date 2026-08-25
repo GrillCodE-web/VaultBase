@@ -377,10 +377,12 @@ export const ru = {
   license_retry: 'Повторить подключение',
   license_retrying: 'Подключение…',
   license_verified: 'Лицензия успешно проверена.',
-  license_offline_warn: 'Лицензия не проверена — сервер недоступен. Автономный режим: sync, risk check и BIN lookup недоступны.',
+  license_offline_warn:
+    'Лицензия не проверена — сервер недоступен. Автономный режим: sync, risk check и BIN lookup недоступны.',
   offline_pill_label: 'Офлайн',
   offline_pill_title: 'Лицензия не проверена. Недоступны: sync, risk check, BIN lookup',
-  sync_lost_warn: 'Соединение real-time sync потеряно. Изменения других пользователей не придут до переподключения.',
+  sync_lost_warn:
+    'Соединение real-time sync потеряно. Изменения других пользователей не придут до переподключения.',
   offline_mode: 'Офлайн',
 
   // Dashboard
@@ -780,7 +782,7 @@ export const ru = {
 
   // Search placeholders
   orders_holder_search_placeholder: 'Поиск по имени держателя, last4…',
-  profiles_search_placeholder: 'Поиск по last4, BIN, держателю, банку…',
+  profiles_search_placeholder: 'Поиск last4, BIN, держатель…',
 
   // IMAP status
   imap_status_active: 'активен',

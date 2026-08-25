@@ -376,10 +376,12 @@ export const en = {
   license_retry: 'Retry Connection',
   license_retrying: 'Retrying…',
   license_verified: 'License verified successfully.',
-  license_offline_warn: 'License not verified — server unreachable. Working offline; sync, risk check and BIN lookup are unavailable.',
+  license_offline_warn:
+    'License not verified — server unreachable. Working offline; sync, risk check and BIN lookup are unavailable.',
   offline_pill_label: 'Offline',
   offline_pill_title: 'License not verified. Unavailable: sync, risk check, BIN lookup',
-  sync_lost_warn: 'Real-time sync connection lost. Changes from other users will not appear until reconnected.',
+  sync_lost_warn:
+    'Real-time sync connection lost. Changes from other users will not appear until reconnected.',
   offline_mode: 'Offline',
 
   // Dashboard
@@ -779,7 +781,7 @@ export const en = {
 
   // Search placeholders
   orders_holder_search_placeholder: 'Search holder name, last4…',
-  profiles_search_placeholder: 'Search by last4, BIN, holder, bank…',
+  profiles_search_placeholder: 'Search last4, BIN, holder…',
 
   // IMAP status
   imap_status_active: 'active',

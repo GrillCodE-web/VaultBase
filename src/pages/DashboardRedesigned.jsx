@@ -152,9 +152,10 @@ function Heatmap({ data, onCellClick }) {
       <table className="heatmap-table">
         <thead>
           <tr>
-            <th className="text-left text-muted font-medium text-[10px] pb-1 pr-2">
-              Bank ↓ / Shop →
-            </th>
+            {/* Угловая ячейка пустая: подпись «Bank ↓ / Shop →» при узкой
+                колонке банков (max-width:0) переползала на соседний заголовок
+                и слипалась с ним. Оси и так понятны из заголовка панели. */}
+            <th className="text-left text-muted font-medium text-[10px] pb-1 pr-2" />
             {shops.map(s => (
               <th
                 key={s}
@@ -1149,10 +1150,8 @@ export default function DashboardRedesigned({ onNavigate }) {
               subtext={`${formatNumber(freeCards)} available`}
               trend="up"
               variant="cards"
-              statusBadge={{
-                type: 'free',
-                label: `${Math.round((freeCards / (totalCards || 1)) * 100)}%`,
-              }}
+              // Только кольцо прогресса: statusBadge «27%» занимал тот же
+              // верхне-правый угол и слипался с подписью в центре кольца.
               progress={Math.round((freeCards / (totalCards || 1)) * 100)}
               onClick={() => onNavigate?.('cards')}
             />

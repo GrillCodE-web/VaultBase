@@ -52,13 +52,13 @@ function getAllColumns(t) {
   ]
 }
 
-// #default order — Number | Exp | CVV | Holder | Address | ZIP | City | State | Country | Phone | Status | Actions
+// #default order — Number | Exp | Holder | ZIP | City | State | Country | Phone | Status | Actions
+// CVV и Copy Billing не входят в дефолт: у большинства карт они пустые,
+// колонки висят мёртвым грузом. Включаются через Columns или Carder View.
 const DEFAULT_COLS = [
   'card_number',
   'expiry',
-  'cvv',
   'holder',
-  'billing',
   'zip',
   'city',
   'state',
@@ -153,7 +153,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const dragColRef = useRef(null)
 
   // ARCH-013: debounced search через общий хук (searchInput + 300ms debounce → store filters)
-  const applySearchToStore = useCallback(f => setFilters({ search: f.search || null }), [setFilters])
+  const applySearchToStore = useCallback(
+    f => setFilters({ search: f.search || null }),
+    [setFilters]
+  )
   const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
 
   const totalPages = getTotalPages(total)
@@ -1001,7 +1004,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                     >
                       <span className="flex items-center gap-1">
                         {c.id !== 'actions' && (
-                          <span className="text-muted text-[9px] opacity-50 leading-1">⠿</span>
+                          <span className="text-muted text-[9px] leading-1 col-grip">⠿</span>
                         )}
                         {t(c.label)}
                       </span>

@@ -21,7 +21,8 @@
      Оба self-hosted (public/fonts), см. fonts.css. Системные
      имена оставлены как fallback до первого swap. */
   --font-ui:
-    'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'DejaVu Sans', sans-serif;
+    'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'DejaVu Sans', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
 
   --font-mono:
     'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Mono', Consolas,

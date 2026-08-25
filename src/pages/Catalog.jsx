@@ -208,7 +208,7 @@ function ItemsTab() {
               <th>Price</th>
               <th>Margin</th>
               <th>Category</th>
-              <th>Stop</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>

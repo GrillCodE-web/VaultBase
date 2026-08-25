@@ -44,9 +44,11 @@ export const ProfileRow = React.memo(
           cursor: 'pointer',
           background: isSelected
             ? 'var(--color-info-bg)'
-            : !hasDrops
-              ? 'var(--color-warning-bg)'
-              : undefined,
+            : rawStatus === 'dead'
+              ? 'transparent' // dead-профиль не светим жёлтым «нет дропа» — он уже мёртв
+              : !hasDrops
+                ? 'var(--color-warning-bg)'
+                : undefined,
           outline: isSelected ? '1px solid rgba(59, 130, 246, 0.3)' : undefined,
           opacity: isDeleting ? 0.3 : 1,
           textDecoration: isDeleting ? 'line-through' : 'none',
