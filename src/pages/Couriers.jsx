@@ -9,6 +9,7 @@ import {
   X,
   MapPin,
   Loader2,
+  MessageSquare,
   Settings as SettingsIcon,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
@@ -63,6 +64,8 @@ export default function Couriers({ activeTab, onNavigate }) {
   const [labelsFor, setLabelsFor] = useState(null)
   const [labels, setLabels] = useState([])
   const [labelsLoading, setLabelsLoading] = useState(false)
+  // Комментарии приходят вместе со списком посылок — храним сам пакет.
+  const [commentsFor, setCommentsFor] = useState(null)
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -373,19 +376,34 @@ export default function Couriers({ activeTab, onNavigate }) {
           <div className="pkg-row pkg-row--head">
             <span>{t('pkg_id')}</span>
             <span>{t('pkg_name')}</span>
+            <span>{t('pkg_shop')}</span>
+            <span>{t('pkg_price')}</span>
             <span>{t('pkg_status')}</span>
             <span>{t('pkg_tracks')}</span>
+            <span>{t('pkg_date')}</span>
             <span />
           </div>
           {packages.map(p => (
             <div key={p.id} className="pkg-row">
               <span className="mono">#{p.id}</span>
               <span>{p.name || '—'}</span>
+              <span>{p.shop || '—'}</span>
+              <span className="mono text-xs">{p.price ? p.price : '—'}</span>
               <span>
                 <span className={`st st-${p.status || 'used'}`}>{p.status}</span>
               </span>
               <span className="mono text-xs">{(p.tracks || []).join(', ') || '—'}</span>
-              <span>
+              <span className="mono text-xs">{p.created_date || '—'}</span>
+              <span className="pkg-row-actions">
+                {p.comments?.length > 0 && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    title={t('pkg_comments')}
+                    onClick={() => setCommentsFor(p)}
+                  >
+                    <MessageSquare size={13} /> {p.comments.length}
+                  </button>
+                )}
                 <button className="btn btn-ghost btn-sm" onClick={() => openLabels(p.id)}>
                   <PackageIcon size={13} /> {t('pkg_view_labels')}
                 </button>
@@ -419,6 +437,30 @@ export default function Couriers({ activeTab, onNavigate }) {
                 >
                   <Download size={13} /> {l.file ? t('pkg_download_pdf') : t('pkg_no_pdf')}
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Comments panel */}
+      <Modal
+        isOpen={commentsFor != null}
+        onClose={() => setCommentsFor(null)}
+        title={`${t('pkg_comments_title')} · #${commentsFor?.id ?? ''}`}
+        size="md"
+      >
+        {!commentsFor?.comments?.length ? (
+          <EmptyState icon={<MessageSquare size={40} />} title={t('pkg_comments_empty')} />
+        ) : (
+          <div className="pkg-comment-list">
+            {commentsFor.comments.map(c => (
+              <div key={c.id} className="pkg-comment-row">
+                <div className="pkg-comment-meta">
+                  <span>{c.sender || '—'}</span>
+                  <span className="mono">{c.date}</span>
+                </div>
+                <div className="pkg-comment-text">{c.comment_text}</div>
               </div>
             ))}
           </div>

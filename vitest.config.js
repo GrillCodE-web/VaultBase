@@ -8,10 +8,17 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
     exclude: [
-      'node_modules/',
+      // Кастомный exclude ЗАМЕНЯЕТ дефолт витеста, поэтому '**/node_modules/**'
+      // нужен явно — иначе тесты попадают из вложенных node_modules
+      // (например manager-app/node_modules).
+      '**/node_modules/**',
       'dist/',
       'e2e/**',
       '**/playwright/**',
+      // manager-app is a standalone app (own lint/build toolchain), not part
+      // of the worker frontend suite; otherwise its nested node_modules and
+      // sources get scanned by this config's include patterns.
+      'manager-app/**',
       // Server-side suites use Node's built-in test runner, not vitest.
       // Run them with: npm test --prefix cc-sync-server
       'cc-sync-server/**',

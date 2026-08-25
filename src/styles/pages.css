@@ -2442,7 +2442,7 @@
 
   .pkg-row {
     display: grid;
-    grid-template-columns: 70px 1fr 120px 1.5fr 120px;
+    grid-template-columns: 70px minmax(0, 1fr) 100px 80px 110px minmax(0, 1.3fr) 150px 180px;
     align-items: center;
     gap: var(--sp-2);
     padding: var(--sp-2) var(--sp-3);
@@ -2461,6 +2461,14 @@
     color: var(--muted);
   }
 
+  .pkg-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sp-1);
+    flex-wrap: wrap;
+  }
+
   /* ── Labels list ── */
   .cou-label-list {
     display: flex;
@@ -2476,6 +2484,38 @@
     padding: var(--sp-2) var(--sp-3);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
+  }
+
+  /* ── Package comments (admin/support) ── */
+  .pkg-comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  .pkg-comment-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+  }
+
+  .pkg-comment-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--sp-2);
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .pkg-comment-text {
+    font-size: var(--fs-body);
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   /* ── Couriers form grid (namespaced, doesn't collide with global .form-*) ── */

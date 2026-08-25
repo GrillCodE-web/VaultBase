@@ -138,9 +138,37 @@ pub struct Package {
     pub name: String,
     #[serde(default)]
     pub status: String,
+    // Поля панели (docs/API_STUFFER.md, «packages»). У старых ответов их нет —
+    // дефолты; UI показывает «—» там, где значение не пришло.
     #[serde(default)]
+    pub courier_id: i64,
+    #[serde(default)]
+    pub holder_name: String,
+    #[serde(default)]
+    pub weight: String,
+    #[serde(default)]
+    pub quantity: i64,
+    #[serde(default)]
+    pub shop: String,
+    #[serde(default)]
+    pub price: f64,
+    #[serde(default)]
+    pub delivery_date: String,
+    #[serde(default)]
+    pub pay_option: String,
+    #[serde(default)]
+    pub pickup: i64,
+    #[serde(default)]
+    pub asin: String,
+    #[serde(default)]
+    pub upc: String,
+    #[serde(default)]
+    pub created_date: String,
+    // Legacy-поля старой схемы ответа: новой панелью не отдаются, но
+    // декодируются (skip_serializing_if — наружу уходят только непустые).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub labels: Vec<PackageLabel>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub labels_hash: String,
     #[serde(default, deserialize_with = "de_tracks")]
     pub tracks: Vec<String>,
@@ -570,6 +598,23 @@ mod tests {
         assert_eq!(packages[0].tracks, vec!["1Z999AA10123456784"]);
         assert_eq!(packages[0].labels.len(), 0);
         assert_eq!(packages[1].tracks, vec!["n/a"]);
+        // Новые поля панели (docs/API_STUFFER.md, «packages»).
+        assert_eq!(packages[0].courier_id, 982);
+        assert_eq!(packages[0].holder_name, "Petr Vasichkin");
+        assert_eq!(packages[0].weight, "1.5");
+        assert_eq!(packages[0].quantity, 2);
+        assert_eq!(packages[0].shop, "amazon");
+        assert_eq!(packages[0].price, 999.99);
+        assert_eq!(packages[0].delivery_date, "2026-08-10");
+        assert_eq!(packages[0].pay_option, "%");
+        assert_eq!(packages[0].pickup, 0);
+        assert_eq!(packages[0].asin, "B09G9HD6PD");
+        assert_eq!(packages[0].upc, "195949123456");
+        assert_eq!(packages[0].created_date, "2026-08-11 14:32:15");
+        // У второго пакета полей нет — дефолты без ошибки декода.
+        assert_eq!(packages[1].shop, "");
+        assert_eq!(packages[1].price, 0.0);
+        assert_eq!(packages[1].created_date, "");
     }
 
     /// Смесь старого и нового форматов, null-элементы и null-поле — всё
