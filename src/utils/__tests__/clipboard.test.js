@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { copyToClipboard, copyText } from '../clipboard.js'
 
-/* eslint-disable no-undef -- Test file using vitest globals */
 describe('Clipboard Utilities', () => {
   beforeEach(() => {
     // Mock clipboard API

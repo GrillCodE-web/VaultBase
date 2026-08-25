@@ -88,6 +88,25 @@ export default [
     },
   },
   {
+    // CLEAN-007: vitest-глобалы для тестов — вместо file-level
+    // `eslint-disable no-undef` в каждом тестовом файле
+    files: ['**/__tests__/**/*.{js,jsx}', '**/*.test.{js,jsx}'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        vi: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        test: 'readonly',
+        global: 'writable',
+      },
+    },
+  },
+  {
     // cc-sync-server — CommonJS под Node, а не браузерный ESM.
     // Без этого блока каждый серверный файл давал ложные no-undef на
     // require/module/__dirname, и вывод линтера по серверу нельзя было читать:

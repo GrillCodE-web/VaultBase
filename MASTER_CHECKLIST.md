@@ -320,7 +320,7 @@
 | CLEAN-004 | Magic numbers → constants с комментариями                                      | 🟡        | `Cards.jsx:500`, `ws_sync.rs:20,60`, `background.rs:45` | ⬜     |
 | CLEAN-005 | `.env.example`: добавить USPS_API_USER_ID и другие undocumented vars           | 🟢        | `.env.example`                                          | ✅     |
 | CLEAN-006 | PostCSS: добавить autoprefixer                                                 | 🟢        | `postcss.config.js`                                     | ✅     |
-| CLEAN-007 | ESLint: убрать generic `eslint-disable-next-line` (указать конкретное правило) | 🟢        | Все файлы                                               | ⬜     |
+| CLEAN-007 | ESLint: убрать generic `eslint-disable-next-line` (указать конкретное правило) | 🟢        | Все файлы                                               | ✅     |
 | CLEAN-008 | Deeply nested ternaries → object lookup для status colors                      | 🟢        | `DashboardRedesigned.jsx:650+`                          | ✅     |
 | CLEAN-009 | Prop drilling в Cards: compound components pattern или Context для CardRow     | 🟡        | `Cards.jsx:950+`                                        | ⬜     |
 | CLEAN-010 | virtualizer overscan: сделать конфигурируемым (не hardcoded 20)                | 🟢        | `Profiles.jsx:47`                                       | ⬜     |
