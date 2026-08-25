@@ -233,6 +233,8 @@ fn main() {
             commands::imap::refresh_folder_from_imap, commands::imap::get_unified_inbox,
             commands::imap::get_imap_message_body, commands::imap::mark_imap_read, commands::imap::delete_imap_message, commands::imap::archive_imap_message,
             commands::imap::get_imap_folders, commands::imap::get_imap_stats, commands::imap::check_all_imap,
+            commands::imap::add_domain_route, commands::imap::remove_domain_route,
+            commands::imap::list_domain_routes, commands::imap::get_account_for_domain,
             commands::smtp::add_smtp_config, commands::smtp::get_smtp_configs, commands::smtp::delete_smtp_config,
             commands::smtp::test_smtp_connection, commands::smtp::send_email, commands::smtp::get_sent_emails,
             commands::misc::get_activity_log, commands::misc::clear_activity_log,

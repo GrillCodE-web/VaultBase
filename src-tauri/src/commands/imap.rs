@@ -87,6 +87,32 @@ pub(crate) fn link_email_to_imap(email_id: i64, imap_account_id: Option<i64>) ->
     })
 }
 
+// ── IMAP-ROUTING: маршруты «домен = почта» ─────────────────────────────
+
+#[tauri::command]
+pub(crate) fn add_domain_route(domain: String, imap_account_id: i64) -> Result<(), String> {
+    require_user()?;
+    with_db!(db, { db.add_domain_route(&domain, imap_account_id) })
+}
+
+#[tauri::command]
+pub(crate) fn remove_domain_route(domain: String) -> Result<(), String> {
+    require_user()?;
+    with_db!(db, { db.remove_domain_route(&domain) })
+}
+
+#[tauri::command]
+pub(crate) fn list_domain_routes() -> Result<Vec<crate::models::DomainRoute>, String> {
+    require_user()?;
+    with_db!(db, { db.list_domain_routes() })
+}
+
+#[tauri::command]
+pub(crate) fn get_account_for_domain(domain: String) -> Result<Option<i64>, String> {
+    require_user()?;
+    with_db!(db, { db.get_account_for_domain(&domain) })
+}
+
 #[tauri::command]
 pub(crate) fn get_folder_messages(account_id: i64, folder: String, page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
     require_user()?;

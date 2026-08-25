@@ -239,6 +239,9 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                     Err(e) => {
                         if let Ok(db) = st.db.lock() {
                             let _ = db.log_event("imap.poll_error", &e, Some("imap"), None);
+                            // IMAP-HEALTH: наращиваем fail_count и сохраняем текст ошибки,
+                            // чтобы UI показал «почта умерла — зайди вручную».
+                            let _ = db.mark_imap_error(acc.id, &e);
                         }
                         // SEC-018: алертим UI только после 3 подряд идущих ошибок
                         // на одном аккаунте, чтобы не сыпать шумом из-за единичных сбоев.

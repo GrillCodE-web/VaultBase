@@ -232,8 +232,11 @@ impl Database {
     }
 
     pub fn update_imap_last_checked(&self, account_id: i64) -> Result<(), String> {
+        // IMAP-HEALTH: вызывается только на успешных путях поллинга —
+        // заодно сбрасываем счётчик ошибок (ящик жив).
         self.conn.execute(
-            "UPDATE imap_accounts SET last_checked=datetime('now') WHERE id=?1", params![account_id],
+            "UPDATE imap_accounts SET last_checked=datetime('now'), fail_count=0, last_error=NULL, last_ok=datetime('now') WHERE id=?1",
+            params![account_id],
         ).map_err(|e| e.to_string())?;
         Ok(())
     }
