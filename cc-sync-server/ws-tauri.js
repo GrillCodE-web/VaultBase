@@ -198,6 +198,16 @@ module.exports = function initWsTauri(wss, io) {
         ws.userToken = token;
         ws.groupId = auth.groupId;
 
+        // FIX: повторное подключение той же installation_id раньше молча
+        // перезаписывало clients-запись, а close СТАРОГО сокета потом удалял
+        // запись НОВОГО — broadcast-ы группе переставали доходить до живого
+        // клиента. Закрываем старый сокет и помечаем его, чтобы его close-
+        // хендлер не трогал чужую запись.
+        const prev = clients.get(auth.installationId);
+        if (prev && prev !== ws) {
+          prev.replaced = true;
+          try { prev.close(4004, 'replaced_by_new_connection'); } catch { /* already closing */ }
+        }
         clients.set(auth.installationId, ws);
 
         send(ws, {
@@ -278,8 +288,10 @@ module.exports = function initWsTauri(wss, io) {
     });
 
     ws.on('close', () => {
-      if (ws.installationId) {
-        clients.delete(ws.installationId);
+      if (ws.installationId && !ws.replaced) {
+        // Удаляем запись, только если она всё ещё указывает на ЭТОТ сокет —
+        // иначе сотрём регистрацию более нового подключения того же клиента.
+        if (clients.get(ws.installationId) === ws) clients.delete(ws.installationId);
         if (ws.groupId) {
           broadcastToGroup(ws.groupId, { type: 'member_left', installation_id: ws.installationId }, ws.installationId);
         }

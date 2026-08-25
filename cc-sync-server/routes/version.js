@@ -6,8 +6,10 @@ const router = express.Router();
 // GET /version — returns latest published version
 router.get('/', (req, res) => {
   const db = getDb();
+  // FIX: без фильтра is_published черновик версии (залитая, но не опубликованная)
+  // утекал наружу как «последний релиз».
   const row = db.prepare(
-    'SELECT version, notes FROM versions ORDER BY published_at DESC LIMIT 1'
+    'SELECT version, notes FROM versions WHERE is_published = 1 ORDER BY published_at DESC LIMIT 1'
   ).get();
 
   if (!row) {

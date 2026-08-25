@@ -262,6 +262,13 @@ router.post('/cards', (req, res) => {
 
   const { cards } = req.body || {};
   if (!Array.isArray(cards)) return res.status(400).json({ error: 'cards array required' });
+  // FIX: REST-push раньше пропускал то, что WS-канал (ws-tauri.js) отсекает:
+  // невалидные статусы, короткие хэши, неограниченные notes и батчи любого
+  // размера. Валидация должна совпадать на всех каналах синка.
+  const VALID_STATUSES = ['free', 'in_use', 'archive', 'declined', 'dead'];
+  if (cards.length > 100) {
+    return res.status(400).json({ error: 'too_many_cards' });
+  }
 
   const stmt = db.prepare(`
     INSERT INTO sync_cards (card_hash, group_id, encrypted_data, status, notes, updated_by, updated_at)
@@ -286,8 +293,10 @@ router.post('/cards', (req, res) => {
     updated = db.transaction(() => {
       const written = [];
       for (const card of cards) {
-        if (!card.card_hash || !card.status) continue;
-        stmt.run(card.card_hash, member.group_id, card.encrypted_data || null, card.status, card.notes || null, installation_id);
+        if (!card.card_hash || typeof card.card_hash !== 'string' || card.card_hash.length < 8) continue;
+        if (!card.status || !VALID_STATUSES.includes(card.status)) continue;
+        const notes = typeof card.notes === 'string' ? card.notes.slice(0, 500) : null;
+        stmt.run(card.card_hash, member.group_id, card.encrypted_data || null, card.status, notes, installation_id);
         written.push({ card_hash: card.card_hash, status: card.status });
       }
       return written;
