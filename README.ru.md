@@ -95,7 +95,8 @@ node scripts/visual-audit.mjs      # скриншоты всех страниц 
 ## Документация
 
 - [AGENTS.ru.md](AGENTS.ru.md) — правила для разработки (и для ИИ-агентов)
-- [MASTER_CHECKLIST.md](MASTER_CHECKLIST.md) — живой чеклист задач (121 пункт)
+- [MASTER_CHECKLIST.md](MASTER_CHECKLIST.md) — живой чеклист задач (184 пункта)
+- [PARALLEL_WORK.md](PARALLEL_WORK.md) — протокол параллельной работы агентских сессий
 - [CHANGELOG.md](CHANGELOG.md) — история версий
 - [docs/README.md](docs/README.md) — индекс всех справочников
 
