@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang.jsx'
 import { usePremiumToast } from '../hooks/usePremiumToast.js'
 import { useConfirm } from '../hooks/useConfirm.jsx'
-import { useDebounce } from '../hooks/useDebounce.js'
+import { useTableFilters } from '../hooks/useTableFilters.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { usePersistedState } from '../hooks/usePersistedState.js'
 import { EmptyState } from '../components/EmptyState.jsx'
@@ -152,9 +152,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const [columnOrder, setColumnOrder] = usePersistedState('cards_column_order', null)
   const dragColRef = useRef(null)
 
-  // Search input (local state, debounced to store)
-  const [searchInput, setSearchInput] = useState('')
-  const debouncedSearch = useDebounce(searchInput, 300)
+  // ARCH-013: debounced search через общий хук (searchInput + 300ms debounce → store filters)
+  const applySearchToStore = useCallback(f => setFilters({ search: f.search || null }), [setFilters])
+  const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
 
   const totalPages = getTotalPages(total)
 
@@ -208,11 +208,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     fetchFilterMeta()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Debounced search: update filter when user stops typing
-  useEffect(() => {
-    setFilters({ search: debouncedSearch || null })
-  }, [debouncedSearch, setFilters])
 
   // Handle activeTab changes (expiring soon filter)
   useEffect(() => {
@@ -516,7 +511,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const handleResetFilters = useCallback(() => {
     resetFilters()
     setSearchInput('')
-  }, [resetFilters])
+  }, [resetFilters, setSearchInput])
 
   // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
   const handleCopyToast = useCallback(

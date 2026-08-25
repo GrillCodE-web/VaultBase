@@ -3,6 +3,26 @@ import { invoke } from '@tauri-apps/api/core'
 
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 const CACHE_MAX_ENTRIES = 50 // FINAL-004: Prevent unbounded cache growth
+// ARCH-018: revealed PAN/CVV не должны жить в памяти вечно — авто-скрытие через TTL
+const REVEAL_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const revealTimers = new Map() // cardId -> timeoutId (module-level, не в state)
+
+function scheduleRevealClear(id, set) {
+  const existing = revealTimers.get(id)
+  if (existing) clearTimeout(existing)
+  revealTimers.set(
+    id,
+    setTimeout(() => {
+      revealTimers.delete(id)
+      set(s => {
+        if (!s.revealed[id]) return s
+        const next = { ...s.revealed }
+        delete next[id]
+        return { revealed: next }
+      })
+    }, REVEAL_TTL_MS)
+  )
+}
 
 export const useCardsStore = create((set, get) => ({
   // State
@@ -175,6 +195,7 @@ export const useCardsStore = create((set, get) => ({
     try {
       const data = await invoke('reveal_card', { id })
       set(s => ({ revealed: { ...s.revealed, [id]: data } }))
+      scheduleRevealClear(id, set)
     } catch (error) {
       console.error(`Failed to reveal card ${id}:`, error)
       throw error
@@ -374,7 +395,10 @@ export const useCardsStore = create((set, get) => ({
   invalidateCache: () => set({ cache: {} }),
 
   // SEC-010: Clear all sensitive data on lock/logout
-  clearSensitiveData: () =>
+  clearSensitiveData: () => {
+    // ARCH-018: гасим все TTL-таймеры, чтобы не было set() после очистки
+    for (const timerId of revealTimers.values()) clearTimeout(timerId)
+    revealTimers.clear()
     set({
       revealed: {},
       cache: {},
@@ -385,5 +409,6 @@ export const useCardsStore = create((set, get) => ({
       deletingIds: [],
       lastFetch: null,
       retryCount: 0,
-    }),
+    })
+  },
 }))

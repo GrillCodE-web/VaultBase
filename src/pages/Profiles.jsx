@@ -5,7 +5,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { User, X, SearchCode, Download } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
-import { useDebounce } from '../hooks/useDebounce.js'
+import { useTableFilters } from '../hooks/useTableFilters.js'
+import { useBulkActions } from '../hooks/useBulkActions.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
@@ -31,9 +32,7 @@ export default function ProfileList({
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({ has_drop: null, search: '', card_status: null })
-  const [searchInput, setSearchInput] = useState('')
   const [deletingIds, setDeletingIds] = useState(new Set())
-  const debouncedSearch = useDebounce(searchInput, 300)
   const [expanded, setExpanded] = useState(null)
   const [hoveredProfile, setHoveredProfile] = useState(null)
   const hoverTimer = useRef(null)
@@ -42,7 +41,6 @@ export default function ProfileList({
   const [dupProfileGroups, setDupProfileGroups] = useState([])
   const [quickOrderProfile, setQuickOrderProfile] = useState(null)
   const [selectedIdx, setSelectedIdx] = useState(null)
-  const [selected, setSelected] = useState(new Set())
   const [enrichProgress, setEnrichProgress] = useState(null)
   const tableBodyRef = useRef(null)
   const tableContainerRef = useRef(null)
@@ -104,6 +102,30 @@ export default function ProfileList({
     load()
   }, [load])
 
+  // ARCH-013: debounced search через общий хук (refs — чтобы не плодить effect-ы)
+  const loadRef = useRef(load)
+  loadRef.current = load
+  const filterRef = useRef(filter)
+  filterRef.current = filter
+  const onTableFiltersChange = useCallback(f => {
+    const next = { ...filterRef.current, search: f.search ?? '' }
+    setFilter(next)
+    setPage(1)
+    loadRef.current(1, next)
+  }, [])
+  const { searchInput, setSearch: setSearchInput } = useTableFilters(onTableFiltersChange, {}, 300)
+
+  // ARCH-014: массовый выбор через общий хук
+  const {
+    selected,
+    selectedSet,
+    toggle: toggleSelect,
+    toggleAll: toggleSelectAll,
+    deselectAll,
+    allSelected,
+    count: selectedCount,
+  } = useBulkActions(profiles)
+
   // FIX FE-H02: Cleanup hover timer on unmount to prevent memory leak
   // FIX P2-1: Cleanup all delete timers on unmount
   useEffect(() => {
@@ -125,13 +147,6 @@ export default function ProfileList({
       }
     }
   }, [])
-
-  // #20 debounce search
-  useEffect(() => {
-    const f = { ...filter, search: debouncedSearch }
-    setFilter(f)
-    load(1, f)
-  }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activeTab === 'nodrop') {
@@ -354,23 +369,6 @@ export default function ProfileList({
     }
   }
 
-  const toggleSelect = id => {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const toggleSelectAll = () => {
-    if (selected.size === profiles.length) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(profiles.map(p => p.id)))
-    }
-  }
-
   const handleBulkEnrich = async () => {
     const ids = [...selected].filter(id => {
       const p = profiles.find(pr => pr.id === id)
@@ -391,7 +389,7 @@ export default function ProfileList({
       setEnrichProgress({ done: enriched, total: ids.length })
     }
     setEnrichProgress(null)
-    setSelected(new Set())
+    deselectAll()
     toast(`BIN enriched: ${enriched} / ${ids.length}`, 'success')
     load()
   }
@@ -456,9 +454,9 @@ export default function ProfileList({
       />
 
       {/* Bulk action bar */}
-      {selected.size > 0 && (
+      {selectedCount > 0 && (
         <div className="flex items-center gap-3 px-4 py-2 bg-accent/10 rounded-md mb-2">
-          <span className="text-xs text-muted">{selected.size} selected</span>
+          <span className="text-xs text-muted">{selectedCount} selected</span>
           <button
             className="btn btn-ghost btn-sm"
             onClick={handleBulkEnrich}
@@ -469,7 +467,7 @@ export default function ProfileList({
               ? `Enriching ${enrichProgress.done}/${enrichProgress.total}...`
               : t('btn_bin_enrich')}
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())}>
+          <button className="btn btn-ghost btn-sm" onClick={deselectAll}>
             <X size={13} /> Clear
           </button>
         </div>
@@ -487,7 +485,7 @@ export default function ProfileList({
                 <th className="bg-card w-8">
                   <input
                     type="checkbox"
-                    checked={profiles.length > 0 && selected.size === profiles.length}
+                    checked={allSelected}
                     onChange={toggleSelectAll}
                     className="accent-accent"
                   />
@@ -548,7 +546,7 @@ export default function ProfileList({
                           isExpanded={isExpanded}
                           isDeleting={isDeleting}
                           isSelected={isSelected}
-                          isChecked={selected.has(p.id)}
+                          isChecked={selectedSet.has(p.id)}
                           onToggleSelect={toggleSelect}
                           onRowClick={() => {
                             setSelectedIdx(idx)

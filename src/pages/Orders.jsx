@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { invoke } from '@tauri-apps/api/core'
 import { Package, Upload } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
-import { useDebounce } from '../hooks/useDebounce.js'
+import { useTableFilters } from '../hooks/useTableFilters.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
@@ -53,7 +53,6 @@ export default function OrderList({
   } = useOrdersStore()
 
   // Local UI state (not in store)
-  const [searchInput, setSearchInput] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [statusMenuId, setStatusMenuId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
@@ -61,7 +60,9 @@ export default function OrderList({
   const [repeatOrder, setRepeatOrder] = useState(null)
   const [showBatchImport, setShowBatchImport] = useState(false)
 
-  const debouncedSearch = useDebounce(searchInput, 300)
+  // ARCH-013: debounced search через общий хук
+  const applySearchToStore = useCallback(f => setFilters({ search: f.search || null }), [setFilters])
+  const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
 
   // Virtual scrolling setup
   // ★ Insight: overscan увеличен до 20 для плавной прокрутки без белых полос
@@ -107,11 +108,6 @@ export default function OrderList({
     else if (activeTab === 'delivered') newStatus = 'delivered'
     setFilters({ status: newStatus })
   }, [activeTab, setFilters])
-
-  // Debounced search: update filter when user stops typing
-  useEffect(() => {
-    setFilters({ search: debouncedSearch || null })
-  }, [debouncedSearch, setFilters])
 
   // Close status menu on outside click
   useEffect(() => {

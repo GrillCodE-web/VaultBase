@@ -98,17 +98,17 @@
 | #        | Задача                                                                 | Приоритет | Файл(ы)                         | Статус |
 | -------- | ---------------------------------------------------------------------- | --------- | ------------------------------- | ------ |
 | ARCH-012 | `usePagination()` — заменить 3 копии buildPageNumbers/getTotalPages    | 🟠        | `src/hooks/usePagination.js`    | ✅     |
-| ARCH-013 | `useTableFilters()` — заменить 3 копии debounced search + filter state | 🟠        | `src/hooks/` (новый)            | ⬜     |
-| ARCH-014 | `useBulkActions()` — заменить 3 копии массовых операций                | 🟡        | `src/hooks/` (новый)            | ⬜     |
+| ARCH-013 | `useTableFilters()` — заменить 3 копии debounced search + filter state | 🟠        | `src/hooks/` (новый)            | ✅     |
+| ARCH-014 | `useBulkActions()` — заменить 3 копии массовых операций                | 🟡        | `src/hooks/` (новый)            | ✅     |
 | ARCH-015 | Единый `<DataLoader>` wrapper (loading, empty, error) для всех страниц | 🟡        | `src/components/DataLoader.jsx` | ✅     |
 
 ### 2.4 State management
 
 | #        | Задача                                                                 | Приоритет | Файл(ы)                                   | Статус |
 | -------- | ---------------------------------------------------------------------- | --------- | ----------------------------------------- | ------ |
-| ARCH-016 | Создать `src/store/ui.js` для централизации modal/panel state          | 🟠        | `src/store/ui.js`                         | ⬜     |
-| ARCH-017 | Авто-инвалидация cache при мутациях (вместо ручного invalidateCache()) | 🟡        | `src/store/cards.js:160`, `orders.js:120` | ⬜     |
-| ARCH-018 | TTL для revealed card data (авто-очистка через N минут)                | 🟡        | `src/store/cards.js:210-220`              | ⬜     |
+| ARCH-016 | Создать `src/store/ui.js` для централизации modal/panel state          | 🟠        | `src/store/ui.js`                         | ✅     |
+| ARCH-017 | Авто-инвалидация cache при мутациях (вместо ручного invalidateCache()) | 🟡        | `src/store/cards.js:160`, `orders.js:120` | ✅     |
+| ARCH-018 | TTL для revealed card data (авто-очистка через N минут)                | 🟡        | `src/store/cards.js:210-220`              | ✅     |
 
 ---
 
