@@ -362,7 +362,7 @@
 | ERR-001 | Float ErrorBoundary (сейчас белый экран при ошибке)         | 🟠        | `float.jsx`                | ✅            |
 | ERR-002 | Suspense + ErrorBoundary для lazy pages                     | 🟡        | `App.jsx:1287-1299`        | ✅ (уже было) |
 | ERR-003 | Sync ошибки: показывать на всех страницах (не только Cards) | 🟡        | `App.jsx`, все страницы    | ⬜            |
-| ERR-004 | IMAP ошибки: emit event в React                             | 🟡        | `imap.rs`, `background.rs` | ⬜            |
+| ERR-004 | IMAP ошибки: emit event в React                             | 🟡        | `imap.rs`, `background.rs` | ✅ (imap_connection_alert + toast)            |
 | ERR-005 | Stuffer ошибки: humanize (HTTP коды → user-friendly текст)  | 🟡        | `errorHandler.js:155-175`  | ⬜            |
 | ERR-006 | Auto-retry для failed invoke() (с backoff)                  | 🟡        | `src/api/` (новый)         | ⬜            |
 | ERR-007 | Clipboard copy error: показывать toast в Float              | 🟢        | `float.jsx:50-80`          | ✅            |
