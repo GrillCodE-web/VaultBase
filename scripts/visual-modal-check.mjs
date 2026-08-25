@@ -11,6 +11,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 page.on('pageerror', e => console.log('[pageerror]', String(e).slice(0, 300)))
 
 await page.addInitScript(`
+  try { localStorage.setItem('onboarding_done', '1') } catch {}
   const ADMIN = ${JSON.stringify(admin)};
   let evtId = 0;
   const LIST = { items: [], total: 0 };
@@ -24,7 +25,7 @@ await page.addInitScript(`
     get_app_version: '2.11.3',
     get_sidebar_badges: {},
     get_user_with_permissions: ADMIN,
-    get_cards: LIST,
+    get_cards: { items: [{ id: 1 }], total: 1, free_total: 1 },
     get_orders: LIST,
     get_profiles: LIST,
     get_shops: LIST,
