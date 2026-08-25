@@ -91,7 +91,7 @@
 | ARCH-008 | Разбить Orders.jsx (558 строк) и Profiles.jsx (643 строки)                                      | 🟡        | `src/pages/Orders.jsx`, `Profiles.jsx` | ⬜     |
 | ARCH-009 | Централизованный API-слой: `src/api/cards.js`, `api/orders.js` и т.д.                           | 🟠        | `src/api/`                             | ✅     |
 | ARCH-010 | TypeScript миграция: начать с хуков и утилит (.jsx → .tsx)                                      | 🟡        | `src/hooks/`, `src/utils/`             | ⬜     |
-| ARCH-011 | Drops.jsx — убрать заглушку из роутинга или реализовать полноценный UI                          | 🟡        | `src/pages/Drops.jsx`                  | ⬜     |
+| ARCH-011 | Drops.jsx — убрать заглушку из роутинга или реализовать полноценный UI                          | 🟡        | `src/pages/Drops.jsx`                  | ✅     |
 
 ### 2.3 Переиспользуемые хуки (устранение дублирования)
 
@@ -237,7 +237,7 @@
 | #        | Задача                                                      | Приоритет | Файл(ы)             | Статус |
 | -------- | ----------------------------------------------------------- | --------- | ------------------- | ------ |
 | FEAT-014 | Soft delete: статус active/disabled вместо полного удаления | 🟠        | `UsersPage.jsx`, DB | ⬜     |
-| FEAT-015 | Убрать 4 неработающих PERM_LABELS                           | 🟡        | `UsersPage.jsx`     | ⬜     |
+| FEAT-015 | Убрать 4 неработающих PERM_LABELS                           | 🟡        | `UsersPage.jsx`     | ✅     |
 
 ### 5.7 Token и сессии
 
