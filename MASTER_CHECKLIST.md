@@ -351,7 +351,7 @@
 | DB-005 | Email validation: разрешить `+` в local part                        | 🟡        | `src/utils/validation.js`     | ✅ (уже было) |
 | DB-006 | Card import: валидация длины номера (не только Luhn)                | 🟡        | `parser.rs:200+`              | ✅            |
 | DB-007 | BIN cache: UI кнопка для ручного refresh / invalidate               | 🟡        | `_cards.rs:477-485`, UI       | ⬜            |
-| DB-008 | Activity log: логировать failed операции (import, enrichment, sync) | 🟡        | `_migrations.rs`, `commands/` | ⬜            |
+| DB-008 | Activity log: логировать failed операции (import, enrichment, sync) | 🟡        | `_migrations.rs`, `commands/` | ✅            |
 
 ---
 

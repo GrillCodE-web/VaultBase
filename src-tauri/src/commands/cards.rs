@@ -40,12 +40,33 @@ pub(crate) fn import_cards(raw: String, mapping: Vec<String>, source: String) ->
 
     let inserted = with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
-        db.insert_cards(parse_result.parsed)
+        match db.insert_cards(parse_result.parsed) {
+            Ok(n) => Ok(n),
+            Err(e) => {
+                // DB-008: failed операции тоже в activity log
+                let _ = db.log_event(
+                    "card.import_failed",
+                    &format!("Import from '{}' failed: {}", source, e),
+                    Some("card"), None,
+                );
+                Err(e)
+            }
+        }
     })?;
 
     let skipped = total_parsed - inserted + parse_result.skipped;
 
     with_db!(db, {
+        // DB-008: частичные ошибки парсинга — отдельным событием, чтобы
+        // молчаливые пропуски строк (Luhn/длина) были видны в логе
+        if skipped > 0 {
+            let sample = parse_result.errors.first().cloned().unwrap_or_default();
+            let _ = db.log_event(
+                "card.import_partial",
+                &format!("Import from '{}': {} skipped of {}. First error: {}", source, skipped, total_parsed, sample),
+                Some("card"), None,
+            );
+        }
         let _ = db.log_event(
             "card.imported",
             &format!("Imported {} cards from source '{}'", inserted, source),
@@ -297,7 +318,18 @@ pub(crate) fn enrich_bin(id: i64) -> Result<BinInfo, String> {
     let api_key = guard.get_config("bin_api_key")
         .map_err(|e| e.to_string())?
         .unwrap_or_default();
-    guard.enrich_card_bin(id, &api_key)
+    match guard.enrich_card_bin(id, &api_key) {
+        Ok(info) => Ok(info),
+        Err(e) => {
+            // DB-008: failed enrichment в activity log (без api_key в сообщении)
+            let _ = guard.log_event(
+                "card.bin_enrich_failed",
+                &format!("BIN enrichment failed for card {}: {}", id, e),
+                Some("card"), None,
+            );
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command]

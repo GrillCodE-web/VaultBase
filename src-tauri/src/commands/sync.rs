@@ -42,7 +42,19 @@ pub(crate) fn mark_footprints_synced(ids: Vec<i64>) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn sync_now() -> Result<SyncResult, String> {
     require_user()?;
-    with_db!(db, { crate::sync::SyncClient::sync_footprints(db) })
+    with_db!(db, {
+        let res = crate::sync::SyncClient::sync_footprints(db)?;
+        // DB-008: неудачные/частичные синхронизации в activity log
+        if res.failed > 0 || !res.server_reached {
+            let _ = db.log_event(
+                "sync.failed",
+                &format!("Sync footprints: synced={}, failed={}, server_reached={}, msg={}",
+                    res.synced, res.failed, res.server_reached, res.message),
+                Some("sync"), None,
+            );
+        }
+        Ok(res)
+    })
 }
 
 #[tauri::command]
