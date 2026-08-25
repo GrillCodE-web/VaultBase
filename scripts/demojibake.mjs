@@ -23,7 +23,7 @@ const BYTE_OF = { ...CONT, ...LEAD }
 
 const isCyrillic = ch => ch >= 'Ѐ' && ch <= 'ӿ'
 const OK_PUNCT = new Set([
-  ...'—–…•·─│┌┐└┘├┤┬┴┼«»№()[]{}.,:;!?*#%/\\+-=<> ',
+  ...'—–…•·─│┌┐└┘├┤┬┴┼«»№()[]{}.,:;!?*#%/\\+-=<>←→↑↓↔↕',
   '“', '”', '‘', '’', "'",
 ])
 const isOkPunct = ch => OK_PUNCT.has(ch)

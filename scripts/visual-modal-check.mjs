@@ -33,6 +33,7 @@ if (await pw.count()) {
 }
 
 // 1. Корневой фикс: после анимации .page-enter transform обязан быть none
+await page.waitForSelector('.page-enter', { timeout: 15000 }).catch(() => {})
 await page.waitForTimeout(600)
 const transform = await page.evaluate(() => {
   const el = document.querySelector('.page-enter')
@@ -59,12 +60,21 @@ check('диалог по центру viewport', !!centered, dBox ? `cx=${Math.r
 await page.screenshot({ path: 'audit-shots/modal-orders.png' })
 // CreateOrderModal — raw-оверлей без Escape: закрываем кнопкой Close
 await page.locator('.modal-overlay [aria-label="Close"]').first().click()
-await page.waitForTimeout(500)
+await page.waitForSelector('.modal-overlay', { state: 'detached', timeout: 5000 }).catch(() => {})
+await page.waitForTimeout(400)
 
 // 3. Couriers → модалка size="lg" (проверка --modal-size: ширина 720, не 560)
-await page.locator('button.sbi', { hasText: /courier|курьер/i }).first().click()
+const couriersNav = page.locator('button.sbi', { hasText: /courier|курьер/i })
+console.log('[debug] sbi courier matches:', await couriersNav.count())
+await couriersNav.first().click()
 await page.waitForTimeout(1200)
-await page.locator('button', { hasText: /^packages$|^посылки$|^пакеты$/i }).first().click()
+console.log(
+  '[debug] после клика: url-страница:',
+  await page.evaluate(() => document.querySelector('.main-content-scroll .content, .main-content-scroll [class*="page"]')?.className || '?')
+)
+const pkgTab = page.locator('button', { hasText: /^packages$|^посылки$|^пакеты$/i })
+console.log('[debug] packages-tab matches:', await pkgTab.count())
+await pkgTab.first().click()
 await page.waitForTimeout(800)
 const addBtn = page.locator('button', { hasText: /new package|нов.*посыл|нов.*пакет/i }).first()
 if (await addBtn.isVisible().catch(() => false)) {

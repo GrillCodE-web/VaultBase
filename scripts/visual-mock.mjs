@@ -91,7 +91,7 @@ export const data = {
   stuffer_list_couriers: [{ id: 1, name: 'DHL Courier', status: 'available', phone: '+1 555 000 1' }],
   stuffer_list_available_couriers: [{ id: 2, name: 'FedEx Guy', status: 'available' }],
   stuffer_list_packages: [],
-  stuffer_get_config: {},
+  stuffer_get_config: { api_key_set: true },
   stuffer_get_labels: [],
 
   sync_get_group_status: { connected: false, group_id: null },

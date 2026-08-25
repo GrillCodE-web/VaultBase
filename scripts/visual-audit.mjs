@@ -66,8 +66,10 @@ const proxies = [
 ]
 
 const imapAccounts = [
-  { id: 1, email: 'john@example.com', host: 'imap.gmail.com', port: 993, status: 'connected', unread_count: 4, last_check_at: daysAgo(0) },
-  { id: 2, email: 'jane@example.com', host: 'imap.outlook.com', port: 993, status: 'error', unread_count: 0, last_check_at: daysAgo(2) },
+  // Бэкенд возвращает label (см. _imap.rs), а не email — без него дерево
+  // аккаунтов рендерит пустые строки.
+  { id: 1, label: 'john@example.com', host: 'imap.gmail.com', port: 993, login: 'john@example.com', is_active: true, fail_count: 0, unread_count: 4, last_checked: daysAgo(0) },
+  { id: 2, label: 'jane@example.com', host: 'imap.outlook.com', port: 993, login: 'jane@example.com', is_active: true, fail_count: 4, last_error: 'AUTH failed', unread_count: 0, last_checked: daysAgo(2) },
 ]
 
 const imapMessages = [
@@ -92,8 +94,8 @@ const dashboardStats = {
   revenue: 84230.5, net_profit: 31200.0,
   orders_trend: 12.4, revenue_trend: 8.1, delivered_trend: 5.6,
   alerts: [
-    { level: 'warning', message: '6 карт истекают в ближайшие 30 дней', action: 'cards', count: 6 },
-    { level: 'info', message: '12 профилей без дропа', action: 'profiles', count: 12 },
+    { level: 'warning', message: '6 cards expire in the next 30 days', action: 'cards', count: 6 },
+    { level: 'info', message: '12 profiles without a drop', action: 'profiles', count: 12 },
   ],
 }
 
@@ -208,10 +210,12 @@ const data = {
 
   get_imap_accounts: imapAccounts,
   get_imap_messages: { items: imapMessages, total: imapMessages.length },
-  get_imap_stats: { accounts: 2, unread: 4 },
+  // JSON.stringify выкидывает функции из мока — только статичные значения
+  get_imap_stats: { total: 25, unread: 4 },
   get_imap_folders: ['INBOX', 'Sent', 'Spam'],
   get_smtp_configs: [],
-  get_emails: { items: imapAccounts.map(a => ({ id: a.id, email: a.email, status: 'free' })), total: 2 },
+  list_domain_routes: [],
+  get_emails: { items: imapAccounts.map(a => ({ id: a.id, email: a.label, status: 'free' })), total: 2 },
 
   get_catalog_items: { items: [], total: 0 },
   get_catalog_shops: { items: [], total: 0 },
