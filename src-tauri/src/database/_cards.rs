@@ -464,6 +464,11 @@ impl Database {
     // ─────────────────────────────────────────
 
     pub fn enrich_card_bin(&self, card_id: i64, api_key: &str) -> Result<BinInfo, String> {
+        self.enrich_card_bin_opts(card_id, api_key, false)
+    }
+
+    /// DB-007: force=true — пропустить локальный кеш (ручной refresh из UI)
+    pub fn enrich_card_bin_opts(&self, card_id: i64, api_key: &str, force: bool) -> Result<BinInfo, String> {
         if api_key.is_empty() { return Err("no_api_key".into()); }
 
         let bin: Option<String> = self.conn.query_row(
@@ -474,19 +479,21 @@ impl Database {
 
         let bin = bin.ok_or("no_bin")?;
 
-        // 1. Check local bin_cache (30-day TTL)
+        // 1. Check local bin_cache (30-day TTL), unless forced refresh
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
         let cutoff = now - (30 * 24 * 3600i64);
-        if let Ok(row) = self.conn.query_row(
-            "SELECT data_json FROM bin_cache WHERE bin = ?1 AND cached_at > ?2",
-            rusqlite::params![&bin, cutoff],
-            |r| r.get::<_, String>(0),
-        ) {
-            if let Ok(cached) = serde_json::from_str::<BinInfo>(&row) {
-                return Ok(cached);
+        if !force {
+            if let Ok(row) = self.conn.query_row(
+                "SELECT data_json FROM bin_cache WHERE bin = ?1 AND cached_at > ?2",
+                rusqlite::params![&bin, cutoff],
+                |r| r.get::<_, String>(0),
+            ) {
+                if let Ok(cached) = serde_json::from_str::<BinInfo>(&row) {
+                    return Ok(cached);
+                }
             }
         }
 

@@ -312,13 +312,14 @@ pub(crate) fn export_cards(ids: Vec<i64>, format: String) -> Result<String, Stri
 }
 
 #[tauri::command]
-pub(crate) fn enrich_bin(id: i64) -> Result<BinInfo, String> {
+pub(crate) fn enrich_bin(id: i64, force: Option<bool>) -> Result<BinInfo, String> {
     require_user()?;
     let guard  = state().db.lock().map_err(|e| e.to_string())?;
     let api_key = guard.get_config("bin_api_key")
         .map_err(|e| e.to_string())?
         .unwrap_or_default();
-    match guard.enrich_card_bin(id, &api_key) {
+    // DB-007: force=true пропускает локальный кеш (ручной refresh)
+    match guard.enrich_card_bin_opts(id, &api_key, force.unwrap_or(false)) {
         Ok(info) => Ok(info),
         Err(e) => {
             // DB-008: failed enrichment в activity log (без api_key в сообщении)
