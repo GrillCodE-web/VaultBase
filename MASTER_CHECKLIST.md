@@ -259,7 +259,7 @@
 | BUG-005  | Float окно не сбрасывает данные при logout                                      | 🟠        | `float.jsx:179`                      | ✅     |
 | BUG-006  | UI store не сбрасывается при logout (утечка состояния между сессиями)           | 🟠        | `store/ui.js`                        | ✅     |
 | BUG-007  | WS sync: TOCTOU race condition в проверке лицензии                              | 🟠        | `ws-tauri.js:110-130`                | ⬜     |
-| BUG-008  | WS sync: обновления без транзакций (partial state при crash)                    | 🟠        | `ws_sync.rs:200+`                    | ⬜     |
+| BUG-008  | WS sync: обновления без транзакций (partial state при crash)                    | 🟠        | `ws_sync.rs:200+`                    | ✅     |
 | BUG-009  | WS sync: debounce full_pull не сбрасывается при reconnect                       | 🟡        | `ws_sync.rs:60`                      | ✅     |
 | BUG-010  | Database pool не закрывается при exit (file locks на Windows)                   | 🟡        | `_core.rs:28`                        | ✅     |
 | BUG-011  | Float window hide() вместо close() — процесс в памяти после exit                | 🟡        | `main.rs:160-195`                    | ✅     |

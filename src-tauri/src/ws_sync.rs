@@ -428,7 +428,11 @@ fn apply_card_updates(pool: &crate::database::DbPool, cards: &[serde_json::Value
 
     // ★ Insight: BEGIN/COMMIT транзакция для batch update
     // Ускоряет синхронизацию 100 карт с ~5 секунд до ~200ms
-    let _ = conn.execute_batch("BEGIN");
+    // BUG-008: BEGIN IMMEDIATE — при крахе между апдейтами SQLite откатывает
+    // незавершённую транзакцию целиком (нет partial state).
+    if conn.execute_batch("BEGIN IMMEDIATE").is_err() {
+        return; // пул занят/бит — без транзакции не работаем
+    }
 
     for card in cards {
         // FIX WS-VALIDATION-05: Validate card_hash format (must be hex, min 8 chars)
