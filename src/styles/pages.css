@@ -93,7 +93,8 @@
 
   @media (min-width: 1280px) {
     .cards-grid {
-      grid-template-columns: repeat(4, 1fr);
+      /* 5 карточек (4 статуса + Net Profit) — одной строкой, без дыр */
+      grid-template-columns: repeat(5, 1fr);
     }
   }
 
@@ -180,8 +181,10 @@
   }
 
   /* ── Wide Cards (Revenue/Profit) ────────────────────────── */
+  /* Net Profit — пятая карточка в общей строке грида (repeat(5));
+     span не нужен, иначе ломает раскладку и оставляет дыру справа */
   .sc.wide {
-    grid-column: span 2;
+    grid-column: auto;
   }
 
   .up {
@@ -3507,12 +3510,6 @@
     opacity: 0.3;
   }
 
-  .timeline-event {
-    position: relative;
-    padding-bottom: var(--sp-6);
-    margin-bottom: var(--sp-4);
-  }
-
   .timeline-event:last-child {
     padding-bottom: 0;
     margin-bottom: 0;
@@ -3536,13 +3533,6 @@
     color: var(--muted);
     font-family: var(--font-mono);
     margin-bottom: var(--sp-2);
-  }
-
-  .timeline-event-content {
-    font-size: 13px;
-    color: var(--text-2);
-    line-height: 1.5;
-    font-family: var(--font-ui);
   }
 
   .timeline-event-title {
