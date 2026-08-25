@@ -306,7 +306,7 @@
 | DEVOPS-002 | Staging окружение: staging sync-сервер + процесс деплоя                   | 🟡        | `VaultBase.staging.toml`       | ⬜     |
 | DEVOPS-003 | Crash-reporting (Sentry) — узнавать о падениях у пользователей            | 🟡        | Tauri Sentry plugin            | ⬜     |
 | DEVOPS-004 | Autoupdate: проверить подпись на всех платформах                          | 🟡        | `tauri.conf.json`              | ⬜     |
-| DEVOPS-005 | Убрать DEV конфиги — всё всегда production                                | 🟡        | Все конфиги                    | ⬜     |
+| DEVOPS-005 | Убрать DEV конфиги — всё всегда production                                | 🟡        | Все конфиги                    | ✅     |
 
 ---
 

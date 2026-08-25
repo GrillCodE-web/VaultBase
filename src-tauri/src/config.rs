@@ -80,14 +80,18 @@ pub fn load_config(config_path: &Path) -> Result<Config, String> {
 }
 
 fn apply_env_overrides(config: &mut Config) {
-    if let Ok(profile) = std::env::var("VAULTBASE_PROFILE") {
-        config.app.profile = profile;
-        info!("Profile overridden via VAULTBASE_PROFILE");
-    }
-    
-    if std::env::var("VAULTBASE_DEBUG").is_ok() {
-        config.app.debug = true;
-        info!("Debug mode enabled via VAULTBASE_DEBUG");
+    // DEVOPS-005: env-override профиля/дебага только в debug-сборках —
+    // release всегда остаётся production, сколько ни выставляй VAULTBASE_PROFILE
+    if cfg!(debug_assertions) {
+        if let Ok(profile) = std::env::var("VAULTBASE_PROFILE") {
+            config.app.profile = profile;
+            info!("Profile overridden via VAULTBASE_PROFILE");
+        }
+
+        if std::env::var("VAULTBASE_DEBUG").is_ok() {
+            config.app.debug = true;
+            info!("Debug mode enabled via VAULTBASE_DEBUG");
+        }
     }
 }
 

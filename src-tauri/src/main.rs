@@ -85,9 +85,14 @@ fn main() {
     };
     
     // SPRINT3-DAY4: Load application configuration
-    let profile = std::env::var("VAULTBASE_PROFILE").unwrap_or_else(|_| {
-        if cfg!(debug_assertions) { "dev" } else { "production" }.to_string()
-    });
+    // DEVOPS-005: в release-сборках всегда production — VAULTBASE_PROFILE
+    // читается только из debug-сборок (разработка), чтобы релиз нельзя было
+    // случайно запустить с ослабленным dev-профилем (PBKDF2 600k, debug=true).
+    let profile = if cfg!(debug_assertions) {
+        std::env::var("VAULTBASE_PROFILE").unwrap_or_else(|_| "dev".to_string())
+    } else {
+        "production".to_string()
+    };
     
     let app_config = {
         let toml_name = format!("VaultBase.{}.toml", profile);
