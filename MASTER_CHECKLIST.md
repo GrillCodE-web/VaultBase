@@ -166,8 +166,8 @@
 | -------- | ----------------------------------------------------------------------- | --------- | ------------------------- | ------ |
 | PERF-001 | React.memo() для Float компонентов: Field, CopyBtn, RiskBadge           | 🟡        | `float.jsx:75-80`         | ✅     |
 | PERF-002 | React.memo() для PremiumStatCard + SmartAlertCard в Dashboard           | 🟡        | `DashboardRedesigned.jsx` | ✅     |
-| PERF-003 | useCallback с правильными deps в Cards (handleSearch, handleBulkEnrich) | 🟡        | `Cards.jsx:160-200`       | ⬜     |
-| PERF-004 | useCallback для handleDelete, handleBulkStatus в Orders                 | 🟡        | `Orders.jsx:90-140`       | ⬜     |
+| PERF-003 | useCallback с правильными deps в Cards (handleSearch, handleBulkEnrich) | 🟡        | `Cards.jsx:160-200`       | ✅     |
+| PERF-004 | useCallback для handleDelete, handleBulkStatus в Orders                 | 🟡        | `Orders.jsx:90-140`       | ✅     |
 | PERF-005 | useMemo для recentOrders в Float ProfileFloat                           | 🟡        | `float.jsx:200+`          | ⬜     |
 
 ### 4.2 Загрузка данных
@@ -265,7 +265,7 @@
 | BUG-011  | Float window hide() вместо close() — процесс в памяти после exit                | 🟡        | `main.rs:160-195`                    | ✅     |
 | BUG-012  | Body overflow не восстанавливается при внезапном unmount ImportModal            | 🟡        | `ImportModal.jsx:112-114`            | ✅     |
 | BUG-013  | Set vs Array inconsistency: Profiles=Set, Cards=Array для selectedIds           | 🟡        | `Profiles.jsx:39-40`                 | ✅     |
-| BUG-014  | Missing useCallback deps: stale closures в Cards handleSetSideCard              | 🟡        | `Cards.jsx:545`                      | ⬜     |
+| BUG-014  | Missing useCallback deps: stale closures в Cards handleSetSideCard              | 🟡        | `Cards.jsx:545`                      | ✅     |
 | BUG-015  | Даты hardcoded 'ru-RU' — не учитывают locale пользователя                       | 🟡        | `Shops.jsx:44-50`, `MyStats.jsx`     | ✅     |
 | BUG-012a | Body overflow: создан `useScrollLock` hook с ref-counting для вложенных модалей | 🟡        | `src/hooks/useScrollLock.js`         | ✅     |
 | BUG-016  | CreateOrderModal: quickCreate race condition                                    | 🟡        | `CreateOrderModal.jsx:108-126`       | ⬜     |
@@ -364,7 +364,7 @@
 | ERR-003 | Sync ошибки: показывать на всех страницах (не только Cards) | 🟡        | `App.jsx`, все страницы    | ⬜            |
 | ERR-004 | IMAP ошибки: emit event в React                             | 🟡        | `imap.rs`, `background.rs` | ✅ (imap_connection_alert + toast)            |
 | ERR-005 | Stuffer ошибки: humanize (HTTP коды → user-friendly текст)  | 🟡        | `errorHandler.js:155-175`  | ✅            |
-| ERR-006 | Auto-retry для failed invoke() (с backoff)                  | 🟡        | `src/api/` (новый)         | ⬜            |
+| ERR-006 | Auto-retry для failed invoke() (с backoff)                  | 🟡        | `src/api/` (новый)         | ✅            |
 | ERR-007 | Clipboard copy error: показывать toast в Float              | 🟢        | `float.jsx:50-80`          | ✅            |
 
 ---

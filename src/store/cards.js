@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
+import { invokeWithRetry } from '../api/invokeWithRetry.js'
 
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 const CACHE_MAX_ENTRIES = 50 // FINAL-004: Prevent unbounded cache growth
@@ -121,7 +122,8 @@ export const useCardsStore = create((set, get) => ({
     try {
       // ★ Insight: AbortSignal позволяет отменить предыдущий запрос при быстром переключении фильтров
       // Tauri invoke не поддерживает abortSignal напрямую, но мы можем проверить сигнал после ответа
-      const res = await invoke('get_cards', { filter: filters, page, perPage })
+      // ERR-006: 1 ретрай на транзиентный SQLite busy ("database is locked")
+      const res = await invokeWithRetry('get_cards', { filter: filters, page, perPage }, { retries: 1, baseDelay: 300 })
 
       // Проверка на отмену после получения ответа (предотвращает race conditions)
       if (abortSignal?.aborted) {
