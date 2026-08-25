@@ -48,10 +48,18 @@ export default function OrderList({
   } = useOrdersStore()
 
   // Local UI state (not in store)
-  const [showCreate, setShowCreate] = useState(false)
+  const [showCreate, setShowCreate] = useState(!!openCreate)
   const [shopOptions, setShopOptions] = useState([])
   const [repeatOrder, setRepeatOrder] = useState(null)
   const [showBatchImport, setShowBatchImport] = useState(false)
+
+  // CLEAN-002: открытие модалки по пропу openCreate — паттерн «adjust state
+  // during render» (react.dev) вместо синхронного setState в useEffect
+  const [prevOpenCreate, setPrevOpenCreate] = useState(null)
+  if (openCreate !== prevOpenCreate) {
+    setPrevOpenCreate(openCreate)
+    if (openCreate) setShowCreate(true)
+  }
 
   // ARCH-013: debounced search через общий хук
   const applySearchToStore = useCallback(
@@ -61,11 +69,6 @@ export default function OrderList({
   const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
 
   // ── Effects ────────────────────────────────────────────────────
-
-  // Initialize: open create modal if requested
-  useEffect(() => {
-    if (openCreate) setShowCreate(true)
-  }, [openCreate])
 
   // Load orders on mount and fetch shop options
   useEffect(() => {

@@ -170,10 +170,13 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // ★ Insight: AbortController предотвращает race conditions при быстром переключении фильтров
   // Предыдущий запрос отменяется, ответ игнорируется если сигнал прерван
   // ★ Insight: fetchCardsRef и errorLoadRef предотвращают пересоздание useEffect при каждом изменении store
+  // CLEAN-002: ref-ы обновляем в эффекте, а не во время рендера (react-hooks/refs)
   const fetchCardsRef = useRef(fetchCards)
   const errorLoadRef = useRef(errorLoad)
-  fetchCardsRef.current = fetchCards
-  errorLoadRef.current = errorLoad
+  useEffect(() => {
+    fetchCardsRef.current = fetchCards
+    errorLoadRef.current = errorLoad
+  })
 
   useEffect(() => {
     // AbortController доступен глобально в современных браузерах и Node.js
@@ -216,13 +219,16 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // ★ Insight: cardsRef вместо cards в зависимостях предотвращает пересоздание listeners
   // при каждом обновлении карт (что происходило бы сотни раз в минуту)
   const cardsRef = useRef(cards)
-  cardsRef.current = cards
 
   // FIX: Обернуть handleSyncUpdate и handleFullSync в ref для стабильности
+  // CLEAN-002: ref-ы обновляем в эффекте, а не во время рендера (react-hooks/refs)
   const handleSyncUpdateRef = useRef(handleSyncUpdate)
-  handleSyncUpdateRef.current = handleSyncUpdate
   const handleFullSyncRef = useRef(handleFullSync)
-  handleFullSyncRef.current = handleFullSync
+  useEffect(() => {
+    cardsRef.current = cards
+    handleSyncUpdateRef.current = handleSyncUpdate
+    handleFullSyncRef.current = handleFullSync
+  })
 
   useEffect(() => {
     let unlistenUpdate = null

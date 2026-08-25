@@ -65,8 +65,9 @@ export default [
       // Они появились при обновлении плагина и разом дали 30 ошибок на
       // коде, который не менялся, — это замечания к качеству, а не поломки.
       // Держим как warn: блокировать сборку из-за них нельзя, но и прятать
-      // не стоит — их надо расшить отдельной задачей (17 мест setState
-      // внутри useEffect, 7 обращений к ref в рендере).
+      // не стоит. CLEAN-002 расшивал 17 мест setState в useEffect и 7 ref в
+      // рендере; остаются только react-refresh/only-export-components
+      // (float.jsx, Dashboard/charts.jsx).
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/refs': 'warn',
       'react-hooks/incompatible-library': 'warn',

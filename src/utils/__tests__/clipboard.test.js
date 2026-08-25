@@ -100,4 +100,3 @@ describe('Clipboard Utilities', () => {
     })
   })
 })
-/* eslint-enable no-undef */

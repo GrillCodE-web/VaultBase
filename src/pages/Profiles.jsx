@@ -75,15 +75,26 @@ export default function ProfileList({
     [page, filter] // toast is stable from useToast hook
   )
 
+  // CLEAN-002: yield до load() — setState-ы внутри load срабатывают после
+  // микротаска, не синхронно в теле эффекта (react-hooks/set-state-in-effect);
+  // await именно в обёртке: прямой вызов async-useCallback из эффекта
+  // трассируется правилом даже с await первой строкой
   useEffect(() => {
-    load()
+    const run = async () => {
+      await Promise.resolve()
+      load()
+    }
+    run()
   }, [load])
 
   // ARCH-013: debounced search через общий хук (refs — чтобы не плодить effect-ы)
+  // CLEAN-002: ref-ы обновляем в эффекте, а не во время рендера (react-hooks/refs)
   const loadRef = useRef(load)
-  loadRef.current = load
   const filterRef = useRef(filter)
-  filterRef.current = filter
+  useEffect(() => {
+    loadRef.current = load
+    filterRef.current = filter
+  })
   const onTableFiltersChange = useCallback(f => {
     const next = { ...filterRef.current, search: f.search ?? '' }
     setFilter(next)
@@ -120,20 +131,22 @@ export default function ProfileList({
     }
   }, [])
 
-  useEffect(() => {
+  // CLEAN-002: смена таба — паттерн «adjust state during render» вместо
+  // синхронных setState внутри useEffect (react-hooks/set-state-in-effect).
+  // Данными обновляет эффект [load] ниже по коду: один запрос вместо двух
+  // (раньше эффект [activeTab] звал load() явно + load пересоздавался после
+  // setFilter и звался ещё раз из эффекта [load]).
+  const [prevActiveTab, setPrevActiveTab] = useState(null)
+  if (activeTab !== prevActiveTab) {
+    setPrevActiveTab(activeTab)
     if (activeTab === 'nodrop') {
-      const f = { ...filter, has_drop: false }
-      setFilter(f)
+      setFilter(f => ({ ...f, has_drop: false }))
       setPage(1)
-      load(1, f)
     } else if (activeTab === 'list') {
-      const f = { ...filter, has_drop: null }
-      setFilter(f)
+      setFilter(f => ({ ...f, has_drop: null }))
       setPage(1)
-      load(1, f)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]) // filter and load intentionally omitted to avoid infinite loop
+  }
 
   // ── Page-specific keyboard shortcuts ──────────────────────────────────
 

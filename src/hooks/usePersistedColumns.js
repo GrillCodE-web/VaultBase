@@ -14,7 +14,7 @@ export function usePersistedColumns(storageKey, defaultCols) {
       try {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) return parsed
-      } catch (_e) {
+      } catch {
         /* corrupted data — use defaults */
       }
     }
