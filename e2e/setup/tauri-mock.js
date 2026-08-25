@@ -183,7 +183,9 @@ export function getTauriMockScript() {
     get_profiles: function (a) {
       var f = (a && a.filter) || {}
       var list = state.profiles.filter(function (p) {
-        if (f.has_drop && !(p.drop_count > 0)) return false
+        // has_drop === false — кнопка «No Drop»: бэкенд фильтрует оба варианта (_profiles.rs)
+        if (f.has_drop === true && !(p.drop_count > 0)) return false
+        if (f.has_drop === false && p.drop_count > 0) return false
         if (f.card_status && f.card_status !== 'all' && p.card_status !== f.card_status) return false
         if (f.search) {
           var q = f.search
@@ -282,6 +284,45 @@ export function getTauriMockScript() {
     get_shop_smart_suggestions: function () { return [] },
     search_catalog_shops: function () { return [] },
     search_catalog_items: function () { return [] },
+
+    // ── global search (контракт — database/_imap.rs global_search) ──
+    global_search: function (a) {
+      var q = String((a && a.query) || '')
+      // cards — last4/bin (LIMIT 8); orders — order_number (LIMIT 6);
+      // shops — name/domain (LIMIT 5); profiles — имя получателя дрóпа/notes (LIMIT 5)
+      if (!q) return { cards: [], profiles: [], orders: [], shops: [], emails: [], proxies: [] }
+      var cards = state.cards
+        .filter(function (c) { return hits(c.last4, q) || hits(c.bin, q) })
+        .map(function (c) {
+          return { id: c.id, last4: c.last4, bin: c.bin, bank_name: c.bank_name,
+                   card_type: c.card_type, status: c.status, _type: 'card' }
+        })
+        .slice(0, 8)
+      var orders = state.orders
+        .filter(function (o) { return hits(o.order_number, q) })
+        .map(function (o) {
+          return { id: o.id, order_number: o.order_number, status: o.status,
+                   shop_name: o.shop_name, _type: 'order' }
+        })
+        .slice(0, 6)
+      var shops = state.shops
+        .filter(function (s) { return hits(s.name, q) || hits(s.domain, q) })
+        .map(function (s) { return { id: s.id, name: s.name, domain: s.domain, _type: 'shop' } })
+        .slice(0, 5)
+      var profiles = state.profiles
+        .filter(function (p) {
+          var drops = state.drops[p.id] || []
+          var dropHit = drops.some(function (d) { return hits(d.recipient_name, q) })
+          return dropHit || hits(p.notes, q)
+        })
+        .map(function (p) {
+          var d = (state.drops[p.id] || [])[0] || {}
+          return { id: p.id, name: d.recipient_name || null, city: d.city || null,
+                   country: d.country || null, notes: p.notes, _type: 'profile' }
+        })
+        .slice(0, 5)
+      return { cards: cards, profiles: profiles, orders: orders, shops: shops, emails: [], proxies: [] }
+    },
 
     // ── orders ──
     get_orders: function (a) {
