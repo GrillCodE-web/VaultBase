@@ -573,7 +573,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                       const usedHere = em.shops_used?.some(s => s.id === shopId)
                       return (
                         <option key={em.id} value={em.id} disabled={em.is_blocked}>
-                          {em.is_blocked ? 'в›”' : usedHere ? 'вљ ' : 'вњ“'} {em.email}{' '}
+                          {em.is_blocked ? '⛔' : usedHere ? '⚠️' : '✔'} {em.email}{' '}
                           {em.label ? `(${em.label})` : ''}
                         </option>
                       )
@@ -602,7 +602,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                   const usedHere = px.shops_used?.some(s => s.id === shopId)
                   return (
                     <option key={px.id} value={px.id} disabled={px.is_blocked}>
-                      {px.is_blocked ? 'рџ”ґ' : usedHere ? 'вљ пёЏ' : 'вњ“'}{' '}
+                      {px.is_blocked ? '🔴' : usedHere ? '⚠️' : '✔'}{' '}
                       {px.label || `${px.host}:${px.port}`} ({px.proxy_type.toUpperCase()})
                     </option>
                   )
@@ -623,7 +623,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                 return (
                   <div className="info-hint-box">
                     <div className="text-info-bold">
-                      рџЋЇ {billingCountry.toUpperCase()} proxy recommended for this profile
+                      🎯 {billingCountry.toUpperCase()} proxy recommended for this profile
                     </div>
                     {geoMatches.slice(0, 3).map(px => (
                       <div key={px.id} className="text-muted mono">

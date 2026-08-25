@@ -356,7 +356,7 @@ pub(crate) fn get_my_card_assignments() -> Result<Vec<CardAssignment>, String> {
 
 #[tauri::command]
 pub(crate) fn setup_password(password: String) -> Result<(), String> {
-    // FIX TC-H03: Rate limiting вЂ” 5 attempts per minute to prevent brute-force
+    // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent brute-force
     // SPRINT3-DAY4: Use config-based rate limits
     let config = &state().config;
     rate_limiter::check_rate_limit_with_config(
@@ -510,7 +510,7 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
         Ok::<(Option<String>, Option<String>, Option<[u8; 32]>), String>((token, group_id, group_key))
     })?;
 
-    // FIX B-MED-05: РЎР±СЂР°СЃС‹РІР°РµРј Р°С‚РѕРјР°СЂРЅС‹Р№ С„Р»Р°Рі РїРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕРіРѕ unlock
+    // FIX B-MED-05: Сбрасываем атомарный флаг после успешного unlock
     if let Some(st) = STATE.get() {
         st.is_locked.store(false, Ordering::Relaxed);
     }
@@ -560,7 +560,7 @@ pub(crate) fn is_locked() -> Result<bool, String> {
 
 #[tauri::command]
 pub(crate) fn change_password(old: String, new: String) -> Result<(), String> {
-    // FIX TC-H03: Rate limiting вЂ” 5 attempts per minute to prevent brute-force
+    // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent brute-force
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("change_password"))?;
     let v = PasswordValidation::check(&new);
     if let Some(msg) = v.error_message() { return Err(format!("password_too_weak: {msg}")); }
@@ -579,15 +579,15 @@ pub(crate) fn change_password(old: String, new: String) -> Result<(), String> {
         // FIX CRY-H02: Use bcrypt cost factor 14 for stronger password hashing (OWASP 2026 recommendation)
         let new_hash     = bcrypt::hash(&new, 14).map_err(|e| e.to_string())?;
         let new_salt_b64 = B64.encode(&new_salt);
-        // РЎРЅР°С‡Р°Р»Р° РѕР±РЅРѕРІР»СЏРµРј РјРµС‚Р°РґР°РЅРЅС‹Рµ, РїРѕС‚РѕРј С€РёС„СЂСѓРµРј РґР°РЅРЅС‹Рµ.
-        // РџСЂРё crash РїРѕСЃР»Рµ set_config РЅРѕ РґРѕ reencrypt_all вЂ” РґР°РЅРЅС‹Рµ РІСЃС‘ РµС‰С‘
-        // С‡РёС‚Р°СЋС‚СЃСЏ СЃС‚Р°СЂС‹Рј РєР»СЋС‡РѕРј, РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РјРѕР¶РµС‚ Р·Р°Р»РѕРіРёРЅРёС‚СЊСЃСЏ СЃС‚Р°СЂС‹Рј РїР°СЂРѕР»РµРј.
-        // Р­С‚Рѕ Р»СѓС‡С€Рµ С‡РµРј РѕР±СЂР°С‚РЅС‹Р№ РїРѕСЂСЏРґРѕРє РіРґРµ crash РѕСЃС‚Р°РІР»СЏРµС‚ Р‘Р” РЅРµС‡РёС‚Р°РµРјРѕР№.
-        // FIX B24: РїРµСЂРµС€РёС„СЂРѕРІС‹РІР°РµРј license_token С‚РѕР¶Рµ (С‡РµСЂРµР· reencrypt_all)
+        // Сначала обновляем метаданные, потом шифруем данные.
+        // При crash после set_config но до reencrypt_all — данные всё ещё
+        // читаются старым ключом, пользователь может залогиниться старым паролем.
+        // Это лучше чем обратный порядок где crash оставляет БД нечитаемой.
+        // FIX B24: перешифровываем license_token тоже (через reencrypt_all)
         db.set_config("master_password_hash", &new_hash).map_err(|e| e.to_string())?;
         db.set_config("encryption_salt", &new_salt_b64).map_err(|e| e.to_string())?;
         db.reencrypt_all(&old_enc, &new_enc)?;
-        // FIX B24: РїРµСЂРµС€РёС„СЂРѕРІР°С‚СЊ license_token
+        // FIX B24: перешифровать license_token
         if let Ok(Some(raw_token)) = db.get_config("license_token") {
             if !raw_token.is_empty() {
                 let plain = old_enc.decrypt(&raw_token).unwrap_or(raw_token);

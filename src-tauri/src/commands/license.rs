@@ -39,7 +39,7 @@ pub(crate) fn get_challenge_code() -> Result<String, String> {
 
 #[tauri::command]
 pub(crate) fn activate_license(activation_key: String) -> Result<(), String> {
-    // FIX TC-H03: Rate limiting вЂ” 5 attempts per minute to prevent brute-force
+    // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent brute-force
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("activate_license"))?;
     with_db!(db, { crate::license::activate(db, &activation_key) })
 }

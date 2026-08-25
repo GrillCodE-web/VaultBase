@@ -71,8 +71,8 @@ pub(crate) fn update_order_status(id: i64, status: String, meta: Option<StatusMe
 
 #[tauri::command]
 pub(crate) fn delete_order(id: i64) -> Result<(), String> {
-    // РЈРґР°Р»РµРЅРёРµ вЂ” РЅРµРѕР±СЂР°С‚РёРјРѕ Рё Р·Р°С‚СЂР°РіРёРІР°РµС‚ С‡СѓР¶РёРµ Р·Р°РєР°Р·С‹ (РІР»Р°РґРµР»СЊС†Р° Сѓ Р·Р°РєР°Р·Р° РЅРµС‚),
-    // РїРѕСЌС‚РѕРјСѓ С‚РѕР»СЊРєРѕ Р°РґРјРёРЅ, Р° РЅРµ CREATE_ORDERS.
+    // Удаление — необратимо и затрагивает чужие заказы (владельца у заказа нет),
+    // поэтому только админ, а не CREATE_ORDERS.
     require_admin()?;
     with_db!(db, { db.delete_order(id) })
 }
@@ -105,7 +105,7 @@ pub(crate) fn update_order_tracking(id: i64, tracking_number: Option<String>, ca
 pub(crate) fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i64>, email_pool_id: Option<i64>, proxy_id: Option<i64>) -> Result<RiskCheckResult, String> {
     require_user()?;
     with_db!(db, {
-        // FIX B31: РїРµСЂРµРґР°С‘Рј РІСЃРµ С„Р°РєС‚РѕСЂС‹ СЂРёСЃРєР° РІ Р‘Р”-С„СѓРЅРєС†РёСЋ
+        // FIX B31: передаём все факторы риска в БД-функцию
         let mut result = db.run_risk_check(&profile_id, shop_id, drop_id, email_pool_id, proxy_id)?;
         let server_result = sync::SyncClient::check_risk_detailed(&db, &profile_id, shop_id);
         match server_result {

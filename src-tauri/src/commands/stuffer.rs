@@ -54,7 +54,7 @@ pub(crate) fn stuffer_set_config(api_key: Option<String>, base_url: String) -> R
             base_url.trim().to_string()
         };
         db.set_config("stuffer_base_url", &base).map_err(|e| e.to_string())?;
-        // РџСѓСЃС‚РѕР№ api_key => РЅРµ С‚СЂРѕРіР°РµРј СЃРѕС…СЂР°РЅС‘РЅРЅС‹Р№ РєР»СЋС‡ (РїРѕР»Рµ РѕСЃС‚Р°РІРёР»Рё РїСѓСЃС‚С‹Рј).
+        // Пустой api_key => не трогаем сохранённый ключ (поле оставили пустым).
         if let Some(key) = api_key {
             if !key.trim().is_empty() {
                 db.set_config("stuffer_api_key", key.trim()).map_err(|e| e.to_string())?;

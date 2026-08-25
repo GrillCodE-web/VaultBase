@@ -1,6 +1,6 @@
 impl Database {
 
-    // в”Ђв”Ђ Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // ── Profiles ──────────────────────────
 
     pub fn create_profile(&self, card_id: i64, notes: Option<String>) -> Result<Profile, String> {
         if self.is_locked() { return Err("database_locked".into()); }
@@ -57,7 +57,7 @@ impl Database {
             where_parts.push("(SELECT COUNT(*) FROM drops WHERE profile_id=p.id)=0".into());
         }
         if let Some(ref s) = filter.search {
-            // FIX B14: СЌРєСЂР°РЅРёСЂСѓРµРј % Рё _ С‡С‚РѕР±С‹ РЅРµ СЂР°Р±РѕС‚Р°Р»Рё РєР°Рє wildcards
+            // FIX B14: экранируем % и _ чтобы не работали как wildcards
             let escaped = Self::escape_like(s);
             where_parts.push(format!(
                 "(c.last4 LIKE ?{} ESCAPE '\\' OR c.bin LIKE ?{} ESCAPE '\\' OR c.bank_name LIKE ?{} ESCAPE '\\')",
@@ -220,7 +220,7 @@ impl Database {
         let mut stmt = self.conn.prepare(
             "SELECT id,profile_id,recipient_name,address,city,state,zip,country,phone,is_primary,created_at FROM drops WHERE profile_id=?1 ORDER BY is_primary DESC,id ASC"
         ).map_err(|e| e.to_string())?;
-        // FIX B21: РґРµС€РёС„СЂСѓРµРј PII РїРѕР»СЏ РїСЂРё С‡С‚РµРЅРёРё
+        // FIX B21: дешифруем PII поля при чтении
         let rows: Vec<(i64,String,String,String,Option<String>,Option<String>,Option<String>,Option<String>,Option<String>,i64,String)> =
             stmt.query_map(params![profile_id], |r| Ok((
                 r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?,
@@ -268,14 +268,14 @@ impl Database {
         if active_order_count > 0 {
             return Err("Cannot delete profile: it has active orders".to_string());
         }
-        // FIX B33: РѕСЃРІРѕР±РѕР¶РґР°РµРј РєР°СЂС‚Сѓ РёР· СЃС‚Р°С‚СѓСЃР° in_use РїСЂРё СѓРґР°Р»РµРЅРёРё РїСЂРѕС„РёР»СЏ
+        // FIX B33: освобождаем карту из статуса in_use при удалении профиля
         let card_id: Option<i64> = self.conn.query_row(
             "SELECT card_id FROM profiles WHERE id=?1",
             params![id], |r| r.get(0),
         ).ok();
         self.conn.execute("DELETE FROM profiles WHERE id=?1", params![id]).map_err(|e| e.to_string())?;
         if let Some(cid) = card_id {
-            // РћСЃРІРѕР±РѕР¶РґР°РµРј РєР°СЂС‚Сѓ С‚РѕР»СЊРєРѕ РµСЃР»Рё РґСЂСѓРіРёС… РїСЂРѕС„РёР»РµР№ РЅР° РЅРµС‘ РЅРµС‚
+            // Освобождаем карту только если других профилей на неё нет
             let remaining: i64 = self.conn.query_row(
                 "SELECT COUNT(*) FROM profiles WHERE card_id=?1",
                 params![cid], |r| r.get(0),
@@ -296,7 +296,7 @@ impl Database {
     }
 
     pub fn find_duplicate_profiles(&self) -> Result<Vec<Vec<Profile>>, String> {
-        // FIX B35: РіСЂСѓРїРїРёСЂСѓРµРј РІСЃРµ РїСЂРѕС„РёР»Рё РЅР° РѕРґРЅРѕР№ РєР°СЂС‚Рµ, Р° РЅРµ РїРѕРїР°СЂРЅРѕ
+        // FIX B35: группируем все профили на одной карте, а не попарно
         let mut stmt = self.conn.prepare(
             "SELECT id, card_id FROM profiles WHERE card_id IN \
              (SELECT card_id FROM profiles GROUP BY card_id HAVING COUNT(*) > 1) \
@@ -321,7 +321,7 @@ impl Database {
         Ok(groups)
     }
 
-    // в”Ђв”Ђ Profile Templates в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // ── Profile Templates ─────────────────
 
     pub fn save_profile_template(&self, name: &str, country: Option<&str>, state: Option<&str>, city: Option<&str>, phone_prefix: Option<&str>, source: Option<&str>) -> Result<i64, String> {
         self.conn.execute(
@@ -354,7 +354,7 @@ impl Database {
         Ok(())
     }
 
-    // в”Ђв”Ђ Drops в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // ── Drops ─────────────────────────────
 
     pub fn add_drop(&self, profile_id: &str, drop: &DropInput) -> Result<Drop, String> {
         // Make first drop primary automatically
@@ -362,7 +362,7 @@ impl Database {
             "SELECT COUNT(*) FROM drops WHERE profile_id=?1", params![profile_id], |r| r.get(0),
         ).unwrap_or(0);
         let is_primary = count == 0;
-        // FIX B21: С€РёС„СЂСѓРµРј PII РїРѕР»СЏ РїРµСЂРµРґ Р·Р°РїРёСЃСЊСЋ
+        // FIX B21: шифруем PII поля перед записью
         let enc_name = self.encrypt_field(&drop.recipient_name)?;
         let enc_addr = self.encrypt_field(&drop.address)?;
         let enc_phone = drop.phone.as_deref().map(|p| self.encrypt_field(p)).transpose()?;
@@ -381,7 +381,7 @@ impl Database {
     }
 
     pub fn update_drop(&self, id: i64, drop: &DropInput) -> Result<(), String> {
-        // FIX B21: С€РёС„СЂСѓРµРј PII РїРµСЂРµРґ РѕР±РЅРѕРІР»РµРЅРёРµРј
+        // FIX B21: шифруем PII перед обновлением
         let enc_name = self.encrypt_field(&drop.recipient_name)?;
         let enc_addr = self.encrypt_field(&drop.address)?;
         let enc_phone = drop.phone.as_deref().map(|p| self.encrypt_field(p)).transpose()?;
@@ -406,7 +406,7 @@ impl Database {
     pub fn import_drops(&self, profile_id: &str, rows: Vec<DropInput>) -> Result<ImportResult, String> {
         let total = rows.len() as u32;
         let mut imported = 0u32;
-        // FIX B70: РѕР±С‘СЂС‚РєР° РІ С‚СЂР°РЅР·Р°РєС†РёСЋ РґР»СЏ Р°С‚РѕРјР°СЂРЅРѕСЃС‚Рё
+        // FIX B70: обёртка в транзакцию для атомарности
         self.conn.execute_batch("BEGIN").map_err(|e| e.to_string())?;
         let result = (|| -> Result<u32, String> {
             for row in rows {
@@ -447,7 +447,7 @@ impl Database {
         Ok(groups.into_values().filter(|v| v.len() > 1).collect())
     }
 
-    // в”Ђв”Ђ Email Pool в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // ── Email Pool ────────────────────────
 
     fn email_hash(email: &str) -> String {
         use sha2::{Sha256, Digest};
@@ -514,7 +514,7 @@ impl Database {
         ).map_err(|e| e.to_string())?;
         let ids: Vec<i64> = stmt.query_map([], |r| r.get(0)).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
         let items: Vec<EmailPoolEntry> = ids.iter().filter_map(|&id| self.build_email_entry(id).ok()).collect();
-        let total_pages = (total as u32 + per_page - 1) / per_page.max(1); // FIX B16: РµРґРёРЅР°СЏ С„РѕСЂРјСѓР»Р° ceil(total/per_page)
+        let total_pages = (total as u32 + per_page - 1) / per_page.max(1); // FIX B16: единая формула ceil(total/per_page)
         Ok(PaginatedEmails { items, total: total as u32, page, per_page, total_pages })
     }
 
@@ -555,7 +555,7 @@ impl Database {
         Ok(())
     }
 
-    // в”Ђв”Ђ Proxies в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // ── Proxies ───────────────────────────
 
     fn build_proxy(&self, id: i64) -> Result<Proxy, String> {
         let (host, port, ptype, username, pw_enc, label, notes, is_blocked, created_at, updated_at, last_checked):
@@ -600,7 +600,7 @@ impl Database {
             if parts.len() < 2 { skipped += 1; continue; }
             let host = parts[0].to_string();
             let port: i64 = parts[1].parse().unwrap_or(0);
-            // FIX B41: РІР°Р»РёРґРёСЂСѓРµРј РґРёР°РїР°Р·РѕРЅ РїРѕСЂС‚Р° 1-65535
+            // FIX B41: валидируем диапазон порта 1-65535
             if port < 1 || port > 65535 { skipped += 1; continue; }
             let username = parts.get(2).map(|s| s.to_string()).unwrap_or_default();
             let password = parts.get(3).map(|s| s.to_string()).unwrap_or_default();
@@ -634,7 +634,7 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let ids: Vec<i64> = stmt.query_map(rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())), |r| r.get(0)).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
         let items: Vec<Proxy> = ids.iter().filter_map(|&id| self.build_proxy(id).ok()).collect();
-        let total_pages = (total as u32 + per_page - 1) / per_page.max(1); // FIX B16: РµРґРёРЅР°СЏ С„РѕСЂРјСѓР»Р° ceil(total/per_page)
+        let total_pages = (total as u32 + per_page - 1) / per_page.max(1); // FIX B16: единая формула ceil(total/per_page)
         Ok(PaginatedProxies { items, total: total as u32, page, per_page, total_pages })
     }
 
@@ -659,8 +659,8 @@ impl Database {
     }
 
     pub fn check_all_proxy_health(&self) -> Result<crate::models::ProxyHealthResult, String> {
-        // FIX AUDIT-10: СЂРµР°Р»СЊРЅР°СЏ РїСЂРѕРІРµСЂРєР° вЂ” TCP-РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє host:port СЃ С‚Р°Р№РјР°СѓС‚РѕРј
-        // (СЂР°РЅСЊС€Рµ РІСЃРµ РїСЂРѕРєСЃРё РїСЂРѕСЃС‚Рѕ РїРѕРјРµС‡Р°Р»РёСЃСЊ online Р±РµР· РїСЂРѕРІРµСЂРєРё).
+        // FIX AUDIT-10: реальная проверка — TCP-подключение к host:port с таймаутом
+        // (раньше все прокси просто помечались online без проверки).
         let now = chrono::Utc::now().to_rfc3339();
         let mut stmt = self.conn.prepare(
             "SELECT id, host, port FROM proxies WHERE is_blocked=0"

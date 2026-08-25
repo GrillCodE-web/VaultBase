@@ -36,9 +36,9 @@ pub(crate) fn get_activity_log(filter: LogFilter, page: u32) -> Result<Paginated
 
 #[tauri::command]
 pub(crate) fn clear_activity_log() -> Result<(), String> {
-    // РћС‡РёСЃС‚РєР° Р¶СѓСЂРЅР°Р»Р° СЃС‚РёСЂР°РµС‚ СЃР»РµРґС‹ РґРµР№СЃС‚РІРёР№ вЂ” СЃСЋРґР° Р¶Рµ РїРёС€СѓС‚СЃСЏ
-    // security.reveal_denied Рё РїСЂРѕС‡РёРµ СЃРѕР±С‹С‚РёСЏ Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё. РћРїРµСЂР°С‚РѕСЂ,
-    // СЃРїРѕСЃРѕР±РЅС‹Р№ С‡РёСЃС‚РёС‚СЊ Р°СѓРґРёС‚, РѕР±РЅСѓР»СЏРµС‚ СЃРјС‹СЃР» Р°СѓРґРёС‚Р°. РўРѕР»СЊРєРѕ Р°РґРјРёРЅ.
+    // Очистка журнала стирает следы действий — сюда же пишутся
+    // security.reveal_denied и прочие события безопасности. Оператор,
+    // способный чистить аудит, обнуляет смысл аудита. Только админ.
     require_admin()?;
     with_db!(db, { db.clear_activity_log() })
 }
@@ -75,14 +75,14 @@ pub(crate) fn open_float_window(profile_id: String, app: tauri::AppHandle) -> Re
     let win = app.get_webview_window("float")
         .ok_or_else(|| "float_window_not_found".to_string())?;
 
-    // Emit event вЂ” float.jsx listens and reloads data without page navigation.
+    // Emit event — float.jsx listens and reloads data without page navigation.
     // Reliable even when window is hidden (no race with window.location.href).
     win.emit("float:load", &safe_id).map_err(|e| e.to_string())?;
     let _ = win.show();
     let _ = win.set_focus();
     let _ = win.unminimize();
 
-    // Log without blocking вЂ” ignore DB errors so window always opens
+    // Log without blocking — ignore DB errors so window always opens
     let _: Result<(), String> = with_db!(db, {
         let _ = db.log_event("profile.float_opened",
             &format!("Profile {} float opened", safe_id), Some("profile"), None);

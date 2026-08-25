@@ -179,7 +179,7 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setStep(1)} className="btn btn-ghost">
-                  в†ђ {t('btn_cancel')}
+                  ← {t('btn_cancel')}
                 </button>
                 <button
                   onClick={handleImport}

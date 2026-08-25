@@ -63,7 +63,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
         <div className="modal-header">
           <span>New Order — {profile.holder_masked || `••••${profile.last4 || '?????'}`}</span>
           <button className="icon-btn" onClick={onClose}>
-            вњ•
+            ✕
           </button>
         </div>
         <div className="modal-body flex flex-col gap-3">
@@ -94,7 +94,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
           {shop && (
             <div className="p-\[8px_12px\] bg-[var(--surface2)] rounded text-[12px] flex items-center gap-2">
               <span style={{ color: shop.is_new ? 'var(--accent)' : 'var(--text)' }}>
-                {shop.is_new ? 'вњ¦ New shop:' : 'вњ“ Found:'} <strong>{shop.domain}</strong>
+                {shop.is_new ? '✦ New shop:' : '✔ Found:'} <strong>{shop.domain}</strong>
               </span>
             </div>
           )}

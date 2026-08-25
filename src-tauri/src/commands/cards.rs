@@ -109,7 +109,7 @@ pub(crate) fn get_card(id: i64) -> Result<Card, String> {
 
 #[tauri::command]
 pub(crate) fn reveal_card(id: i64, master_password: Option<String>) -> Result<CardDecrypted, String> {
-    // Rate limiting вЂ” 5 requests per minute per installation
+    // Rate limiting — 5 requests per minute per installation
     let rate_key = id as u64;
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_key)?;
 
@@ -119,12 +119,12 @@ pub(crate) fn reveal_card(id: i64, master_password: Option<String>) -> Result<Ca
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
-        // РџСЂР°РІРѕ РЅР°Р·С‹РІР°РµС‚СЃСЏ view_OWN_cards_full вЂ” РґРѕ СЌС‚РѕРіРѕ В«ownВ» РЅРёС‡РµРј РЅРµ
-        // РїРѕРґРєСЂРµРїР»СЏР»РѕСЃСЊ: Р»СЋР±РѕР№ РѕРїРµСЂР°С‚РѕСЂ СЃ РїСЂР°РІРѕРј СЂР°СЃРєСЂС‹РІР°Р» PAN Рё CVV С‡СѓР¶РѕР№
-        // РєР°СЂС‚С‹. Р’Р»Р°РґРµР»РµС† РёР·РІРµСЃС‚РµРЅ РёР· card_assignments (РІ РѕС‚Р»РёС‡РёРµ РѕС‚ Р·Р°РєР°Р·РѕРІ,
-        // СЃРј. docs/PERMISSIONS.md), РїРѕСЌС‚РѕРјСѓ РїСЂРѕРІРµСЂРєСѓ РјРѕР¶РЅРѕ СЃРґРµР»Р°С‚СЊ С‡РµСЃС‚РЅРѕ.
-        // РќРµР·Р°РєСЂРµРїР»С‘РЅРЅР°СЏ РєР°СЂС‚Р° РЅРµ Р±Р»РѕРєРёСЂСѓРµС‚СЃСЏ: Р·Р°С‰РёС‰Р°С‚СЊ РЅРµС‡РµРіРѕ, Рё РёРЅР°С‡Рµ
-        // Р»РѕРјР°РµС‚СЃСЏ РїРѕСЂСЏРґРѕРє В«РІР·СЏС‚СЊ РєР°СЂС‚Сѓ в†’ СЂР°СЃРєСЂС‹С‚СЊВ» Рё Р»РµРіР°СЃРё-РїСЂРѕС„РёР»Рё.
+        // Право называется view_OWN_cards_full — до этого «own» ничем не
+        // подкреплялось: любой оператор с правом раскрывал PAN и CVV чужой
+        // карты. Владелец известен из card_assignments (в отличие от заказов,
+        // см. docs/PERMISSIONS.md), поэтому проверку можно сделать честно.
+        // Незакреплённая карта не блокируется: защищать нечего, и иначе
+        // ломается порядок «взять карту → раскрыть» и легаси-профили.
         // FINAL-001: Always verify ownership — unassigned cards require admin or assign first
         if !user.is_admin() {
             match db.get_card_owner(id) {
@@ -170,9 +170,9 @@ pub(crate) fn reveal_card(id: i64, master_password: Option<String>) -> Result<Ca
 
 #[tauri::command]
 pub(crate) fn update_card_status(id: i64, status: String, app: tauri::AppHandle) -> Result<(), String> {
-    // РР·РјРµРЅРµРЅРёРµ СЃС‚Р°С‚СѓСЃР° вЂ” С‡Р°СЃС‚СЊ СЂР°Р±РѕС‡РµРіРѕ С†РёРєР»Р° РѕРїРµСЂР°С‚РѕСЂР° (РєР°СЂС‚Р° РѕС‚СЂР°Р±РѕС‚Р°Р»Р°,
-    // СЃРіРѕСЂРµР»Р° Рё С‚.Рї.), РїРѕСЌС‚РѕРјСѓ РІС…РѕРґ, Р° РЅРµ РѕС‚РґРµР»СЊРЅРѕРµ РїСЂР°РІРѕ. РџСЂР°РІРєР° СѓРµР·Р¶Р°РµС‚ РІ
-    // sync-РіСЂСѓРїРїСѓ, С‚Р°Рє С‡С‚Рѕ Р°РЅРѕРЅРёРјРЅС‹Р№ РІС‹Р·РѕРІ РёСЃРїРѕСЂС‚РёР» Р±С‹ РґР°РЅРЅС‹Рµ РІСЃРµРј СѓС‡Р°СЃС‚РЅРёРєР°Рј.
+    // Изменение статуса — часть рабочего цикла оператора (карта отработала,
+    // сгорела и т.п.), поэтому вход, а не отдельное право. Правка уезжает в
+    // sync-группу, так что анонимный вызов испортил бы данные всем участникам.
     require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -187,7 +187,7 @@ pub(crate) fn update_card_status(id: i64, status: String, app: tauri::AppHandle)
 
         db.update_card_status(id, &status)?;
         let _ = db.log_event("card.status_changed",
-            &format!("Card {} status в†’ {}", id, status), Some("card"), Some(&id.to_string()));
+            &format!("Card {} status → {}", id, status), Some("card"), Some(&id.to_string()));
 
         // FIX P1-RETRY-03: Push update to sync server with retry
         let update = crate::models::CardSyncUpdate {
@@ -234,7 +234,7 @@ pub(crate) fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -
 
 #[tauri::command]
 pub(crate) fn delete_card(id: i64) -> Result<(), String> {
-    // РќРµРѕР±СЂР°С‚РёРјРѕ Рё Р·Р°С‚СЂР°РіРёРІР°РµС‚ РѕР±С‰РёР№ РїСѓР» РєР°СЂС‚ вЂ” С‚РѕР»СЊРєРѕ Р°РґРјРёРЅ.
+    // Необратимо и затрагивает общий пул карт — только админ.
     require_admin()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -274,7 +274,7 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
 
         db.bulk_update_status(&ids, &status)?;
         let _ = db.log_event("card.bulk_status",
-            &format!("{} cards в†’ {}", ids.len(), status), Some("card"), None);
+            &format!("{} cards → {}", ids.len(), status), Some("card"), None);
 
         // FIX P1-RETRY-05: Push bulk update to sync server with retry
         if !updates.is_empty() {
@@ -287,7 +287,7 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
 
 #[tauri::command]
 pub(crate) fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
-    // РњР°СЃСЃРѕРІРѕРµ РЅРµРѕР±СЂР°С‚РёРјРѕРµ СѓРґР°Р»РµРЅРёРµ вЂ” С‚РѕР»СЊРєРѕ Р°РґРјРёРЅ, РєР°Рє Рё delete_card.
+    // Массовое необратимое удаление — только админ, как и delete_card.
     require_admin()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -371,7 +371,7 @@ pub(crate) fn update_profile_notes(id: String, notes: String) -> Result<(), Stri
 
 #[tauri::command]
 pub(crate) fn delete_profile(id: String) -> Result<(), String> {
-    // РЈРґР°Р»РµРЅРёРµ РїСЂРѕС„РёР»СЏ РєР°СЃРєР°РґРѕРј СѓРЅРѕСЃРёС‚ РґСЂРѕРїС‹; РІР»Р°РґРµР»СЊС†Р° РЅРµС‚ вЂ” С‚РѕР»СЊРєРѕ Р°РґРјРёРЅ.
+    // Удаление профиля каскадом уносит дропы; владельца нет — только админ.
     require_admin()?;
     with_db!(db, { db.delete_profile(&id) })
 }
@@ -498,8 +498,8 @@ pub(crate) fn delete_email(id: i64) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) fn get_clean_email_for_shop(shop_id: i64) -> Result<Option<EmailPoolEntry>, String> {
-    // РќРµ MANAGE_EMAILS: СЌС‚Рѕ С€Р°Рі РѕС„РѕСЂРјР»РµРЅРёСЏ Р·Р°РєР°Р·Р°, Р° РЅРµ СѓРїСЂР°РІР»РµРЅРёРµ РїСѓР»РѕРј.
-    // Р’РѕР·РІСЂР°С‰Р°РµС‚СЃСЏ РѕРґРёРЅ СЃРІРѕР±РѕРґРЅС‹Р№ Р°РґСЂРµСЃ, РІРµСЃСЊ РїСѓР» РїСЂРё СЌС‚РѕРј РЅРµ СЂР°СЃРєСЂС‹РІР°РµС‚СЃСЏ.
+    // Не MANAGE_EMAILS: это шаг оформления заказа, а не управление пулом.
+    // Возвращается один свободный адрес, весь пул при этом не раскрывается.
     require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, { db.get_clean_email_for_shop(shop_id) })
 }
@@ -542,8 +542,8 @@ pub(crate) fn delete_proxy(id: i64) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) fn test_proxy_connection(host: String, port: u16) -> Result<bool, String> {
-    // РРЅР°С‡Рµ Р»СЋР±РѕР№ РІРѕС€РµРґС€РёР№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РјРѕРі Р±С‹ СЃРєР°РЅРёСЂРѕРІР°С‚СЊ РїРѕСЂС‚С‹ РёР·РЅСѓС‚СЂРё СЃРµС‚Рё,
-    // РіРґРµ СЃС‚РѕРёС‚ РєР»РёРµРЅС‚: РєРѕРјР°РЅРґР° РґРµР»Р°РµС‚ РёСЃС…РѕРґСЏС‰РµРµ СЃРѕРµРґРёРЅРµРЅРёРµ РїРѕ РїСЂРѕРёР·РІРѕР»СЊРЅРѕРјСѓ Р°РґСЂРµСЃСѓ.
+    // Иначе любой вошедший пользователь мог бы сканировать порты изнутри сети,
+    // где стоит клиент: команда делает исходящее соединение по произвольному адресу.
     require_perm(models::perms::MANAGE_PROXIES)?;
     use std::net::{TcpStream, ToSocketAddrs};
     let addr = format!("{}:{}", host, port);
@@ -558,17 +558,17 @@ pub(crate) fn test_proxy_connection(host: String, port: u16) -> Result<bool, Str
 
 #[tauri::command]
 pub(crate) fn create_shop(input: ShopInput) -> Result<Shop, String> {
-    // РћРїРµСЂР°С‚РѕСЂ СЃРѕР·РґР°С‘С‚ РјР°РіР°Р·РёРЅ РЅР° Р»РµС‚Сѓ РїСЂРё РѕС„РѕСЂРјР»РµРЅРёРё Р·Р°РєР°Р·Р° РїРѕ РїРѕР·РёС†РёРё РёР·
-    // РєР°С‚Р°Р»РѕРіР° (Orders.jsx: selectShop в†’ _fromCatalog), РїРѕСЌС‚РѕРјСѓ РѕРґРЅРѕРіРѕ
-    // MANAGE_SHOPS Р·РґРµСЃСЊ РјР°Р»Рѕ вЂ” РёРЅР°С‡Рµ Р»РѕРјР°РµС‚СЃСЏ РѕСЃРЅРѕРІРЅРѕР№ СЃС†РµРЅР°СЂРёР№ СЂР°Р±РѕС‚С‹.
+    // Оператор создаёт магазин на лету при оформлении заказа по позиции из
+    // каталога (Orders.jsx: selectShop → _fromCatalog), поэтому одного
+    // MANAGE_SHOPS здесь мало — иначе ломается основной сценарий работы.
     require_any_perm(&[models::perms::MANAGE_SHOPS, models::perms::CREATE_ORDERS])?;
     with_db!(db, { db.create_shop(&input) })
 }
 
 #[tauri::command]
 pub(crate) fn get_shops(page: u32, per_page: u32, search: String) -> Result<PaginatedShops, String> {
-    // РўРѕР»СЊРєРѕ РІС…РѕРґ РІ СЃРёСЃС‚РµРјСѓ: СЃРїРёСЃРѕРє РјР°РіР°Р·РёРЅРѕРІ вЂ” СЌС‚Рѕ СЃРїСЂР°РІРѕС‡РЅРёРє, РѕРЅ РЅСѓР¶РµРЅ РґР»СЏ
-    // РІС‹Р±РѕСЂР° РїСЂРё Р·Р°РєР°Р·Рµ, РЅР° СЃС‚СЂР°РЅРёС†Р°С… РїСЂРѕРєСЃРё Рё РІ СЃР°РјРѕРј СЂР°Р·РґРµР»Рµ РјР°РіР°Р·РёРЅРѕРІ.
+    // Только вход в систему: список магазинов — это справочник, он нужен для
+    // выбора при заказе, на страницах прокси и в самом разделе магазинов.
     require_user()?;
     with_db!(db, { db.get_shops(page, per_page, &search) })
 }

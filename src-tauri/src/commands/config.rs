@@ -29,7 +29,7 @@ use std::collections::HashMap;
 
 #[tauri::command]
 pub(crate) fn get_config(key: String) -> Result<Option<String>, String> {
-    // `<secret>_set` РѕС‚РґР°С‘С‚ С‚РѕР»СЊРєРѕ С„Р°РєС‚ РЅР°Р»РёС‡РёСЏ РєР»СЋС‡Р°, РЅРѕ РЅРµ СЃР°Рј РєР»СЋС‡.
+    // `<secret>_set` отдаёт только факт наличия ключа, но не сам ключ.
     if let Some(secret_key) = secret_flag_target(&key) {
         return with_db!(db, {
             let present = db
@@ -47,10 +47,10 @@ pub(crate) fn get_config(key: String) -> Result<Option<String>, String> {
 
 #[tauri::command]
 pub(crate) fn set_config(key: String, value: String) -> Result<(), String> {
-    // Р’С…РѕРґ РѕР±СЏР·Р°С‚РµР»РµРЅ: whitelist РѕРіСЂР°РЅРёС‡РёРІР°РµС‚ *РєР°РєРёРµ* РєР»СЋС‡Рё РјРѕР¶РЅРѕ РїРёСЃР°С‚СЊ, РЅРѕ РЅРµ
-    // *РєРѕРјСѓ*. Р‘РµР· СЌС‚РѕРіРѕ РЅР°СЃС‚СЂРѕР№РєРё РјРµРЅСЏР»РёСЃСЊ Р±С‹ Рё РЅР° Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРЅРѕРј РїСЂРёР»РѕР¶РµРЅРёРё.
-    // get_config РЅР°РјРµСЂРµРЅРЅРѕ РѕСЃС‚Р°С‘С‚СЃСЏ Р±РµР· РїСЂРѕРІРµСЂРєРё вЂ” App.jsx:1218 С‡РёС‚Р°РµС‚
-    // always_on_top РґРѕ resumeSession(), С‚Рѕ РµСЃС‚СЊ РґРѕ РїРѕСЏРІР»РµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.
+    // Вход обязателен: whitelist ограничивает *какие* ключи можно писать, но не
+    // *кому*. Без этого настройки менялись бы и на заблокированном приложении.
+    // get_config намеренно остаётся без проверки — App.jsx:1218 читает
+    // always_on_top до resumeSession(), то есть до появления пользователя.
     require_user()?;
     if !is_config_writable(&key) {
         return Err(format!("config_key_not_allowed: {}", key));
@@ -81,7 +81,7 @@ pub(crate) fn has_any_data() -> Result<bool, String> {
 
 #[tauri::command]
 pub(crate) fn export_backup() -> Result<String, String> {
-    // Р‘СЌРєР°Рї вЂ” СЌС‚Рѕ РІСЃСЏ Р±Р°Р·Р° РѕРґРЅРёРј С„Р°Р№Р»РѕРј, С‚Рѕ РµСЃС‚СЊ РїРѕР»РЅС‹Р№ РѕР±С…РѕРґ Р»СЋР±С‹С… РїСЂР°РІ.
+    // Бэкап — это вся база одним файлом, то есть полный обход любых прав.
     require_admin()?;
     let bdir = backup_dir();
     std::fs::create_dir_all(&bdir).map_err(|e| e.to_string())?;
@@ -94,7 +94,7 @@ pub(crate) fn export_backup() -> Result<String, String> {
 
 #[tauri::command]
 pub(crate) fn import_backup(path: String) -> Result<(), String> {
-    // FIX TC-H03: Rate limiting вЂ” 5 attempts per minute to prevent abuse
+    // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent abuse
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("import_backup"))?;
     // FIX TC-02: Prevent path traversal attacks by canonicalizing the path
     // and ensuring it's within allowed directories
@@ -141,8 +141,8 @@ pub(crate) fn import_backup(path: String) -> Result<(), String> {
         return Err("invalid_backup_file: not a SQLite database".into());
     }
 
-    // FIX AUDIT-11: СЂРµР°Р»СЊРЅС‹Р№ РёРјРїРѕСЂС‚ С‡РµСЂРµР· SQLite backup API (Р°С‚РѕРјР°СЂРЅРѕ, Р±РµР·
-    // Р·Р°РєСЂС‹С‚РёСЏ СЃРѕРµРґРёРЅРµРЅРёСЏ). Р Р°РЅСЊС€Рµ СЌС‚Рѕ Р±С‹Р»Р° Р·Р°РіР»СѓС€РєР°, С‚СЂРµР±СѓСЋС‰Р°СЏ СЂСѓС‡РЅРѕРіРѕ РєРѕРїРёСЂРѕРІР°РЅРёСЏ.
+    // FIX AUDIT-11: реальный импорт через SQLite backup API (атомарно, без
+    // закрытия соединения). Раньше это была заглушка, требующая ручного копирования.
     use rusqlite::backup::Backup;
     let src = rusqlite::Connection::open(&canonical_path)
         .map_err(|e| format!("cannot_open_backup: {}", e))?;
