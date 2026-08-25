@@ -136,6 +136,10 @@ def used_classes() -> dict[str, list[str]]:
 TOKEN_DEF_RE = re.compile(r"(?m)^\s*(--[\w-]+)\s*:")
 TOKEN_USE_RE = re.compile(r"var\(\s*(--[\w-]+)")
 
+# Токены, которые намеренно инлайнит JS (style={{ '--x': ... }}), а CSS
+# использует с фолбэком var(--x, fallback). Это не фантомы.
+JS_SET_TOKENS = {"--modal-size"}
+
 
 def defined_tokens() -> set[str]:
     tokens: set[str] = set()
@@ -168,6 +172,21 @@ def duplicate_class_defs() -> dict[str, tuple[int, bool]]:
     bodies: dict[str, list[str]] = {}
     single_sel = re.compile(r"^\s*(\.[\w-]+)\s*\{(.*)$")
     at_rule = re.compile(r"^\s*@(media|supports|container)")
+    # var(--x) резолвим в значение токена, чтобы `gap:4px` и `gap:var(--sp-1)`
+    # (--sp-1: 4px) не считались расхождением — расходятся только РАЗНЫЕ
+    # итоговые значения.
+    tok_val = re.compile(r"(?m)^\s*(--[\w-]+)\s*:\s*([^;]+);")
+    tok_map: dict[str, str] = {}
+    for f in css_files():
+        for m in tok_val.finditer(read(f)):
+            tok_map.setdefault(m.group(1), re.sub(r"\s+", "", m.group(2)))
+
+    def resolve_vars(body: str) -> str:
+        return re.sub(
+            r"var\((--[\w-]+)\)",
+            lambda m: tok_map.get(m.group(1), m.group(0)),
+            body,
+        )
     for f in css_files():
         lines = read(f).splitlines()
         in_at = False
@@ -193,15 +212,19 @@ def duplicate_class_defs() -> dict[str, tuple[int, bool]]:
                 while "}" not in body and j + 1 < len(lines):
                     j += 1
                     body += " " + lines[j]
-                norm = re.sub(r"\s+", "", body.split("}", 1)[0])
-                bodies.setdefault(cls, []).append(norm)
+                norm = resolve_vars(re.sub(r"\s+", "", body.split("}", 1)[0]))
+                bodies.setdefault(cls, []).append((norm, f.name))
                 i = j + 1
                 continue
             i += 1
-    out: dict[str, tuple[int, bool]] = {}
+    out: dict[str, tuple[int, bool, list[str]]] = {}
     for cls, bs in bodies.items():
         if len(bs) > 1:
-            out[cls] = (len(bs), len(set(bs)) > 1)
+            files = []
+            for _b, fname in bs:
+                if fname not in files:
+                    files.append(fname)
+            out[cls] = (len(bs), len({b for b, _f in bs}) > 1, files)
     return out
 
 
@@ -255,12 +278,14 @@ def main() -> int:
     def_tok = defined_tokens()
     use_tok = used_tokens()
     phantom = {
-        t: files for t, files in sorted(use_tok.items()) if t not in def_tok
+        t: files
+        for t, files in sorted(use_tok.items())
+        if t not in def_tok and t not in JS_SET_TOKENS
     }
 
     dup_cls = duplicate_class_defs()
-    diverging = {c: n for c, (n, div) in dup_cls.items() if div}
-    identical = {c: n for c, (n, div) in dup_cls.items() if not div}
+    diverging = {c: (n, files) for c, (n, div, files) in dup_cls.items() if div}
+    identical = {c: n for c, (n, div, _files) in dup_cls.items() if not div}
     catches = bare_catches()
     bigs = big_files()
     dup_help = duplicate_helpers()
@@ -280,8 +305,8 @@ def main() -> int:
         print(f"  {t:<28} ← {', '.join(f.split(chr(92))[-1] for f in files)}")
 
     print(f"\n[КРИТИЧНО] Расходящиеся дубли класса (разные тела, каскад-рулетка): {len(diverging)}")
-    for c, n in sorted(diverging.items(), key=lambda x: -x[1]):
-        print(f"  {c:<28} ×{n}")
+    for c, (n, files) in sorted(diverging.items(), key=lambda x: -x[1][0]):
+        print(f"  {c:<28} ×{n}  ← {', '.join(files)}")
 
     print(f"\n[ИНФО] Идентичные дубли (безвредны, но лишни): {len(identical)}")
     for c, n in sorted(identical.items(), key=lambda x: -x[1])[:8]:

@@ -28,6 +28,12 @@
     transition: width 180ms ease-out;
     overflow: visible;
     position: relative;
+    /* backdrop-filter делает сайдбар stacking context'ом: без z-index
+       тултипы пунктов (.sbi-tip, внутри этого контекста) проигрывают
+       идущему следом в DOM .main-content-scroll и клипятся им.
+       z-sticky поднимает весь сайдбар над контентом — модалки (z-modal,
+       портал в body) всё равно выше. */
+    z-index: var(--z-sticky);
   }
 
   .sidebar.expanded {
@@ -48,6 +54,8 @@
     flex-shrink: 0;
     /* На macOS оставляем место для кнопок закрытия/сворачивания */
     pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   /* Под вибрэнси фон убирается — его рисует система.
@@ -81,12 +89,6 @@
     padding: 0 8px;
     justify-content: flex-start;
     gap: 8px;
-  }
-
-  .sidebar-logo-text {
-    font-size: var(--fs-body);
-    font-weight: 600;
-    color: var(--text);
   }
 
   /* ── Пункт навигации ────────────────────────────────────────
@@ -381,17 +383,12 @@
     flex-shrink: 0;
     height: var(--h-toolbar);
     position: relative;
+    /* Табы как segmented control: паддинг подложки */
+    --seg-pad: 2px;
   }
 
   /* Градиентная линия под тулбаром убрана: в macOS это
    обычный разделитель толщиной в пиксель. */
-
-  /* ── Табы как segmented control ─────────────────────────────
-   Общая утопленная подложка, активный сегмент — приподнятая
-   плашка. Узнаваемый элемент системы. */
-  .topbar {
-    --seg-pad: 2px;
-  }
 
   .tab {
     height: 22px;
@@ -671,15 +668,6 @@
    CONTENT LAYOUT — CYBER-FINANCIAL TERMINAL
    ═══════════════════════════════════════════════════════════ */
 
-  /* ── Main Layout ────────────────────────────────────────── */
-  .app-container {
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-    background: var(--bg);
-    position: relative;
-  }
-
   /* ── Content Area ───────────────────────────────────────── */
   .content-area {
     flex: 1;
@@ -814,9 +802,6 @@
   .mb-5 {
     margin-bottom: var(--sp-5);
   }
-  .mb-6 {
-    margin-bottom: var(--sp-6);
-  }
 
   .mt-1 {
     margin-top: var(--sp-1);
@@ -862,15 +847,6 @@
     display: flex;
     gap: 8px;
     align-items: center;
-  }
-
-  .filter-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-3);
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   /* ── Stats Row ──────────────────────────────────────────── */
@@ -1025,18 +1001,6 @@
 
   .text-accent {
     color: var(--accent-text);
-  }
-
-  .text-success {
-    color: var(--green-t);
-  }
-
-  .text-error {
-    color: var(--red-t);
-  }
-
-  .text-warning {
-    color: var(--yellow-t);
   }
 
   .text-center {

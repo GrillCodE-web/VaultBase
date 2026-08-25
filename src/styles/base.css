@@ -48,8 +48,7 @@
   .mono,
   code,
   pre,
-  td,
-  .float-val {
+  td {
     user-select: text;
     cursor: auto;
   }

@@ -389,7 +389,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
     setLoadingFolders(p => ({ ...p, [account.id]: true }))
     try {
       const folders = await invoke('get_imap_folders', { id: account.id })
-      setAccountFolders(p => ({ ...p, [account.id]: folders }))
+      setAccountFolders(p => ({ ...p, [account.id]: Array.isArray(folders) ? folders : [] }))
       // Load stats
       const stats = await invoke('get_imap_stats', { id: account.id })
       setStats(p => ({ ...p, [account.id]: stats }))
@@ -408,12 +408,15 @@ export default function Imap({ onNavigate: _onNavigate }) {
         invoke('get_smtp_configs'),
         invoke('list_domain_routes'),
       ])
-      setAccounts(imap)
-      setSmtpConfigs(smtp)
-      setDomainRoutes(routes)
-      if (imap.length > 0 && !selectedAccount) {
-        setSelectedAccount(imap[0])
-        loadFolders(imap[0])
+      // invoke может вернуть null (команда недоступна/ошибка) — null пробивает
+      // дефолт `= []` и роняет рендер на .length. Все три — через Array-гвард.
+      setAccounts(Array.isArray(imap) ? imap : [])
+      setSmtpConfigs(Array.isArray(smtp) ? smtp : [])
+      setDomainRoutes(Array.isArray(routes) ? routes : [])
+      const list = Array.isArray(imap) ? imap : []
+      if (list.length > 0 && !selectedAccount) {
+        setSelectedAccount(list[0])
+        loadFolders(list[0])
       }
     } catch (e) {
       const error = handleError(e, 'Imap.loadAccounts')
@@ -434,8 +437,11 @@ export default function Imap({ onNavigate: _onNavigate }) {
           search,
         })
         // ★ Insight: Проверка актуальности — если accountId изменился, не обновляем состояние
-        setMessages(result.messages)
-        setMsgTotal(result.total)
+        // Бэкенд возвращает PaginatedMessages { items, total, ... } — поле
+        // называется items, не messages. Через гвард: null/undefined не
+        // уронит рендер списка (.map по undefined).
+        setMessages(result?.items ?? [])
+        setMsgTotal(result?.total ?? 0)
         setMsgPage(page)
       } catch (e) {
         const error = handleError(e, 'Imap.loadMessages')

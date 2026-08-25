@@ -20,6 +20,14 @@ class ErrorBoundary extends React.Component {
     return { hasError: true }
   }
 
+  componentDidUpdate(prevProps) {
+    // Смена страницы (resetKey) сбрасывает застрявший экран ошибки — иначе
+    // после падения одной страницы error-экран остаётся на всех остальных.
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null, errorInfo: null })
+    }
+  }
+
   componentDidCatch(error, errorInfo) {
     // Log error for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo)

@@ -1828,10 +1828,8 @@
     pointer-events: none;
   }
 
-  /* Quarantined state - cards < 14 days old */
-  .card-row-quarantined {
-    opacity: 0.75;
-  }
+  /* Quarantined state (cards < 14 days old): opacity задаёт components.css,
+     здесь только янтарная полоса ::before. */
 
   /* Quarantined cards get amber left border instead of normal gradient */
   .card-row-quarantined::before {
@@ -1930,6 +1928,8 @@
     font-weight: 700;
     font-family: var(--font-mono);
     letter-spacing: 0.05em;
+    flex-shrink: 0;
+    border: 1px solid;
     transition: all var(--t-fast);
     /* Glassmorphism base */
     backdrop-filter: blur(8px);
@@ -3042,12 +3042,6 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* Pagination - active page button */
-  .pagination-btn-active {
-    background: var(--accent);
-    color: var(--text);
-  }
-
   /* ── источник: pages/updates-redesign.css ── */
 
   /* ═══════════════════════════════════════════════════════════
@@ -3387,8 +3381,8 @@
   }
 
   .st-used {
-    background: transparent;
-    border-color: transparent;
+    background: rgba(168, 85, 247, 0.12);
+    border-color: rgba(168, 85, 247, 0.25);
     color: var(--purple-bright);
   }
 

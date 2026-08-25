@@ -461,7 +461,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                           {s.domain && !s._fromCatalog && <span className="mono">{s.domain}</span>}
                           {s.score > 0 && (
                             <span className={s.score >= 60 ? 'score-good' : 'score-warning'}>
-                              в…{s.score}
+                              ★{s.score}
                             </span>
                           )}
                         </div>
@@ -817,7 +817,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                 : 'btn-opacity-normal'
             }`}
           >
-            {loading ? t('msg_loading') : t('create_order') + ' в†’'}
+            {loading ? t('msg_loading') : t('create_order') + ' →'}
           </button>
         </div>
       </div>
