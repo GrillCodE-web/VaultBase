@@ -309,7 +309,7 @@
 | TEST-002 | E2E: CRUD всех сущностей (Cards, Profiles, Orders, Shops)                   | 🟠        | `e2e/`                  | ✅       |
 | TEST-003 | E2E: фильтрация и поиск                                                     | 🟡        | `e2e/`                  | ✅       |
 | TEST-004 | E2E: импорт/экспорт                                                         | 🟡        | `e2e/`                  | ✅       |
-| TEST-005 | E2E: Settings (язык, тема)                                                  | 🟡        | `e2e/`                  | ⬜       |
+| TEST-005 | E2E: Settings (язык, тема)                                                  | 🟡        | `e2e/`                  | 🔄 @a    |
 | TEST-006 | E2E: роли (admin vs operator)                                               | 🟡        | `e2e/`                  | ✅ @main |
 | TEST-007 | Rust: тесты для sync.rs и ws_sync.rs (0 тестов сейчас!)                     | 🟠        | `sync.rs`, `ws_sync.rs` | ✅       |
 | TEST-008 | Rust: edge cases для encryption.rs (пустые данные, повреждённый шифротекст) | 🟡        | `encryption.rs`         | ✅       |
