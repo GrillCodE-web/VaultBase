@@ -97,12 +97,12 @@ export default function Onboarding({ onComplete, onNavigate }) {
             >
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: done ? 'var(--accent)' : 'var(--surface2)' }}
+                style={{ background: done ? 'var(--accent)' : 'var(--surface)' }}
               >
                 {done ? (
                   <CheckCircle size={18} color="var(--bg)" />
                 ) : (
-                  <Icon size={18} color="var(--subtle)" />
+                  <Icon size={18} color="var(--text-3)" />
                 )}
               </div>
               <div className="flex-1">

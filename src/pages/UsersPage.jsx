@@ -78,7 +78,13 @@ function fmtDate(s) {
   if (!s) return '—'
   try {
     const locale = getDateLocale(localStorage.getItem('vaultbase_lang') || 'en')
-    return new Date(s.replace(' ', 'T') + 'Z').toLocaleString(locale, {
+    // SQLite отдаёт "YYYY-MM-DD HH:MM:SS" (UTC), из JS прилетает ISO с 'T' и 'Z' —
+    // поддерживаем оба: добавляем 'T'/'Z' только если их нет.
+    const iso = s.includes('T') ? s : s.replace(' ', 'T')
+    const withTz = /Z$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z'
+    const d = new Date(withTz)
+    if (isNaN(d)) return s
+    return d.toLocaleString(locale, {
       dateStyle: 'short',
       timeStyle: 'short',
     })

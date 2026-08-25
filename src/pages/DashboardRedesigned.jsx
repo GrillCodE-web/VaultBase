@@ -1011,13 +1011,19 @@ export default function DashboardRedesigned({ onNavigate }) {
 
   const s = stats || {}
   const isEmpty = !stats
+  // Бэкенд (DashboardStats) отдаёт total_cc/free_cc/dead_cc/net_profit/delivered —
+  // нормализуем один раз, чтобы карточки не показывали нули на живых данных.
+  const totalCards = s.total_cards ?? s.total_cc ?? 0
+  const freeCards = s.free_cards ?? s.free_cc ?? 0
+  const deliveredOrders = s.delivered_orders ?? s.delivered ?? 0
+  const profit = s.profit ?? s.net_profit ?? 0
   const hasNoActivity =
-    !stats || (s.total_cards === 0 && s.total_orders === 0 && (s.total_profiles ?? 0) === 0)
+    !stats || (totalCards === 0 && s.total_orders === 0 && (s.total_profiles ?? 0) === 0)
 
   // Calculate trends
-  const revenueTrend = s.revenue && s.profit ? (s.profit / s.revenue) * 100 : 0
+  const revenueTrend = s.revenue && profit ? (profit / s.revenue) * 100 : 0
   const orderTrend =
-    s.total_orders && s.delivered_orders ? (s.delivered_orders / s.total_orders) * 100 : 0
+    s.total_orders && deliveredOrders ? (deliveredOrders / s.total_orders) * 100 : 0
 
   return (
     <div className="content">
@@ -1137,15 +1143,15 @@ export default function DashboardRedesigned({ onNavigate }) {
             <PremiumStatCard
               icon={CreditCard}
               label={t('total_cc')}
-              value={formatNumber(s.total_cards ?? 0)}
-              subtext={`${formatNumber(s.free_cards ?? 0)} available`}
+              value={formatNumber(totalCards)}
+              subtext={`${formatNumber(freeCards)} available`}
               trend="up"
               variant="cards"
               statusBadge={{
                 type: 'free',
-                label: `${Math.round(((s.free_cards ?? 0) / (s.total_cards ?? 1)) * 100)}%`,
+                label: `${Math.round((freeCards / (totalCards || 1)) * 100)}%`,
               }}
-              progress={Math.round(((s.free_cards ?? 0) / (s.total_cards ?? 1)) * 100)}
+              progress={Math.round((freeCards / (totalCards || 1)) * 100)}
               onClick={() => onNavigate?.('cards')}
             />
 
@@ -1153,7 +1159,7 @@ export default function DashboardRedesigned({ onNavigate }) {
               icon={ShoppingBag}
               label={t('nav_orders')}
               value={formatNumber(s.total_orders ?? 0)}
-              subtext={`${formatNumber(s.delivered_orders ?? 0)} delivered`}
+              subtext={`${formatNumber(deliveredOrders)} delivered`}
               trend={orderTrend > 50 ? 'up' : 'down'}
               trendValue={orderTrend}
               variant="orders"
@@ -1178,7 +1184,7 @@ export default function DashboardRedesigned({ onNavigate }) {
               icon={DollarSign}
               label={t('chart_revenue')}
               value={formatCurrency(s.revenue ?? 0)}
-              subtext={`${formatCurrency(s.profit ?? 0)} profit`}
+              subtext={`${formatCurrency(profit)} profit`}
               trend={revenueTrend > 20 ? 'up' : revenueTrend < 10 ? 'down' : 'neutral'}
               trendValue={revenueTrend}
               variant="revenue"

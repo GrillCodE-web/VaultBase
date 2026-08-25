@@ -18,7 +18,18 @@ export function LangProvider({ children }) {
     setLangState(code)
   }, [])
 
-  const t = useCallback(key => LANGS[lang]?.[key] ?? LANGS.en?.[key] ?? key, [lang])
+  const t = useCallback(
+    (key, params) => {
+      let str = LANGS[lang]?.[key] ?? LANGS.en?.[key] ?? key
+      if (params && typeof str === 'string') {
+        for (const [k, v] of Object.entries(params)) {
+          str = str.replaceAll(`{${k}}`, String(v))
+        }
+      }
+      return str
+    },
+    [lang]
+  )
 
   return <LangContext.Provider value={{ lang, setLang, t }}>{children}</LangContext.Provider>
 }

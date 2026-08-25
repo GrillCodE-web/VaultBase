@@ -3846,7 +3846,10 @@
     border: none;
     border-radius: var(--r-xl);
     width: 100%;
-    max-width: var(--modal-md, 560px);
+    /* --modal-size инлайнит Modal.jsx из пропа size (sm/md/lg/xl);
+       без него — дефолт md. Не заменять на var(--modal-md): это ломает
+       size-проп (модалки Couriers lg и др. схлопываются до 560px). */
+    max-width: var(--modal-size, var(--modal-md, 560px));
     max-height: calc(100vh - 60px);
     overflow-y: auto;
     padding: var(--sp-5);

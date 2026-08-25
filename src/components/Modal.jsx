@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
 // Стили модалки — в общем styles/components.css (подключается из index.css).
@@ -58,7 +59,10 @@ export function Modal({
     xl: 'var(--modal-xl)',
   }
 
-  return (
+  // Портал в body: модалка не должна зависеть от предков страницы —
+  // transform/filter/overflow у любого из них ломают position:fixed
+  // (оверлей клипится и «уезжает» за пределы видимого окна).
+  return createPortal(
     <div
       className="modal-overlay overlay-enter"
       onClick={e => {
@@ -97,6 +101,7 @@ export function Modal({
         {/* Footer */}
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

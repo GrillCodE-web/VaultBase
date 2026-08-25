@@ -120,13 +120,14 @@ describe('Modal Component (Accessibility)', () => {
       }
 
       Object.entries(sizes).forEach(([size, expectedVar]) => {
-        const { container, unmount } = render(
+        const { unmount } = render(
           <Modal isOpen={true} onClose={vi.fn()} title="Test" size={size}>
             Content
           </Modal>
         )
 
-        const modal = container.querySelector('[role="dialog"]')
+        // Модалка рендерится порталом в document.body — вне container
+        const modal = screen.getByRole('dialog')
         // Check that the CSS variable is set via custom property
         expect(modal.style.getPropertyValue('--modal-size')).toBe(expectedVar)
         unmount()

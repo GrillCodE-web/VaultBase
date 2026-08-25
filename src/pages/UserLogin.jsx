@@ -113,7 +113,7 @@ export default function UserLogin({ onLoggedIn }) {
           </div>
 
           {error && (
-            <p role="alert" style={{ color: 'var(--accent-red)', fontSize: 13, margin: 0 }}>
+            <p role="alert" style={{ color: 'var(--red-t)', fontSize: 13, margin: 0 }}>
               {error}
             </p>
           )}
