@@ -52,13 +52,36 @@ export function BatchImportModal({ onCreated, onClose }) {
     reader.readAsText(file)
   }
 
+  const [progress, setProgress] = useState(null) // { done, total }
+
   const handleCreate = async () => {
     if (parsedRows.length === 0) return
     setLoading(true)
+    // UX-015: чанкуем по 10 строк — реальный прогресс вместо голого спиннера,
+    // плюс изоляция частичных сбоев (один битый чанк не роняет весь импорт)
+    const CHUNK = 10
+    const chunks = []
+    for (let i = 0; i < parsedRows.length; i += CHUNK) {
+      chunks.push(parsedRows.slice(i, i + CHUNK))
+    }
+    setProgress({ done: 0, total: parsedRows.length })
+    let created = 0
+    let failed = 0
     try {
-      const res = await invoke('batch_create_orders', { orders: parsedRows })
-      setResult(res)
-      onCreated()
+      for (const chunk of chunks) {
+        try {
+          const res = await invoke('batch_create_orders', { orders: chunk })
+          created += res?.created ?? 0
+          failed += res?.failed ?? 0
+        } catch (e) {
+          // Чанк целиком упал (сеть/lock) — считаем все его строки failed
+          failed += chunk.length
+          console.error('[BatchImport] chunk failed:', e)
+        }
+        setProgress(p => ({ ...p, done: Math.min(p.done + chunk.length, p.total) }))
+      }
+      setResult({ created, failed })
+      if (created > 0) onCreated()
     } catch (e) {
       const error = handleError(e, 'BatchImportModal.handleCreate')
       toast(getErrorMessage(error), 'error')
@@ -122,8 +145,31 @@ export function BatchImportModal({ onCreated, onClose }) {
               </div>
             )}
 
+            {loading && progress && (
+              <div
+                className="mt-1"
+                role="progressbar"
+                aria-valuenow={progress.done}
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+              >
+                <div className="flex justify-between text-[11px] text-muted mb-1">
+                  <span>
+                    {progress.done} / {progress.total}
+                  </span>
+                  <span>{Math.round((progress.done / progress.total) * 100)}%</span>
+                </div>
+                <div className="w-full h-[6px] rounded-full bg-border overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-accent transition-all duration-300"
+                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 mt-1">
-              <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">
+              <button onClick={onClose} disabled={loading} className="btn btn-ghost btn-sm flex-1">
                 Cancel
               </button>
               <button
@@ -131,7 +177,7 @@ export function BatchImportModal({ onCreated, onClose }) {
                 disabled={loading || parsedRows.length === 0}
                 className="btn btn-b btn-sm flex-1 disabled:opacity-40"
               >
-                {loading ? 'Creating…' : `Create ${parsedRows.length} Orders`}
+                {loading ? ('Creating ' + (progress?.done ?? 0) + '/' + (progress?.total ?? parsedRows.length) + '...') : ('Create ' + parsedRows.length + ' Orders')}
               </button>
             </div>
           </div>

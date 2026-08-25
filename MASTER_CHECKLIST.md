@@ -142,7 +142,7 @@
 | UX-012 | OS-уведомления (нативные) для: новая почта, статус посылки, ошибка sync | 🟡        | Tauri notifications plugin            | ⬜     |
 | UX-013 | Onboarding-тур для новых пользователей (react-joyride)                  | 🟢        | `Onboarding.jsx`                      | ⬜     |
 | UX-014 | Кастомизируемый дашборд: drag & drop виджеты (react-grid-layout)        | 🟡        | `DashboardRedesigned.jsx`             | ⬜     |
-| UX-015 | Progress bar для batch import (вместо только спиннера)                  | 🟠        | `BatchImportModal.jsx`                | ⬜     |
+| UX-015 | Progress bar для batch import (вместо только спиннера)                  | 🟠        | `BatchImportModal.jsx`                | ✅     |
 | UX-016 | Offline индикатор в header (badge когда sync server недоступен)         | 🟡        | `App.jsx`, UI header                  | ✅     |
 | UX-017 | Column picker: persist в localStorage + кнопка reset                    | 🟡        | `Cards.jsx:37-48`, `ColumnPicker.jsx` | ✅     |
 | UX-018 | Email assignment feedback — показывать какой email выбран               | 🟡        | `ProfileModal.jsx:312-336`            | ⬜     |
