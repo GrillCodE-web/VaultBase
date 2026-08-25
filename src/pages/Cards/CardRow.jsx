@@ -20,6 +20,12 @@ import {
   countryFlag,
 } from '../../utils/formatting.js'
 import { getBinBadge } from '../../constants/cardTypes.js'
+import {
+  QUARANTINE_DAYS,
+  MS_PER_DAY,
+  BURN_COUNT_MEDIUM,
+  BURN_COUNT_HIGH,
+} from '../../constants/cards.js'
 import { getCardHealth } from '../../utils/cardHealth.js'
 import { CARD_STATUS_CSS } from '../../constants/status.js'
 import { ExpiryCell } from './ExpiryCell.jsx'
@@ -73,15 +79,15 @@ export const CardRow = React.memo(
     const burnCount = card.orders_count ?? 0
     const isFlashing = flashedIds.includes(card.id)
 
-    // P2-QUARANTINE: Check if card is in quarantine (< 14 days old)
+    // P2-QUARANTINE: Check if card is in quarantine (моложе QUARANTINE_DAYS)
     // Note: We use created_at as fallback since acquired_at may be null for older imports
     const { isQuarantined, daysOld } = React.useMemo(() => {
       const acquiredDate = card.acquired_at || card.created_at
       if (!acquiredDate) return { isQuarantined: false, daysOld: null }
       const acquired = new Date(acquiredDate).getTime()
       const now = new Date().getTime()
-      const days = (now - acquired) / (1000 * 60 * 60 * 24)
-      return { isQuarantined: days < 14, daysOld: Math.floor(days) }
+      const days = (now - acquired) / MS_PER_DAY
+      return { isQuarantined: days < QUARANTINE_DAYS, daysOld: Math.floor(days) }
     }, [card.acquired_at, card.created_at])
 
     const quarantineTooltip = isQuarantined
@@ -414,7 +420,13 @@ export const CardRow = React.memo(
               </div>
               {burnCount > 0 && (
                 <span
-                  className={`burn-count burn-${burnCount >= 5 ? 'high' : burnCount >= 3 ? 'medium' : 'low'}`}
+                  className={`burn-count burn-${
+                    burnCount >= BURN_COUNT_HIGH
+                      ? 'high'
+                      : burnCount >= BURN_COUNT_MEDIUM
+                        ? 'medium'
+                        : 'low'
+                  }`}
                   title={t('used_in_orders').replace('{n}', burnCount)}
                 >
                   ×{burnCount}

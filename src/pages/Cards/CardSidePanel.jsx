@@ -10,6 +10,7 @@ import {
   countryFlag,
 } from '../../utils/formatting.js'
 import { getBinBadge } from '../../constants/cardTypes.js'
+import { BURN_COUNT_MEDIUM, BURN_COUNT_HIGH } from '../../constants/cards.js'
 import { CARD_STATUS_CSS, ORDER_STATUS_CSS } from '../../constants/status.js'
 import { CardField } from './CardField.jsx'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
@@ -181,9 +182,9 @@ export function CardSidePanel({
                 className="text-[10px] mono"
                 style={{
                   color:
-                    (card.orders_count ?? 0) >= 5
+                    (card.orders_count ?? 0) >= BURN_COUNT_HIGH
                       ? 'var(--orange)'
-                      : (card.orders_count ?? 0) >= 3
+                      : (card.orders_count ?? 0) >= BURN_COUNT_MEDIUM
                         ? 'var(--color-warning)'
                         : 'var(--muted)',
                 }}

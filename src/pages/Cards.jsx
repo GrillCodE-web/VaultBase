@@ -11,6 +11,7 @@ import { copyToClipboard, copySensitive } from '../utils/clipboard.js'
 import { buildPageNumbers, getTotalPages, getPageRange } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { isInInputField } from '../config/shortcuts.js'
+import { DELETE_UNDO_WINDOW_MS, FLASH_HIGHLIGHT_MS } from '../constants/cards.js'
 import { ImportModal } from './Cards/ImportModal.jsx'
 import { CardFilters } from './Cards/CardFilters.jsx'
 import { CardTable } from './Cards/CardTable.jsx'
@@ -255,7 +256,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                 if (isMounted) {
                   removeFlashedId(card.id)
                 }
-              }, 2000)
+              }, FLASH_HIGHLIGHT_MS)
 
               flashTimers.current[card.id] = timerId
             }
@@ -394,7 +395,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       toast({
         message: t('msg_deleted'),
         type: 'info',
-        duration: 5000,
+        // Окно Undo = окну отложенного удаления (числа обязаны совпадать)
+        duration: DELETE_UNDO_WINDOW_MS,
         action: {
           label: 'Undo',
           onClick: () => {
@@ -418,7 +420,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             toast(getErrorMessage(error), 'error')
           }
         }
-      }, 5000)
+      }, DELETE_UNDO_WINDOW_MS)
 
       deleteTimers.current[id] = timerId
     },

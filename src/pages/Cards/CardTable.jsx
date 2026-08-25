@@ -4,6 +4,7 @@ import { CreditCard } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState.jsx'
 import { SkeletonRows } from '../../components/SkeletonRow.jsx'
 import { CardRow } from './CardRow.jsx'
+import { CARDS_VIRTUAL_THRESHOLD } from '../../constants/cards.js'
 
 /**
  * CardTable — выделённый компонент таблицы карт
@@ -138,9 +139,9 @@ export function CardTable({
   )
 
   // Virtual scrolling setup - only for non-grouped view
-  // ★ Insight: Порог 50 карт вместо 200 — виртуализация включается раньше
+  // ★ Insight: Порог CARDS_VIRTUAL_THRESHOLD (50) карт вместо 200 — виртуализация включается раньше
   // overscan 10 — баланс между производительностью и UX (меньше белых полос)
-  const useVirtualCards = !groupByBank && cards.length > 50
+  const useVirtualCards = !groupByBank && cards.length > CARDS_VIRTUAL_THRESHOLD
 
   // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
   const rowVirtualizer = useVirtualizer({
