@@ -293,7 +293,7 @@
 | TEST-009 | Rust: тесты parser.rs (разные форматы email)                                | 🟡        | `parser.rs`             | ⬜     |
 | TEST-010 | Rust: concurrent access rate_limiter.rs                                     | 🟡        | `rate_limiter.rs`       | ⬜     |
 | TEST-011 | Frontend: snapshot тесты для компонентов (Vitest)                           | 🟡        | `src/`                  | ⬜     |
-| TEST-012 | Frontend: тесты для clipboard.js, pagination.js, formatting.js, csv.js      | 🟡        | `src/utils/__tests__/`  | ⬜     |
+| TEST-012 | Frontend: тесты для clipboard.js, pagination.js, formatting.js, csv.js      | 🟡        | `src/utils/__tests__/`  | ✅     |
 | TEST-013 | Performance: benchmark для БД с 100k карт (criterion)                       | 🟢        | `src-tauri/`            | ⬜     |
 
 ---
@@ -361,7 +361,7 @@
 | ------- | ----------------------------------------------------------- | --------- | -------------------------- | ------------- |
 | ERR-001 | Float ErrorBoundary (сейчас белый экран при ошибке)         | 🟠        | `float.jsx`                | ✅            |
 | ERR-002 | Suspense + ErrorBoundary для lazy pages                     | 🟡        | `App.jsx:1287-1299`        | ✅ (уже было) |
-| ERR-003 | Sync ошибки: показывать на всех страницах (не только Cards) | 🟡        | `App.jsx`, все страницы    | ⬜            |
+| ERR-003 | Sync ошибки: показывать на всех страницах (не только Cards) | 🟡        | `App.jsx`, все страницы    | ✅            |
 | ERR-004 | IMAP ошибки: emit event в React                             | 🟡        | `imap.rs`, `background.rs` | ✅ (imap_connection_alert + toast)            |
 | ERR-005 | Stuffer ошибки: humanize (HTTP коды → user-friendly текст)  | 🟡        | `errorHandler.js:155-175`  | ✅            |
 | ERR-006 | Auto-retry для failed invoke() (с backoff)                  | 🟡        | `src/api/` (новый)         | ✅            |

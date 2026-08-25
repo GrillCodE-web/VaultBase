@@ -380,6 +380,7 @@ export const ru = {
   license_offline_warn: 'Лицензия не проверена — сервер недоступен. Автономный режим: sync, risk check и BIN lookup недоступны.',
   offline_pill_label: 'Офлайн',
   offline_pill_title: 'Лицензия не проверена. Недоступны: sync, risk check, BIN lookup',
+  sync_lost_warn: 'Соединение real-time sync потеряно. Изменения других пользователей не придут до переподключения.',
   offline_mode: 'Офлайн',
 
   // Dashboard
@@ -659,6 +660,7 @@ export const ru = {
 
   // App global search
   app_search_placeholder: 'Поиск по картам, заказам, магазинам, email…',
+  search_label: 'Поиск',
   app_type_to_search: 'Начните вводить для поиска…',
   search_no_results: 'Ничего не найдено по "{q}"',
   search_result_count: '{n} результатов',
@@ -666,7 +668,7 @@ export const ru = {
   // Keyboard shortcuts
   shortcut_nav_pages: 'Навигация по страницам',
   shortcut_global_search: 'Глобальный поиск',
-  shortcut_close: 'Закрыть модал / поиск',
+  shortcut_close: 'Esc — закрыть',
   shortcuts_hint_prefix: 'Нажмите',
   shortcuts_hint_suffix: 'в любое время',
 
@@ -900,7 +902,9 @@ export const ru = {
   couriers_tab_packages: 'Посылки',
   couriers_assigned_empty: 'Курьеры пока не назначены',
   couriers_available_empty: 'Нет доступных курьеров',
+  couriers_available_go: 'Перейти к доступным',
   couriers_packages_empty: 'Посылок нет',
+  couriers_packages_empty_sub: 'Создайте посылку, чтобы курьер получил трек-номера',
   couriers_refresh: 'Обновить',
   couriers_add: 'Добавить курьера',
   couriers_added: 'Курьер добавлен',

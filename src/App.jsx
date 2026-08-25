@@ -371,6 +371,20 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     }
   }, [])
 
+  // ERR-003: потеря sync-соединения — toast на всех страницах (не только Cards).
+  // Срабатывает только на переходе connected → disconnected, не при старте.
+  const wsWasConnectedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!wsStatus) return
+    if (wsStatus.connected) {
+      wsWasConnectedRef.current = true
+    } else if (!wsStatus.connecting && wsWasConnectedRef.current) {
+      wsWasConnectedRef.current = false
+      toast(t('sync_lost_warn'), 'warning', { duration: 6000 })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsStatus])
+
   const TOPBAR_TABS = {
     cards: [
       { key: 'list', label: t('nav_cards') },
@@ -397,8 +411,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       { key: 'packages', label: t('couriers_tab_packages') },
     ],
     imap: [
-      { key: 'accounts', label: t('nav_imap') },
-      { key: 'messages', label: t('nav_imap') },
+      { key: 'accounts', label: t('imap_tab_accounts') },
+      { key: 'messages', label: t('imap_tab_inbox') },
     ],
     activity_log: [{ key: 'list', label: t('log_title') }],
     updates: [{ key: 'list', label: t('updates_title') }],
@@ -823,7 +837,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       key: 'cards',
       icon: CreditCard,
       page: 'cards',
-      label: 'Cards',
+      label: t('nav_cards'),
       badgeKey: 'expiring_cards',
       badgeColor: 'y',
     },
@@ -1070,7 +1084,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
                 <Icon size={16} aria-hidden="true" />
                 <span className="sbi-tip">{label}</span>
                 <span className="sbi-label">{label}</span>
-                {badgeKey && (
+                {badgeKey && count > 0 && (
                   <span
                     className={`sbi-badge${badgeColor ? ` ${badgeColor}` : ''}`}
                     aria-live="polite"
@@ -1108,8 +1122,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           aria-label={t('app_search_placeholder') || 'Search'}
         >
           <Search size={16} aria-hidden="true" />
-          <span className="sbi-tip">Search ⌘K</span>
-          <span className="sbi-label">Search</span>
+          <span className="sbi-tip">{t('search_label')} ⌘K</span>
+          <span className="sbi-label">{t('search_label')}</span>
         </button>
 
         {/* Settings */}
@@ -1312,7 +1326,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         )}
 
         <main id="main-content" className="main-content-scroll">
-          <ErrorBoundary onReset={() => handlePageChange('dashboard')}>
+          <ErrorBoundary resetKey={page} onReset={() => handlePageChange('dashboard')}>
             <Suspense
               fallback={
                 <div className="flex items-center justify-center flex-1">

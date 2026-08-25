@@ -379,6 +379,7 @@ export const en = {
   license_offline_warn: 'License not verified — server unreachable. Working offline; sync, risk check and BIN lookup are unavailable.',
   offline_pill_label: 'Offline',
   offline_pill_title: 'License not verified. Unavailable: sync, risk check, BIN lookup',
+  sync_lost_warn: 'Real-time sync connection lost. Changes from other users will not appear until reconnected.',
   offline_mode: 'Offline',
 
   // Dashboard
@@ -658,6 +659,7 @@ export const en = {
 
   // App global search
   app_search_placeholder: 'Search cards, orders, shops, emails…',
+  search_label: 'Search',
   app_type_to_search: 'Type to search…',
   search_no_results: 'No results for "{q}"',
   search_result_count: '{n} results',
@@ -665,7 +667,7 @@ export const en = {
   // Keyboard shortcuts
   shortcut_nav_pages: 'Navigate pages',
   shortcut_global_search: 'Global search',
-  shortcut_close: 'Close modal / search',
+  shortcut_close: 'Esc — close',
   shortcuts_hint_prefix: 'Press',
   shortcuts_hint_suffix: 'anytime to show this',
 
@@ -899,7 +901,9 @@ export const en = {
   couriers_tab_packages: 'Packages',
   couriers_assigned_empty: 'No couriers assigned yet',
   couriers_available_empty: 'No available couriers',
+  couriers_available_go: 'Browse available couriers',
   couriers_packages_empty: 'No packages',
+  couriers_packages_empty_sub: 'Create a package so a courier gets tracking numbers',
   couriers_refresh: 'Refresh',
   couriers_add: 'Add courier',
   couriers_added: 'Courier added',
