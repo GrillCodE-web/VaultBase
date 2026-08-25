@@ -270,7 +270,7 @@
 | BUG-012a | Body overflow: создан `useScrollLock` hook с ref-counting для вложенных модалей | 🟡        | `src/hooks/useScrollLock.js`         | ✅     |
 | BUG-016  | CreateOrderModal: quickCreate race condition                                    | 🟡        | `CreateOrderModal.jsx:108-126`       | ⬜     |
 | BUG-017  | CSV Import: не валидирует пустой preview_rows                                   | 🟡        | `ImportModal.jsx:56-61`              | ✅     |
-| BUG-018  | Risk scoring offline: RiskCheckOutcome::Offline не показывается пользователю    | 🟡        | `_orders.rs`, `CreateOrderModal.jsx` | ⬜     |
+| BUG-018  | Risk scoring offline: RiskCheckOutcome::Offline не показывается пользователю    | 🟡        | `_orders.rs`, `CreateOrderModal.jsx` | ✅     |
 | BUG-019  | ActionsMenu z-index может конфликтовать с модалями                              | 🟡        | `ActionsMenu.jsx:50-60`              | ✅     |
 | BUG-020  | Config loading: нет warning если production конфиг не найден                    | 🟡        | `main.rs:96-110`                     | ✅     |
 | BUG-021  | Float CopyBtn: race condition при множественных кликах (очередь toast)          | 🟢        | `float.jsx:30-45`                    | ✅     |
