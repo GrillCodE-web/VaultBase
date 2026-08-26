@@ -147,6 +147,13 @@ Push отклонили (кто-то уже влился) → снова `fetch`
   §5 порядок интеграции). Референс-реализация шифрования — `manager-app/src-tauri/src/crypto.rs`.
 - 2026-08-25 — **M → B (frontend)**: MGR-006 — баннер новостей по severity + сортировка
   каталога по `GET /api/telemetry/priorities`; i18n-ключи новые — добавить в обе локали.
+- 2026-08-26 — **@main → B (frontend)**: FEAT-006/007, UI-часть. Backend (cron в
+  `background.rs`) эмитит раз в сутки (только при непустом списке) события:
+  - `card_expiry_reminder` — `{count, days, cards: [{id, bin, last4, expiry_date, days_left}]}`
+  - `tracking_stale_reminder` — `{count, days, orders: [{id, order_number, tracking_number, carrier, days_since_update}]}`
+    Пороги — config-ключи `reminder_card_expiry_days` (деф. 14) и
+    `reminder_tracking_stale_days` (деф. 5). Нужно: тосты/баннеры по этим событиям
+    (i18n en+ru); опционально — поля порогов в Settings.
 
 ## Стартовые промпты для сессий
 
