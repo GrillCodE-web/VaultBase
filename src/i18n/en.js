@@ -966,6 +966,20 @@ export const en = {
   settings_stuffer_key_ph: 'Enter API key',
   settings_stuffer_save: 'Save',
   settings_stuffer_saved: 'Saved',
+  stuffer_test_btn: 'Test write (live)',
+  stuffer_test_running: 'Testing...',
+  stuffer_test_hint:
+    'Runs a real write on the panel: attaches a courier if none is assigned, then creates a test package (pay_option "test")',
+  stuffer_test_need_key: 'Save the API key first',
+  stuffer_test_title: 'Stuffer write test',
+  stuffer_test_ok: 'Write test passed',
+  stuffer_test_failed: 'Write test failed',
+  stuffer_test_step_list: 'Read couriers',
+  stuffer_test_step_add: 'Attach courier',
+  stuffer_test_step_pkg: 'Create package',
+  stuffer_test_st_ok: 'ok',
+  stuffer_test_st_skipped: 'skipped',
+  stuffer_test_st_fail: 'failed',
 
   // I18N-002..004: remaining hardcoded strings
   dash_not_enough_data: 'Not enough data (need ≥3 orders per combination)',

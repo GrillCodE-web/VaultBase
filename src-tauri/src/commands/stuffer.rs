@@ -134,6 +134,29 @@ pub(crate) fn stuffer_create_package(package: crate::stuffer::PackageInput) -> R
     Ok(package_id)
 }
 
+/// FEAT-012: live-тест пишущих методов провайдера (add_courier +
+/// new_package). Возвращает отчёт по шагам — UI показывает, на каком шаге
+/// панель отвалилась. Пишет на панель по-настоящему: тест-пакет с
+/// pay_option «test».
+#[tauri::command]
+pub(crate) fn stuffer_test_write() -> Result<crate::stuffer::WriteTestReport, String> {
+    require_perm(models::perms::MANAGE_COURIERS)?;
+    let report = active_provider()?.test_write();
+    with_db!(db, {
+        let _ = db.log_event(
+            "stuffer.write_tested",
+            &format!(
+                "Write test {}: {} step(s)",
+                if report.ok { "ok" } else { "failed" },
+                report.steps.len()
+            ),
+            Some("stuffer"),
+            None,
+        );
+    });
+    Ok(report)
+}
+
 pub(crate) fn stuffer_creds() -> Result<(String, String), String> {
     with_db!(db, {
         let api_key = db

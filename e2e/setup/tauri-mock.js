@@ -486,6 +486,19 @@ export function getTauriMockScript() {
                pay_options: ['%', 'forwarding', 'test', '50/50_admin', '50/50_stuffer', 'sale'] }
     },
 
+    // ── FEAT-012: live-тест записи (Settings → Stuffer), мок без сети ──
+    stuffer_test_write: function () {
+      return {
+        provider: 'swat',
+        ok: true,
+        steps: [
+          { step: 'list_couriers', status: 'ok', detail: '1 assigned courier(s)' },
+          { step: 'add_courier', status: 'skipped', detail: 'courier #42 already assigned' },
+          { step: 'new_package', status: 'ok', detail: 'package #555 created' },
+        ],
+      }
+    },
+
     // ── справочники (создание заказа тянет их allSettled) ──
     get_emails: function () { return { items: [], total: 0 } },
     get_proxies: function () { return { items: [], total: 0 } },

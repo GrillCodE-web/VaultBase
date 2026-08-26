@@ -266,6 +266,7 @@ fn main() {
             commands::config::seed_test_data, commands::config::has_any_data,
             commands::stuffer::stuffer_list_couriers, commands::stuffer::stuffer_list_available_couriers, commands::stuffer::stuffer_add_courier,
             commands::stuffer::stuffer_list_packages, commands::stuffer::stuffer_get_labels, commands::stuffer::stuffer_create_package,
+            commands::stuffer::stuffer_test_write,
             commands::license::get_installation_id, commands::license::get_challenge_code, commands::license::activate_license,
             commands::license::get_license_status, commands::license::retry_license_connection,
             commands::misc::global_search, commands::misc::open_float_window, commands::misc::open_main_window_page, commands::misc::get_server_version, commands::misc::get_app_version,

@@ -2030,6 +2030,59 @@
     color: var(--teal-t);
   }
 
+  /* ── FEAT-012: live-тест пишущих методов (Settings → Stuffer) ── */
+  .st-ok {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.25);
+    color: var(--green-t);
+  }
+
+  .st-skipped {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.25);
+    color: var(--yellow-t);
+  }
+
+  .st-fail {
+    background: rgba(220, 38, 38, 0.12);
+    border-color: rgba(220, 38, 38, 0.25);
+    color: var(--red-t);
+  }
+
+  .stest-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  .stest-row {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+  }
+
+  .stest-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .stest-name {
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+
+  .stest-detail {
+    font-size: var(--fs-caption);
+    color: var(--muted);
+    word-break: break-word;
+  }
+
   /* ── Status Dot ─────────────────────────────────────────── */
   /* .status-dot удалён отсюда — канон 8px теперь только в
    components/badges-redesign.css */

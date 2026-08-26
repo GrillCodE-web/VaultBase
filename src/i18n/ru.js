@@ -967,6 +967,20 @@ export const ru = {
   settings_stuffer_key_ph: 'Введите API-ключ',
   settings_stuffer_save: 'Сохранить',
   settings_stuffer_saved: 'Сохранено',
+  stuffer_test_btn: 'Тест записи (live)',
+  stuffer_test_running: 'Тестирую…',
+  stuffer_test_hint:
+    'Прогоняет реальную запись на панель: подцепляет курьера, если ни один не закреплён, затем создаёт тест-посылку (pay_option «test»)',
+  stuffer_test_need_key: 'Сначала сохраните API-ключ',
+  stuffer_test_title: 'Тест записи Stuffer',
+  stuffer_test_ok: 'Тест записи прошёл',
+  stuffer_test_failed: 'Тест записи не прошёл',
+  stuffer_test_step_list: 'Чтение курьеров',
+  stuffer_test_step_add: 'Подключение курьера',
+  stuffer_test_step_pkg: 'Создание посылки',
+  stuffer_test_st_ok: 'ок',
+  stuffer_test_st_skipped: 'пропущен',
+  stuffer_test_st_fail: 'ошибка',
 
   // I18N-002..004
   dash_not_enough_data: 'Недостаточно данных (нужно ≥3 заказов на комбинацию)',

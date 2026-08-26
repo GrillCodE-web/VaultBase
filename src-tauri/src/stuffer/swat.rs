@@ -196,7 +196,7 @@ pub struct TrackInput {
 /// (а не null) — так панель применяет свои дефолты из docs/API_STUFFER.md
 /// (pay_option "%", price 1, вес "0", трек-плейсхолдер "n/a"). Раньше null
 /// полей приводил к жёсткой валидации после смены схемы на панели.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PackageInput {
     pub courier_id: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]

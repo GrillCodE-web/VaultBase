@@ -23,7 +23,9 @@ import {
   Sun,
   Moon,
   Truck,
+  Activity,
 } from 'lucide-react'
+import { Modal } from '../components/Modal.jsx'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
@@ -42,6 +44,13 @@ const THEME_OPTIONS = [
 
 // Единая политика паролей с мастер-паролем (12+ символов, верхний/нижний
 // регистр, цифра, спецсимвол) — совпадает с PasswordValidation в бэкенде.
+// FEAT-012: id шагов live-теста (бэкенд stuffer::test_write) → i18n-ключи.
+const STUFFER_TEST_STEPS = {
+  list_couriers: 'stuffer_test_step_list',
+  add_courier: 'stuffer_test_step_add',
+  new_package: 'stuffer_test_step_pkg',
+}
+
 function isStrongPassword(pw) {
   return (
     pw.length >= 12 &&
@@ -254,6 +263,25 @@ export default function Settings() {
     } catch (e) {
       const error = handleError(e, 'Settings.clearBinApiKey')
       toastErr(getErrorMessage(error))
+    }
+  }
+
+  // FEAT-012: live-тест пишущих методов панели (add_courier + new_package).
+  // Бэкенд возвращает отчёт по шагам; модалка показывает, где панель отвалилась.
+  const [stufferTesting, setStufferTesting] = useState(false)
+  const [stufferTest, setStufferTest] = useState(null)
+  const runStufferTest = async () => {
+    setStufferTesting(true)
+    try {
+      const report = await invoke('stuffer_test_write')
+      setStufferTest(report)
+      if (report?.ok) toastOk(t('stuffer_test_ok'))
+      else toastErr(t('stuffer_test_failed'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.runStufferTest')
+      toastErr(getErrorMessage(error))
+    } finally {
+      setStufferTesting(false)
     }
   }
 
@@ -721,15 +749,50 @@ export default function Settings() {
                 }
                 className="form-input"
               />
-              <button
-                onClick={saveStufferConfig}
-                className={`btn btn-sm self-end ${stufferSaved ? 'btn-g' : 'btn-b'}`}
-              >
-                {stufferSaved ? t('settings_stuffer_saved') : t('settings_stuffer_save')}
-              </button>
+              <div className="flex gap-2 self-end">
+                <button
+                  onClick={saveStufferConfig}
+                  className={`btn btn-sm ${stufferSaved ? 'btn-g' : 'btn-b'}`}
+                >
+                  {stufferSaved ? t('settings_stuffer_saved') : t('settings_stuffer_save')}
+                </button>
+                <button
+                  onClick={runStufferTest}
+                  disabled={!stufferKeySet || stufferTesting}
+                  title={stufferKeySet ? t('stuffer_test_hint') : t('stuffer_test_need_key')}
+                  className="btn btn-sm btn-ghost"
+                >
+                  {stufferTesting ? (
+                    <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  ) : (
+                    <Activity size={14} />
+                  )}
+                  {stufferTesting ? t('stuffer_test_running') : t('stuffer_test_btn')}
+                </button>
+              </div>
             </div>
           </div>
         )}
+
+        {/* FEAT-012: отчёт live-теста пишущих методов Stuffer */}
+        <Modal
+          isOpen={stufferTest != null}
+          onClose={() => setStufferTest(null)}
+          title={t('stuffer_test_title')}
+          size="md"
+        >
+          <div className="stest-list">
+            {stufferTest?.steps?.map(s => (
+              <div key={s.step} className="stest-row">
+                <span className={`st st-${s.status}`}>{t(`stuffer_test_st_${s.status}`)}</span>
+                <div className="stest-text">
+                  <span className="stest-name">{t(STUFFER_TEST_STEPS[s.step] || s.step)}</span>
+                  <span className="stest-detail">{s.detail}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Modal>
 
         {/* Database */}
         <div className="panel">
