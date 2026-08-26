@@ -11,17 +11,31 @@ const WebSocket = require('ws');
 const licenses = new Map([
   ['tok-ok', { installation_id: 'inst-ok', is_active: 1 }],
   ['tok-dead', { installation_id: 'inst-dead', is_active: 0 }],
+  ['tok-mgr', { installation_id: 'inst-mgr', is_active: 1, role: 'manager' }],
+  ['tok-banned', { installation_id: 'inst-banned', is_active: 1 }],
+  ['tok-boom', { installation_id: 'inst-boom', is_active: 1 }],
 ]);
 const members = new Map([['inst-ok', { group_id: 'g1' }]]);
+const bannedWorkers = new Map([['inst-banned', { banned_reason: 'fraud_suspected' }]]);
 
 const fakeDb = {
-  transaction(fn) { return (...args) => fn(...args); },
+  // 'tok-boom' simulates a DB failure inside the auth transaction: the throw
+  // must surface as auth_error internal_error, never as an uncaught crash.
+  transaction(fn) {
+    return (tkn) => {
+      if (tkn === 'tok-boom') throw new Error('simulated DB failure');
+      return fn(tkn);
+    };
+  },
   prepare(sql) {
     if (sql.includes('FROM licenses')) {
       return { get: (token) => licenses.get(token) };
     }
     if (sql.includes('UPDATE licenses SET last_seen')) {
       return { run: () => ({ changes: 1 }) };
+    }
+    if (sql.includes('worker_policies')) {
+      return { get: (iid) => bannedWorkers.get(iid) };
     }
     if (sql.includes('sync_group_members')) {
       return { get: (iid) => members.get(iid) };
@@ -103,6 +117,37 @@ test('auth_error for unknown token', async () => {
   ws.send(JSON.stringify({ type: 'auth', token: 'tok-nope' }));
   const msg = await reply;
   assert.equal(msg.type, 'auth_error');
+  await closed(ws);
+});
+
+test('manager-role license is rejected from the worker WS channel (MGR-001)', async () => {
+  const ws = await connect();
+  const reply = nextMessage(ws);
+  ws.send(JSON.stringify({ type: 'auth', token: 'tok-mgr' }));
+  const msg = await reply;
+  assert.equal(msg.type, 'auth_error');
+  assert.equal(msg.error, 'manager_ws_forbidden');
+  await closed(ws);
+});
+
+test('banned worker is rejected with the ban reason (MGR-001 worker_policies)', async () => {
+  const ws = await connect();
+  const reply = nextMessage(ws);
+  ws.send(JSON.stringify({ type: 'auth', token: 'tok-banned' }));
+  const msg = await reply;
+  assert.equal(msg.type, 'auth_error');
+  assert.equal(msg.error, 'banned');
+  assert.equal(msg.reason, 'fraud_suspected');
+  await closed(ws);
+});
+
+test('DB failure during auth answers internal_error instead of hanging (MGR-001 regression)', async () => {
+  const ws = await connect();
+  const reply = nextMessage(ws);
+  ws.send(JSON.stringify({ type: 'auth', token: 'tok-boom' }));
+  const msg = await reply;
+  assert.equal(msg.type, 'auth_error');
+  assert.equal(msg.error, 'internal_error');
   await closed(ws);
 });
 

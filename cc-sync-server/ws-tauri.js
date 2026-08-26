@@ -118,7 +118,17 @@ module.exports = function initWsTauri(wss, io) {
           `).get(row.installation_id);
           return { installationId: row.installation_id, groupId: member?.group_id || null };
         });
-        const auth = authTx(token);
+        let auth;
+        try {
+          auth = authTx(token);
+        } catch (e) {
+          // A failing DB (locked, IO error) must answer the client instead of an
+          // uncaught throw that leaves the socket hanging until auth_timeout.
+          console.error('[ws-tauri] auth transaction failed:', e.message);
+          send(ws, { type: 'auth_error', error: 'internal_error' });
+          ws.close();
+          return;
+        }
 
         if (!auth) {
           send(ws, { type: 'auth_error', error: 'invalid_token' });
@@ -178,9 +188,16 @@ module.exports = function initWsTauri(wss, io) {
       if (msg.type === 'full_pull') {
         if (!ws.groupId) { send(ws, { type: 'error', error: 'not_in_group' }); return; }
         const db = getDb();
-        const cards = db.prepare(
-          'SELECT card_hash, encrypted_data, status, notes, updated_by, updated_at FROM sync_cards WHERE group_id = ? ORDER BY updated_at DESC'
-        ).all(ws.groupId);
+        let cards;
+        try {
+          cards = db.prepare(
+            'SELECT card_hash, encrypted_data, status, notes, updated_by, updated_at FROM sync_cards WHERE group_id = ? ORDER BY updated_at DESC'
+          ).all(ws.groupId);
+        } catch (e) {
+          console.error('[ws-tauri] full_pull failed:', e.message);
+          send(ws, { type: 'error', error: 'internal_error' });
+          return;
+        }
         send(ws, { type: 'full_data', cards });
         return;
       }
@@ -223,7 +240,14 @@ module.exports = function initWsTauri(wss, io) {
       // ── Re-check group (after joining) ────────────────────────
       if (msg.type === 'refresh_group') {
         const db = getDb();
-        const member = db.prepare('SELECT group_id FROM sync_group_members WHERE installation_id = ?').get(ws.installationId);
+        let member;
+        try {
+          member = db.prepare('SELECT group_id FROM sync_group_members WHERE installation_id = ?').get(ws.installationId);
+        } catch (e) {
+          console.error('[ws-tauri] refresh_group failed:', e.message);
+          send(ws, { type: 'error', error: 'internal_error' });
+          return;
+        }
         ws.groupId = member?.group_id || null;
         send(ws, { type: 'group_refreshed', group_id: ws.groupId });
         return;
