@@ -38,6 +38,7 @@ include!("_imap.rs");
 include!("_profiles.rs");
 include!("_shops.rs");
 include!("_orders.rs");
+include!("_stuffer.rs");
 include!("_misc.rs");
 include!("_users.rs");
 include!("_helpers.rs");

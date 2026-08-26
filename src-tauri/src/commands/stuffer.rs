@@ -123,6 +123,11 @@ pub(crate) fn stuffer_get_labels(package_id: i64) -> Result<Vec<crate::stuffer::
 pub(crate) fn stuffer_create_package(package: crate::stuffer::PackageInput) -> Result<i64, String> {
     require_perm(models::perms::CREATE_PACKAGES)?;
     let package_id = active_provider()?.create_package(&package)?;
+    // FEAT-009: запоминаем последнюю созданную посылку — stuffer_link_order_package
+    // без явного package_id привяжет именно её (сценарий «создал из карточки заказа»).
+    if let Ok(mut last) = LAST_CREATED_PACKAGE.lock() {
+        *last = Some(package_id);
+    }
     with_db!(db, {
         let _ = db.log_event(
             "stuffer.package_created",
@@ -157,6 +162,63 @@ pub(crate) fn stuffer_test_write() -> Result<crate::stuffer::WriteTestReport, St
     Ok(report)
 }
 
+// ── FEAT-009: привязка посылок панели к заказам ──
+
+/// Привязать заказ к посылке. Если `package_id` не передан, берётся последняя
+/// созданная этим пользователем посылка (stuffer_create_package) — сценарий
+/// «создал посылку из карточки заказа» без ручного ввода номера.
+#[tauri::command]
+pub(crate) fn stuffer_link_order_package(
+    order_id: i64,
+    package_id: Option<i64>,
+    courier_id: Option<i64>,
+    track: Option<String>,
+) -> Result<OrderPackageLink, String> {
+    require_any_perm(&[models::perms::CREATE_PACKAGES, models::perms::MANAGE_COURIERS])?;
+    let pid = match package_id {
+        Some(p) => p,
+        None => LAST_CREATED_PACKAGE
+            .lock()
+            .map_err(|_| "stuffer_state_poisoned".to_string())?
+            .ok_or_else(|| "no_recent_package".to_string())?,
+    };
+    let provider = active_provider_id()?;
+    let link = with_db!(db, {
+        db.link_order_package(order_id, &provider, pid, courier_id, track.as_deref(), None)?
+    });
+    Ok(link)
+}
+
+#[tauri::command]
+pub(crate) fn stuffer_unlink_order_package(order_id: i64, link_id: i64) -> Result<(), String> {
+    require_any_perm(&[models::perms::CREATE_PACKAGES, models::perms::MANAGE_COURIERS])?;
+    with_db!(db, { db.unlink_order_package(order_id, link_id) })
+}
+
+#[tauri::command]
+pub(crate) fn stuffer_list_order_packages(order_id: i64) -> Result<Vec<OrderPackageLink>, String> {
+    require_perm(models::perms::VIEW_PACKAGES)?;
+    with_db!(db, { db.list_links_for_order(order_id) })
+}
+
+/// Посылки всех заказов профиля — цепочка карта → профиль → заказ → посылка.
+#[tauri::command]
+pub(crate) fn stuffer_list_profile_packages(profile_id: String) -> Result<Vec<ProfilePackageLink>, String> {
+    require_perm(models::perms::VIEW_PACKAGES)?;
+    with_db!(db, { db.list_links_for_profile(&profile_id) })
+}
+
+/// Обновить снапшоты (status/track/courier) привязанных посылок из живого
+/// списка панели. Вызывается после list_packages.
+#[tauri::command]
+pub(crate) fn stuffer_refresh_package_snapshots() -> Result<u32, String> {
+    require_perm(models::perms::VIEW_PACKAGES)?;
+    let provider = active_provider()?;
+    let packages = provider.list_packages()?;
+    let provider_id = provider.id().to_string();
+    with_db!(db, { db.refresh_package_snapshots(&provider_id, &packages) })
+}
+
 pub(crate) fn stuffer_creds() -> Result<(String, String), String> {
     with_db!(db, {
         let api_key = db
@@ -178,16 +240,26 @@ pub(crate) fn stuffer_creds() -> Result<(String, String), String> {
 /// CARGO добавляется реализацией trait Provider и регистрацией в
 /// provider_by_id, команды и фронтенд при этом не меняются).
 fn active_provider() -> Result<Box<dyn stuffer::Provider>, String> {
-    let provider_id = with_db!(db, {
+    let provider_id = active_provider_id()?;
+    let (base_url, api_key) = stuffer_creds()?;
+    stuffer::provider_by_id(&provider_id, &base_url, &api_key)
+}
+
+/// FEAT-009: id активного провайдера без чтения кредов — для записи
+/// провайдера в локальные связи заказ↔посылка.
+fn active_provider_id() -> Result<String, String> {
+    with_db!(db, {
         Ok::<String, String>(db
             .get_config("stuffer_provider")
             .map_err(|e| e.to_string())?
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "swat".to_string()))
-    })?;
-    let (base_url, api_key) = stuffer_creds()?;
-    stuffer::provider_by_id(&provider_id, &base_url, &api_key)
+    })
 }
+
+/// FEAT-009: последняя созданная этим процессом посылка — дефолт для
+/// stuffer_link_order_package без явного package_id.
+static LAST_CREATED_PACKAGE: Mutex<Option<i64>> = Mutex::new(None);
 
 #[derive(serde::Serialize)]
 pub(crate) struct StufferConfigView {

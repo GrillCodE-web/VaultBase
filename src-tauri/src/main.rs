@@ -267,6 +267,12 @@ fn main() {
             commands::stuffer::stuffer_list_couriers, commands::stuffer::stuffer_list_available_couriers, commands::stuffer::stuffer_add_courier,
             commands::stuffer::stuffer_list_packages, commands::stuffer::stuffer_get_labels, commands::stuffer::stuffer_create_package,
             commands::stuffer::stuffer_test_write,
+            // FEAT-009: привязка посылок панели к заказам
+            commands::stuffer::stuffer_link_order_package,
+            commands::stuffer::stuffer_unlink_order_package,
+            commands::stuffer::stuffer_list_order_packages,
+            commands::stuffer::stuffer_list_profile_packages,
+            commands::stuffer::stuffer_refresh_package_snapshots,
             commands::license::get_installation_id, commands::license::get_challenge_code, commands::license::activate_license,
             commands::license::get_license_status, commands::license::retry_license_connection,
             commands::misc::global_search, commands::misc::open_float_window, commands::misc::open_main_window_page, commands::misc::get_server_version, commands::misc::get_app_version,

@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 14;
+    const LATEST_VERSION: u32 = 15;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -74,7 +74,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (4, migration_v4), (5, migration_v5), (6, migration_v6),
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
-        (13, migration_v13), (14, migration_v14),
+        (13, migration_v13), (14, migration_v14), (15, migration_v15),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -621,3 +621,27 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         Ok(())
     }
 
+
+
+    // FEAT-009: привязка посылок внешней панели (stuffer) к заказам.
+    // Сама посылка живёт на панели; локально — связь + снапшот
+    // (courier/track/status) для офлайн-отображения цепочки
+    // карта → профиль → заказ → посылка → курьер.
+    fn migration_v15(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS order_package_link (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                provider   TEXT NOT NULL DEFAULT 'swat',
+                package_id INTEGER NOT NULL,
+                courier_id INTEGER,
+                track      TEXT,
+                status     TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(provider, package_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_opl_order ON order_package_link(order_id);
+        "#)?;
+        Ok(())
+    }

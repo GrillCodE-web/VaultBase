@@ -501,6 +501,31 @@ pub struct Order {
 
 pub type OrderDetail = Order;
 
+/// FEAT-009: связь заказа с посылкой внешней панели (stuffer).
+/// Сама посылка живёт на панели; локально — связь + снапшот
+/// (courier/track/status) для офлайн-отображения.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OrderPackageLink {
+    pub id: i64,
+    pub order_id: i64,
+    pub provider: String,
+    pub package_id: i64,
+    pub courier_id: Option<i64>,
+    pub track: Option<String>,
+    pub status: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// FEAT-009: посылки всех заказов профиля — звено цепочки
+/// карта → профиль → заказ → посылка → курьер.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProfilePackageLink {
+    pub link: OrderPackageLink,
+    pub order_number: Option<String>,
+    pub order_status: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PaginatedOrders {
     pub items: Vec<Order>,
