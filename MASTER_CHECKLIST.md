@@ -227,7 +227,7 @@
 | FEAT-009 | Привязка посылок к заказам/профилям (карта → заказ → посылка → курьер)                            | 🟡        | `stuffer.rs`, DB schema    | ⬜       |
 | FEAT-010 | Sync курьеров между пользователями: теги (использован под zoro.com) через хеши в реальном времени | 🟡        | `stuffer.rs`, `ws_sync.rs` | ⬜       |
 | FEAT-011 | Общий список курьеров с индивидуальными API ключами                                               | 🟡        | `stuffer.rs`, UI           | ⬜       |
-| FEAT-012 | Live тест пишущих методов (add_courier, new_package)                                              | 🟡        | `stuffer.rs`               | 🔄 @main |
+| FEAT-012 | Live тест пишущих методов (add_courier, new_package)                                              | 🟡        | `stuffer.rs`               | ✅ @main |
 
 ### 5.5 Плагинная система
 
