@@ -729,6 +729,27 @@ impl Database {
 
         Ok(())
     }
+
+    /// FEAT-006: живые карты (free/in_use; словарь статусов — миграция v14),
+    /// у которых срок действия истекает в ближайшие `days` дней или уже истёк.
+    /// expiry_date в формате MM/YY — plaintext, сравнение на стороне SQLite
+    /// (паттерн FIX B15). Возвращает (id, bin, last4, expiry_date, days_left).
+    pub fn cards_expiring_within(&self, days: i64) -> Result<Vec<(i64, String, String, String, i64)>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, COALESCE(bin,''), COALESCE(last4,''), expiry_date, \
+                    CAST(julianday(date('20'||substr(expiry_date,4,2)||'-'||substr(expiry_date,1,2)||'-01','+1 month','-1 day')) \
+                         - julianday(date('now')) AS INTEGER) \
+             FROM credit_cards \
+             WHERE status IN ('free','in_use') AND expiry_date IS NOT NULL AND expiry_date != '' \
+               AND date('20'||substr(expiry_date,4,2)||'-'||substr(expiry_date,1,2)||'-01','+1 month','-1 day') \
+                   <= date('now', ?1) \
+             ORDER BY date('20'||substr(expiry_date,4,2)||'-'||substr(expiry_date,1,2)||'-01')"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![format!("+{} days", days)], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        }).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
 }
 
 // ─────────────────────────────────────────
@@ -767,6 +788,45 @@ mod perf_tests {
             domain: None,
             acquired_at: None,
         }
+    }
+
+    // FEAT-006: выборка карт с истекающим сроком
+    #[test]
+    fn test_cards_expiring_within() {
+        let (_dir, db) = test_db();
+        let now = chrono::Utc::now();
+        // MM/YY текущего месяца — истекает через ≤31 день
+        let this_month = now.format("%m/%y").to_string();
+
+        let mut c_expiring = make_card(1);
+        c_expiring.expiry_date = Some(this_month.clone());
+        let mut c_far = make_card(2);
+        c_far.expiry_date = Some("12/35".into());
+        let mut c_expired = make_card(3);
+        c_expired.expiry_date = Some("01/20".into());
+        let mut c_noexp = make_card(4);
+        c_noexp.expiry_date = None;
+        let mut c_arch = make_card(5);
+        c_arch.expiry_date = Some(this_month.clone());
+        db.insert_cards(vec![c_expiring, c_far, c_expired, c_noexp, c_arch]).unwrap();
+        // пятую карту — в архив (словарь статусов: free/in_use/archive/dead)
+        db.conn.execute(
+            "UPDATE credit_cards SET status='archive' WHERE expiry_date=?1 AND id=(SELECT MAX(id) FROM credit_cards)",
+            rusqlite::params![this_month],
+        ).unwrap();
+
+        let got = db.cards_expiring_within(14).unwrap();
+        assert_eq!(got.len(), 2, "только истекающая и просроченная, без архива и без expiry");
+        // первая — самая старая (01/20), days_left отрицательный
+        assert_eq!(got[0].3, "01/20");
+        assert!(got[0].4 < 0);
+        assert_eq!(got[1].3, this_month);
+        assert!((0..=31).contains(&got[1].4));
+
+        // узкое окно в 1 день может отсеять текущий месяц, но просроченная — всегда
+        let narrow = db.cards_expiring_within(0).unwrap();
+        assert!(narrow.iter().any(|c| c.3 == "01/20"));
+        assert!(!narrow.iter().any(|c| c.3 == "12/35"));
     }
 
     // TEST-013: вставка 10k карт — замер времени (не ассерт, а регрессионный ориентир).

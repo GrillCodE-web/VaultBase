@@ -357,6 +357,50 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                 }
             }
         }),
+        // FEAT-006: напоминание о картах с истекающим сроком (раз в сутки)
+        CronTask::new("card_expiry_reminder", crate::constants::REMINDER_CHECK_INTERVAL_SECS, crate::constants::REMINDER_START_DELAY_SECS, |h| {
+            if let Some(st) = STATE.get() {
+                let Ok(db) = st.db.lock() else { return };
+                if db.is_locked() { return; }
+                let days = db.get_config("reminder_card_expiry_days").ok().flatten()
+                    .and_then(|v| v.parse::<i64>().ok())
+                    .unwrap_or(crate::constants::REMINDER_CARD_EXPIRY_DAYS_DEFAULT);
+                let cards = db.cards_expiring_within(days).unwrap_or_default();
+                drop(db); // не держим lock на emit
+                if !cards.is_empty() {
+                    let _ = h.emit("card_expiry_reminder", serde_json::json!({
+                        "count": cards.len(),
+                        "days": days,
+                        "cards": cards.iter().map(|(id, bin, last4, expiry, days_left)| serde_json::json!({
+                            "id": id, "bin": bin, "last4": last4,
+                            "expiry_date": expiry, "days_left": days_left,
+                        })).collect::<Vec<_>>(),
+                    }));
+                }
+            }
+        }),
+        // FEAT-007: напоминание проверить «застоявшиеся» трекинги (раз в сутки)
+        CronTask::new("tracking_stale_reminder", crate::constants::REMINDER_CHECK_INTERVAL_SECS, crate::constants::REMINDER_START_DELAY_SECS, |h| {
+            if let Some(st) = STATE.get() {
+                let Ok(db) = st.db.lock() else { return };
+                if db.is_locked() { return; }
+                let days = db.get_config("reminder_tracking_stale_days").ok().flatten()
+                    .and_then(|v| v.parse::<i64>().ok())
+                    .unwrap_or(crate::constants::REMINDER_TRACKING_STALE_DAYS_DEFAULT);
+                let orders = db.stale_tracking_orders(days).unwrap_or_default();
+                drop(db); // не держим lock на emit
+                if !orders.is_empty() {
+                    let _ = h.emit("tracking_stale_reminder", serde_json::json!({
+                        "count": orders.len(),
+                        "days": days,
+                        "orders": orders.iter().map(|(id, onum, track, carrier, since)| serde_json::json!({
+                            "id": id, "order_number": onum, "tracking_number": track,
+                            "carrier": carrier, "days_since_update": since,
+                        })).collect::<Vec<_>>(),
+                    }));
+                }
+            }
+        }),
     ]);
 
     // ── Auto-fetch catalog on first run if empty ──

@@ -85,6 +85,18 @@ pub const QUARANTINE_CHECK_INTERVAL_SECS: u64 = 1800;
 /// Couriers stuffer sync start delay (1 minute)
 pub const STUFFER_SYNC_START_DELAY_SECS: u64 = 60;
 
+/// FEAT-006/007: напоминания проверяются раз в сутки
+pub const REMINDER_CHECK_INTERVAL_SECS: u64 = 24 * 3600;
+
+/// FEAT-006/007: стартовая задержка напоминаний (даём разблокировать БД)
+pub const REMINDER_START_DELAY_SECS: u64 = 300;
+
+/// FEAT-006: за сколько дней предупреждать об истечении карты (дефолт)
+pub const REMINDER_CARD_EXPIRY_DAYS_DEFAULT: i64 = 14;
+
+/// FEAT-007: через сколько дней без обновления shipped-заказ «застоялся» (дефолт)
+pub const REMINDER_TRACKING_STALE_DAYS_DEFAULT: i64 = 5;
+
 /// Couriers stuffer sync interval (5 minutes)
 pub const STUFFER_SYNC_INTERVAL_SECS: u64 = 300;
 

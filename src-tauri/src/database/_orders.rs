@@ -524,6 +524,26 @@ impl Database {
             .map_err(|e| e.to_string())?;
         Ok(dest.to_string())
     }
+
+    /// FEAT-007: «застоявшиеся» отправленные заказы — есть трек, статус
+    /// shipped, и заказ не обновлялся `days` дней. Напоминание проверить
+    /// трекинг вручную. Возвращает (id, order_number, tracking_number,
+    /// carrier, days_since_update).
+    pub fn stale_tracking_orders(&self, days: i64) -> Result<Vec<(i64, Option<String>, String, Option<String>, i64)>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, order_number, tracking_number, carrier, \
+                    CAST(julianday('now') - julianday(updated_at) AS INTEGER) \
+             FROM orders \
+             WHERE status = 'shipped' \
+               AND tracking_number IS NOT NULL AND tracking_number != '' \
+               AND julianday('now') - julianday(updated_at) >= ?1 \
+             ORDER BY updated_at"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![days], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        }).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
 }
 
 // ─────────────────────────────────────────
@@ -624,6 +644,55 @@ mod tests {
         // Verify invalid status would be rejected
         let invalid_status = "unknown_status";
         assert!(!valid_statuses.contains(&invalid_status));
+    }
+
+    /// FEAT-007: «застоявшиеся» shipped-заказы с треком
+    #[test]
+    fn test_stale_tracking_orders() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Database::open(dir.path().join("t.db").to_str().unwrap()).unwrap();
+        // create_profile требует разблокированную БД
+        let salt = crate::encryption::generate_salt();
+        db.set_encryption(crate::encryption::FieldEncryption::new("test_pw_1234567890", &salt));
+        // полная FK-цепочка: карта → профиль → заказ
+        db.conn.execute(
+            "INSERT INTO credit_cards(card_number,source) VALUES('4111111111111111','test')", [],
+        ).unwrap();
+        let card_id: i64 = db.conn.query_row("SELECT MAX(id) FROM credit_cards", [], |r| r.get(0)).unwrap();
+        let prof = db.create_profile(card_id, None).unwrap().id;
+        let shop = db.create_shop(&crate::models::ShopInput {
+            name: "S".into(), url: "https://stale.example.com".into(),
+            category: "general".into(), notes: String::new(),
+            requires_cvv_match: false, blocks_vpn: false, phone_must_match: false,
+            accepts_amex: false, requires_avs: false, high_cancel_risk: false,
+        }).unwrap();
+        let oid = db.create_order(&OrderInput {
+            profile_id: prof, shop_id: shop.id, drop_id: None, email_pool_id: None,
+            proxy_id: None, order_number: Some("STALE-1".into()),
+            notes: None, items: vec![],
+        }).unwrap().id;
+
+        // свежий shipped — НЕ застоявшийся
+        db.conn.execute(
+            "UPDATE orders SET status='shipped', tracking_number='1Z111', updated_at=datetime('now') WHERE id=?1",
+            rusqlite::params![oid],
+        ).unwrap();
+        assert!(db.stale_tracking_orders(5).unwrap().is_empty());
+
+        // устареваем updated_at на 10 дней назад — попадает
+        db.conn.execute(
+            "UPDATE orders SET updated_at=datetime('now','-10 days') WHERE id=?1",
+            rusqlite::params![oid],
+        ).unwrap();
+        let got = db.stale_tracking_orders(5).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].0, oid);
+        assert_eq!(got[0].2, "1Z111");
+        assert!(got[0].4 >= 10);
+
+        // delivered с тем же треком — не попадает
+        db.conn.execute("UPDATE orders SET status='delivered' WHERE id=?1", rusqlite::params![oid]).unwrap();
+        assert!(db.stale_tracking_orders(5).unwrap().is_empty());
     }
 
     /// Test placeholder generation doesn't have SQL injection vulnerabilities
