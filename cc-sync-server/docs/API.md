@@ -112,11 +112,12 @@ GET /api/catalog/items?search={query}&page={page}&per_page={per_page}
 ```
 
 **Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| `search` | string | Search query (SQL injection protected) |
-| `page` | number | Page number (default: 1) |
-| `per_page` | number | Items per page (default: 20) |
+
+| Name       | Type   | Description                            |
+| ---------- | ------ | -------------------------------------- |
+| `search`   | string | Search query (SQL injection protected) |
+| `page`     | number | Page number (default: 1)               |
+| `per_page` | number | Items per page (default: 20)           |
 
 **Response:** `200 OK`
 
@@ -153,8 +154,9 @@ GET /api/bin/:bin
 ```
 
 **Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
+
+| Name  | Type   | Description          |
+| ----- | ------ | -------------------- |
 | `bin` | string | 6-8 digit BIN number |
 
 **Response:** `200 OK`
@@ -433,22 +435,66 @@ ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: licenseToken }))
 
 **Messages:**
 
-| Type              | Direction       | Payload                                                |
-| ----------------- | --------------- | ------------------------------------------------------ |
-| `auth`            | Client → Server | `{ token: string }`                                    |
-| `auth_ok`         | Server → Client | `{ installation_id, group_id }`                        |
-| `auth_error`      | Server → Client | `{ error: 'missing_token' \| 'invalid_token' }`        |
-| `ping` / `pong`   | Bidirectional   | `{}`                                                   |
-| `full_pull`       | Client → Server | `{}` — requests all cards for the group                |
-| `full_data`       | Server → Client | `{ cards: [...] }`                                     |
-| `push`            | Client → Server | `{ cards: [...] }` — max 100 per message               |
-| `card_update`     | Server → Client | `{ cards, updated_by, updated_at }`                    |
-| `catalog_update`  | Server → Client | `{ ... }`                                              |
-| `refresh_group`   | Client → Server | `{}`                                                   |
-| `group_refreshed` | Server → Client | `{ group_id }`                                         |
-| `member_joined`   | Server → Client | `{ installation_id }`                                  |
-| `member_left`     | Server → Client | `{ installation_id }`                                  |
-| `error`           | Server → Client | `{ error: 'not_in_group' \| 'too_many_cards' \| ... }` |
+| Type              | Direction       | Payload                                                                                 |
+| ----------------- | --------------- | --------------------------------------------------------------------------------------- |
+| `auth`            | Client → Server | `{ token: string }`                                                                     |
+| `auth_ok`         | Server → Client | `{ installation_id, group_id }`                                                         |
+| `auth_error`      | Server → Client | `{ error: 'missing_token' \| 'invalid_token' }`                                         |
+| `ping` / `pong`   | Bidirectional   | `{}`                                                                                    |
+| `full_pull`       | Client → Server | `{}` — requests all cards for the group                                                 |
+| `full_data`       | Server → Client | `{ cards: [...], courier_tags: [...] }`                                                 |
+| `push`            | Client → Server | `{ cards: [...] }` — max 100 per message                                                |
+| `card_update`     | Server → Client | `{ cards, updated_by, updated_at }`                                                     |
+| `courier_tag`     | Server → Client | `{ provider, courier_hash, tag, action, updated_by, updated_at }` — FEAT-010, see below |
+| `catalog_update`  | Server → Client | `{ ... }`                                                                               |
+| `refresh_group`   | Client → Server | `{}`                                                                                    |
+| `group_refreshed` | Server → Client | `{ group_id }`                                                                          |
+| `member_joined`   | Server → Client | `{ installation_id }`                                                                   |
+| `member_left`     | Server → Client | `{ installation_id }`                                                                   |
+| `error`           | Server → Client | `{ error: 'not_in_group' \| 'too_many_cards' \| ... }`                                  |
+
+#### Courier Tags (FEAT-010)
+
+Courier tags (e.g. "used under zoro.com") are synced between group members
+as **hashes only**: the desktop client sends `provider` + SHA-256 of the
+courier identity + tag. Names and addresses never leave the client.
+
+**Push (HTTP):**
+
+```http
+POST /sync/courier_tag
+Content-Type: application/json
+```
+
+**Body:**
+
+```json
+{
+  "provider": "swat",
+  "courier_hash": "9f2c...64-hex",
+  "tag": "zoro.com",
+  "action": "add"
+}
+```
+
+- `courier_hash` — SHA-256 hex (64 lowercase chars) of the courier identity.
+- `tag` — trimmed, lowercased, 1–100 chars.
+- `action` — `"add"` or `"remove"`. Last write wins: upsert by
+  `(group_id, provider, courier_hash, tag)`, no history is kept.
+
+**Response:** `200 OK`
+
+```json
+{ "ok": true }
+```
+
+**Errors:** `400 invalid_courier_tag`, `403 not_found`, `404 not_in_group`,
+`500 push_failed`.
+
+**Broadcast:** on a successful push the server emits the `courier_tag` event
+(table above) to all group members except the sender, and a socket.io
+`courier_tag` event to the `group:<id>` room (browser admin). Reconnecting
+clients receive current tags in `full_data.courier_tags` after `full_pull`.
 
 ---
 

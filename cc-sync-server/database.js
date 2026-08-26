@@ -317,6 +317,27 @@ function migrate(db) {
       PRAGMA user_version = 11;
     `);
   }
+
+  // FEAT-010: sync тегов курьеров ("использован под zoro.com"). Теги ключуются
+  // SHA-256 хешем личности курьера — сервер не видит ни имён, ни адресов.
+  // Хранится только последнее действие (add/remove), история не ведётся.
+  if (ver < 12) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_courier_tags (
+        group_id     TEXT NOT NULL,
+        provider     TEXT NOT NULL DEFAULT 'swat',
+        courier_hash TEXT NOT NULL,
+        tag          TEXT NOT NULL,
+        action       TEXT NOT NULL DEFAULT 'add' CHECK (action IN ('add','remove')),
+        updated_by   TEXT,
+        updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (group_id, provider, courier_hash, tag)
+      );
+      CREATE INDEX IF NOT EXISTS idx_sync_courier_tags_group ON sync_courier_tags(group_id, updated_at);
+
+      PRAGMA user_version = 12;
+    `);
+  }
 }
 
 /**

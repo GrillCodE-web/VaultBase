@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 15;
+    const LATEST_VERSION: u32 = 16;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -75,6 +75,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
+        (16, migration_v16),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -642,6 +643,29 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 UNIQUE(provider, package_id)
             );
             CREATE INDEX IF NOT EXISTS idx_opl_order ON order_package_link(order_id);
+        "#)?;
+        Ok(())
+    }
+
+    // FEAT-010: локальные теги курьеров ("использован под zoro.com").
+    // courier_hash — SHA-256 нормализованной личности курьера
+    // (provider|name|address1|city|state|zip) — по нему применяются
+    // приходящие из группы теги, не раскрывая данные курьера серверу.
+    // ВНИМАНИЕ: ветка agent/upanel (FEAT-018) тоже несёт миграцию "v15"
+    // (upanel_connections) — при её влитии перенумеровать её в v17.
+    fn migration_v16(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS courier_tags (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider     TEXT NOT NULL DEFAULT 'swat',
+                courier_id   INTEGER,
+                courier_hash TEXT NOT NULL,
+                tag          TEXT NOT NULL,
+                created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(provider, courier_hash, tag)
+            );
+            CREATE INDEX IF NOT EXISTS idx_courier_tags_hash ON courier_tags(courier_hash);
+            CREATE INDEX IF NOT EXISTS idx_courier_tags_courier ON courier_tags(provider, courier_id);
         "#)?;
         Ok(())
     }

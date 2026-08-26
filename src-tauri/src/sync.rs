@@ -695,6 +695,41 @@ impl SyncGroupClient {
             server_reached: false,
         })
     }
+
+    /// FEAT-010: пуш тега курьера в группу (best-effort, один POST).
+    /// Сервер рассылает тег по WS группе и хранит последнее действие для
+    /// full_pull. false = оффлайн/не в группе — тег остаётся локальным.
+    pub fn push_courier_tag(
+        db: &Database,
+        provider: &str,
+        courier_hash: &str,
+        tag: &str,
+        action: &str,
+    ) -> Result<bool, String> {
+        let token = match Self::get_token(db) {
+            Some(t) => t,
+            None => return Ok(false),
+        };
+        match db.get_config("sync_group_id").ok().flatten() {
+            Some(g) if !g.is_empty() => {}
+            _ => return Ok(false),
+        }
+        let body = serde_json::json!({
+            "provider": provider,
+            "courier_hash": courier_hash,
+            "tag": tag,
+            "action": action,
+        });
+        match ureq::post(&format!("{}/sync/courier_tag", server_url()))
+            .set("Authorization", &format!("Bearer {}", token))
+            .set("Content-Type", "application/json")
+            .timeout(std::time::Duration::from_secs(10))
+            .send_string(&body.to_string())
+        {
+            Ok(resp) => Ok(resp.status() == 200),
+            Err(_) => Ok(false),
+        }
+    }
 }
 
 // ─────────────────────────────────────────

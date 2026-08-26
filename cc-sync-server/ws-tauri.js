@@ -189,16 +189,21 @@ module.exports = function initWsTauri(wss, io) {
         if (!ws.groupId) { send(ws, { type: 'error', error: 'not_in_group' }); return; }
         const db = getDb();
         let cards;
+        let courierTags = [];
         try {
           cards = db.prepare(
             'SELECT card_hash, encrypted_data, status, notes, updated_by, updated_at FROM sync_cards WHERE group_id = ? ORDER BY updated_at DESC'
+          ).all(ws.groupId);
+          // FEAT-010: теги курьеров группы (таблица появилась в user_version 12)
+          courierTags = db.prepare(
+            'SELECT provider, courier_hash, tag, action, updated_by, updated_at FROM sync_courier_tags WHERE group_id = ? ORDER BY updated_at DESC'
           ).all(ws.groupId);
         } catch (e) {
           console.error('[ws-tauri] full_pull failed:', e.message);
           send(ws, { type: 'error', error: 'internal_error' });
           return;
         }
-        send(ws, { type: 'full_data', cards });
+        send(ws, { type: 'full_data', cards, courier_tags: courierTags });
         return;
       }
 
@@ -326,6 +331,8 @@ function broadcastAll(wss, msg) {
 }
 module.exports.sendToInstallation = sendToInstallation;
 module.exports.broadcastAll = broadcastAll;
+// FEAT-010: маршруту /sync/courier_tag нужен group-scoped broadcast.
+module.exports.broadcastToGroup = broadcastToGroup;
 // Test-only: reset per-IP backoff state.
 module.exports._clearViolationsForTest = _clearViolationsForTest;
 

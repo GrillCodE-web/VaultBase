@@ -134,6 +134,95 @@ impl Database {
         }
         Ok(updated)
     }
+
+    // ── FEAT-010: теги курьеров ("использован под X"), sync по хешу ─────
+
+    /// Стабильный хеш личности курьера: SHA-256 от нормализованной строки
+    /// "provider|name|address1|city|state|zip" (lowercase, схлопнутые пробелы).
+    /// courier_id у разных пользователей панели свой — по нему синкать нельзя.
+    pub fn courier_identity_hash(
+        provider: &str, name: &str, address1: &str, city: &str, state: &str, zip: &str,
+    ) -> String {
+        use sha2::{Digest, Sha256};
+        let norm = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+        let identity = [provider, name, address1, city, state, zip]
+            .iter().map(|p| norm(p)).collect::<Vec<_>>().join("|");
+        let digest = Sha256::digest(identity.as_bytes());
+        digest.iter().map(|b| format!("{:02x}", b)).collect()
+    }
+
+    /// Нормализация тега: trim + lowercase. Пустой/длинный — ошибка.
+    fn normalize_courier_tag(tag: &str) -> Result<String, String> {
+        let t = tag.trim().to_lowercase();
+        if t.is_empty() { return Err("tag_empty".into()); }
+        if t.chars().count() > 100 { return Err("tag_too_long".into()); }
+        Ok(t)
+    }
+
+    /// Локальная установка тега (свой courier_id + хеш). true = добавлен.
+    pub fn add_courier_tag(
+        &self, provider: &str, courier_id: i64, courier_hash: &str, tag: &str,
+    ) -> Result<bool, String> {
+        if self.is_locked() { return Err("database_locked".into()); }
+        let tag = Self::normalize_courier_tag(tag)?;
+        let n = self.conn.execute(
+            "INSERT OR IGNORE INTO courier_tags(provider,courier_id,courier_hash,tag) VALUES(?1,?2,?3,?4)",
+            params![provider, courier_id, courier_hash, tag],
+        ).map_err(|e| e.to_string())?;
+        Ok(n > 0)
+    }
+
+    /// Локальное снятие тега. true = был и снят.
+    pub fn remove_courier_tag(&self, provider: &str, courier_hash: &str, tag: &str) -> Result<bool, String> {
+        if self.is_locked() { return Err("database_locked".into()); }
+        let tag = Self::normalize_courier_tag(tag)?;
+        let n = self.conn.execute(
+            "DELETE FROM courier_tags WHERE provider=?1 AND courier_hash=?2 AND tag=?3",
+            params![provider, courier_hash, tag],
+        ).map_err(|e| e.to_string())?;
+        Ok(n > 0)
+    }
+
+    /// Теги конкретного курьера (по provider+courier_id).
+    pub fn list_courier_tags(&self, provider: &str, courier_id: i64) -> Result<Vec<String>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT tag FROM courier_tags WHERE provider=?1 AND courier_id=?2 ORDER BY tag"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![provider, courier_id], |r| r.get(0))
+            .map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Теги по хешу личности — и свои, и пришедшие из группы.
+    pub fn list_courier_tags_by_hash(&self, provider: &str, courier_hash: &str) -> Result<Vec<String>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT tag FROM courier_tags WHERE provider=?1 AND courier_hash=?2 ORDER BY tag"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![provider, courier_hash], |r| r.get(0))
+            .map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Применить тег, пришедший из группы (по WS). courier_id неизвестен —
+    /// NULL; UI достаёт такие теги через list_courier_tags_by_hash.
+    pub fn apply_remote_courier_tag(&self, provider: &str, courier_hash: &str, tag: &str, add: bool) -> Result<bool, String> {
+        if self.is_locked() { return Err("database_locked".into()); }
+        let tag = Self::normalize_courier_tag(tag)?;
+        if add {
+            let n = self.conn.execute(
+                "INSERT OR IGNORE INTO courier_tags(provider,courier_id,courier_hash,tag) VALUES(?1,NULL,?2,?3)",
+                params![provider, courier_hash, tag],
+            ).map_err(|e| e.to_string())?;
+            Ok(n > 0)
+        } else {
+            // remove: сносим и свой, и удалённый экземпляр — тег снят глобально
+            let n = self.conn.execute(
+                "DELETE FROM courier_tags WHERE provider=?1 AND courier_hash=?2 AND tag=?3",
+                params![provider, courier_hash, tag],
+            ).map_err(|e| e.to_string())?;
+            Ok(n > 0)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -288,5 +377,62 @@ mod opl_tests {
         assert_eq!(link.status.as_deref(), Some("shipped"));
         assert_eq!(link.courier_id, Some(9));
         assert_eq!(link.track.as_deref(), Some("1ZNEW"));
+    }
+
+    #[test]
+    fn test_courier_identity_hash_normalizes() {
+        let h1 = Database::courier_identity_hash("swat", "John  Doe", "1 Main  St", "NY", "NY", "10001");
+        let h2 = Database::courier_identity_hash("swat", "john doe", "1 main st", "ny", "ny", "10001");
+        assert_eq!(h1, h2, "регистр и лишние пробелы не влияют");
+        assert_eq!(h1.len(), 64, "sha-256 hex");
+        let h3 = Database::courier_identity_hash("other", "john doe", "1 main st", "ny", "ny", "10001");
+        assert_ne!(h1, h3, "provider входит в хеш");
+    }
+
+    #[test]
+    fn test_courier_tags_roundtrip() {
+        let (_dir, db) = test_db();
+        let hash = Database::courier_identity_hash("swat", "John Doe", "1 Main St", "NY", "NY", "10001");
+
+        assert!(db.add_courier_tag("swat", 7, &hash, " Zoro.com ").unwrap());
+        assert!(!db.add_courier_tag("swat", 7, &hash, "zoro.com").unwrap(), "дубль не добавляется");
+        assert!(db.add_courier_tag("swat", 7, &hash, "bond").unwrap());
+
+        assert_eq!(db.list_courier_tags("swat", 7).unwrap(), vec!["bond", "zoro.com"]);
+        assert_eq!(db.list_courier_tags_by_hash("swat", &hash).unwrap(), vec!["bond", "zoro.com"]);
+
+        assert!(db.remove_courier_tag("swat", &hash, "ZORO.COM").unwrap());
+        assert!(!db.remove_courier_tag("swat", &hash, "zoro.com").unwrap(), "повторное снятие — false");
+        assert_eq!(db.list_courier_tags("swat", 7).unwrap(), vec!["bond"]);
+    }
+
+    #[test]
+    fn test_courier_tag_validation() {
+        let (_dir, db) = test_db();
+        let hash = "ab".repeat(32);
+        assert_eq!(db.add_courier_tag("swat", 1, &hash, "   ").unwrap_err(), "tag_empty");
+        let long = "x".repeat(101);
+        assert_eq!(db.add_courier_tag("swat", 1, &hash, &long).unwrap_err(), "tag_too_long");
+    }
+
+    #[test]
+    fn test_apply_remote_courier_tag() {
+        let (_dir, db) = test_db();
+        let hash = Database::courier_identity_hash("swat", "Jane Roe", "2 Oak Ave", "LA", "CA", "90001");
+
+        // пришедший из группы тег: courier_id NULL, виден только по хешу
+        assert!(db.apply_remote_courier_tag("swat", &hash, "zoro.com", true).unwrap());
+        assert!(!db.apply_remote_courier_tag("swat", &hash, "zoro.com", true).unwrap(), "дубль");
+        assert_eq!(db.list_courier_tags_by_hash("swat", &hash).unwrap(), vec!["zoro.com"]);
+        assert!(db.list_courier_tags("swat", 7).unwrap().is_empty(), "по courier_id не виден");
+
+        // локальный тег того же хеша + снятие из группы сносит оба
+        assert!(db.add_courier_tag("swat", 7, &hash, "bond").unwrap());
+        assert!(db.apply_remote_courier_tag("swat", &hash, "bond", false).unwrap());
+        assert!(db.list_courier_tags_by_hash("swat", &hash).unwrap().iter().all(|t| t != "bond"));
+        assert_eq!(db.list_courier_tags_by_hash("swat", &hash).unwrap(), vec!["zoro.com"]);
+
+        // изоляция по provider
+        assert!(db.list_courier_tags_by_hash("other", &hash).unwrap().is_empty());
     }
 }

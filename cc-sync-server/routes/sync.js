@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { getDb } = require('../database');
 const { requireToken } = require('../middleware');
 const { applyCardPush, MAX_CARDS_PER_BATCH } = require('../card-push');
+const { sanitizeCourierTag, applyCourierTag } = require('../courier-tags');
 const rateLimit = require('express-rate-limit');
 
 // Max 10 join attempts per IP per 15 minutes (pair codes expire in 15min)
@@ -280,6 +281,49 @@ router.post('/cards', (req, res) => {
   }
 
   res.json({ ok: true, updated: updated.length });
+});
+
+// POST /sync/courier_tag — FEAT-010: push courier tag to group (real-time).
+// Payload: { provider, courier_hash (sha256 hex), tag, action: 'add'|'remove' }.
+// The server stores and relays hashes only — courier names/addresses never
+// leave the desktop client.
+router.post('/courier_tag', (req, res) => {
+  const db = getDb();
+  const installation_id = db.prepare(
+    'SELECT installation_id FROM licenses WHERE token = ?'
+  ).get(req.userToken)?.installation_id;
+  if (!installation_id) return res.status(403).json({ error: 'not_found' });
+
+  const member = db.prepare(
+    'SELECT group_id FROM sync_group_members WHERE installation_id = ?'
+  ).get(installation_id);
+  if (!member) return res.status(404).json({ error: 'not_in_group' });
+
+  // Валидация и upsert общие для всех каналов синка (courier-tags.js).
+  const row = sanitizeCourierTag(req.body);
+  if (!row) return res.status(400).json({ error: 'invalid_courier_tag' });
+
+  try {
+    applyCourierTag(db, member.group_id, installation_id, row);
+  } catch (e) {
+    console.error('[sync/courier_tag] upsert failed:', e.message);
+    return res.status(500).json({ error: 'push_failed' });
+  }
+
+  const event = {
+    type: 'courier_tag',
+    ...row,
+    updated_by: installation_id,
+    updated_at: new Date().toISOString(),
+  };
+  // Tauri clients: group-scoped broadcast, excluding the sender.
+  const { broadcastToGroup } = require('../ws-tauri');
+  broadcastToGroup(member.group_id, event, installation_id);
+  // Browser admin (socket.io room).
+  const io = req.app.get('io');
+  if (io) io.to(`group:${member.group_id}`).emit('courier_tag', event);
+
+  res.json({ ok: true });
 });
 
 // GET /sync/cards — pull all cards for current group

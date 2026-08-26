@@ -321,6 +321,16 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
 
             apply_card_updates(pool, &decrypted_cards);
 
+            // FEAT-010: full_data несёт и теги курьеров группы (снапшот состояния)
+            if mtype == "full_data" {
+                if let Some(tags) = msg["courier_tags"].as_array() {
+                    let applied = apply_courier_tags_snapshot(pool, tags);
+                    if applied > 0 {
+                        let _ = app.emit("courier_tag:refresh", ());
+                    }
+                }
+            }
+
             let event = if mtype == "full_data" { "sync:full_data" } else { "sync:card_update" };
             let _ = app.emit(event, serde_json::json!({
                 "cards": decrypted_cards,
@@ -381,6 +391,29 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
             }
         }
 
+        // FEAT-010: {"type":"courier_tag","provider","courier_hash","tag","action":"add"|"remove"}
+        "courier_tag" => {
+            let provider = msg["provider"].as_str().unwrap_or("swat");
+            let hash = match msg["courier_hash"].as_str() {
+                Some(h) if h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()) => h,
+                _ => return,
+            };
+            let tag = match msg["tag"].as_str() {
+                Some(t) => t,
+                None => return,
+            };
+            let add = msg["action"].as_str() != Some("remove");
+            if apply_courier_tag(pool, provider, hash, tag, add) {
+                let _ = app.emit("courier_tag:update", serde_json::json!({
+                    "provider": provider,
+                    "courier_hash": hash,
+                    "tag": tag,
+                    "action": if add { "add" } else { "remove" },
+                    "updated_by": msg["updated_by"].as_str().unwrap_or(""),
+                }));
+            }
+        }
+
         // {"type":"error","error":"not_in_group"|...} — молча игнорируем:
         // соло-режим без группы получит not_in_group на full_pull, это норма.
         "error" | "pong" | "group_refreshed" => {}
@@ -418,6 +451,63 @@ fn apply_catalog_shop(pool: &crate::database::DbPool, shop: models::CatalogShopI
         "INSERT OR REPLACE INTO catalog_shops(domain,category,score,ship_us,fraud_level,top_brands,top_products,excluded) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
         rusqlite::params![shop.domain, shop.category, shop.score, shop.ship_us as i64, shop.fraud_level, shop.top_brands, shop.top_products, shop.excluded as i64],
     );
+}
+
+/// FEAT-010: применить один тег курьера из группы. true = состояние изменилось.
+/// Нормализация как в Database::normalize_courier_tag (trim + lowercase).
+fn apply_courier_tag(
+    pool: &crate::database::DbPool,
+    provider: &str,
+    courier_hash: &str,
+    tag: &str,
+    add: bool,
+) -> bool {
+    let conn = match pool.get() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let tag = tag.trim().to_lowercase();
+    if tag.is_empty() || tag.chars().count() > 100 {
+        return false;
+    }
+    let res = if add {
+        conn.execute(
+            "INSERT OR IGNORE INTO courier_tags(provider,courier_id,courier_hash,tag) VALUES(?1,NULL,?2,?3)",
+            rusqlite::params![provider, courier_hash, tag],
+        )
+    } else {
+        conn.execute(
+            "DELETE FROM courier_tags WHERE provider=?1 AND courier_hash=?2 AND tag=?3",
+            rusqlite::params![provider, courier_hash, tag],
+        )
+    };
+    matches!(res, Ok(n) if n > 0)
+}
+
+/// FEAT-010: снапшот тегов из full_data. action='remove' сносит запись,
+/// 'add' — добавляет. Возвращает число реально изменённых строк.
+fn apply_courier_tags_snapshot(pool: &crate::database::DbPool, tags: &[serde_json::Value]) -> u32 {
+    if tags.len() > 5000 {
+        eprintln!("[ws_sync] Ignoring courier_tags snapshot with {} rows (max 5000)", tags.len());
+        return 0;
+    }
+    let mut applied = 0u32;
+    for t in tags {
+        let provider = t["provider"].as_str().unwrap_or("swat");
+        let hash = match t["courier_hash"].as_str() {
+            Some(h) if h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()) => h,
+            _ => continue,
+        };
+        let tag = match t["tag"].as_str() {
+            Some(s) => s,
+            None => continue,
+        };
+        let add = t["action"].as_str() != Some("remove");
+        if apply_courier_tag(pool, provider, hash, tag, add) {
+            applied += 1;
+        }
+    }
+    applied
 }
 
 fn apply_card_updates(pool: &crate::database::DbPool, cards: &[serde_json::Value]) {

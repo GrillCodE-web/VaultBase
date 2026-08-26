@@ -219,6 +219,82 @@ pub(crate) fn stuffer_refresh_package_snapshots() -> Result<u32, String> {
     with_db!(db, { db.refresh_package_snapshots(&provider_id, &packages) })
 }
 
+// ── FEAT-010: теги курьеров ("использован под X"), sync по хешу личности ──
+// На сервер уезжают только provider + SHA-256 хеш личности + тег — имена
+// и адреса курьеров устройство не покидают.
+
+/// Поставить тег курьеру. Поля личности приходят из CourierFull на фронте.
+/// true = тег добавлен (false — уже был). Пуш группе best-effort.
+#[tauri::command]
+pub(crate) fn stuffer_add_courier_tag(
+    courier_id: i64,
+    name: String,
+    address1: String,
+    city: String,
+    state: String,
+    zip: String,
+    tag: String,
+) -> Result<bool, String> {
+    require_perm(models::perms::MANAGE_COURIERS)?;
+    let provider = active_provider_id()?;
+    let hash = Database::courier_identity_hash(&provider, &name, &address1, &city, &state, &zip);
+    with_db!(db, {
+        let added = db.add_courier_tag(&provider, courier_id, &hash, &tag)?;
+        if added {
+            // оффлайн/не в группе — Ok(false), тег остаётся локальным
+            let _ = sync::SyncGroupClient::push_courier_tag(db, &provider, &hash, &tag, "add");
+        }
+        Ok(added)
+    })
+}
+
+/// Снять тег с курьера (по хешу — сносит и локальный, и пришедший из группы
+/// экземпляр). true = тег был и снят.
+#[tauri::command]
+pub(crate) fn stuffer_remove_courier_tag(
+    name: String,
+    address1: String,
+    city: String,
+    state: String,
+    zip: String,
+    tag: String,
+) -> Result<bool, String> {
+    require_perm(models::perms::MANAGE_COURIERS)?;
+    let provider = active_provider_id()?;
+    let hash = Database::courier_identity_hash(&provider, &name, &address1, &city, &state, &zip);
+    with_db!(db, {
+        let removed = db.remove_courier_tag(&provider, &hash, &tag)?;
+        if removed {
+            let _ = sync::SyncGroupClient::push_courier_tag(db, &provider, &hash, &tag, "remove");
+        }
+        Ok(removed)
+    })
+}
+
+/// Объединённые теги курьера: свои (по courier_id) + пришедшие из группы
+/// (по хешу личности), без дублей, по алфавиту.
+#[tauri::command]
+pub(crate) fn stuffer_list_courier_tags(
+    courier_id: i64,
+    name: String,
+    address1: String,
+    city: String,
+    state: String,
+    zip: String,
+) -> Result<Vec<String>, String> {
+    require_perm(models::perms::VIEW_COURIERS)?;
+    let provider = active_provider_id()?;
+    let hash = Database::courier_identity_hash(&provider, &name, &address1, &city, &state, &zip);
+    with_db!(db, {
+        let mut tags = db.list_courier_tags(&provider, courier_id)?;
+        for t in db.list_courier_tags_by_hash(&provider, &hash)? {
+            if !tags.contains(&t) { tags.push(t); }
+        }
+        tags.sort();
+        Ok(tags)
+    })
+}
+
 pub(crate) fn stuffer_creds() -> Result<(String, String), String> {
     with_db!(db, {
         let api_key = db
