@@ -297,6 +297,11 @@ page.on('pageerror', err => report.pageErrors.push(String(err)))
 
 await page.addInitScript(buildMock(data))
 
+// AUDIT_LANG=ru|en — фиксируем язык интерфейса для снимков (по умолчанию не трогаем)
+if (process.env.AUDIT_LANG) {
+  await page.addInitScript(`localStorage.setItem('vaultbase_lang', ${JSON.stringify(process.env.AUDIT_LANG)})`)
+}
+
 async function shot(name) {
   await page.waitForTimeout(900)
   await page.screenshot({ path: path.join(OUT, name + '.png') })
