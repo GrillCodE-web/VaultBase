@@ -306,32 +306,32 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
         }
     });
 
-    // ── Proxy health check thread (every 30 minutes) ──
-    std::thread::spawn(move || loop {
-        // FIX CONFIG: Use constant for quarantine check interval
-        std::thread::sleep(std::time::Duration::from_secs(
-        if let Some(st) = STATE.get() {
-            st.config.background.quarantine_cleanup_interval as u64
-        } else {
-            1800
-        }
-    ));
-        if let Some(st) = STATE.get() {
-            let db_locked = st.db.lock().map(|d| d.is_locked()).unwrap_or(true);
-            if !db_locked {
-                if let Ok(db) = st.db.lock() {
-                    let _ = db.check_all_proxy_health();
+    // ── FEAT-008: периодические задачи через cron-планировщик ──
+    // Раньше — по отдельному thread на задачу; теперь один scheduler-thread,
+    // паника задачи изолируется catch_unwind и не роняет остальные.
+    // Интервалы читаются из конфига ОДИН раз при регистрации (смена конфига
+    // подхватится перезапуском) — задачам с динамическим интервалом
+    // (autolock, sync, imap) остаются их собственные потоки выше.
+    let proxy_interval = STATE.get()
+        .map(|st| st.config.background.quarantine_cleanup_interval as u64)
+        .unwrap_or(1800);
+    let protection_interval = STATE.get()
+        .map(|st| st.config.background.stuffer_poll_interval as u64)
+        .unwrap_or(300);
+    start_cron_thread(handle.clone(), vec![
+        // Proxy health check (default: every 30 minutes)
+        CronTask::new("proxy_health", proxy_interval, proxy_interval, |_h| {
+            if let Some(st) = STATE.get() {
+                let db_locked = st.db.lock().map(|d| d.is_locked()).unwrap_or(true);
+                if !db_locked {
+                    if let Ok(db) = st.db.lock() {
+                        let _ = db.check_all_proxy_health();
+                    }
                 }
             }
-        }
-    });
-
-    // ── PHASE 6: Smart Card Protection thread (every 5 minutes) ──
-    let h_card_protection = handle.clone();
-    std::thread::spawn(move || {
-        // FIX CONFIG: Use constant for stuffer sync start delay
-        std::thread::sleep(std::time::Duration::from_secs(crate::constants::STUFFER_SYNC_START_DELAY_SECS));
-        loop {
+        }),
+        // PHASE 6: Smart Card Protection (default: every 5 minutes)
+        CronTask::new("card_protection", protection_interval, crate::constants::STUFFER_SYNC_START_DELAY_SECS, |h| {
             if let Some(st) = STATE.get() {
                 let config = st.db.lock().ok()
                     .and_then(|d| d.get_automation_config().ok());
@@ -348,7 +348,7 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                             .unwrap_or(0);
 
                         if burned_count > 0 || risky_count > 0 {
-                            let _ = h_card_protection.emit("card_protection_action", serde_json::json!({
+                            let _ = h.emit("card_protection_action", serde_json::json!({
                                 "burned_archived": burned_count,
                                 "risky_archived": risky_count,
                             }));
@@ -356,16 +356,8 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                     }
                 }
             }
-            // FIX CONFIG: Use constant for stuffer sync interval
-            std::thread::sleep(std::time::Duration::from_secs(
-        if let Some(st) = STATE.get() {
-            st.config.background.stuffer_poll_interval as u64
-        } else {
-            300
-        }
-    ));
-        }
-    });
+        }),
+    ]);
 
     // ── Auto-fetch catalog on first run if empty ──
     let h_catalog = handle.clone();
@@ -381,6 +373,146 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
             let _ = sync_catalog_from_server(&h_catalog);
         }
     });
+}
+
+// ── FEAT-008: cron-подобный планировщик фоновых задач ──
+//
+// Одна задача = имя + интервал + стартовая задержка + fn-указатель.
+// Один scheduler-thread обходит таблицу и запускает просроченные задачи.
+// Паника в задаче изолируется catch_unwind — расписание продолжает работать
+// (урок FINAL-014: poisoned mutex не должен останавливать фон навсегда).
+
+pub(crate) struct CronTask<C> {
+    pub name: &'static str,
+    pub interval: std::time::Duration,
+    // pub(crate) для тестов: подгоняем дедлайн без реального ожидания
+    pub(crate) next_run: std::time::Instant,
+    task: fn(&C),
+}
+
+impl<C> CronTask<C> {
+    pub(crate) fn new(
+        name: &'static str,
+        interval_secs: u64,
+        start_delay_secs: u64,
+        task: fn(&C),
+    ) -> Self {
+        Self {
+            name,
+            interval: std::time::Duration::from_secs(interval_secs),
+            next_run: std::time::Instant::now() + std::time::Duration::from_secs(start_delay_secs),
+            task,
+        }
+    }
+
+    pub(crate) fn is_due(&self, now: std::time::Instant) -> bool {
+        now >= self.next_run
+    }
+
+    fn reschedule(&mut self, now: std::time::Instant) {
+        self.next_run = now + self.interval;
+    }
+
+    pub(crate) fn time_until_due(&self, now: std::time::Instant) -> std::time::Duration {
+        self.next_run.saturating_duration_since(now)
+    }
+}
+
+/// Запустить все просроченные задачи. Возвращает число запущенных.
+/// Паника задачи логируется и не мешает остальным.
+pub(crate) fn run_due_tasks<C>(tasks: &mut [CronTask<C>], ctx: &C, now: std::time::Instant) -> usize {
+    let mut ran = 0usize;
+    for t in tasks.iter_mut() {
+        if t.is_due(now) {
+            // Перепланируем ДО запуска: долгая задача не «нагоняет» пропуски
+            t.reschedule(now);
+            ran += 1;
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (t.task)(ctx))).is_err() {
+                eprintln!("[cron] task '{}' panicked — изолирована, расписание продолжается", t.name);
+            }
+        }
+    }
+    ran
+}
+
+/// Один поток на весь набор периодических задач. Спит до ближайшего
+/// дедлайна (но не дольше TICK, чтобы новые задачи/дедлайны подхватывались).
+pub(crate) fn start_cron_thread(
+    handle: tauri::AppHandle,
+    mut tasks: Vec<CronTask<tauri::AppHandle>>,
+) {
+    // CLEAN-004: верхняя граница сна планировщика между проверками дедлайнов
+    const CRON_TICK_SECS: u64 = 5;
+    std::thread::spawn(move || loop {
+        let now = std::time::Instant::now();
+        let until_next = tasks.iter()
+            .map(|t| t.time_until_due(now))
+            .min()
+            .unwrap_or(std::time::Duration::from_secs(CRON_TICK_SECS));
+        std::thread::sleep(until_next.min(std::time::Duration::from_secs(CRON_TICK_SECS)));
+        run_due_tasks(&mut tasks, &handle, std::time::Instant::now());
+    });
+}
+
+#[cfg(test)]
+mod cron_tests {
+    use super::{CronTask, run_due_tasks};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::{Duration, Instant};
+
+    fn noop(_: &()) {}
+
+    #[test]
+    fn test_not_due_before_start_delay() {
+        let t = CronTask::new("t", 60, 30, noop);
+        assert!(!t.is_due(Instant::now()));
+        assert!(t.time_until_due(Instant::now()) <= Duration::from_secs(30));
+    }
+
+    #[test]
+    fn test_due_after_deadline_passed() {
+        let mut t = CronTask::new("t", 60, 30, noop);
+        // подгоняем дедлайн «в прошлое» вместо реального сна
+        t.next_run = Instant::now() - Duration::from_secs(1);
+        assert!(t.is_due(Instant::now()));
+        assert_eq!(t.time_until_due(Instant::now()), Duration::ZERO);
+    }
+
+    #[test]
+    fn test_run_due_runs_only_due_and_reschedules() {
+        static RAN: AtomicUsize = AtomicUsize::new(0);
+        fn counted(_: &()) { RAN.fetch_add(1, Ordering::SeqCst); }
+
+        let mut due = CronTask::new("due", 60, 0, counted);
+        due.next_run = Instant::now() - Duration::from_secs(1);
+        let not_due = CronTask::new("later", 3600, 3600, counted);
+        let mut tasks = vec![due, not_due];
+
+        let now = Instant::now();
+        assert_eq!(run_due_tasks(&mut tasks, &(), now), 1);
+        assert_eq!(RAN.load(Ordering::SeqCst), 1);
+        // после запуска задача перепланирована на now+interval
+        assert!(!tasks[0].is_due(now));
+        assert!(tasks[0].time_until_due(now) > Duration::from_secs(59));
+    }
+
+    #[test]
+    fn test_panicking_task_does_not_stop_others() {
+        static RAN: AtomicUsize = AtomicUsize::new(0);
+        fn boom(_: &()) { panic!("boom"); }
+        fn counted(_: &()) { RAN.fetch_add(1, Ordering::SeqCst); }
+
+        let mut bad = CronTask::new("bad", 60, 0, boom);
+        bad.next_run = Instant::now() - Duration::from_secs(1);
+        let mut good = CronTask::new("good", 60, 0, counted);
+        good.next_run = Instant::now() - Duration::from_secs(1);
+        let mut tasks = vec![bad, good];
+
+        // catch_unwind глушит панику, но стандартный panic-hook всё равно
+        // печатает в stderr — это нормально, тест проверяет продолжение работы
+        assert_eq!(run_due_tasks(&mut tasks, &(), Instant::now()), 2);
+        assert_eq!(RAN.load(Ordering::SeqCst), 1, "good выполнился после паники bad");
+    }
 }
 
 pub(crate) fn run_tracking_update(api_key: &str) {
