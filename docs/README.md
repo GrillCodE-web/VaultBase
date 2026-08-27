@@ -6,7 +6,7 @@
 
 | Document                                      | Description                                                    |
 | --------------------------------------------- | -------------------------------------------------------------- |
-| [README.ru.md](../README.ru.md)               | Main overview: feature map, run commands, layout               |
+| [README.md](../README.md)                     | Main overview: feature map, run commands, layout, screenshots  |
 | [AGENTS.md](../AGENTS.md)                     | Developer/agent guide (EN)                                     |
 | [AGENTS.ru.md](../AGENTS.ru.md)               | Тоже самое по-русски (RU)                                      |
 | [MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md) | Live task checklist (184 items, statuses)                      |
