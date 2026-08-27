@@ -5,6 +5,52 @@ All notable changes to VaultBase will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Спринт после 2.11.3: 140+ коммитов по MASTER_CHECKLIST (SEC, UX, ARCH, CLEAN, FEAT, TEST, DEVOPS, MGR) и второе приложение в репозитории — VaultBase Manager.
+
+### VaultBase Manager — второе приложение репозитория
+
+- **MGR-001 — manager-контур sync-сервера**: manager WebSocket-каналы, лицензирование менеджеров, `/manager/api`.
+- **MGR-002 — каркас приложения** (Tauri 2 + SQLCipher): активация менеджерской лицензии, мастер-пароль с обёрткой DEK, sidecar cc-sync-server с автозапуском; «запечатанные конверты» X25519→HKDF→AES-256-GCM в crypto.rs.
+- **MGR-003 — UI менеджера**: дашборд, работники и политики, аналитика (BIN/шопы/дропы), новости, алерты, приоритеты шопов, апдейты, настройки; активация/мастер-пароль/разблокировка; i18n ru/en.
+- **MGR-004 — телеметрия воркера**: heartbeat и ежедневные daily_stats уходят менеджерам запечатанными конвертами (X25519→HKDF→AES-GCM) — расшифровать отчёт может только менеджер.
+- **MGR-005 — применение политик живьём**: бан → лок с причиной на экране входа; force_logout гасит все сессии установки, ack уходит следующим heartbeat; update_required → блокирующий экран «Требуется обновление»; permissions_override мержится поверх прав (явный false режет даже админа, явный true выдаёт право оператору); дневные квоты cards_day/orders_day в take_card и create_order. Политика персистится в config и действует после рестарта до первого heartbeat.
+
+### Воркер: новое
+
+- **Cron-планировщик фоновых задач** (FEAT-008) и **напоминания о картах и трекингах** через него (FEAT-006/007).
+- **Stuffer**: провайдерная архитектура SWAT/CARGO и фикс дропов SWAT (FEAT-013), поля панели и комментарии в списке посылок, привязка посылок панели к заказам/профилям (FEAT-009), live-тест пишущих методов панели (FEAT-012).
+- **Синхронизация**: теги курьеров между пользователями в реальном времени по WS (FEAT-010); sliding session refresh — expires_at в логине и проверка срока перед invoke (FEAT-016/017); тост при потере WS-соединения (ERR-003); invokeWithRetry с exponential backoff и no-retry маркерами (ERR-006); глобальный поиск на стабильных ключах.
+- **IMAP**: маршруты «домен = почта» — модалка привязки доменов к ящикам, health-индикаторы аккаунтов (fail_count/last_error), фильтры писем по доменам (миграция v13); bounded thread-pool для on-demand команд (ARCH-005); ротация IMAP-пароля через UI и алерт при устойчивом отвале (SEC-017/018).
+- **Пользователи**: soft delete (is_active=0 + отзыв сессий) и hard delete (FEAT-014); activity log для неуспешных операций — импорт, bin-обогащение, синк (DB-008); ручной refresh BIN мимо кеша (DB-007, кнопка в панели карт).
+
+### Безопасность
+
+- SQLCipher-шифрование всей БД и сквозное шифрование синка (SEC-001/002/005/008/009).
+- Атомарная WS-авторизация в транзакции + rate limit 20 msg/s с экспоненциальным per-IP backoff (SEC-022/023); повторное подключение больше не затирает регистрацию живого клиента.
+- CSP report-uri и endpoint `/csp-report` (SEC-019); аудит фронта на отсутствие raw-секретов и whitelist config-ключей (SEC-021); auto-clear буфера reveal-полей карт (SEC-013); fallback и перешифровка legacy IMAP-паролей на месте (SEC-015).
+- REST `/sync/cards` валидация выровнена с WS-каналом; `/version` больше не отдаёт черновые релизы.
+
+### UX и доступность
+
+- Статус-бейджи по WCAG AA (≥4.5:1) в обеих темах, чипы платёжных сетей AA (UX-007).
+- aria-label на всех иконочных кнопках (UX-004); aria-live для тостов (UX-006); focus trap и Escape во всех модалках; scope=col на заголовках таблиц (UX-009); клавиатурная навигация Cards (UX-005).
+- Ctrl-шорткаты с детекцией конфликтов (UX-020/022); batch import с реальным прогресс-баром (UX-015); видимый warning `server_offline` при недоступном risk-сервере (BUG-018); гонки CreateOrderModal закрыты regression-тестами (BUG-016).
+- Дизайн-токены: вычистка cyber-эффектов и 66 мёртвых токенов (UX-001); удаление мёртвого CSS — 694 класса, 9 keyframes, −7795 строк (UX-002); Modal через createPortal.
+
+### Архитектура и чистка
+
+- Разбивка гигантских компонентов: Cards/Dashboard/Orders/Profiles → таблицы, hover-карточка, общий Pagination (ARCH-006/007/008); TS-миграция 7 хуков и utils + typecheck script (ARCH-010); useTableFilters/useBulkActions (ARCH-013/014); TTL 5 мин на revealed PAN/CVV (ARCH-018); пул БД 8→16 с timeout 5s и VACUUM на старте (PERF-012/013).
+- React Compiler warnings в src → 0 (CLEAN-002); `console.log` в src → 0 (CLEAN-001); магические числа домена карт → `src/constants/cards.js` (CLEAN-004); hardcoded-строки → i18n-ключи с интерполяцией `{param}` в `t()`; fmtDate понимает и SQLite, и ISO.
+
+### Тесты и DevOps
+
+- Playwright e2e: stateful Tauri-IPC мок + helpers, спеки orders-flow и CRUD (TEST-001/002), фильтрация и поиск — 13 спеков (TEST-003), импорт/экспорт — 10 спеков (TEST-004); полный прогон green в chromium и firefox.
+- Unit-тестов стало 327 (было 306): parser/encryption edge cases (TEST-008/009), sync/ws_sync/rate_limiter (TEST-007/010), snapshot-тесты компонентов (TEST-011), DB benchmark 10k карт (TEST-013).
+- Подпись автообновлений: pubkey в tauri.conf, ключ из Secrets на всех платформах (DEVOPS-004); release-сборки всегда production-профиль (DEVOPS-005); dependabot для npm/cargo/actions.
+- Протокол параллельных agent-сессий PARALLEL_WORK.md + `scripts/agent-session.ps1`; visual-audit обоих приложений (AUDIT_LANG); свежие скриншоты всех страниц воркера и менеджера — `docs/screenshots/worker/`, `docs/screenshots/manager/` + раздел в README.
+
 ## [2.11.3] — 2026-08-11
 
 ### Безопасность
