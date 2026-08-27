@@ -33,6 +33,19 @@
 
 ---
 
+## Скриншоты
+
+Снимки всех страниц генерируются автоматически скриптом `scripts/visual-audit.mjs` (Playwright + мок Tauri-команд, 0 ошибок консоли). Полные наборы лежат в репозитории: [`docs/screenshots/worker/`](docs/screenshots/worker) — 19 страниц воркера, [`docs/screenshots/manager/`](docs/screenshots/manager) — 14 экранов VaultBase Manager.
+
+| Воркер                                                                                          | VaultBase Manager                                                                          |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| <img src="docs/screenshots/worker/nav-01-dashboard.png" width="400" alt="Дашборд воркера">      | <img src="docs/screenshots/manager/04-dashboard.png" width="400" alt="Дашборд менеджера">  |
+| <img src="docs/screenshots/worker/nav-03-cards.png" width="400" alt="Карты">                    | <img src="docs/screenshots/manager/05-workers.png" width="400" alt="Работники и политики"> |
+| <img src="docs/screenshots/worker/nav-05-orders.png" width="400" alt="Заказы">                  | <img src="docs/screenshots/manager/06-analytics.png" width="400" alt="Аналитика">          |
+| <img src="docs/screenshots/worker/nav-11-activity-log.png" width="400" alt="Журнал активности"> | <img src="docs/screenshots/manager/08-alerts.png" width="400" alt="Алерты">                |
+
+---
+
 ## Как устроено
 
 ```
@@ -80,7 +93,7 @@ npx tauri dev          # полное приложение (Rust + WebView), с�
 
 ```bash
 npm run lint           # ESLint
-npx vitest run         # 306 unit-тестов
+npx vitest run         # 327 unit-тестов
 npm run test:e2e       # Playwright e2e (с моком Tauri)
 python scripts/audit_frontend.py   # аудит дрейфа: сиротские классы, фантомные токены, i18n
 node scripts/visual-audit.mjs      # скриншоты всех страниц с мок-данными в audit-shots/
