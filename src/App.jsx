@@ -335,6 +335,25 @@ function RevokedScreen() {
   )
 }
 
+// ─── MGR-005: блокирующий экран «обнови приложение» ─────────────
+// Сервер ставит update_required, когда X-App-Version ниже policy.min_version
+// (воркеры с version_exempt сюда не попадают — сервер их не помечает).
+
+function UpdateRequiredScreen({ minVersion }) {
+  const { t } = useLang()
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg">
+      <div className="revoked-card">
+        <div className="revoked-icon-box">
+          <AlertTriangle size={28} style={{ color: HEX_COLORS.yellow }} />
+        </div>
+        <h1 className="revoked-title">{t('policy_update_title') || 'Update Required'}</h1>
+        <p className="revoked-text">{t('policy_update_body', { version: minVersion || '' })}</p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Keyboard Shortcuts Popup (removed - now using ShortcutsHelp component) ─────
 
 // ─── Main Shell ───────────────────────────────────────────────
@@ -1374,7 +1393,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
 function AppInner() {
   const [view, setView] = useState('checking')
   const [offlineMode, setOfflineMode] = useState(false)
-  const { resumeSession, autoLogin, logout } = useAuth()
+  const { resumeSession, autoLogin, logout, currentUser, policy } = useAuth()
 
   useEffect(() => {
     logger.info('AppInner mounted, initializing event listeners')
@@ -1436,6 +1455,33 @@ function AppInner() {
     }
   }, [])
 
+  // MGR-005: бан от менеджера → лок приложения (как idle-таймаут),
+  // причина показывается на экране лока. Срабатывает один раз на вход в бан.
+  const banHandledRef = useRef(false)
+  useEffect(() => {
+    if (!policy?.banned) {
+      banHandledRef.current = false
+      return
+    }
+    if (banHandledRef.current) return
+    banHandledRef.current = true
+    ;(async () => {
+      await logout()
+      try {
+        await invoke('lock')
+      } catch (e) {
+        handleError(e)
+      }
+      setView('auth')
+    })()
+  }, [policy?.banned, logout])
+
+  // MGR-005: force_logout (или истёкшая сессия) обнулил пользователя,
+  // пока приложение было в основном виде, — возвращаем на логин.
+  useEffect(() => {
+    if (view === 'app' && !currentUser) setView('user_login')
+  }, [view, currentUser])
+
   const handleUnlocked = async () => {
     // C: apply always_on_top from saved config
     try {
@@ -1496,12 +1542,6 @@ function AppInner() {
     }
   }
 
-  if (view === 'checking') return <Spinner />
-  if (view === 'activate') return <Activate onActivated={() => setView('auth')} />
-  if (view === 'revoked') return <RevokedScreen />
-  if (view === 'auth') return <Login onUnlocked={handleUnlocked} />
-  if (view === 'user_login') return <UserLogin onLoggedIn={handleUserLoggedIn} />
-
   const handleSessionTimeout = async () => {
     await logout()
     try {
@@ -1511,6 +1551,17 @@ function AppInner() {
       /* already locked */
     }
     setView('auth')
+  }
+
+  if (view === 'checking') return <Spinner />
+  if (view === 'activate') return <Activate onActivated={() => setView('auth')} />
+  if (view === 'revoked') return <RevokedScreen />
+  if (view === 'auth') return <Login onUnlocked={handleUnlocked} />
+  if (view === 'user_login') return <UserLogin onLoggedIn={handleUserLoggedIn} />
+
+  // MGR-005: мин. версия от менеджера — блокирующий экран поверх приложения
+  if (policy?.update_required) {
+    return <UpdateRequiredScreen minVersion={policy.min_version} />
   }
 
   return (

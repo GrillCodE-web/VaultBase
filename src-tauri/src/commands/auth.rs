@@ -92,6 +92,7 @@ pub(crate) fn user_login(username: String, password: String, ip_address: Option<
                 ip_address: ip_address.clone(),
             };
             if let Ok(mut u) = state().current_user.lock() { *u = Some(active); }
+            restore_policy_quiet();
             Ok(login_result)
         },
         Err(e) => {
@@ -127,8 +128,17 @@ pub(crate) fn try_auto_login(ip_address: Option<String>, device_info: Option<Str
             ip_address: ip_address.clone(),
         };
         if let Ok(mut u) = state().current_user.lock() { *u = Some(active); }
+        restore_policy_quiet();
     }
     Ok(result)
+}
+
+/// MGR-005: после установки текущего пользователя подтягиваем персистированную
+/// политику (бан/override/квоты переживают рестарт до первого heartbeat).
+fn restore_policy_quiet() {
+    if let Ok(guard) = state().db.lock() {
+        crate::commands::telemetry::restore_policy_from_config(&guard);
+    }
 }
 
 #[tauri::command]
@@ -172,6 +182,7 @@ pub(crate) fn resume_session(token: String) -> Result<LoginResult, String> {
         expires_at,
     };
     if let Ok(mut u) = state().current_user.lock() { *u = Some(result); }
+    restore_policy_quiet();
     Ok(login)
 }
 
@@ -336,6 +347,7 @@ pub(crate) fn revoke_session(sessionId: i64) -> Result<(), String> {
 pub(crate) fn take_card(card_id: i64) -> Result<(), String> {
     let user = require_perm(models::perms::TAKE_CARDS)?;
     with_db!(db, {
+        crate::commands::telemetry::enforce_daily_quota(db, crate::commands::telemetry::DailyQuota::Cards)?;
         db.assign_card_to_user(card_id, user.user_id, Some(user.user_id))
     })
 }

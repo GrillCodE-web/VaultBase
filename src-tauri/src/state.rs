@@ -15,8 +15,45 @@ pub(crate) struct AppState {
     pub(crate) db: Mutex<Database>,
     pub(crate) is_locked: AtomicBool,
     pub(crate) current_user: Mutex<Option<ActiveUser>>,
+    /// MGR-005: последняя известная политика воркера (с сервера телеметрии).
+    pub(crate) policy: Mutex<PolicyState>,
 }
 pub(crate) static STATE: OnceCell<AppState> = OnceCell::new();
+
+/// MGR-005: политика воркера, применяемая живьём. Хранится в памяти (быстрый
+/// доступ из require_perm без блокировки БД) и персистится в config
+/// `worker_policy`; восстанавливается при логине (restore_policy_from_config).
+#[derive(Debug, Clone, Default)]
+pub(crate) struct PolicyState {
+    pub banned: bool,
+    pub banned_reason: Option<String>,
+    pub ban_until: Option<String>,
+    pub update_required: bool,
+    pub min_version: Option<String>,
+    /// permissions_override: bool-карта поверх models::perms.
+    /// Явный false режет право даже админу, явный true — выдаёт.
+    pub permissions_override: Option<std::collections::HashMap<String, bool>>,
+    pub quota_cards_day: Option<i64>,
+    pub quota_orders_day: Option<i64>,
+    pub force_logout: bool,
+}
+
+/// Снимок политики для команд/тиков; пустой, если STATE ещё не инициализирован.
+pub(crate) fn policy_snapshot() -> PolicyState {
+    STATE.get()
+        .and_then(|st| st.policy.lock().ok().map(|p| p.clone()))
+        .unwrap_or_default()
+}
+
+/// Чистая проверка права с учётом override — вся логика мержа здесь.
+pub(crate) fn perm_allowed_with(policy: &PolicyState, u: &ActiveUser, key: &str) -> bool {
+    if let Some(ov) = &policy.permissions_override {
+        if let Some(v) = ov.get(key) {
+            return *v;
+        }
+    }
+    u.has_perm(key)
+}
 
 // FIX CRITICAL: Return Option instead of panicking
 pub(crate) fn state() -> &'static AppState {
@@ -28,16 +65,23 @@ pub(crate) fn state() -> &'static AppState {
     })
 }
 
-/// Получить текущего пользователя или вернуть ошибку
+/// Получить текущего пользователя или вернуть ошибку.
+/// MGR-005: бан воркера режет все авторизованные команды (как на сервере).
 pub(crate) fn require_user() -> Result<ActiveUser, String> {
-    state().current_user.lock().map_err(|e| e.to_string())?
+    let st = state();
+    if st.policy.lock().map(|p| p.banned).unwrap_or(false) {
+        return Err("banned".to_string());
+    }
+    st.current_user.lock().map_err(|e| e.to_string())?
         .clone().ok_or_else(|| "not_logged_in".to_string())
 }
 
-/// Проверить право у текущего пользователя
+/// Проверить право у текущего пользователя (с учётом permissions_override)
 pub(crate) fn require_perm(key: &str) -> Result<ActiveUser, String> {
     let u = require_user()?;
-    if !u.has_perm(key) { return Err(format!("permission_denied:{}", key)); }
+    if !perm_allowed_with(&policy_snapshot(), &u, key) {
+        return Err(format!("permission_denied:{}", key));
+    }
     Ok(u)
 }
 
@@ -54,7 +98,8 @@ pub(crate) fn require_admin() -> Result<ActiveUser, String> {
 /// шаг оформления заказа по магазину из каталога.
 pub(crate) fn require_any_perm(keys: &[&str]) -> Result<ActiveUser, String> {
     let u = require_user()?;
-    if keys.iter().any(|k| u.has_perm(k)) { return Ok(u); }
+    let policy = policy_snapshot();
+    if keys.iter().any(|k| perm_allowed_with(&policy, &u, k)) { return Ok(u); }
     Err(format!("permission_denied:{}", keys.join("|")))
 }
 

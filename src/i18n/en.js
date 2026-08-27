@@ -366,6 +366,12 @@ export const en = {
   activate_err_unknown: 'Error',
   license_revoked_title: 'License Revoked',
   license_revoked_body: 'Your license has been revoked. Please contact your administrator.',
+  policy_banned_title: 'Access blocked by manager',
+  policy_banned_until: 'until {until}',
+  policy_update_title: 'Update Required',
+  policy_update_body:
+    'The manager requires app version {version} or newer. Please update the app to continue.',
+  policy_force_logout_toast: 'The manager has signed you out.',
   settings_license: 'License',
   settings_license_status: 'Status',
   settings_installation_id: 'Installation ID',

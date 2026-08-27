@@ -180,6 +180,13 @@ impl Database {
         Ok(())
     }
 
+    /// MGR-005: force_logout от менеджера — завершает ВСЕ сессии установки.
+    pub fn logout_all_sessions(&self) -> Result<(), String> {
+        self.conn.execute("DELETE FROM user_sessions", [])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     /// Проверяет токен, обновляет last_seen, возвращает ActiveUser
     pub fn get_active_user_by_token(&self, token: &str) -> Option<crate::models::ActiveUser> {
         let row: Option<(i64, String, String, Option<String>, bool, Option<String>)> = self.conn.query_row(

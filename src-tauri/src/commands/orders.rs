@@ -30,7 +30,10 @@ use std::collections::HashMap;
 #[tauri::command]
 pub(crate) fn create_order(input: OrderInput) -> Result<Order, String> {
     require_perm(models::perms::CREATE_ORDERS)?;
-    with_db!(db, { db.create_order(&input) })
+    with_db!(db, {
+        crate::commands::telemetry::enforce_daily_quota(db, crate::commands::telemetry::DailyQuota::Orders)?;
+        db.create_order(&input)
+    })
 }
 
 #[tauri::command]

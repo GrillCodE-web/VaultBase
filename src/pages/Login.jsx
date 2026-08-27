@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { CreditCard, Eye, EyeOff, Lock, Check, X } from 'lucide-react'
+import { CreditCard, Eye, EyeOff, Lock, Check, X, ShieldAlert } from 'lucide-react'
 import { useLang } from '../hooks/useLang.jsx'
+import { useAuth } from '../hooks/useAuth.jsx'
 
 // ─── Password strength calculator ──────────────────────────────────────────
 
@@ -82,6 +83,9 @@ function Req({ met, label }) {
 
 export default function Login({ onUnlocked }) {
   const { t } = useLang()
+  // MGR-005: причина бана — на экране лока (снапшот читается из памяти,
+  // работает и на запертой БД)
+  const { policy } = useAuth()
 
   const [mode, setMode] = useState('loading') // loading | setup | unlock
   const [password, setPassword] = useState('')
@@ -176,6 +180,20 @@ export default function Login({ onUnlocked }) {
             {t(mode === 'setup' ? 'auth_setup_subtitle' : 'auth_unlock_subtitle')}
           </p>
         </div>
+
+        {/* MGR-005: бан от менеджера — причина на экране лока */}
+        {policy?.banned && (
+          <div className="auth-error" role="alert" aria-live="assertive">
+            <ShieldAlert size={16} style={{ flexShrink: 0 }} />
+            <span>
+              <strong>{t('policy_banned_title')}</strong>
+              {policy.banned_reason ? ` — ${policy.banned_reason}` : ''}
+              {policy.ban_until
+                ? ` (${t('policy_banned_until', { until: policy.ban_until })})`
+                : ''}
+            </span>
+          </div>
+        )}
 
         {/* Card */}
         <div className="auth-card">

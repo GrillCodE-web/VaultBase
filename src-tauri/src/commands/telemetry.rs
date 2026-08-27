@@ -416,6 +416,147 @@ fn http_err(e: ureq::Error) -> String {
     }
 }
 
+// ── MGR-005: применение политик живьём ───────────────────────────
+// Политика приходит в ответе heartbeat (`{ok, policy, update_required}`)
+// или в 403 banned (`{error, reason, policy}`). Поля серверной строки
+// worker_policies: banned, banned_reason, ban_until, permissions_override,
+// quota_cards_day, quota_orders_day, min_version, version_exempt,
+// force_logout, updated_by, updated_at.
+
+/// Эффекты применения — то, о чём фронту надо узнать немедленно.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PolicyEffects {
+    pub banned: bool,
+    pub force_logout: bool,
+    pub update_required: bool,
+}
+
+/// SQLite-хранимые флаги приходят как 0/1, из JSON — как bool.
+fn policy_flag(v: &serde_json::Value, key: &str) -> bool {
+    match v.get(key) {
+        Some(serde_json::Value::Bool(b)) => *b,
+        Some(serde_json::Value::Number(n)) => n.as_i64().unwrap_or(0) != 0,
+        _ => false,
+    }
+}
+
+fn policy_opt_i64(v: &serde_json::Value, key: &str) -> Option<i64> {
+    v.get(key).and_then(|x| x.as_i64())
+}
+
+fn policy_opt_string(v: &serde_json::Value, key: &str) -> Option<String> {
+    v.get(key).and_then(|x| x.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string())
+}
+
+/// permissions_override — TEXT-колонка с JSON: может прийти строкой или
+/// уже объектом. Невалидное значение игнорируем, чтобы не ломать права.
+fn parse_permissions_override(v: &serde_json::Value) -> Option<std::collections::HashMap<String, bool>> {
+    let parsed: serde_json::Value = match v.get("permissions_override") {
+        Some(serde_json::Value::String(s)) => serde_json::from_str(s).ok()?,
+        Some(o @ serde_json::Value::Object(_)) => o.clone(),
+        _ => return None,
+    };
+    parsed.as_object().map(|m| {
+        m.iter().filter_map(|(k, val)| val.as_bool().map(|b| (k.clone(), b))).collect()
+    })
+}
+
+/// Разобрать строку политики в PolicyState (update_required живёт отдельно
+/// от строки worker_policies — его сервер вычисляет на heartbeat).
+fn parse_policy_state(policy: &serde_json::Value, update_required: bool) -> PolicyState {
+    PolicyState {
+        banned: policy_flag(policy, "banned"),
+        banned_reason: policy_opt_string(policy, "banned_reason"),
+        ban_until: policy_opt_string(policy, "ban_until"),
+        update_required,
+        min_version: policy_opt_string(policy, "min_version"),
+        permissions_override: parse_permissions_override(policy),
+        quota_cards_day: policy_opt_i64(policy, "quota_cards_day"),
+        quota_orders_day: policy_opt_i64(policy, "quota_orders_day"),
+        force_logout: policy_flag(policy, "force_logout"),
+    }
+}
+
+/// Применить политику живьём: персистит в config `worker_policy` (вместе с
+/// update_required — одним ключом), обновляет in-memory PolicyState.
+/// force_logout гасит все локальные сессии и ставит флаг ack — следующий
+/// heartbeat уйдёт с `ack_force_logout:true`, и сервер сбросит флаг.
+pub(crate) fn apply_policy(db: &mut Database, policy: &serde_json::Value, update_required: bool) -> PolicyEffects {
+    let next = parse_policy_state(policy, update_required);
+    let mut stored = policy.clone();
+    stored["update_required"] = serde_json::json!(update_required);
+    let _ = db.set_config("worker_policy", &stored.to_string());
+
+    let force_logout = next.force_logout;
+    if let Some(st) = STATE.get() {
+        if let Ok(mut p) = st.policy.lock() { *p = next.clone(); }
+        if force_logout {
+            if let Ok(mut u) = st.current_user.lock() { *u = None; }
+        }
+    }
+    if force_logout {
+        let _ = db.logout_all_sessions();
+        let _ = db.set_config("telemetry_ack_force_logout", "1");
+    }
+    PolicyEffects { banned: next.banned, force_logout, update_required }
+}
+
+/// Восстановить политику из config при логине — после рестарта приложения
+/// бан/override/квоты продолжают действовать до первого свежего heartbeat.
+pub(crate) fn restore_policy_from_config(db: &Database) {
+    let Some(raw) = db.get_config("worker_policy").ok().flatten() else { return };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else { return };
+    let next = parse_policy_state(&v, policy_flag(&v, "update_required"));
+    if let Some(st) = STATE.get() {
+        if let Ok(mut p) = st.policy.lock() { *p = next; }
+    }
+}
+
+// ── MGR-005: дневные квоты ───────────────────────────────────────
+// Счётчик считается так же, как в daily_stats (локальная дата,
+// DATE(..., 'localtime')) — менеджер видит те же числа в отчёте.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DailyQuota { Cards, Orders }
+
+fn quota_err(kind: DailyQuota) -> String {
+    match kind {
+        DailyQuota::Cards => "quota_exceeded:cards_day".to_string(),
+        DailyQuota::Orders => "quota_exceeded:orders_day".to_string(),
+    }
+}
+
+fn quota_used_today(db: &Database, kind: DailyQuota) -> i64 {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let sql = match kind {
+        DailyQuota::Cards =>
+            "SELECT COUNT(*) FROM card_assignments WHERE DATE(assigned_at, 'localtime') = ?1",
+        DailyQuota::Orders =>
+            "SELECT COUNT(*) FROM orders WHERE DATE(created_at, 'localtime') = ?1",
+    };
+    scalar_i64(db, sql, &[&today as &dyn rusqlite::ToSql])
+}
+
+/// Проверка с явным лимитом — тестируемое ядро; `None` = без квоты,
+/// `Some(0)` = полный запрет на сегодня.
+pub(crate) fn enforce_daily_quota_with(db: &Database, kind: DailyQuota, limit: Option<i64>) -> Result<(), String> {
+    let Some(limit) = limit else { return Ok(()) };
+    if limit <= 0 || quota_used_today(db, kind) >= limit {
+        return Err(quota_err(kind));
+    }
+    Ok(())
+}
+
+/// Проверка по активной политике (in-memory; без политики — пропускает).
+pub(crate) fn enforce_daily_quota(db: &Database, kind: DailyQuota) -> Result<(), String> {
+    let p = crate::state::policy_snapshot();
+    let limit = match kind {
+        DailyQuota::Cards => p.quota_cards_day,
+        DailyQuota::Orders => p.quota_orders_day,
+    };
+    enforce_daily_quota_with(db, kind, limit)
+}
+
 /// Ответ heartbeat: `{ok, policy, update_required}`; при бане middleware
 /// отвечает `403 {error:'banned', reason, policy}` — policy уходит наверх
 /// целиком (MGR-005 применяет бан/лок/квоты).
@@ -426,28 +567,41 @@ pub struct TelemetryHeartbeatResult {
     pub update_required: bool,
     pub banned: bool,
     pub policy: Option<serde_json::Value>,
+    /// MGR-005: политика потребовала разлогин — фронт должен выкинуть на логин.
+    #[serde(default)]
+    pub force_logout: bool,
+}
+
+impl TelemetryHeartbeatResult {
+    fn fail(reason: String) -> Self {
+        TelemetryHeartbeatResult {
+            sent: false, reason, update_required: false, banned: false,
+            policy: None, force_logout: false,
+        }
+    }
 }
 
 pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
     let token = match worker_token(db) {
         Ok(t) => t,
-        Err(reason) => return TelemetryHeartbeatResult {
-            sent: false, reason, update_required: false, banned: false, policy: None,
-        },
+        Err(reason) => return TelemetryHeartbeatResult::fail(reason),
     };
     let keys = match fetch_manager_keys(&token) {
         Ok(k) => k,
-        Err(reason) => return TelemetryHeartbeatResult {
-            sent: false, reason, update_required: false, banned: false, policy: None,
-        },
+        Err(reason) => return TelemetryHeartbeatResult::fail(reason),
     };
     let envelopes = match seal_for_managers(&keys, &build_heartbeat_payload(db)) {
         Ok(e) => e,
-        Err(reason) => return TelemetryHeartbeatResult {
-            sent: false, reason, update_required: false, banned: false, policy: None,
-        },
+        Err(reason) => return TelemetryHeartbeatResult::fail(reason),
     };
-    let body = serde_json::json!({ "envelopes": envelopes });
+    // MGR-005: после force_logout следующий heartbeat подтверждает разлогин —
+    // сервер по ack_force_logout:true сбрасывает флаг в worker_policies.
+    let ack = db.get_config("telemetry_ack_force_logout").ok().flatten().as_deref() == Some("1");
+    let body = if ack {
+        serde_json::json!({ "envelopes": envelopes, "ack_force_logout": true })
+    } else {
+        serde_json::json!({ "envelopes": envelopes })
+    };
     let resp = ureq::post(&crate::endpoints::endpoint("/api/telemetry/heartbeat"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
@@ -461,31 +615,43 @@ pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
             if v.get("ok").and_then(|x| x.as_bool()).unwrap_or(false) {
                 let _ = db.set_config("telemetry_last_heartbeat_at",
                     &chrono::Utc::now().to_rfc3339());
+                if ack { let _ = db.set_config("telemetry_ack_force_logout", "0"); }
+                let update_required = v.get("update_required").and_then(|x| x.as_bool()).unwrap_or(false);
+                let policy = v.get("policy").cloned();
+                let effects = match &policy {
+                    Some(p) => apply_policy(db, p, update_required),
+                    None => PolicyEffects::default(),
+                };
                 TelemetryHeartbeatResult {
                     sent: true, reason: "ok".into(),
-                    update_required: v.get("update_required").and_then(|x| x.as_bool()).unwrap_or(false),
-                    banned: false,
-                    policy: v.get("policy").cloned(),
+                    update_required,
+                    banned: effects.banned,
+                    policy,
+                    force_logout: effects.force_logout,
                 }
             } else {
-                TelemetryHeartbeatResult {
-                    sent: false, reason: "bad_response".into(),
-                    update_required: false, banned: false, policy: None,
-                }
+                TelemetryHeartbeatResult::fail("bad_response".into())
             }
         }
         Err(ureq::Error::Status(403, r)) => {
             let v: serde_json::Value = r.into_json().unwrap_or(serde_json::json!({}));
+            let policy = v.get("policy").cloned();
+            let effects = match &policy {
+                Some(p) => apply_policy(db, p, false),
+                None => PolicyEffects::default(),
+            };
             TelemetryHeartbeatResult {
                 sent: false,
                 reason: v.get("error").and_then(|x| x.as_str()).unwrap_or("banned").to_string(),
                 update_required: false,
                 banned: true,
-                policy: v.get("policy").cloned(),
+                policy,
+                force_logout: effects.force_logout,
             }
         }
         Err(e) => TelemetryHeartbeatResult {
-            sent: false, reason: http_err(e), update_required: false, banned: false, policy: None,
+            sent: false, reason: http_err(e), update_required: false, banned: false,
+            policy: None, force_logout: false,
         },
     }
 }
@@ -547,8 +713,7 @@ pub(crate) fn telemetry_tick_impl(db: &mut Database, force: bool) -> serde_json:
         None => true,
     };
     let heartbeat = if due { send_heartbeat(db) } else {
-        TelemetryHeartbeatResult { sent: false, reason: "skipped_not_due".into(),
-            update_required: false, banned: false, policy: None }
+        TelemetryHeartbeatResult::fail("skipped_not_due".into())
     };
 
     let yesterday = yesterday_local();
@@ -584,6 +749,24 @@ pub(crate) fn telemetry_send_daily_stats(date: Option<String>) -> Result<Telemet
 #[tauri::command]
 pub(crate) fn telemetry_tick(force: Option<bool>) -> Result<serde_json::Value, String> {
     with_db!(db, { Ok(telemetry_tick_impl(db, force.unwrap_or(false))) })
+}
+
+/// MGR-005: снимок активной политики для фронта. Читает только память —
+/// работает и на заблокированной БД (экран лока показывает причину бана).
+#[tauri::command]
+pub(crate) fn telemetry_get_policy() -> serde_json::Value {
+    let p = crate::state::policy_snapshot();
+    serde_json::json!({
+        "banned": p.banned,
+        "banned_reason": p.banned_reason,
+        "ban_until": p.ban_until,
+        "update_required": p.update_required,
+        "min_version": p.min_version,
+        "permissions_override": p.permissions_override,
+        "quota_cards_day": p.quota_cards_day,
+        "quota_orders_day": p.quota_orders_day,
+        "force_logout": p.force_logout,
+    })
 }
 
 // ── Тесты ─────────────────────────────────────────────────────────
@@ -800,5 +983,141 @@ mod telemetry_tests {
         let forced = telemetry_tick_impl(&mut db, true);
         assert_eq!(forced["heartbeat"]["reason"], "no_token");
         assert_eq!(forced["daily_stats"]["reason"], "skipped_already_sent");
+    }
+
+    // ── MGR-005: политики ──
+
+    fn policy_json() -> serde_json::Value {
+        serde_json::json!({
+            "banned": 0,
+            "banned_reason": null,
+            "ban_until": null,
+            "permissions_override": null,
+            "quota_cards_day": null,
+            "quota_orders_day": null,
+            "min_version": null,
+            "force_logout": 0,
+        })
+    }
+
+    #[test]
+    fn test_apply_policy_ban_persisted() {
+        let (_dir, mut db) = test_db();
+        let mut p = policy_json();
+        p["banned"] = serde_json::json!(1);
+        p["banned_reason"] = json_str("fraud chargeback");
+        let fx = apply_policy(&mut db, &p, true);
+        assert!(fx.banned && fx.update_required && !fx.force_logout);
+        // персист одним ключом, update_required внутри
+        let stored = db.get_config("worker_policy").unwrap().unwrap();
+        let v: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(v["banned"], 1);
+        assert_eq!(v["update_required"], true);
+        assert_eq!(v["banned_reason"], "fraud chargeback");
+    }
+
+    #[test]
+    fn test_apply_policy_unban_clears_state() {
+        let (_dir, mut db) = test_db();
+        let mut p = policy_json();
+        p["banned"] = serde_json::json!(1);
+        apply_policy(&mut db, &p, false);
+        // сервер снял бан (авто-унбан по ban_until или вручную в панели)
+        let fx = apply_policy(&mut db, &policy_json(), false);
+        assert!(!fx.banned);
+        let stored = db.get_config("worker_policy").unwrap().unwrap();
+        let v: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(v["banned"], 0);
+    }
+
+    #[test]
+    fn test_apply_policy_force_logout_wipes_sessions() {
+        let (_dir, mut db) = test_db();
+        db.conn.execute(
+            "INSERT INTO users(username, password_hash, display_name, role) \
+             VALUES('u','h','U','admin')", []).unwrap();
+        db.conn.execute(
+            "INSERT INTO user_sessions(user_id, token) VALUES(1,'tok')", []).unwrap();
+        let mut p = policy_json();
+        p["force_logout"] = serde_json::json!(1);
+        let fx = apply_policy(&mut db, &p, false);
+        assert!(fx.force_logout);
+        assert_eq!(scalar_i64(&db, "SELECT COUNT(*) FROM user_sessions", &[]), 0);
+        // ack уйдёт следующим heartbeat — сервер по нему сбросит флаг
+        assert_eq!(db.get_config("telemetry_ack_force_logout").unwrap().as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn test_permissions_override_parsing_and_merge() {
+        let mut p = policy_json();
+        p["permissions_override"] = json_str("{\"take_cards\":false,\"manage_users\":true}");
+        let st = parse_policy_state(&p, false);
+        let ov = st.permissions_override.clone().unwrap();
+        assert_eq!(ov.get("take_cards"), Some(&false));
+        assert_eq!(ov.get("manage_users"), Some(&true));
+
+        // невалидный JSON не ломает права
+        p["permissions_override"] = json_str("{broken");
+        assert!(parse_policy_state(&p, false).permissions_override.is_none());
+
+        // мерж поверх perms: явный false режет даже админа…
+        let admin = crate::models::ActiveUser {
+            user_id: 1, username: "a".into(), role: "admin".into(),
+            permissions: vec![], token: "t".into(), ip_address: None,
+        };
+        assert!(!crate::state::perm_allowed_with(&st, &admin, "take_cards"));
+        assert!(crate::state::perm_allowed_with(&st, &admin, "export_data")); // без ключа — обычная логика
+
+        // …а явный true выдаёт право оператору без него
+        let op = crate::models::ActiveUser {
+            user_id: 2, username: "o".into(), role: "operator".into(),
+            permissions: vec![], token: "t".into(), ip_address: None,
+        };
+        assert!(crate::state::perm_allowed_with(&st, &op, "manage_users"));
+        assert!(!crate::state::perm_allowed_with(&st, &op, "export_data"));
+    }
+
+    #[test]
+    fn test_quota_orders_enforced() {
+        let (_dir, db) = test_db();
+        let pid = make_profile(&db, 1);
+        let sid = make_shop(&db, "quota.test");
+        make_order(&db, &pid, sid, 1);
+        // лимит 1 уже исчерпан созданным заказом
+        assert_eq!(
+            enforce_daily_quota_with(&db, DailyQuota::Orders, Some(1)).unwrap_err(),
+            "quota_exceeded:orders_day"
+        );
+        assert!(enforce_daily_quota_with(&db, DailyQuota::Orders, Some(2)).is_ok());
+        assert!(enforce_daily_quota_with(&db, DailyQuota::Orders, None).is_ok());
+        // 0 = полный запрет на сегодня
+        assert!(enforce_daily_quota_with(&db, DailyQuota::Orders, Some(0)).is_err());
+    }
+
+    #[test]
+    fn test_quota_cards_enforced() {
+        let (_dir, db) = test_db();
+        db.conn.execute(
+            "INSERT INTO users(username, password_hash, display_name, role) \
+             VALUES('u','h','U','admin')", []).unwrap();
+        make_profile(&db, 1); // создаёт карту в пуле
+        let card_id: i64 = db.conn
+            .query_row("SELECT MAX(id) FROM credit_cards", [], |r| r.get(0)).unwrap();
+        db.assign_card_to_user(card_id, 1, Some(1)).unwrap();
+        assert_eq!(
+            enforce_daily_quota_with(&db, DailyQuota::Cards, Some(1)).unwrap_err(),
+            "quota_exceeded:cards_day"
+        );
+        assert!(enforce_daily_quota_with(&db, DailyQuota::Cards, Some(5)).is_ok());
+        assert!(enforce_daily_quota_with(&db, DailyQuota::Cards, None).is_ok());
+    }
+
+    #[test]
+    fn test_restore_policy_without_state_is_noop() {
+        let (_dir, db) = test_db();
+        db.set_config("worker_policy", "{\"banned\":1}").unwrap();
+        restore_policy_from_config(&db); // STATE нет в юнит-тестах — не паникует
+        db.set_config("worker_policy", "{broken").unwrap();
+        restore_policy_from_config(&db); // битый JSON — тоже молча пропускаем
     }
 }

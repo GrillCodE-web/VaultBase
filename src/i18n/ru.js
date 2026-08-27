@@ -367,6 +367,12 @@ export const ru = {
   activate_err_unknown: 'Ошибка',
   license_revoked_title: 'Лицензия отозвана',
   license_revoked_body: 'Ваша лицензия отозвана. Обратитесь к администратору.',
+  policy_banned_title: 'Доступ заблокирован менеджером',
+  policy_banned_until: 'до {until}',
+  policy_update_title: 'Требуется обновление',
+  policy_update_body:
+    'Менеджер требует версию приложения {version} или новее. Обновите приложение, чтобы продолжить работу.',
+  policy_force_logout_toast: 'Менеджер завершил вашу сессию.',
   settings_license: 'Лицензия',
   settings_license_status: 'Статус',
   settings_installation_id: 'ID установки',

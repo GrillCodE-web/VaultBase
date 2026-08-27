@@ -249,6 +249,20 @@ const data = {
   stuffer_get_config: {},
   stuffer_get_labels: [],
 
+  // MGR-005: политика применяется живьём — useAuth поллит их раз в минуту
+  telemetry_tick: null,
+  telemetry_get_policy: {
+    banned: false,
+    banned_reason: null,
+    ban_until: null,
+    update_required: false,
+    min_version: null,
+    permissions_override: null,
+    quota_cards_day: null,
+    quota_orders_day: null,
+    force_logout: false,
+  },
+
   sync_get_group_status: { connected: false, group_id: null },
   get_available_emails: [],
   get_free_email_for_shop: null,

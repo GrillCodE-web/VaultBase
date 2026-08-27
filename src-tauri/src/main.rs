@@ -164,6 +164,7 @@ fn main() {
         db: Mutex::new(db),
         is_locked: AtomicBool::new(true),
         current_user: Mutex::new(None),
+        policy: Mutex::new(state::PolicyState::default()),
     }).unwrap_or_else(|_| eprintln!("[warn] AppState already initialized (main called twice)"));
 
     // Init WS sync handle (not started yet — starts after unlock)
@@ -279,6 +280,7 @@ fn main() {
             commands::telemetry::telemetry_send_heartbeat,
             commands::telemetry::telemetry_send_daily_stats,
             commands::telemetry::telemetry_tick,
+            commands::telemetry::telemetry_get_policy,
             commands::license::get_installation_id, commands::license::get_challenge_code, commands::license::activate_license,
             commands::license::get_license_status, commands::license::retry_license_connection,
             commands::misc::global_search, commands::misc::open_float_window, commands::misc::open_main_window_page, commands::misc::get_server_version, commands::misc::get_app_version,
