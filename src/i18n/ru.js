@@ -785,6 +785,10 @@ export const ru = {
   notify_sync_failed_body: '{message}',
   notify_imap_alert_title: 'Сбой подключения к ящику',
   notify_imap_alert_body: 'Аккаунт #{id}: {error}',
+  // FEAT-003: smart-подсказки (ежесуточное cron-событие smart_hints из background.rs)
+  smart_tip_card_burning:
+    'Карта ****{last4} скоро сгорит: {declines} деклайна подряд (авто-архив при {threshold})',
+  smart_tip_order_fail_streak: '{count} неуспешных заказа подряд — проверьте карты и магазины',
   imap_domain_routes_title: 'Маршруты: домен → почта',
   imap_domain_add_placeholder: 'Домен (напр. zoro.com)',
   imap_domain_account: 'Почтовый ящик',

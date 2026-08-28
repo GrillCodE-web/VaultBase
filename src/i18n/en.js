@@ -783,6 +783,10 @@ export const en = {
   notify_sync_failed_body: '{message}',
   notify_imap_alert_title: 'Mailbox connection failing',
   notify_imap_alert_body: 'Account #{id}: {error}',
+  // FEAT-003: smart hints (daily cron event smart_hints from background.rs)
+  smart_tip_card_burning:
+    'Card ****{last4} is about to burn: {declines} consecutive declines (auto-archive at {threshold})',
+  smart_tip_order_fail_streak: '{count} consecutive failed orders — check cards and shops',
   imap_domain_routes_title: 'Domain → Mailbox routes',
   imap_domain_add_placeholder: 'Domain (e.g. zoro.com)',
   imap_domain_account: 'Mailbox',

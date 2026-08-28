@@ -411,6 +411,20 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                 }
             }
         }),
+        // FEAT-003: smart-подсказки — «карта скоро сгорит» (declines у in_use карт
+        // приближаются к порогу авто-архива) + «N неуспешных заказов подряд»
+        // (глобальная серия declined/failed без delivered). Раз в сутки.
+        CronTask::new("smart_hints", crate::constants::REMINDER_CHECK_INTERVAL_SECS, crate::constants::REMINDER_START_DELAY_SECS, |h| {
+            if let Some(st) = STATE.get() {
+                let Ok(db) = st.db.lock() else { return };
+                if db.is_locked() { return; }
+                let hints = db.smart_hints().unwrap_or_default();
+                drop(db); // не держим lock на emit
+                if !hints.is_empty() {
+                    let _ = h.emit("smart_hints", serde_json::json!({ "hints": hints }));
+                }
+            }
+        }),
     ]);
 
     // ── Auto-fetch catalog on first run if empty ──

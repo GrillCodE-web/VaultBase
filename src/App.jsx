@@ -770,6 +770,44 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // FEAT-003: smart-подсказки (cron на бэке, раз в сутки)
+  useEffect(() => {
+    let unlistenFn = null
+    listen('smart_hints', e => {
+      const hints = e.payload?.hints
+      if (!Array.isArray(hints)) return
+      hints.forEach(hint => {
+        if (hint.kind === 'card_burning') {
+          toast(
+            t('smart_tip_card_burning', {
+              last4: hint.last4 || '????',
+              declines: hint.declines,
+              threshold: hint.threshold,
+            }),
+            'warning',
+            {
+              duration: 10000,
+              groupKey: `smart_hint_card_${hint.card_id}`,
+              action: { label: t('reminder_open_cards'), onClick: () => handlePageChange('cards') },
+            }
+          )
+        } else if (hint.kind === 'order_fail_streak') {
+          toast(t('smart_tip_order_fail_streak', { count: hint.count }), 'warning', {
+            duration: 10000,
+            groupKey: 'smart_hint_order_streak',
+            action: { label: t('reminder_open_orders'), onClick: () => handlePageChange('orders') },
+          })
+        }
+      })
+    }).then(fn => {
+      unlistenFn = fn
+    })
+    return () => {
+      if (unlistenFn) unlistenFn()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // SEC-024: предупреждение при работе на непроверенной лицензии (offline grace)
   const licenseOfflineWarnedRef = useRef(false)
   useEffect(() => {

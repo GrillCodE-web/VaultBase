@@ -793,6 +793,56 @@ impl Database {
         Ok(consecutive)
     }
 
+    /// FEAT-003: smart-подсказки. Возвращает JSON-список подсказок:
+    /// - "card_burning": in_use карта набрала >= ALERT_THRESHOLD и < decline_threshold
+    ///   consecutive declines (скоро сгорит → уйдёт в авто-архив);
+    /// - "order_fail_streak": глобальная серия >= STREAK_THRESHOLD declined/failed
+    ///   заказов подряд (по всем картам/магазинам, delivered прерывает серию).
+    pub fn smart_hints(&self) -> Result<Vec<serde_json::Value>, String> {
+        const ALERT_THRESHOLD: u32 = 3; // предупреждаем раньше авто-архива (дефолт 5)
+        const STREAK_THRESHOLD: u32 = 3; // "3 неуспешных заказа подряд"
+        let decline_threshold = self.get_config_u32("decline_threshold", 5)?;
+
+        let mut hints = Vec::new();
+
+        // «Карта скоро сгорит»: in_use карты, declines в [ALERT_THRESHOLD, decline_threshold)
+        let mut stmt = self.conn.prepare(
+            "SELECT id, COALESCE(bin,''), last4 FROM credit_cards WHERE status = 'in_use'"
+        ).map_err(|e| e.to_string())?;
+        let cards: Vec<(i64, String, Option<String>)> = stmt.query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        }).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+        drop(stmt);
+        for (id, bin, last4) in cards {
+            let n = self.get_consecutive_declines(id).unwrap_or(0);
+            if n >= ALERT_THRESHOLD && n < decline_threshold {
+                hints.push(serde_json::json!({
+                    "kind": "card_burning", "card_id": id, "bin": bin,
+                    "last4": last4, "declines": n, "threshold": decline_threshold,
+                }));
+            }
+        }
+
+        // «N неуспешных заказов подряд»: последние заказы, пока не встретится delivered
+        let streak: u32 = {
+            let mut s = self.conn.prepare(
+                "SELECT status FROM orders ORDER BY created_at DESC, id DESC LIMIT 20"
+            ).map_err(|e| e.to_string())?;
+            let statuses: Vec<String> = s.query_map([], |r| r.get(0))
+                .map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+            let mut n = 0u32;
+            for st in statuses {
+                if st == "declined" || st == "failed" { n += 1; } else if st == "delivered" { break; }
+            }
+            n
+        };
+        if streak >= STREAK_THRESHOLD {
+            hints.push(serde_json::json!({ "kind": "order_fail_streak", "count": streak }));
+        }
+
+        Ok(hints)
+    }
+
     /// PHASE 6: Авто-архивация карт с множественными consecutive declines
     pub fn auto_archive_risky_cards(&self, decline_threshold: u32) -> Result<u32, String> {
         // Получаем все карты со статусом in_use
