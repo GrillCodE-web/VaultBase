@@ -319,6 +319,11 @@ function ItemsTab() {
 
 // ─── Shops Tab ────────────────────────────────────────────────
 
+// MGR-006: сортировка по приоритету менеджера (weight desc), затем как отдал сервер
+function sortByPriority(list, map) {
+  return [...list].sort((a, b) => (map[b.domain] || 0) - (map[a.domain] || 0))
+}
+
 function ShopsTab() {
   const [shops, setShops] = useState([])
   const [total, setTotal] = useState(0)
@@ -326,6 +331,9 @@ function ShopsTab() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
+  // MGR-006: приоритеты шопов от менеджера (мапа domain → weight)
+  const [priorities, setPriorities] = useState({})
+  const prioritiesRef = useRef({})
   const { toast } = usePremiumToast()
   const searchTimer = useRef(null)
 
@@ -349,7 +357,7 @@ function ShopsTab() {
           perPage: DEFAULT_PAGE_SIZE,
           search: actualSearch || '',
         })
-        setShops(r.items)
+        setShops(sortByPriority(r.items, prioritiesRef.current))
         setTotal(r.total)
         setPages(r.pages)
       } catch (e) {
@@ -365,6 +373,15 @@ function ShopsTab() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка магазинов каталога
     load(1, '')
+    // MGR-006: приоритеты менеджера — после получения пересортировываем уже показанное
+    invoke('get_shop_priorities')
+      .then(r => {
+        const map = r?.by_domain || {}
+        prioritiesRef.current = map
+        setPriorities(map)
+        setShops(prev => sortByPriority(prev, map))
+      })
+      .catch(() => {}) // каталог работает и без приоритетов
     // Real-time: refresh when a new catalog shop arrives via WebSocket
     const unlisten = listen('catalog_shop_added', () => {
       load() // load() использует текущие значения из ref
@@ -415,6 +432,7 @@ function ShopsTab() {
               <th>Domain</th>
               <th>Category</th>
               <th>Score</th>
+              <th>Priority</th>
               <th>Ship US</th>
               <th>Fraud Level</th>
               <th>Excluded</th>
@@ -423,8 +441,14 @@ function ShopsTab() {
           <tbody>
             {loading && shops.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted p-6">
-                  Loading…
+                <td colSpan={7} className="text-center text-muted p-6">
+                  Loading...
+                </td>
+              </tr>
+            ) : shops.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center text-muted p-6">
+                  No shops found
                 </td>
               </tr>
             ) : shops.length === 0 ? (
@@ -444,6 +468,25 @@ function ShopsTab() {
                   </td>
                   <td>
                     <ScoreBadge score={shop.score} />
+                  </td>
+                  <td>
+                    {priorities[shop.domain] > 0 ? (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 7px',
+                          borderRadius: 4,
+                          background: 'var(--accent-dim)',
+                          color: 'var(--accent-text)',
+                        }}
+                        title={`Manager priority weight: ${priorities[shop.domain]}`}
+                      >
+                        ★ {priorities[shop.domain]}
+                      </span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td>
                     <span className="text-[13px]">{shop.ship_us ? '✓' : '✗'}</span>

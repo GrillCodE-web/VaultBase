@@ -716,6 +716,18 @@ pub(crate) fn telemetry_tick_impl(db: &mut Database, force: bool) -> serde_json:
         TelemetryHeartbeatResult::fail("skipped_not_due".into())
     };
 
+    // MGR-006: после успешного heartbeat подтягиваем новости и приоритеты
+    // (best-effort — сбой сети/формата не должен ломать телеметрию).
+    let mut feeds = serde_json::json!({ "news": "skipped", "priorities": "skipped" });
+    if heartbeat.sent {
+        let n = fetch_and_store_news(db);
+        let p = fetch_and_store_priorities(db);
+        feeds = serde_json::json!({
+            "news": n.as_ref().map(|c| serde_json::json!(c)).unwrap_or_else(|e| serde_json::json!(format!("err:{}", e))),
+            "priorities": p.as_ref().map(|c| serde_json::json!(c)).unwrap_or_else(|e| serde_json::json!(format!("err:{}", e))),
+        });
+    }
+
     let yesterday = yesterday_local();
     let already_sent = db.get_config("telemetry_last_daily_stats").ok().flatten()
         .map(|d| d == yesterday).unwrap_or(false);
@@ -725,7 +737,7 @@ pub(crate) fn telemetry_tick_impl(db: &mut Database, force: bool) -> serde_json:
     } else {
         send_daily_stats(db, &yesterday)
     };
-    serde_json::json!({ "heartbeat": heartbeat, "daily_stats": daily })
+    serde_json::json!({ "heartbeat": heartbeat, "daily_stats": daily, "feeds": feeds })
 }
 
 #[tauri::command]
@@ -749,6 +761,171 @@ pub(crate) fn telemetry_send_daily_stats(date: Option<String>) -> Result<Telemet
 #[tauri::command]
 pub(crate) fn telemetry_tick(force: Option<bool>) -> Result<serde_json::Value, String> {
     with_db!(db, { Ok(telemetry_tick_impl(db, force.unwrap_or(false))) })
+}
+
+// ── MGR-006: новости и приоритеты шопов от менеджера ─────────────
+// Сервер фильтрует по таргетингу и отдаёт уже применимое к этому воркеру.
+// Воркер кеширует снимок локально (миграция v17): новости с флагом прочтения,
+// приоритеты — мапой domain→weight для сортировки каталога.
+
+/// GET-запрос к telemetry API с Bearer-токеном; возвращает распарсенный JSON.
+fn telemetry_get(db: &Database, path: &str) -> Result<serde_json::Value, String> {
+    let token = worker_token(db)?;
+    ureq::get(&crate::endpoints::endpoint(path))
+        .set("Authorization", &format!("Bearer {}", token))
+        .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
+        .call()
+        .map_err(http_err)?
+        .into_json()
+        .map_err(|_| "bad_response".to_string())
+}
+
+/// Забрать новости с сервера и слить в локальный кеш. Сервер уже посчитал
+/// is_read, но локальный флаг приоритетнее (пользователь мог отметить оффлайн).
+/// Новости, исчезнувшие из выборки (unpublish/expire), подтираем.
+pub(crate) fn fetch_and_store_news(db: &Database) -> Result<i64, String> {
+    let body = telemetry_get(db, "/api/telemetry/news")?;
+    let items = body.get("news").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut seen: Vec<i64> = Vec::new();
+    let tx = db.conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    for n in &items {
+        let id = n.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+        if id <= 0 { continue; }
+        seen.push(id);
+        let severity = n.get("severity").and_then(|v| v.as_str()).unwrap_or("info");
+        let title = n.get("title").and_then(|v| v.as_str()).unwrap_or("");
+        let body_t = n.get("body").and_then(|v| v.as_str());
+        let published = n.get("published_at").and_then(|v| v.as_str());
+        let expires = n.get("expires_at").and_then(|v| v.as_str());
+        let server_read = n.get("is_read").and_then(|v| v.as_i64()).unwrap_or(0);
+        tx.execute(
+            "INSERT INTO manager_news (id, severity, title, body, published_at, expires_at, is_read)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(id) DO UPDATE SET
+                severity = excluded.severity,
+                title = excluded.title,
+                body = excluded.body,
+                published_at = excluded.published_at,
+                expires_at = excluded.expires_at,
+                is_read = MAX(manager_news.is_read, excluded.is_read)",
+            params![id, severity, title, body_t, published, expires, server_read],
+        ).map_err(|e| e.to_string())?;
+    }
+    if !seen.is_empty() {
+        let ph = seen.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!("DELETE FROM manager_news WHERE id NOT IN ({})", ph);
+        let mut stmt = tx.prepare(&sql).map_err(|e| e.to_string())?;
+        let refs: Vec<&dyn rusqlite::ToSql> = seen.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
+        stmt.execute(refs.as_slice()).map_err(|e| e.to_string())?;
+    } else {
+        tx.execute("DELETE FROM manager_news", []).map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(seen.len() as i64)
+}
+
+/// Забрать приоритеты шопов и заменить локальную мапу domain→weight.
+/// Сервер уже развернул таргеты (all / iid / role) в конкретные строки;
+/// при конфликте одного домена в разных таргетах берём максимальный вес.
+pub(crate) fn fetch_and_store_priorities(db: &Database) -> Result<i64, String> {
+    let body = telemetry_get(db, "/api/telemetry/priorities")?;
+    let items = body.get("priorities").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let tx = db.conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM shop_priorities", []).map_err(|e| e.to_string())?;
+    for p in &items {
+        let domain = p.get("shop_domain").and_then(|v| v.as_str()).unwrap_or("");
+        if domain.is_empty() { continue; }
+        let weight = p.get("weight").and_then(|v| v.as_i64()).unwrap_or(5);
+        let notes = p.get("notes").and_then(|v| v.as_str()).unwrap_or("");
+        let updated = p.get("updated_at").and_then(|v| v.as_str());
+        tx.execute(
+            "INSERT INTO shop_priorities (shop_domain, weight, notes, updated_at)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(shop_domain) DO UPDATE SET
+                weight = MAX(shop_priorities.weight, excluded.weight),
+                notes = excluded.notes,
+                updated_at = excluded.updated_at",
+            params![domain, weight, notes, updated],
+        ).map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(items.len() as i64)
+}
+
+#[tauri::command]
+pub(crate) fn manager_refresh_feeds() -> Result<serde_json::Value, String> {
+    with_db!(db, {
+        let news = fetch_and_store_news(db).map_err(|e| format!("news: {}", e))?;
+        let priorities = fetch_and_store_priorities(db).map_err(|e| format!("priorities: {}", e))?;
+        Ok(serde_json::json!({ "news": news, "priorities": priorities }))
+    })
+}
+
+#[tauri::command]
+pub(crate) fn get_manager_news(unread_only: Option<bool>) -> Result<serde_json::Value, String> {
+    with_db!(db, {
+        let unread = unread_only.unwrap_or(false);
+        let sql = if unread {
+            "SELECT id, severity, title, body, published_at, expires_at, is_read
+             FROM manager_news WHERE is_read = 0 ORDER BY published_at DESC LIMIT 100"
+        } else {
+            "SELECT id, severity, title, body, published_at, expires_at, is_read
+             FROM manager_news ORDER BY published_at DESC LIMIT 100"
+        };
+        let mut stmt = db.conn.prepare(sql).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| {
+            Ok(serde_json::json!({
+                "id": r.get::<_, i64>(0)?,
+                "severity": r.get::<_, String>(1)?,
+                "title": r.get::<_, String>(2)?,
+                "body": r.get::<_, Option<String>>(3)?,
+                "published_at": r.get::<_, Option<String>>(4)?,
+                "expires_at": r.get::<_, Option<String>>(5)?,
+                "is_read": r.get::<_, i64>(6)? == 1,
+            }))
+        }).map_err(|e| e.to_string())?;
+        let news: Vec<serde_json::Value> = rows.flatten().collect();
+        let unread_count: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM manager_news WHERE is_read = 0", [], |r| r.get(0)
+        ).unwrap_or(0);
+        Ok(serde_json::json!({ "news": news, "unread": unread_count }))
+    })
+}
+
+#[tauri::command]
+pub(crate) fn mark_manager_news_read(id: i64) -> Result<(), String> {
+    with_db!(db, {
+        db.conn.execute("UPDATE manager_news SET is_read = 1 WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+        // best-effort: сообщаем серверу, чтобы счётчики читателей у менеджера совпадали
+        if let Ok(token) = worker_token(db) {
+            let _ = ureq::post(&crate::endpoints::endpoint(&format!("/api/telemetry/news/{}/read", id)))
+                .set("Authorization", &format!("Bearer {}", token))
+                .timeout(std::time::Duration::from_secs(5))
+                .call();
+        }
+        Ok(())
+    })
+}
+
+/// Приоритеты шопов: мапа domain→weight для сортировки каталога.
+#[tauri::command]
+pub(crate) fn get_shop_priorities() -> Result<serde_json::Value, String> {
+    with_db!(db, {
+        let mut stmt = db.conn.prepare(
+            "SELECT shop_domain, weight, notes FROM shop_priorities ORDER BY weight DESC, shop_domain ASC"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?))
+        }).map_err(|e| e.to_string())?;
+        let mut map = serde_json::Map::new();
+        let mut list: Vec<serde_json::Value> = Vec::new();
+        for (domain, weight, notes) in rows.flatten() {
+            map.insert(domain.clone(), serde_json::json!(weight));
+            list.push(serde_json::json!({ "domain": domain, "weight": weight, "notes": notes }));
+        }
+        Ok(serde_json::json!({ "by_domain": serde_json::Value::Object(map), "list": list }))
+    })
 }
 
 /// MGR-005: снимок активной политики для фронта. Читает только память —
@@ -1119,5 +1296,79 @@ mod telemetry_tests {
         restore_policy_from_config(&db); // STATE нет в юнит-тестах — не паникует
         db.set_config("worker_policy", "{broken").unwrap();
         restore_policy_from_config(&db); // битый JSON — тоже молча пропускаем
+    }
+
+    // MGR-006: кеш новостей и приоритетов
+
+    fn insert_news(db: &Database, id: i64, severity: &str, read: i64) {
+        db.conn.execute(
+            "INSERT OR REPLACE INTO manager_news (id, severity, title, body, published_at, is_read)
+             VALUES (?1, ?2, ?3, 'b', '2026-08-28 10:00:00', ?4)",
+            params![id, severity, format!("n{}", id), read],
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_news_read_mark_and_unread_count() {
+        let (_dir, db) = test_db();
+        insert_news(&db, 1, "warning", 0);
+        insert_news(&db, 2, "info", 0);
+        let unread: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM manager_news WHERE is_read = 0", [], |r| r.get(0)).unwrap();
+        assert_eq!(unread, 2);
+        db.conn.execute("UPDATE manager_news SET is_read = 1 WHERE id = 1", []).unwrap();
+        let unread: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM manager_news WHERE is_read = 0", [], |r| r.get(0)).unwrap();
+        assert_eq!(unread, 1);
+    }
+
+    #[test]
+    fn test_news_upsert_keeps_local_read_flag() {
+        let (_dir, db) = test_db();
+        insert_news(&db, 7, "info", 1); // уже прочитано локально
+        // симулируем upsert от сервера с is_read=0 — локальный флаг не должен сброситься
+        db.conn.execute(
+            "INSERT INTO manager_news (id, severity, title, body, published_at, expires_at, is_read)
+             VALUES (7, 'warning', 'upd', 'b2', '2026-08-28 11:00:00', NULL, 0)
+             ON CONFLICT(id) DO UPDATE SET severity=excluded.severity, title=excluded.title,
+                is_read = MAX(manager_news.is_read, excluded.is_read)",
+            []).unwrap();
+        let (sev, read): (String, i64) = db.conn.query_row(
+            "SELECT severity, is_read FROM manager_news WHERE id = 7", [],
+            |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(sev, "warning");
+        assert_eq!(read, 1);
+    }
+
+    #[test]
+    fn test_priorities_conflict_takes_max_weight() {
+        let (_dir, db) = test_db();
+        let upsert = |domain: &str, weight: i64| {
+            db.conn.execute(
+                "INSERT INTO shop_priorities (shop_domain, weight) VALUES (?1, ?2)
+                 ON CONFLICT(shop_domain) DO UPDATE SET weight = MAX(shop_priorities.weight, excluded.weight)",
+                params![domain, weight]).unwrap();
+        };
+        upsert("amazon.com", 5);
+        upsert("amazon.com", 9); // таргет по iid важнее общего
+        upsert("amazon.com", 3); // меньший вес не должен понизить
+        let w: i64 = db.conn.query_row(
+            "SELECT weight FROM shop_priorities WHERE shop_domain = 'amazon.com'",
+            [], |r| r.get(0)).unwrap();
+        assert_eq!(w, 9);
+    }
+
+    #[test]
+    fn test_priorities_replaced_fully_on_refresh() {
+        let (_dir, db) = test_db();
+        db.conn.execute("INSERT INTO shop_priorities (shop_domain, weight) VALUES ('old.com', 5)", []).unwrap();
+        // fetch_and_store_priorities делает DELETE + insert; симулируем финальное состояние
+        db.conn.execute("DELETE FROM shop_priorities", []).unwrap();
+        db.conn.execute("INSERT INTO shop_priorities (shop_domain, weight) VALUES ('new.com', 8)", []).unwrap();
+        let count: i64 = db.conn.query_row("SELECT COUNT(*) FROM shop_priorities", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 1);
+        let has_old: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM shop_priorities WHERE shop_domain = 'old.com'", [], |r| r.get(0)).unwrap();
+        assert_eq!(has_old, 0);
     }
 }

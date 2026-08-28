@@ -218,7 +218,17 @@ const data = {
   get_emails: { items: imapAccounts.map(a => ({ id: a.id, email: a.label, status: 'free' })), total: 2 },
 
   get_catalog_items: { items: [], total: 0 },
-  get_catalog_shops: { items: [], total: 0 },
+  // MGR-006: наполняем таблицу шопов, чтобы было видно сортировку по приоритетам
+  get_catalog_shops: {
+    items: [
+      { id: 1, domain: 'amazon.com', category: 'Marketplace', score: 92, ship_us: true, fraud_level: 'low', excluded: false },
+      { id: 2, domain: 'bestbuy.com', category: 'Electronics', score: 84, ship_us: true, fraud_level: 'low', excluded: false },
+      { id: 3, domain: 'walmart.com', category: 'Marketplace', score: 88, ship_us: true, fraud_level: 'medium', excluded: false },
+      { id: 4, domain: 'target.com', category: 'Retail', score: 71, ship_us: false, fraud_level: 'high', excluded: false },
+    ],
+    total: 4,
+    pages: 1,
+  },
   get_catalog_stats: { items: 0, shops: 0 },
   import_catalog_items: null,
   import_catalog_shops: null,
@@ -261,6 +271,25 @@ const data = {
     quota_cards_day: null,
     quota_orders_day: null,
     force_logout: false,
+  },
+
+  // MGR-006: новости менеджера (баннер по severity) и приоритеты шопов
+  get_manager_news: {
+    news: [
+      { id: 2, severity: 'warning', title: 'Плановые работы на сервере синхронизации', body: '29.08 с 03:00 до 04:00 UTC возможны перерывы синка.', published_at: daysAgo(0), expires_at: null, is_read: false },
+      { id: 1, severity: 'info', title: 'Обновлены приоритеты шопов на неделю', body: null, published_at: daysAgo(1), expires_at: null, is_read: false },
+    ],
+    unread: 2,
+  },
+  mark_manager_news_read: null,
+  manager_refresh_feeds: { news: 2, priorities: 3 },
+  get_shop_priorities: {
+    by_domain: { 'amazon.com': 9, 'bestbuy.com': 6, 'target.com': 3 },
+    list: [
+      { domain: 'amazon.com', weight: 9, notes: 'Основной фокус недели' },
+      { domain: 'bestbuy.com', weight: 6, notes: null },
+      { domain: 'target.com', weight: 3, notes: null },
+    ],
   },
 
   sync_get_group_status: { connected: false, group_id: null },
@@ -364,7 +393,24 @@ for (let i = 0; i < count; i++) {
   }
 }
 
-// 3. Попытаться открыть типовые модалки (создание) — ищем кнопки с плюсом/«добавить»
+// 3. MGR-006: вкладка «Shops» каталога — сортировка по приоритетам менеджера
+try {
+  const catalogNav = page.locator('button.sbi', { hasText: /catalog|каталог/i })
+  if (await catalogNav.count()) {
+    await catalogNav.first().click({ timeout: 5000 })
+    await page.waitForTimeout(700)
+    const shopsTab = page.locator('.topbar .tab', { hasText: /shops/i })
+    if (await shopsTab.count()) {
+      await shopsTab.first().click({ timeout: 3000 })
+      await shot('nav-98-catalog-shops-priority')
+    }
+  }
+} catch (e) {
+  report.pages['nav-98-catalog-shops-priority'] = 'FAILED: ' + e.message.split('\n')[0]
+  console.log('[fail] catalog-shops-priority', e.message.split('\n')[0])
+}
+
+// 4. Попытаться открыть типовые модалки (создание) — ищем кнопки с плюсом/«добавить»
 const modalTriggers = [
   /создать|добавить|нов|add|create|import|импорт/i,
 ]

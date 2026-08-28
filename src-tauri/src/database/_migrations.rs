@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 16;
+    const LATEST_VERSION: u32 = 17;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -75,7 +75,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (7, migration_v7), (8, migration_v8), (9, migration_v9),
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
-        (16, migration_v16),
+        (16, migration_v16), (17, migration_v17),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -666,6 +666,31 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
             );
             CREATE INDEX IF NOT EXISTS idx_courier_tags_hash ON courier_tags(courier_hash);
             CREATE INDEX IF NOT EXISTS idx_courier_tags_courier ON courier_tags(provider, courier_id);
+        "#)?;
+        Ok(())
+    }
+
+    // MGR-006: кеш новостей и приоритетов шопов от менеджера. Сервер фильтрует
+    // по таргетингу, воркер хранит локальный снимок + отметки о прочтении.
+    fn migration_v17(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS manager_news (
+                id           INTEGER PRIMARY KEY,
+                severity     TEXT NOT NULL DEFAULT 'info',
+                title        TEXT NOT NULL,
+                body         TEXT,
+                published_at TEXT,
+                expires_at   TEXT,
+                is_read      INTEGER NOT NULL DEFAULT 0,
+                fetched_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS shop_priorities (
+                shop_domain TEXT PRIMARY KEY,
+                weight      INTEGER NOT NULL DEFAULT 5,
+                notes       TEXT DEFAULT '',
+                updated_at  TEXT
+            );
         "#)?;
         Ok(())
     }

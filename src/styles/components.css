@@ -4731,6 +4731,66 @@
 .session-warning-banner strong {
   font-weight: 600;
 }
+
+/* MGR-006: баннер новостей от менеджера (по severity) */
+.news-alerts {
+  display: flex;
+  flex-direction: column;
+}
+.news-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid transparent;
+  animation: slideDown 0.2s ease-out;
+}
+.news-alert-info {
+  background: var(--blue-dim);
+  color: var(--blue-t);
+  border-bottom-color: var(--blue-border);
+}
+.news-alert-warning {
+  background: var(--yellow-dim);
+  color: var(--yellow-t);
+  border-bottom-color: var(--yellow-border);
+}
+.news-alert-error {
+  background: var(--red-dim);
+  color: var(--red-t);
+  border-bottom-color: var(--red-border);
+}
+.news-alert-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.news-alert-title {
+  font-weight: 600;
+}
+.news-alert-body {
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.news-alert-close {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.news-alert-close:hover {
+  opacity: 1;
+}
 @keyframes slideDown {
   from {
     transform: translateY(-100%);

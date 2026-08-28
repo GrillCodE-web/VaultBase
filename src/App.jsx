@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
+import NewsAlert from './components/NewsAlert'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
 import { HEX_COLORS } from './constants/colors.js'
@@ -1316,6 +1317,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
 
       {/* ── Main ── */}
       <div className="main-content-wrapper">
+        <NewsAlert />
         {warningActive && (
           <div className="session-warning-banner" role="alert">
             <AlertTriangle size={14} />

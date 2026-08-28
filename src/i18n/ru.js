@@ -373,6 +373,7 @@ export const ru = {
   policy_update_body:
     'Менеджер требует версию приложения {version} или новее. Обновите приложение, чтобы продолжить работу.',
   policy_force_logout_toast: 'Менеджер завершил вашу сессию.',
+  news_dismiss: 'Отметить прочитанным',
   settings_license: 'Лицензия',
   settings_license_status: 'Статус',
   settings_installation_id: 'ID установки',

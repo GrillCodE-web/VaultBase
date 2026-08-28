@@ -372,6 +372,7 @@ export const en = {
   policy_update_body:
     'The manager requires app version {version} or newer. Please update the app to continue.',
   policy_force_logout_toast: 'The manager has signed you out.',
+  news_dismiss: 'Mark as read',
   settings_license: 'License',
   settings_license_status: 'Status',
   settings_installation_id: 'Installation ID',
