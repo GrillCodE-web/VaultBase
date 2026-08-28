@@ -44,7 +44,7 @@ export function RiskBlock({ result, loading }) {
         (result.score !== 1 ? t('risk_issues') : t('risk_issue')),
       textColor: STATUS_COLORS.warning,
     },
-    high_risk: {
+    high: {
       borderColor: `${STATUS_COLORS.error}33`,
       bg: `${STATUS_COLORS.error}0D`,
       iconColor: STATUS_COLORS.error,
@@ -60,18 +60,14 @@ export function RiskBlock({ result, loading }) {
   const c = config[result.level] || config.safe
 
   const IconComponent =
-    result.level === 'safe'
-      ? CheckCircle2
-      : result.level === 'high_risk'
-        ? ShieldAlert
-        : AlertTriangle
+    result.level === 'safe' ? CheckCircle2 : result.level === 'high' ? ShieldAlert : AlertTriangle
 
   return (
     <div
       className={`rounded-lg overflow-hidden risk-block ${
         result.level === 'safe'
           ? 'risk-block-safe'
-          : result.level === 'high_risk'
+          : result.level === 'high'
             ? 'risk-block-high-risk'
             : 'risk-block-warning'
       }`}
@@ -88,7 +84,7 @@ export function RiskBlock({ result, loading }) {
             className={`risk-icon ${
               result.level === 'safe'
                 ? 'risk-icon-safe'
-                : result.level === 'high_risk'
+                : result.level === 'high'
                   ? 'risk-icon-high-risk'
                   : 'risk-icon-warning'
             }`}
@@ -97,7 +93,7 @@ export function RiskBlock({ result, loading }) {
             className={`font-medium ${
               result.level === 'safe'
                 ? 'risk-text-safe'
-                : result.level === 'high_risk'
+                : result.level === 'high'
                   ? 'risk-text-high-risk'
                   : 'risk-text-warning'
             }`}

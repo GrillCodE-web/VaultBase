@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 19;
+    const LATEST_VERSION: u32 = 20;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -76,7 +76,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
-        (19, migration_v19),
+        (19, migration_v19), (20, migration_v20),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -737,6 +737,26 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 api_key    TEXT NOT NULL DEFAULT '',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+        "#)?;
+        Ok(())
+    }
+
+    // FIX FEAT-002: триггер v12 разрешал ('pending','processing','shipped','delivered',
+    // 'returned','cancelled','refunded','chargeback'), а приложение работает со статусами
+    // ('pending','shipped','delivered','declined','cancelled','failed') — update_order_status
+    // на 'declined'/'failed' отклонялся БД, статистика неудач risk-факторов была мёртвой.
+    // Пересоздаём триггер с объединением словарей (аддитивно, старые значения не ломаются).
+    fn migration_v20(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            DROP TRIGGER IF EXISTS trg_order_status_check;
+            CREATE TRIGGER trg_order_status_check
+            BEFORE UPDATE OF status ON orders
+            BEGIN
+                SELECT CASE
+                    WHEN NEW.status NOT IN ('pending','processing','shipped','delivered','returned','cancelled','refunded','chargeback','declined','failed')
+                    THEN RAISE(ABORT, 'invalid order status')
+                END;
+            END;
         "#)?;
         Ok(())
     }

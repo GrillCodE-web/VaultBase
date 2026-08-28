@@ -232,6 +232,9 @@ export function CreateOrderModal({ onCreated, onClose }) {
     }
   }
 
+  // ── Items ──
+  const total = items.reduce((s, i) => s + (parseInt(i.qty) || 0) * (parseFloat(i.price) || 0), 0)
+
   // ── Risk check ──
   useEffect(() => {
     if (!profileId || !shopId || !dropId) {
@@ -248,6 +251,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
           dropId,
           emailPoolId: emailId || null,
           proxyId: proxyId || null,
+          amount: total > 0 ? total : null,
         })
         setRiskResult(r)
       } catch (e) {
@@ -258,10 +262,9 @@ export function CreateOrderModal({ onCreated, onClose }) {
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [profileId, shopId, dropId, emailId, proxyId])
+  }, [profileId, shopId, dropId, emailId, proxyId, total])
 
   // ── Items ──
-  const total = items.reduce((s, i) => s + (parseInt(i.qty) || 0) * (parseFloat(i.price) || 0), 0)
   const setItem = (idx, key, val) =>
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, [key]: val } : it)))
   const addItem = () => setItems(prev => [...prev, { ...EMPTY_ITEM }])

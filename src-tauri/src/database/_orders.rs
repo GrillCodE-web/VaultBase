@@ -389,8 +389,10 @@ impl Database {
     }
 
     // FIX B31: принимаем drop_id, email_pool_id, proxy_id и учитываем их в оценке риска
+    // FEAT-002: amount — сумма заказа для статистического фактора (None = фактор пропускается)
     pub fn run_risk_check(&self, profile_id: &str, shop_id: i64,
-        drop_id: Option<i64>, email_pool_id: Option<i64>, proxy_id: Option<i64>
+        drop_id: Option<i64>, email_pool_id: Option<i64>, proxy_id: Option<i64>,
+        amount: Option<f64>
     ) -> Result<RiskCheckResult, String> {
         let mut warnings = vec![];
         let mut score = 0u32;
@@ -472,6 +474,89 @@ impl Database {
                 score += 25;
                 warnings.push(RiskWarning { kind: "drop_reused_shop".into(), severity: "warning".into(),
                     message: format!("This shipping address was used {} time(s) at this shop", drop_used),
+                    related_order_id: None, related_order_status: None });
+            }
+        }
+
+        // ── FEAT-002: Risk V2 — статистический («ML-подобный») скоринг по истории ──
+        // Факторы вычисляются из собственной истории заказов: магазин, BIN карты,
+        // час суток (UTC), аномалия суммы. Малые выборки игнорируются.
+
+        // Магазин: доля неудач по всем заказам этого магазина
+        let (shop_total, shop_failed): (i64, i64) = self.conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(status IN ('declined','failed')),0) FROM orders WHERE shop_id=?1 AND status != 'cancelled'",
+            params![shop_id], |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap_or((0, 0));
+        if shop_total >= 5 {
+            let rate = shop_failed as f64 / shop_total as f64;
+            if rate >= 0.5 {
+                score += 15;
+                warnings.push(RiskWarning { kind: "shop_fail_rate".into(), severity: "warning".into(),
+                    message: format!("This shop has {:.0}% failure rate ({} of {} orders)", rate * 100.0, shop_failed, shop_total),
+                    related_order_id: None, related_order_status: None });
+            } else if rate >= 0.3 {
+                score += 8;
+                warnings.push(RiskWarning { kind: "shop_fail_rate".into(), severity: "info".into(),
+                    message: format!("This shop has {:.0}% failure rate ({} of {} orders)", rate * 100.0, shop_failed, shop_total),
+                    related_order_id: None, related_order_status: None });
+            }
+        }
+
+        // Карта (BIN): доля неудач по всем заказам с картами того же BIN
+        let card_bin: Option<String> = self.conn.query_row(
+            "SELECT c.bin FROM profiles p JOIN credit_cards c ON p.card_id=c.id WHERE p.id=?1",
+            params![profile_id], |r| r.get(0),
+        ).ok().flatten();
+        if let Some(bin) = card_bin.filter(|b| !b.is_empty()) {
+            let (bin_total, bin_failed): (i64, i64) = self.conn.query_row(
+                "SELECT COUNT(*), COALESCE(SUM(o.status IN ('declined','failed')),0) FROM orders o \
+                 JOIN profiles p ON o.profile_id=p.id JOIN credit_cards c ON p.card_id=c.id \
+                 WHERE c.bin=?1 AND o.status != 'cancelled'",
+                params![bin], |r| Ok((r.get(0)?, r.get(1)?)),
+            ).unwrap_or((0, 0));
+            if bin_total >= 5 {
+                let rate = bin_failed as f64 / bin_total as f64;
+                if rate >= 0.5 {
+                    score += 15;
+                    warnings.push(RiskWarning { kind: "bin_fail_rate".into(), severity: "warning".into(),
+                        message: format!("Cards with BIN {} fail in {:.0}% of orders ({} of {})", bin, rate * 100.0, bin_failed, bin_total),
+                        related_order_id: None, related_order_status: None });
+                } else if rate >= 0.3 {
+                    score += 8;
+                    warnings.push(RiskWarning { kind: "bin_fail_rate".into(), severity: "info".into(),
+                        message: format!("Cards with BIN {} fail in {:.0}% of orders ({} of {})", bin, rate * 100.0, bin_failed, bin_total),
+                        related_order_id: None, related_order_status: None });
+                }
+            }
+        }
+
+        // Время суток: доля неудач в заказах этого магазина, созданных в тот же час (UTC)
+        let hour = chrono::Utc::now().format("%H").to_string();
+        let (h_total, h_failed): (i64, i64) = self.conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(status IN ('declined','failed')),0) FROM orders \
+             WHERE shop_id=?1 AND status != 'cancelled' AND strftime('%H', created_at)=?2",
+            params![shop_id, hour], |r| Ok((r.get(0)?, r.get(1)?)),
+        ).unwrap_or((0, 0));
+        if h_total >= 3 && h_failed as f64 / h_total as f64 >= 0.5 {
+            score += 10;
+            warnings.push(RiskWarning { kind: "hour_fail_rate".into(), severity: "info".into(),
+                message: format!("{} of {} orders at this shop placed in this hour (UTC) failed", h_failed, h_total),
+                related_order_id: None, related_order_status: None });
+        }
+
+        // Сумма: аномалия относительно типичного успешного чека магазина
+        if let Some(amount) = amount.filter(|a| *a > 0.0) {
+            let (ok_cnt, ok_avg): (i64, f64) = self.conn.query_row(
+                "SELECT COUNT(*), COALESCE(AVG(total_amount),0) FROM orders \
+                 WHERE shop_id=?1 AND status NOT IN ('declined','failed','cancelled') \
+                 AND total_amount IS NOT NULL AND total_amount > 0",
+                params![shop_id], |r| Ok((r.get(0)?, r.get(1)?)),
+            ).unwrap_or((0, 0.0));
+            if ok_cnt >= 3 && ok_avg > 0.0 && amount > 2.0 * ok_avg {
+                let (pts, mult) = if amount > 3.0 * ok_avg { (15, "3") } else { (10, "2") };
+                score += pts;
+                warnings.push(RiskWarning { kind: "amount_above_typical".into(), severity: "warning".into(),
+                    message: format!("Order amount {:.2} is >{}x the typical successful amount {:.2} at this shop", amount, mult, ok_avg),
                     related_order_id: None, related_order_status: None });
             }
         }
@@ -703,14 +788,112 @@ mod tests {
             .map(|(i, _)| format!("?{}", i + 2))
             .collect::<Vec<_>>()
             .join(",");
-        
+
         // Verify placeholders are purely numeric and safe
         for part in placeholders.split(',') {
             assert!(part.starts_with("?"), "Each placeholder should start with ?");
             // The number after ? should be valid
             let num_str = &part[1..];
-            assert!(num_str.chars().all(|c| c.is_ascii_digit()), 
+            assert!(num_str.chars().all(|c| c.is_ascii_digit()),
                 "Placeholder numbers should be digits only");
         }
+    }
+
+    // ── FEAT-002: Risk V2 — статистические факторы ──
+
+    /// Фикстура: БД + карта (bin=411111) + профиль + магазин
+    fn risk_v2_fixture() -> (Database, String, i64) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Database::open(dir.path().join("t.db").to_str().unwrap()).unwrap();
+        let salt = crate::encryption::generate_salt();
+        db.set_encryption(crate::encryption::FieldEncryption::new("test_pw_1234567890", &salt));
+        db.conn.execute(
+            "INSERT INTO credit_cards(card_number,source,bin) VALUES('4111111111111111','test','411111')", [],
+        ).unwrap();
+        let card_id: i64 = db.conn.query_row("SELECT MAX(id) FROM credit_cards", [], |r| r.get(0)).unwrap();
+        let prof = db.create_profile(card_id, None).unwrap().id;
+        let shop = db.create_shop(&crate::models::ShopInput {
+            name: "S".into(), url: "https://riskv2.example.com".into(),
+            category: "general".into(), notes: String::new(),
+            requires_cvv_match: false, blocks_vpn: false, phone_must_match: false,
+            accepts_amex: false, requires_avs: false, high_cancel_risk: false,
+        }).unwrap();
+        (db, prof, shop.id)
+    }
+
+    fn risk_v2_add_order(db: &Database, prof: &str, shop: i64, status: &str, total: Option<f64>) {
+        let oid = db.create_order(&OrderInput {
+            profile_id: prof.into(), shop_id: shop, drop_id: None, email_pool_id: None,
+            proxy_id: None, order_number: None, notes: None, items: vec![],
+        }).unwrap().id;
+        db.conn.execute("UPDATE orders SET status=?1, total_amount=?2 WHERE id=?3",
+            rusqlite::params![status, total, oid]).unwrap();
+    }
+
+    /// Магазин: ≥50% неудач при выборке ≥5 → shop_fail_rate (+15)
+    #[test]
+    fn test_risk_v2_shop_fail_rate() {
+        let (db, prof, shop) = risk_v2_fixture();
+        for i in 0..5 {
+            risk_v2_add_order(&db, &prof, shop, if i < 3 { "declined" } else { "delivered" }, None);
+        }
+        let res = db.run_risk_check(&prof, shop, None, None, None, None).unwrap();
+        let w = res.warnings.iter().find(|w| w.kind == "shop_fail_rate").expect("shop_fail_rate warning");
+        assert_eq!(w.severity, "warning");
+        assert!(res.score >= 15);
+    }
+
+    /// Магазин: выборка < 5 — фактор молчит даже при 100% неудач
+    #[test]
+    fn test_risk_v2_shop_fail_rate_small_sample() {
+        let (db, prof, shop) = risk_v2_fixture();
+        for _ in 0..4 { risk_v2_add_order(&db, &prof, shop, "declined", None); }
+        let res = db.run_risk_check(&prof, shop, None, None, None, None).unwrap();
+        assert!(res.warnings.iter().all(|w| w.kind != "shop_fail_rate"));
+    }
+
+    /// BIN карты: ≥50% неудач при выборке ≥5 → bin_fail_rate (+15)
+    #[test]
+    fn test_risk_v2_bin_fail_rate() {
+        let (db, prof, shop) = risk_v2_fixture();
+        for i in 0..5 {
+            risk_v2_add_order(&db, &prof, shop, if i < 3 { "failed" } else { "delivered" }, None);
+        }
+        let res = db.run_risk_check(&prof, shop, None, None, None, None).unwrap();
+        assert!(res.warnings.iter().any(|w| w.kind == "bin_fail_rate" && w.severity == "warning"));
+    }
+
+    /// Время суток: ≥50% неудач в текущий час UTC при выборке ≥3 → hour_fail_rate (+10)
+    #[test]
+    fn test_risk_v2_hour_fail_rate() {
+        let (db, prof, shop) = risk_v2_fixture();
+        // created_at = CURRENT_TIMESTAMP (текущий час UTC, как и в проверке)
+        for _ in 0..3 { risk_v2_add_order(&db, &prof, shop, "failed", None); }
+        let res = db.run_risk_check(&prof, shop, None, None, None, None).unwrap();
+        assert!(res.warnings.iter().any(|w| w.kind == "hour_fail_rate"));
+    }
+
+    /// Сумма: >3x типичного успешного чека → amount_above_typical (+15);
+    /// <2x или None → фактор молчит
+    #[test]
+    fn test_risk_v2_amount_above_typical() {
+        let (db, prof, shop) = risk_v2_fixture();
+        for _ in 0..3 { risk_v2_add_order(&db, &prof, shop, "delivered", Some(100.0)); }
+        let res = db.run_risk_check(&prof, shop, None, None, None, Some(350.0)).unwrap();
+        assert!(res.warnings.iter().any(|w| w.kind == "amount_above_typical"));
+        let res = db.run_risk_check(&prof, shop, None, None, None, Some(150.0)).unwrap();
+        assert!(res.warnings.iter().all(|w| w.kind != "amount_above_typical"));
+        let res = db.run_risk_check(&prof, shop, None, None, None, None).unwrap();
+        assert!(res.warnings.iter().all(|w| w.kind != "amount_above_typical"));
+    }
+
+    /// Пустая история: ни один статистический фактор не срабатывает, уровень safe
+    #[test]
+    fn test_risk_v2_clean_history() {
+        let (db, prof, shop) = risk_v2_fixture();
+        let res = db.run_risk_check(&prof, shop, None, None, None, Some(999.0)).unwrap();
+        assert_eq!(res.level, "safe");
+        assert_eq!(res.score, 0);
+        assert!(res.warnings.is_empty());
     }
 }
