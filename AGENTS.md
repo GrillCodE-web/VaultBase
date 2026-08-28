@@ -94,6 +94,8 @@ and commit the checklist file alone. Commit with explicit paths only — never
 `git add -A` / `git commit -a`: another agent may have WIP in the same tree.
 Merge into main one session at a time (rebase → checks → push; no force-push).
 Crash/interrupt recovery rules: section «Оборванная сессия» in PARALLEL_WORK.md.
+Session continuity: read the tail of SESSION_LOG.md at session start and append
+an entry after every completed checklist item — chats die, the log survives.
 
 ## Auth flow
 
