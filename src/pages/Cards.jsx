@@ -567,10 +567,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
   // ★ Insight: Не передаем cards в зависимости — используем card.id из props
-  // index вычисляется внутри CardRow при double-click, здесь достаточно просто setSideCard
+  // CLEAN-009: index приходит из CardRow вторым аргументом (double-click по строке)
+  // и пробрасывается в стор — сайд-панель получает позицию для prev/next навигации
   const handleSetSideCard = useCallback(
-    c => {
-      setSideCard(c)
+    (c, i) => {
+      setSideCard(c, i)
     },
     [setSideCard]
   )
@@ -807,11 +808,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
         <CardTable
           cards={cards}
           loading={loading}
-          total={total}
-          freeTotal={freeTotal}
-          page={page}
           visibleCols={visibleCols}
-          setVisibleCols={setVisibleCols}
           ALL_COLUMNS={ALL_COLUMNS}
           columnOrder={columnOrder}
           setColumnOrder={setColumnOrder}
@@ -821,7 +818,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           // Cards store
           toggleSelect={toggleSelect}
           toggleSelectAll={toggleSelectAll}
-          clearSelection={clearSelection}
           selected={selected}
           deletingIds={deletingIds}
           revealed={revealed}

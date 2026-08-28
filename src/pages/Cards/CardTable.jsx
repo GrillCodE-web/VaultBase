@@ -1,26 +1,26 @@
-import { useRef, useMemo, useCallback } from 'react'
+import { useRef, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CreditCard } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState.jsx'
 import { SkeletonRows } from '../../components/SkeletonRow.jsx'
 import { CardRow } from './CardRow.jsx'
+import { CardRowContext } from './cardRowContext.js'
 import { CARDS_VIRTUAL_THRESHOLD } from '../../constants/cards.js'
 import { CARDS_OVERSCAN } from '../../constants/virtualization.js'
 
 /**
  * CardTable — выделённый компонент таблицы карт
  *
- * ★ Insight: Таблица, renderCard, renderRows, grouping, virtualization, drag-drop колонок
- * здесь, чтобы уменьшить Cards.jsx. Получает всё необходимое пропсами.
+ * ★ Insight: Таблица, grouping, virtualization, drag-drop колонок здесь,
+ * чтобы уменьшить Cards.jsx.
+ * CLEAN-009: окружение строк (коллбэки, t, toast, состояния) уходит в
+ * CardRowContext — CardRow получает только card и index, проп-дриллинг
+ * 20+ одинаковых пропсов устранён.
  */
 export function CardTable({
   cards,
   loading,
-  _total,
-  _freeTotal,
-  _page,
   visibleCols,
-  _setVisibleCols,
   ALL_COLUMNS,
   columnOrder,
   setColumnOrder,
@@ -30,7 +30,6 @@ export function CardTable({
   // Cards store + UI store
   toggleSelect,
   toggleSelectAll,
-  _clearSelection,
   selected,
   deletingIds,
   revealed,
@@ -54,53 +53,10 @@ export function CardTable({
   const dragColRef = useRef(null)
   const parentRef = useRef(null)
 
-  // ── Render card row (memoized) ─────────────────────────────────────────
-
-  // FIX F-MED-01: useCallback для стабилизации ссылок (React.memo optimization)
-  // ★ Insight: Не передаем cards в зависимости — используем card.id из props
-  // index вычисляется внутри CardRow при double-click, здесь достаточно просто setSideCard
-  const handleSetSideCard = useCallback(
-    c => {
-      setSideCard(c)
-    },
-    [setSideCard]
-  )
-
-  // ★ Insight: renderCard обернут в useCallback для стабильной ссылки
-  // CardRow.memo защищает от лишних рендеров, но стабильная функция улучшает кэширование
-  // FIX: cards добавлен в зависимости — он используется в JSX и должен триггерить пересоздание
-  const renderCard = useCallback(
-    card => (
-      <CardRow
-        key={card.id}
-        card={card}
-        cards={cards}
-        revealed={revealed}
-        selected={selected}
-        deletingIds={deletingIds}
-        flashedIds={flashedIds}
-        statusMenuId={statusMenuId}
-        visibleCols={visibleCols}
-        toggleSelect={toggleSelect}
-        setSideCard={handleSetSideCard}
-        setSideCardIdx={() => {}}
-        setStatusMenuId={setStatusMenuId}
-        handleStatusChange={handleStatusChange}
-        handleCopyToast={handleCopyToast}
-        handleEditNote={handleEditNote}
-        setShopUsageCardId={setShopUsageCardId}
-        setTimelineCardId={setTimelineCardId}
-        handleDelete={handleDelete}
-        setFilter={setFilters}
-        setPage={setPage}
-        onNavigate={onNavigate}
-        revealCard={revealCard}
-        t={t}
-        toast={toast}
-      />
-    ),
-    [
-      cards,
+  // ── CLEAN-009: окружение строки — один мемоизированный объект контекста ──
+  // index вычисляется внутри CardRow по его prop index (двойной клик → сайд-панель)
+  const rowCtx = useMemo(
+    () => ({
       revealed,
       selected,
       deletingIds,
@@ -108,7 +64,30 @@ export function CardTable({
       statusMenuId,
       visibleCols,
       toggleSelect,
-      handleSetSideCard,
+      setSideCard,
+      setStatusMenuId,
+      handleStatusChange,
+      handleCopyToast,
+      handleEditNote,
+      setShopUsageCardId,
+      setTimelineCardId,
+      handleDelete,
+      setFilters,
+      setPage,
+      onNavigate,
+      revealCard,
+      t,
+      toast,
+    }),
+    [
+      revealed,
+      selected,
+      deletingIds,
+      flashedIds,
+      statusMenuId,
+      visibleCols,
+      toggleSelect,
+      setSideCard,
       setStatusMenuId,
       handleStatusChange,
       handleCopyToast,
@@ -162,35 +141,7 @@ export function CardTable({
             {virtualItems.length > 0 && <tr style={{ height: virtualItems[0].start }} />}
             {virtualItems.map(virtualRow => {
               const card = cards[virtualRow.index]
-              return (
-                <CardRow
-                  key={card.id}
-                  card={card}
-                  cards={cards}
-                  revealed={revealed}
-                  selected={selected}
-                  deletingIds={deletingIds}
-                  flashedIds={flashedIds}
-                  statusMenuId={statusMenuId}
-                  visibleCols={visibleCols}
-                  toggleSelect={toggleSelect}
-                  setSideCard={handleSetSideCard}
-                  setSideCardIdx={() => {}}
-                  setStatusMenuId={setStatusMenuId}
-                  handleStatusChange={handleStatusChange}
-                  handleCopyToast={handleCopyToast}
-                  handleEditNote={handleEditNote}
-                  setShopUsageCardId={setShopUsageCardId}
-                  setTimelineCardId={setTimelineCardId}
-                  handleDelete={handleDelete}
-                  setFilter={setFilters}
-                  setPage={setPage}
-                  onNavigate={onNavigate}
-                  revealCard={revealCard}
-                  t={t}
-                  toast={toast}
-                />
-              )
+              return <CardRow key={card.id} card={card} index={virtualRow.index} />
             })}
             {virtualItems.length > 0 && (
               <tr
@@ -202,7 +153,7 @@ export function CardTable({
           </>
         )
       }
-      return cards.map(renderCard)
+      return cards.map((card, index) => <CardRow key={card.id} card={card} index={index} />)
     }
     return groupedCards.map(([bank, groupCards]) => (
       <tbody key={bank}>
@@ -215,7 +166,9 @@ export function CardTable({
             {groupCards.filter(c => c.status === 'free').length} {t('status_free')}
           </td>
         </tr>
-        {groupCards.map(renderCard)}
+        {groupCards.map(card => (
+          <CardRow key={card.id} card={card} index={cards.indexOf(card)} />
+        ))}
       </tbody>
     ))
   }
@@ -301,59 +254,61 @@ export function CardTable({
   }
 
   return (
-    <div className="panel p-0 overflow-x-auto relative">
-      {/* #41 — inner scroll wrapper for sticky thead; virtual scroll when >200 cards */}
-      <div
-        ref={parentRef}
-        className={`flex-1 overflow-y-auto min-h-0 ${useVirtualCards ? 'h-[760px] overflow-y-scroll' : ''}`}
-      >
-        <table className="tbl relative">
-          <thead className="sticky top-0 z-[3] bg-card">
-            <tr>
-              {/* #48 — frozen checkbox column */}
-              <th
-                scope="col"
-                className="bg-card w-9 sticky left-0 z-[4]"
-                aria-label={t('select_all')}
-              >
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  ref={el => {
-                    if (el) el.indeterminate = someSelected
-                  }}
-                  onChange={toggleSelectAll}
-                  className="accent-accent cursor-pointer"
-                />
-              </th>
-              {/* #46 — draggable column headers, #48 — first data col frozen */}
-              {visibleHeaders.map((c, i) => (
+    <CardRowContext.Provider value={rowCtx}>
+      <div className="panel p-0 overflow-x-auto relative">
+        {/* #41 — inner scroll wrapper for sticky thead; virtual scroll при >CARDS_VIRTUAL_THRESHOLD карт */}
+        <div
+          ref={parentRef}
+          className={`flex-1 overflow-y-auto min-h-0 ${useVirtualCards ? 'h-[760px] overflow-y-scroll' : ''}`}
+        >
+          <table className="tbl relative">
+            <thead className="sticky top-0 z-[3] bg-card">
+              <tr>
+                {/* #48 — frozen checkbox column */}
                 <th
-                  key={c.id}
                   scope="col"
-                  draggable={c.id !== 'actions'}
-                  onDragStart={() => handleColDragStart(c.id)}
-                  onDragOver={handleColDragOver}
-                  onDrop={() => handleColDrop(c.id)}
-                  className={`bg-card select-none ${
-                    c.id !== 'actions' ? 'cursor-grab' : 'cursor-default'
-                  } ${
-                    i === 0 && c.id !== 'actions' ? 'sticky left-9 z-[4] shadow-frozen-col' : ''
-                  }`}
+                  className="bg-card w-9 sticky left-0 z-[4]"
+                  aria-label={t('select_all')}
                 >
-                  <span className="flex items-center gap-1">
-                    {c.id !== 'actions' && (
-                      <span className="text-muted text-[9px] leading-1 col-grip">⠿</span>
-                    )}
-                    {t(c.label)}
-                  </span>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={el => {
+                      if (el) el.indeterminate = someSelected
+                    }}
+                    onChange={toggleSelectAll}
+                    className="accent-accent cursor-pointer"
+                  />
                 </th>
-              ))}
-            </tr>
-          </thead>
-          {groupByBank ? renderRows() : <tbody>{renderRows()}</tbody>}
-        </table>
+                {/* #46 — draggable column headers, #48 — first data col frozen */}
+                {visibleHeaders.map((c, i) => (
+                  <th
+                    key={c.id}
+                    scope="col"
+                    draggable={c.id !== 'actions'}
+                    onDragStart={() => handleColDragStart(c.id)}
+                    onDragOver={handleColDragOver}
+                    onDrop={() => handleColDrop(c.id)}
+                    className={`bg-card select-none ${
+                      c.id !== 'actions' ? 'cursor-grab' : 'cursor-default'
+                    } ${
+                      i === 0 && c.id !== 'actions' ? 'sticky left-9 z-[4] shadow-frozen-col' : ''
+                    }`}
+                  >
+                    <span className="flex items-center gap-1">
+                      {c.id !== 'actions' && (
+                        <span className="text-muted text-[9px] leading-1 col-grip">⠿</span>
+                      )}
+                      {t(c.label)}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            {groupByBank ? renderRows() : <tbody>{renderRows()}</tbody>}
+          </table>
+        </div>
       </div>
-    </div>
+    </CardRowContext.Provider>
   )
 }
