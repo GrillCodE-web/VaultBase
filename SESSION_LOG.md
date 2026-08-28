@@ -23,7 +23,7 @@
   запись ниже).
 - Следующие по приоритету (🟠): **MGR-013** (panic-пароль воркера — ждёт
   утверждения дизайна у владельца). MGR-010 закрыт 2026-08-28 (запись ниже).
-- Далее (🟡): MGR-009 (updater + staged rollout для manager-app).
+- Далее (🟡): свободные 🟡/🟢 по чеклисту (MGR-009 закрыт 2026-08-28).
 - Флаг `ws_require_nonce` на сервере ВЫКЛ (legacy-совместимость): включить в
   админке после того, как флот воркеров обновится на версию с эхом nonce.
 
@@ -143,3 +143,34 @@
   Dashboard/charts.jsx); `python scripts/audit_frontend.py` — 0 сиротских
   классов, 0 фантомных токенов (долги — pre-existing); `npx vitest run` —
   327/327. Ручной прогон Tauri не делал — listener'ы не покрыты e2e-моком.
+
+### 2026-08-28 — MGR-009 ✅ @main
+
+- Self-update manager-app + staged rollout. Сервер: миграция v14
+  (`release_files.channel` stable|beta + `rollout_percent` 0..100);
+  `/update?app=manager` принимает `channel` (beta видит beta+stable) и `iid`;
+  детерминированный бакет `sha256(iid:version) % 100 < pct`, без iid — только
+  100%-релизы; клиенту отдаётся САМАЯ НОВАЯ версия, для которой он видим и
+  допущен (фолбэк с недопущенной beta на свежий stable). `upload.js` принимает
+  channel/rollout_percent. `manager-api`: GET /releases отдаёт новые поля,
+  новый PATCH `/releases/:version` (только manager-updater, аудит
+  `manager_release_rollout`).
+- Клиент: tauri-plugin-updater в manager-app, ОТДЕЛЬНЫЙ ключ подписи
+  `.secrets/vaultbase-manager-updater.key` (pubkey в tauri.conf.json, приватный
+  вне git — лежит локально, резервную копию держать у владельца). Команды
+  `check_app_update` / `install_app_update` (runtime-эндпоинт с channel+iid,
+  `app.restart()` после установки), `get_app_state` отдаёт версию. Updates.jsx:
+  панель «Это приложение» (версия, канал, проверка/установка) + селекты
+  канала/процента у manager-релизов. i18n en+ru.
+- `cc-sync-server/upload.sh`: список FILES был протухшим (без update.js,
+  manager-api.js, activate.js и др. — MGR-008/009/010 не доехали бы до прода) —
+  пополнен до актуального дерева файлов.
+- Коммиты: `edf385a` (клейм), `7d35f92` (сервер), `d4b1d8e` (клиент).
+- Проверки: сервер 81/81; manager-app lint 0, vite build ok,
+  `cargo test` 24/24. Живой прогон апдейта не делался — нужен собранный
+  релиз + загруженный артефакт.
+- ВАЖНО для будущих сессий (эта машина): свежие crate-ы под GNU-тулчейном
+  требуют `C:\msys64\mingw64\bin` в PATH — rust-mingw self-contained dlltool
+  падает без `as.exe` («CreateProcess»). MSVC-тулчейн на машине сломан
+  (см. комментарий в src-tauri/rust-toolchain.toml), поэтому перед
+  cargo/npm tauri-командами: `$env:PATH = "C:\msys64\mingw64\bin;$env:PATH"`.

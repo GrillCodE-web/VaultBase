@@ -181,3 +181,34 @@ curl -s -o /dev/null -w "%{http_code}\n" "$B/update?current_version=2.5.1"
 | `scripts/deploy-server.py`            | деплой самого сервера с бэкапом и откатом                   |
 | `cc-sync-server/routes/update.js`     | эндпоинт авто-обновления                                    |
 | `cc-sync-server/routes/upload.js`     | приём артефактов в панель                                   |
+
+---
+
+## 9. Релиз manager-app (MGR-009)
+
+Отдельный пайплайн и **отдельный ключ подписи** (не воркерский):
+
+| Что            | Значение                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| Приватный ключ | `.secrets/vaultbase-manager-updater.key` (вне git, `*.key` в .gitignore)                         |
+| Публичный ключ | `manager-app/src-tauri/tauri.conf.json` → `plugins.updater.pubkey`                               |
+| Перегенерация  | `cd manager-app && npx tauri signer generate -w ..\.secrets\vaultbase-manager-updater.key -p ""` |
+
+Локальная сборка (Windows, PowerShell):
+
+```powershell
+$env:PATH = "C:\msys64\mingw64\bin;$env:PATH"   # dlltool/as для свежих crate-ов
+$env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content .secrets\vaultbase-manager-updater.key -Raw)
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+cd manager-app; npx tauri build --bundles nsis,updater
+```
+
+Рядом с `*-setup.exe` должен появиться `*-setup.exe.sig` — без него апдейт
+не примут клиенты.
+
+Публикация: админ-панель → загрузка с `file_type=manager-updater` (поля
+`channel` = stable|beta, `rollout_percent` = 0..100). Staged rollout:
+клиент видит релиз, если канал видим (beta-клиенту — оба канала) и
+`sha256(installation_id:version) % 100 < rollout_percent`; без `iid` — только
+100%-релизы. Канал и процент меняются на лету из manager-app («Апдейты») или
+`PATCH /manager/api/releases/:version`. Откат роллаута — выставить 0%.
