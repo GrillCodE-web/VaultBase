@@ -158,6 +158,50 @@ fn main() {
         })
     };
     
+    // DEVOPS-003: crash-reporting (Sentry). Опт-ин через конфиг: DSN берётся из
+    // env SENTRY_DSN, иначе из [sentry] dsn в TOML. Без DSN SDK не поднимается
+    // вообще — приложение ничего никуда не отправляет.
+    // send_default_pii = false: приложение хранит чувствительные данные,
+    // в репорты не должны уходить IP/юзернеймы/данные сессии.
+    #[cfg(not(target_os = "ios"))]
+    let mut _minidump_guard: Option<tauri_plugin_sentry::minidump::Handle> = None;
+    let sentry_client: Option<sentry::ClientInitGuard> = {
+        let dsn = std::env::var("SENTRY_DSN")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| app_config.sentry.dsn.trim().to_string());
+        if dsn.is_empty() {
+            tracing::info!("Sentry disabled (no DSN configured)");
+            None
+        } else {
+            match dsn.parse::<sentry::types::Dsn>() {
+                Ok(_) => {
+                    tracing::info!(environment = %profile, "Sentry crash-reporting enabled");
+                    let mut opts = sentry::ClientOptions::default();
+                    opts.release = sentry::release_name!();
+                    opts.environment = Some(profile.clone().into());
+                    opts.auto_session_tracking = true;
+                    opts.send_default_pii = false;
+                    let client = sentry::init((dsn.as_str(), opts));
+                    // Нативные краши (segfault/abort в Rust/Си) — minidump.
+                    // На iOS minidump не поддерживается.
+                    #[cfg(not(target_os = "ios"))]
+                    {
+                        match tauri_plugin_sentry::minidump::init(&client) {
+                            Ok(handle) => _minidump_guard = Some(handle),
+                            Err(e) => tracing::warn!(error = %e, "minidump init failed — native crashes won't be captured"),
+                        }
+                    }
+                    Some(client)
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Invalid Sentry DSN — crash-reporting disabled");
+                    None
+                }
+            }
+        }
+    };
+
     // Создаём дефолтного admin если пользователей ещё нет
     let _ = db.ensure_admin_exists();
     STATE.set(AppState {
@@ -175,11 +219,19 @@ fn main() {
     });
     WS_HANDLE.set(ws_h).unwrap_or_else(|_| eprintln!("[warn] WsSyncHandle already initialized (main called twice)"));
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_process::init());
+
+    // DEVOPS-003: плагин инжектит @sentry/browser в webview (JS-ошибки/promise
+    // rejections тоже попадают в Sentry) и шлёт конверты через Rust-транспорт.
+    if let Some(client) = sentry_client.as_ref() {
+        builder = builder.plugin(tauri_plugin_sentry::init(client));
+    }
+
+    builder
         .setup(move |app| {
             // FIX AUDIT-20: установить installation_id для rate limiter (иначе
             // все установки делят один bucket на команду).

@@ -35,3 +35,8 @@ catalog_update_interval = 3600
 # - VAULTBASE_SYNC_SERVER - override sync server URL
 # - VAULTBASE_PROFILE - override profile
 # - VAULTBASE_DEBUG - enable debug mode
+
+[sentry]
+# DEVOPS-003: crash-reporting. Публичный DSN проекта Sentry (не секрет).
+# Пусто = выключено, приложение ничего не отправляет. Переопределяется env SENTRY_DSN.
+dsn = ""

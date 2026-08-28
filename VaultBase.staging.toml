@@ -29,3 +29,8 @@ catalog_update_interval = 3600
 # - Debug mode disabled for production-like behavior
 # - Real server URLs from constants.rs
 # - Same background intervals as production
+
+[sentry]
+# DEVOPS-003: crash-reporting. Публичный DSN проекта Sentry (не секрет).
+# Пусто = выключено, приложение ничего не отправляет. Переопределяется env SENTRY_DSN.
+dsn = ""

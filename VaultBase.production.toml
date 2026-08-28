@@ -38,3 +38,8 @@ catalog_update_interval = 3600
 #
 # DO NOT enable debug mode in production!
 # DO NOT lower pbkdf2_iterations below 600k!
+
+[sentry]
+# DEVOPS-003: crash-reporting. Публичный DSN проекта Sentry (не секрет).
+# Пусто = выключено, приложение ничего не отправляет. Переопределяется env SENTRY_DSN.
+dsn = ""

@@ -57,6 +57,11 @@ tracing            = "0.1"  # SPRINT3-DAY2: Structured logging framework
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }  # SPRINT3-DAY2: Log subscriber with JSON support
 tracing-appender   = "0.2"  # SPRINT3-DAY2: File appender for logs
 toml               = "0.8"  # SPRINT3-DAY3: TOML configuration parser
+# DEVOPS-003: crash-reporting. Плагин инжектит @sentry/browser во все webview и
+# гонит JS-ивенты через Rust-бэкенд; minidump ловит нативные краши.
+# Активен только когда задан DSN (env SENTRY_DSN или [sentry] dsn в TOML).
+sentry               = { version = "0.49", features = ["release-health"] }
+tauri-plugin-sentry  = "0.6"
 
 [dev-dependencies]
 tempfile = "3"  # SPRINT3-DAY1: Temp directories for testing

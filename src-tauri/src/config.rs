@@ -10,6 +10,18 @@ pub struct Config {
     pub app: AppConfig,
     pub security: SecurityConfig,
     pub background: BackgroundConfig,
+    // DEVOPS-003: crash-reporting. Секция опциональна — без неё в TOML
+    // (или с пустым dsn) Sentry не инициализируется и ничего не отправляет.
+    #[serde(default)]
+    pub sentry: SentryConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SentryConfig {
+    /// DSN проекта Sentry (публичный ключ, не секрет).
+    /// Пустая строка = crash-reporting выключен.
+    #[serde(default)]
+    pub dsn: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,6 +133,7 @@ fn validate_config(config: &Config) -> Result<(), String> {
 pub fn get_default_config(profile: &str) -> Config {
     match profile {
         "dev" => Config {
+            sentry: SentryConfig::default(),
             app: AppConfig {
                 profile: "dev".to_string(),
                 name: "VaultBase".to_string(),
@@ -147,6 +160,7 @@ pub fn get_default_config(profile: &str) -> Config {
         },
         
         "staging" => Config {
+            sentry: SentryConfig::default(),
             app: AppConfig {
                 profile: "staging".to_string(),
                 name: "VaultBase".to_string(),
@@ -173,6 +187,7 @@ pub fn get_default_config(profile: &str) -> Config {
         },
         
         _ => Config {
+            sentry: SentryConfig::default(),
             app: AppConfig {
                 profile: "production".to_string(),
                 name: "VaultBase".to_string(),
