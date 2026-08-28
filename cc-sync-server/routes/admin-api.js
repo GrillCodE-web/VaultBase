@@ -1,6 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
-const { getDb } = require('../database');
+const { getDb, hashToken, getServerConfig, setServerConfig } = require('../database');
 const { requireAdmin } = require('../middleware');
 const { deriveActivationKey } = require('./activate');
 const cache = require('../cache');
@@ -66,12 +66,14 @@ router.get('/licenses', (req, res) => {
   const cached = cache.get('admin:licenses');
   if (cached) return res.json(cached);
   const rows = getDb().prepare(
-    'SELECT installation_id,label,challenge,token,is_active,role,created_at,last_seen FROM licenses ORDER BY created_at DESC'
+    'SELECT installation_id,label,challenge,token_hash,is_active,role,created_at,last_seen FROM licenses ORDER BY created_at DESC'
   ).all();
-  // Mask tokens for security - show only first 8 chars
+  // MGR-008: открытых токенов в БД больше нет — маскируем хеш (диагностика,
+  // «какой токен у какой лицензии» остаётся возможной по префиксу).
   const maskedRows = rows.map(r => ({
     ...r,
-    token: r.token ? `${r.token.slice(0, 8)}...${r.token.slice(-8)}` : null
+    token: r.token_hash ? `${r.token_hash.slice(0, 8)}...${r.token_hash.slice(-8)}` : null,
+    token_hash: undefined,
   }));
   cache.set('admin:licenses', maskedRows, 10_000);
   res.json(maskedRows);
@@ -459,12 +461,13 @@ router.post('/licenses/:id/rotate-token', (req, res) => {
       return res.status(404).json({ error: 'license_not_found' });
     }
 
-    // Generate new secure token
+    // Generate new secure token. MGR-008: в БД — только SHA-256 хеш;
+    // открытый токен возвращается админу один раз в ответе.
     const newToken = crypto.randomBytes(32).toString('hex');
 
     // Update token
-    db.prepare('UPDATE licenses SET token = ?, token_rotated_at = CURRENT_TIMESTAMP WHERE installation_id = ?')
-      .run(newToken, installationId);
+    db.prepare('UPDATE licenses SET token_hash = ?, token = NULL, token_rotated_at = CURRENT_TIMESTAMP WHERE installation_id = ?')
+      .run(hashToken(newToken), installationId);
 
     // Log rotation
     db.prepare(
@@ -479,6 +482,30 @@ router.post('/licenses/:id/rotate-token', (req, res) => {
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Server config (MGR-008): kill-switch и анти-replay WS ─────────────────────
+// kill_switch=1: воркерские каналы (sync/footprint/WS-auth) и раздача
+// обновлений отвечают 503; менеджерские каналы и админка продолжают работать.
+// ws_require_nonce=1: WS auth обязан эхом возвращать одноразовый nonce из
+// auth_challenge (включать после обновления флота воркеров).
+const SERVER_CONFIG_KEYS = ['kill_switch', 'ws_require_nonce'];
+
+router.get('/server-config', (req, res) => {
+  const out = {};
+  for (const k of SERVER_CONFIG_KEYS) out[k] = getServerConfig(k, '0');
+  res.json(out);
+});
+
+router.post('/server-config', (req, res) => {
+  const { key, value } = req.body || {};
+  if (!SERVER_CONFIG_KEYS.includes(key)) return res.status(400).json({ error: 'unknown_key' });
+  if (value !== '0' && value !== '1') return res.status(400).json({ error: 'invalid_value' });
+  setServerConfig(key, value);
+  getDb().prepare(
+    'INSERT INTO audit_log (action, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)'
+  ).run('server_config', JSON.stringify({ key, value, by: req.adminUser || 'admin' }));
+  res.json({ ok: true, key, value });
 });
 
 // FIX A-MED-06 отменён 2026-08-07: эндпоинт `POST /licenses/:id/set-auto-rotate`

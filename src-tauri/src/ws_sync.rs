@@ -130,7 +130,46 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                 // сервер /ws парсит JSON напрямую.
                 // FIX AUDIT-24: раньше токен фильтровался до [A-Za-z0-9_-], что
                 // портило base64-токены с '+/='. JSON-сериализация уже безопасна.
-                let auth_msg = serde_json::json!({ "type": "auth", "token": token }).to_string();
+                // MGR-008 anti-replay: новые серверы первым фреймом шлют
+                // {"type":"auth_challenge","nonce":...} — ждём его с таймаутом
+                // и эхом возвращаем nonce в auth. Старые серверы челлендж не
+                // шлют: по таймауту уходим в legacy-режим без nonce.
+                let mut auth_nonce: Option<String> = None;
+                {
+                    use tungstenite::stream::MaybeTlsStream;
+                    match socket.get_mut() {
+                        MaybeTlsStream::Plain(tcp) => {
+                            let _ = tcp.set_read_timeout(Some(Duration::from_secs(5)));
+                        }
+                        MaybeTlsStream::NativeTls(tls) => {
+                            let _ = tls.get_ref().set_read_timeout(Some(Duration::from_secs(5)));
+                        }
+                        _ => {}
+                    }
+                }
+                if let Ok(Message::Text(text)) = socket.read() {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                        if v["type"].as_str() == Some("auth_challenge") {
+                            auth_nonce = v["nonce"].as_str().map(|s| s.to_string());
+                        }
+                    }
+                }
+                {
+                    use tungstenite::stream::MaybeTlsStream;
+                    match socket.get_mut() {
+                        MaybeTlsStream::Plain(tcp) => {
+                            let _ = tcp.set_read_timeout(None);
+                        }
+                        MaybeTlsStream::NativeTls(tls) => {
+                            let _ = tls.get_ref().set_read_timeout(None);
+                        }
+                        _ => {}
+                    }
+                }
+                let auth_msg = match &auth_nonce {
+                    Some(n) => serde_json::json!({ "type": "auth", "token": token, "nonce": n }).to_string(),
+                    None    => serde_json::json!({ "type": "auth", "token": token }).to_string(),
+                };
                 if socket.send(Message::Text(auth_msg)).is_err() {
                     std::thread::sleep(Duration::from_secs(RECONNECT_SECS));
                     continue;

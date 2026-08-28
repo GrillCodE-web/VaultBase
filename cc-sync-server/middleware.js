@@ -1,5 +1,5 @@
 const auth = require('./auth');
-const { getDb } = require('./database');
+const { getDb, hashToken, isKillSwitchOn } = require('./database');
 
 // Shared token authentication for license-token channels.
 //
@@ -25,9 +25,12 @@ function authenticateToken(req, rolePolicy) {
   }
 
   const db = getDb();
+  // MGR-008: токены хранятся только как SHA-256 — ищем по хешу, открытый токен
+  // в БД не попадает нигде.
+  const tokenHash = hashToken(token);
   try {
     return db.transaction(() => {
-      const row = db.prepare('SELECT token, is_active, installation_id, role FROM licenses WHERE token = ?').get(token);
+      const row = db.prepare('SELECT token_hash, is_active, installation_id, role FROM licenses WHERE token_hash = ?').get(tokenHash);
 
       if (!row) return { status: 401, body: { error: 'invalid_token' } };
       if (!row.is_active) return { status: 401, body: { error: 'revoked' } };
@@ -39,8 +42,14 @@ function authenticateToken(req, rolePolicy) {
         return { status: 403, body: { error: 'worker_required' } };
       }
 
-      db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ? AND is_active = 1').run(token);
-      const verifyRow = db.prepare('SELECT is_active FROM licenses WHERE token = ?').get(token);
+      // MGR-008 kill-switch: воркерские каналы глушатся 503, менеджеры и
+      // админка продолжают работать (иначе выключатель не вернуть).
+      if (row.role !== 'manager' && isKillSwitchOn()) {
+        return { status: 503, body: { error: 'service_halted' } };
+      }
+
+      db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ? AND is_active = 1').run(tokenHash);
+      const verifyRow = db.prepare('SELECT is_active FROM licenses WHERE token_hash = ?').get(tokenHash);
       if (!verifyRow?.is_active) return { status: 401, body: { error: 'revoked_concurrent' } };
 
       if (row.role !== 'manager') {

@@ -1,6 +1,7 @@
 //! Raw WebSocket handler for Tauri desktop clients.
 //! Protocol:
-//!   Client → Server: {"type":"auth","token":"<license_token>"}
+//!   Server → Client: {"type":"auth_challenge","nonce":"...","ts":...}  (MGR-008 anti-replay)
+//!   Client → Server: {"type":"auth","token":"<license_token>","nonce":"<echo>"}
 //!   Server → Client: {"type":"auth_ok","installation_id":"...","group_id":"..."}  |  {"type":"auth_error","error":"..."}
 //!   Client → Server: {"type":"full_pull"}
 //!   Server → Client: {"type":"full_data","cards":[...]}
@@ -11,7 +12,8 @@
 //!   Client → Server: {"type":"ping"}
 //!   Server → Client: {"type":"pong"}
 
-const { getDb } = require('./database');
+const crypto = require('crypto');
+const { getDb, hashToken, isKillSwitchOn, isWsNonceRequired } = require('./database');
 const { applyCardPush, MAX_CARDS_PER_BATCH } = require('./card-push');
 const { registerViolation, isBanned, makeWindowCounter, pruneViolations, _clearViolationsForTest } = require('./rate-limit');
 
@@ -50,6 +52,11 @@ module.exports = function initWsTauri(wss, io) {
     ws.authenticated = false;
     ws.installationId = null;
     ws.groupId = null;
+    // MGR-008 anti-replay: одноразовый nonce на подключение. Клиент обязан
+    // вернуть его в auth (когда ws_require_nonce включён); перехваченное
+    // auth-сообщение нельзя переиграть на другом подключении.
+    ws.authNonce = crypto.randomBytes(16).toString('hex');
+    send(ws, { type: 'auth_challenge', nonce: ws.authNonce, ts: Date.now() });
     // SEC-023: sliding 1-second window, max RATE_LIMIT_MAX_PER_SEC messages.
     const rateExceeded = makeWindowCounter();
 
@@ -95,14 +102,34 @@ module.exports = function initWsTauri(wss, io) {
         const token = msg.token?.trim();
         if (!token) { send(ws, { type: 'auth_error', error: 'missing_token' }); ws.close(); return; }
 
+        // MGR-008 anti-replay: nonce одноразовый — снимаем его с сокета при
+        // первой попытке auth. В режиме ws_require_nonce неверный/отсутствующий
+        // nonce отклоняется; пока флаг выкл — старые клиенты работают как есть.
+        const expectedNonce = ws.authNonce;
+        ws.authNonce = null;
+        if (isWsNonceRequired() && msg.nonce !== expectedNonce) {
+          send(ws, { type: 'auth_error', error: 'bad_nonce' });
+          ws.close();
+          return;
+        }
+
+        // MGR-008 kill-switch: воркерский WS-канал глушится.
+        if (isKillSwitchOn()) {
+          send(ws, { type: 'auth_error', error: 'service_halted' });
+          ws.close();
+          return;
+        }
+
         const db = getDb();
         // SEC-022: license check + last_seen + group lookup run in one
         // transaction. Previously a license deactivated between the SELECT and
         // the UPDATE still authenticated this socket (TOCTOU).
-        const authTx = db.transaction((tkn) => {
+        // MGR-008: lookup по SHA-256 хешу токена — открытых токенов в БД нет.
+        const tokenHash = hashToken(token);
+        const authTx = db.transaction((th) => {
           const row = db.prepare(
-            'SELECT installation_id, is_active, role FROM licenses WHERE token = ?'
-          ).get(tkn);
+            'SELECT installation_id, is_active, role FROM licenses WHERE token_hash = ?'
+          ).get(th);
           if (!row || !row.is_active) return null;
           // Manager licenses never join the card-sync WS channel.
           if (row.role === 'manager') return { forbidden: 'manager_ws_forbidden' };
@@ -111,7 +138,7 @@ module.exports = function initWsTauri(wss, io) {
             "SELECT banned_reason FROM worker_policies WHERE installation_id = ? AND banned = 1 AND (ban_until IS NULL OR ban_until > datetime('now'))"
           ).get(row.installation_id);
           if (banned) return { banned: banned.banned_reason || '' };
-          db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?').run(tkn);
+          db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ?').run(th);
           const member = db.prepare(`
             SELECT sgm.group_id FROM sync_group_members sgm
             WHERE sgm.installation_id = ?
@@ -120,7 +147,7 @@ module.exports = function initWsTauri(wss, io) {
         });
         let auth;
         try {
-          auth = authTx(token);
+          auth = authTx(tokenHash);
         } catch (e) {
           // A failing DB (locked, IO error) must answer the client instead of an
           // uncaught throw that leaves the socket hanging until auth_timeout.
@@ -148,7 +175,7 @@ module.exports = function initWsTauri(wss, io) {
 
         ws.authenticated = true;
         ws.installationId = auth.installationId;
-        ws.userToken = token;
+        ws.userToken = tokenHash;
         ws.groupId = auth.groupId;
 
         // FIX: повторное подключение той же installation_id раньше молча

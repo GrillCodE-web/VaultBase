@@ -311,6 +311,19 @@ tbody tr:hover{background:var(--surface2)}
           <div class="chart-wrap"><canvas id="chartFpType"></canvas></div>
         </div>
       </div>
+      <div class="card" style="margin-top:16px">
+        <div class="chart-title">Аварийные выключатели (MGR-008)</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;padding:8px 0">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="cfg-kill-switch" onchange="saveServerConfig('kill_switch', this.checked)">
+            <span>Kill-switch деплоя <span style="color:var(--muted);font-size:12px">(воркерский sync/WS и раздача обновлений → 503; админка и менеджеры работают)</span></span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="cfg-ws-nonce" onchange="saveServerConfig('ws_require_nonce', this.checked)">
+            <span>Анти-replay WS (nonce) <span style="color:var(--muted);font-size:12px">(включать после обновления всех воркеров)</span></span>
+          </label>
+        </div>
+      </div>
     </div>
 
     <!-- АКТИВНОСТЬ -->
@@ -820,6 +833,7 @@ async function loadDashboard() {
   const live = connData?.total ?? 0;
   document.getElementById('s-live').textContent = live;
   document.getElementById('s-live-sub').textContent = live > 0 ? 'клиентов подключено' : 'нет подключений';
+  loadServerConfig();
 
   const labels = (s.fp_by_day || []).map(d => d.date.slice(5));
   const counts = (s.fp_by_day || []).map(d => d.count);
@@ -854,6 +868,19 @@ async function loadDashboard() {
       plugins: { legend: { position: 'bottom', labels: { color: '#6b7280', font: { size: 11 }, padding: 10 } } }
     }
   });
+}
+
+async function loadServerConfig() {
+  const { data } = await GET('/server-config');
+  if (!data) return;
+  document.getElementById('cfg-kill-switch').checked = data.kill_switch === '1';
+  document.getElementById('cfg-ws-nonce').checked = data.ws_require_nonce === '1';
+}
+
+async function saveServerConfig(key, enabled) {
+  const { ok } = await POST('/server-config', { key, value: enabled ? '1' : '0' });
+  if (ok) toast((enabled ? 'Включено: ' : 'Выключено: ') + key);
+  else { toast('Не удалось сохранить ' + key, 'error'); loadServerConfig(); }
 }
 
 async function loadActivity() {

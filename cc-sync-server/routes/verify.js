@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { getDb } = require('../database');
+const { getDb, hashToken } = require('../database');
 
 const router = express.Router();
 
@@ -32,9 +32,10 @@ router.post('/', verifyLimiter, (req, res) => {
   }
 
   const db = getDb();
+  const tokenHash = hashToken(token);
   const row = db.prepare(
-    'SELECT token, label, is_active, role FROM licenses WHERE token = ?'
-  ).get(token);
+    'SELECT token_hash, label, is_active, role FROM licenses WHERE token_hash = ?'
+  ).get(tokenHash);
 
   if (!row) {
     return res.status(401).json({ error: 'invalid_token' });
@@ -44,8 +45,8 @@ router.post('/', verifyLimiter, (req, res) => {
   }
 
   db.prepare(
-    'UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?'
-  ).run(token);
+    'UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ?'
+  ).run(tokenHash);
 
   return res.json({ valid: true, label: row.label || '', role: row.role || 'operator' });
 });

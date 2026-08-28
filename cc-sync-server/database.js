@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const crypto = require('crypto');
 const path = require('path');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
@@ -338,6 +339,69 @@ function migrate(db) {
       PRAGMA user_version = 12;
     `);
   }
+
+  // MGR-008: токены лицензий и user_token в footprints больше не хранятся в
+  // открытом виде — только SHA-256 хеш (токены 64-hex, энтропии достаточно,
+  // bcrypt не нужен). Бэкфилл в JS, т.к. у SQLite нет встроенного sha256.
+  // Здесь же — server_config: флаги kill_switch и ws_require_nonce.
+  if (ver < 13) {
+    db.exec(`
+      ALTER TABLE licenses ADD COLUMN token_hash TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_licenses_token_hash
+        ON licenses(token_hash) WHERE token_hash IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS server_config (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    const licRows = db.prepare('SELECT installation_id, token FROM licenses WHERE token IS NOT NULL').all();
+    const updLic = db.prepare('UPDATE licenses SET token_hash = ?, token = NULL WHERE installation_id = ?');
+    for (const r of licRows) updLic.run(hashToken(r.token), r.installation_id);
+
+    const fpRows = db.prepare('SELECT DISTINCT user_token FROM footprints').all();
+    const updFp = db.prepare('UPDATE footprints SET user_token = ? WHERE user_token = ?');
+    for (const r of fpRows) updFp.run(hashToken(r.user_token), r.user_token);
+
+    db.pragma('user_version = 13');
+  }
+}
+
+// SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому
+// одного быстрого хеша достаточно (brute-force по 2^256 неактуален).
+function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
+function getServerConfig(key, defaultValue = null) {
+  try {
+    const row = getDb().prepare('SELECT value FROM server_config WHERE key = ?').get(key);
+    return row ? row.value : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
+function setServerConfig(key, value) {
+  getDb().prepare(`
+    INSERT INTO server_config (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `).run(key, String(value));
+}
+
+// Kill-switch деплоя: при '1' воркерские каналы (sync/footprint/WS) и
+// раздача обновлений отвечают 503. Менеджерские каналы и админка не глушатся,
+// иначе выключатель нельзя будет вернуть обратно.
+function isKillSwitchOn() {
+  return getServerConfig('kill_switch', '0') === '1';
+}
+
+// Анти-replay WS: при '1' (или env WS_REQUIRE_NONCE=1) auth-сообщение обязано
+// эхом возвращать одноразовый nonce из auth_challenge. По умолчанию выкл —
+// старые клиенты продолжают работать, включается после обновления флота.
+function isWsNonceRequired() {
+  return process.env.WS_REQUIRE_NONCE === '1' || getServerConfig('ws_require_nonce', '0') === '1';
 }
 
 /**
@@ -355,4 +419,4 @@ function closeDb() {
   }
 }
 
-module.exports = { getDb, closeDb };
+module.exports = { getDb, closeDb, hashToken, getServerConfig, setServerConfig, isKillSwitchOn, isWsNonceRequired };

@@ -1,5 +1,5 @@
 const { Server } = require('socket.io');
-const { getDb } = require('./database');
+const { getDb, hashToken, isKillSwitchOn } = require('./database');
 const { applyCardPush, MAX_CARDS_PER_BATCH } = require('./card-push');
 const { registerViolation, isBanned, makeWindowCounter } = require('./rate-limit');
 
@@ -35,13 +35,16 @@ function initSocket(httpServer) {
     if (isBanned(socket.handshake.address)) return next(new Error('rate_limit_backoff'));
     const token = socket.handshake.auth?.token || socket.handshake.headers?.['x-license-token'];
     if (!token) return next(new Error('missing_token'));
+    // MGR-008: в БД лежит только SHA-256 хеш токена; kill-switch глушит канал.
+    if (isKillSwitchOn()) return next(new Error('service_halted'));
+    const tokenHash = hashToken(token);
     const db = getDb();
-    const row = db.prepare('SELECT token, is_active, installation_id FROM licenses WHERE token = ?').get(token);
+    const row = db.prepare('SELECT token_hash, is_active, installation_id FROM licenses WHERE token_hash = ?').get(tokenHash);
     if (!row || !row.is_active) return next(new Error('invalid_token'));
-    socket.userToken = token;
+    socket.userToken = tokenHash;
     socket.installationId = row.installation_id;
     // Update last_seen
-    db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token = ?').run(token);
+    db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ?').run(tokenHash);
     next();
   });
 
@@ -65,7 +68,7 @@ function initSocket(httpServer) {
     const member = db.prepare(`
       SELECT sgm.group_id FROM sync_group_members sgm
       JOIN licenses l ON l.installation_id = sgm.installation_id
-      WHERE l.token = ?
+      WHERE l.token_hash = ?
     `).get(socket.userToken);
 
     if (member) {

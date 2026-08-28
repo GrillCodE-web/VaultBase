@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { getDb } = require('../database');
+const { getDb, hashToken } = require('../database');
 const { requireToken } = require('../middleware');
 
 const router = express.Router();
@@ -37,6 +37,8 @@ router.post('/', requireToken, limiter, (req, res) => {
 
   const VALID_TYPES = ['email', 'ip', 'drop', 'bin', 'phone', 'name'];
   const db = getDb();
+  // MGR-008: user_token хранится только как SHA-256 хеш (миграция v13).
+  const tokenHash = hashToken(req.userToken);
 
   const insert = db.prepare(`
     INSERT OR IGNORE INTO footprints (shop_domain, hash_type, hash_value, user_token)
@@ -56,7 +58,7 @@ router.post('/', requireToken, limiter, (req, res) => {
         shop_domain.toLowerCase().trim(),
         hash_type,
         hash_value,
-        req.userToken
+        tokenHash
       );
       if (info.changes > 0) saved++;
       else skipped++; // duplicate

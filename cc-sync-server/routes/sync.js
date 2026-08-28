@@ -48,9 +48,7 @@ function generatePairCode() {
 router.post('/group/create', (req, res) => {
   const db = getDb();
   const { name, group_key: client_gk } = req.body || {};
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   // Check if already in a group
@@ -83,9 +81,7 @@ router.post('/group/create', (req, res) => {
 // POST /sync/group/pair — create a pair code (TTL 15 min)
 router.post('/group/pair', pairLimiter, (req, res) => {
   const db = getDb();
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   const member = db.prepare(
@@ -135,9 +131,7 @@ router.post('/group/join', joinLimiter, (req, res) => {
   const { code } = req.body || {};
   if (!code) return res.status(400).json({ error: 'missing_code' });
 
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   // Check if already in a group
@@ -203,9 +197,7 @@ router.post('/group/join', joinLimiter, (req, res) => {
 // GET /sync/group/info — info about current group
 router.get('/group/info', (req, res) => {
   const db = getDb();
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   const member = db.prepare(
@@ -232,9 +224,7 @@ router.get('/group/info', (req, res) => {
 // POST /sync/group/leave — leave current group
 router.post('/group/leave', (req, res) => {
   const db = getDb();
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   db.prepare('DELETE FROM sync_group_members WHERE installation_id = ?').run(installation_id);
@@ -245,9 +235,7 @@ router.post('/group/leave', (req, res) => {
 // POST /sync/cards — push card updates to group
 router.post('/cards', (req, res) => {
   const db = getDb();
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   const member = db.prepare(
@@ -289,9 +277,7 @@ router.post('/cards', (req, res) => {
 // leave the desktop client.
 router.post('/courier_tag', (req, res) => {
   const db = getDb();
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   const member = db.prepare(
@@ -329,9 +315,7 @@ router.post('/courier_tag', (req, res) => {
 // GET /sync/cards — pull all cards for current group
 router.get('/cards', (req, res) => {
   const db = getDb();
-  const installation_id = db.prepare(
-    'SELECT installation_id FROM licenses WHERE token = ?'
-  ).get(req.userToken)?.installation_id;
+  const installation_id = req.installationId;
   if (!installation_id) return res.status(403).json({ error: 'not_found' });
 
   const member = db.prepare(

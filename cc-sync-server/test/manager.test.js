@@ -7,7 +7,7 @@ const express = require('express');
 
 process.env.DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vb-manager-')), 'test.db');
 
-const { getDb } = require('../database');
+const { getDb, hashToken } = require('../database');
 const managerApi = require('../routes/manager-api');
 const telemetry = require('../routes/telemetry');
 const alertsEngine = require('../alerts-engine');
@@ -58,10 +58,12 @@ async function activeKey() {
 
 test.before(async () => {
   const db = getDb();
-  db.prepare("INSERT INTO licenses (installation_id, challenge, token, label, role, is_active) VALUES (?,?,?,?,?,1)")
-    .run(MGR_IID, 'CHALLENGE1', MGR_TOKEN, 'Head Manager', 'manager');
-  db.prepare("INSERT INTO licenses (installation_id, challenge, token, label, role, is_active) VALUES (?,?,?,?,?,1)")
-    .run(WRK_IID, 'CHALLENGE2', WRK_TOKEN, 'Worker One', 'operator');
+  // MGR-008: в БД хранится только SHA-256 хеш токена (колонка token = NULL,
+  // как после миграции v13). Открытые токены — только в заголовках запросов.
+  db.prepare("INSERT INTO licenses (installation_id, challenge, token, token_hash, label, role, is_active) VALUES (?,?,NULL,?,?,?,1)")
+    .run(MGR_IID, 'CHALLENGE1', hashToken(MGR_TOKEN), 'Head Manager', 'manager');
+  db.prepare("INSERT INTO licenses (installation_id, challenge, token, token_hash, label, role, is_active) VALUES (?,?,NULL,?,?,?,1)")
+    .run(WRK_IID, 'CHALLENGE2', hashToken(WRK_TOKEN), 'Worker One', 'operator');
   await new Promise((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve);
   });

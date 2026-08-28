@@ -18,6 +18,18 @@ Authentication is **per-endpoint**, not global. There are four tiers:
 Authorization: Bearer <your-license-token>
 ```
 
+License tokens are stored **only as SHA-256 hashes** (MGR-008, DB migration
+v13): the plaintext token is returned to the client exactly once at activation
+or rotation and never reaches the database. The same applies to the
+`user_token` column in footprints.
+
+Kill-switch (MGR-008): when the `kill_switch` server flag is on, all _worker_
+channels (sync/footprint/WS auth, heartbeat/telemetry) answer `503
+{ "error": "service_halted" }` and release binary downloads stop. Manager
+channels and the admin panel keep working so the switch can be turned back
+off. Flags are managed via `<ADMIN_PATH>/api/server-config` or the admin panel
+("Аварийные выключатели").
+
 **2. Admin session or HTTP Basic** — enforced by `requireAdmin`. Required by all
 routes under `<ADMIN_PATH>/api` and `<ADMIN_PATH>/upload`, and by the admin
 static panel.
@@ -428,18 +440,32 @@ Content-Type: application/json
 client must send an `auth` message as its first frame; every other message type
 is ignored until the server replies with `auth_ok`.
 
+Anti-replay (MGR-008): the server sends an `auth_challenge` frame with a
+one-time `nonce` immediately on connect. When the `ws_require_nonce` server
+flag is on, the `auth` message must echo that nonce — a captured `auth` frame
+cannot be replayed on another connection. While the flag is off, clients that
+never wait for the challenge keep working (legacy mode).
+
 ```javascript
 const ws = new WebSocket('wss://api.eulivehub.com/ws')
-ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: licenseToken }))
+let nonce
+ws.onmessage = ev => {
+  const msg = JSON.parse(ev.data)
+  if (msg.type === 'auth_challenge') {
+    nonce = msg.nonce
+    ws.send(JSON.stringify({ type: 'auth', token: licenseToken, nonce }))
+  }
+}
 ```
 
 **Messages:**
 
 | Type              | Direction       | Payload                                                                                 |
 | ----------------- | --------------- | --------------------------------------------------------------------------------------- |
-| `auth`            | Client → Server | `{ token: string }`                                                                     |
+| `auth_challenge`  | Server → Client | `{ nonce, ts }` — one-time anti-replay challenge, first frame after connect             |
+| `auth`            | Client → Server | `{ token: string, nonce?: string }` — nonce echo required when `ws_require_nonce` is on |
 | `auth_ok`         | Server → Client | `{ installation_id, group_id }`                                                         |
-| `auth_error`      | Server → Client | `{ error: 'missing_token' \| 'invalid_token' }`                                         |
+| `auth_error`      | Server → Client | `{ error: 'missing_token' \| 'invalid_token' \| 'invalid_nonce' \| 'service_halted' }`  |
 | `ping` / `pong`   | Bidirectional   | `{}`                                                                                    |
 | `full_pull`       | Client → Server | `{}` — requests all cards for the group                                                 |
 | `full_data`       | Server → Client | `{ cards: [...], courier_tags: [...] }`                                                 |

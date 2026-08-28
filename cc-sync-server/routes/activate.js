@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
-const { getDb } = require('../database');
+const { getDb, hashToken } = require('../database');
 
 const router = express.Router();
 
@@ -62,17 +62,21 @@ router.post('/', activateLimiter, (req, res) => {
     return res.status(401).json({ error: 'invalid_key' });
   }
 
-  // Generate token if not already assigned
-  let token = row.token;
-  if (!token) {
+  // Generate token if not already assigned. MGR-008: в БД сохраняется только
+  // SHA-256 хеш (token_hash); открытый токен уходит клиенту в ответе один раз.
+  let token = null;
+  if (!row.token_hash) {
     token = crypto.randomBytes(32).toString('hex');
     db.prepare(
-      'UPDATE licenses SET token = ?, last_seen = CURRENT_TIMESTAMP WHERE installation_id = ?'
-    ).run(token, installation_id);
+      'UPDATE licenses SET token_hash = ?, token = NULL, last_seen = CURRENT_TIMESTAMP WHERE installation_id = ?'
+    ).run(hashToken(token), installation_id);
   } else {
+    // Токен уже выдан, а открытый не хранится (только хеш) — вернуть его
+    // повторно невозможно. Перевыпуск — через admin rotate-token.
     db.prepare(
       'UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE installation_id = ?'
     ).run(installation_id);
+    return res.status(409).json({ error: 'already_activated' });
   }
 
   return res.json({ token, role: row.role || 'operator' });

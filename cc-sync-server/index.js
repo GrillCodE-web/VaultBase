@@ -47,7 +47,11 @@ app.use((req, res, next) => {
 // Static: release binaries
 const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, 'public/releases');
 fs.mkdirSync(RELEASES_DIR, { recursive: true });
-app.use('/releases', express.static(RELEASES_DIR, {
+app.use('/releases', (req, res, next) => {
+  // MGR-008 kill-switch: при инциденте останавливаем и раздачу бинарей.
+  if (require('./database').isKillSwitchOn()) return res.status(503).json({ error: 'service_halted' });
+  next();
+}, express.static(RELEASES_DIR, {
   setHeaders: (res, fp) => {
     if (fp.endsWith('.dmg'))    res.set('Content-Type', 'application/x-apple-diskimage');
     if (fp.endsWith('.tar.gz')) res.set('Content-Type', 'application/gzip');
@@ -63,6 +67,15 @@ const { WebSocketServer } = require('ws');
 const wssTauri = new WebSocketServer({ server, path: '/ws' });
 require('./ws-tauri')(wssTauri, io);
 app.set('wssTauri', wssTauri);
+
+// MGR-008 kill-switch: при включённом флаге раздача обновлений и версий
+// останавливается (воркерские токен-каналы глушатся в middleware.js/ws-tauri.js).
+const { isKillSwitchOn } = require('./database');
+function killSwitchGuard(req, res, next) {
+  if (isKillSwitchOn()) return res.status(503).json({ error: 'service_halted' });
+  next();
+}
+app.use(['/update', '/version', '/api/releases'], killSwitchGuard);
 
 // Public API
 app.use('/activate',  require('./routes/activate'));
