@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import {
@@ -17,7 +17,14 @@ import { formatCurrency, formatNumber } from '../utils/formatting'
 import { HEATMAP_COLORS } from '../constants/colors'
 
 // Import from Dashboard submodule
-import { PERIODS, RevenueChart, Heatmap } from './Dashboard/charts'
+import { PERIODS } from './Dashboard/periods.js'
+
+// PERF-014: recharts (~400 КБ) не нужен до первого показа дашборда —
+// charts.jsx подгружается лениво; PERIODS живёт в periods.js без recharts.
+const RevenueChart = lazy(() =>
+  import('./Dashboard/charts').then(m => ({ default: m.RevenueChart }))
+)
+const Heatmap = lazy(() => import('./Dashboard/charts').then(m => ({ default: m.Heatmap })))
 import {
   BanksTable,
   CountryTable,
@@ -447,7 +454,9 @@ export default function DashboardRedesigned({ onNavigate }) {
               </span>
             </div>
           </div>
-          <RevenueChart data={chart} />
+          <Suspense fallback={<div className="h-[260px]" />}>
+            <RevenueChart data={chart} />
+          </Suspense>
         </div>
 
         {/* Heatmap */}
@@ -471,7 +480,9 @@ export default function DashboardRedesigned({ onNavigate }) {
               ))}
             </div>
           </div>
-          <Heatmap data={heatmap} onCellClick={handleHeatmapClick} />
+          <Suspense fallback={<div className="h-[120px]" />}>
+            <Heatmap data={heatmap} onCellClick={handleHeatmapClick} />
+          </Suspense>
         </div>
       </div>
 

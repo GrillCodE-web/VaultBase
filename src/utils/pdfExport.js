@@ -1,7 +1,8 @@
-import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
+// PERF-014: jspdf + autotable (~350 КБ) грузятся по требованию — только при
+// реальном экспорте, а не в стартовом бандле.
+export async function exportCardsToPDF(cards, filename = 'cards_export.pdf') {
+  const [{ jsPDF }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
 
-export function exportCardsToPDF(cards, filename = 'cards_export.pdf') {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
   doc.setFontSize(16)

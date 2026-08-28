@@ -53,9 +53,15 @@ export default defineConfig(async () => ({
           // Vendor libraries
           if (id.includes('node_modules')) {
             if (id.includes('react')) return 'vendor'
-            if (id.includes('recharts')) return 'charts'
             if (id.includes('@tanstack')) return 'ui'
             if (id.includes('lucide')) return 'icons'
+            // PERF-014: recharts/d3 и jspdf доступны только через динамические
+            // import(). Явный return undefined — НЕ закреплять их за vendor:
+            // manualChunks иначе делает их частью eager-чанка (modulepreload
+            // в index.html) и ленивость ломается.
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('jspdf')) {
+              return undefined
+            }
             return 'vendor'
           }
           // Large page components (separate from pages to avoid circular deps)

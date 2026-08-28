@@ -753,7 +753,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             <button
               onClick={() => {
                 const selectedCards = cards.filter(c => selected.includes(c.id))
-                if (selectedCards.length) exportCardsToPDF(selectedCards)
+                if (selectedCards.length) {
+                  exportCardsToPDF(selectedCards).catch(e => handleError(e, 'Cards.exportPDF'))
+                }
               }}
               className="btn btn-b btn-sm"
             >
