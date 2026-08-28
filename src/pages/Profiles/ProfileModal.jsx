@@ -7,6 +7,7 @@ import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { HEX_COLORS } from '../../constants/colors.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { useEscapeKey } from '../../hooks/useEscapeKey.js'
+import { useConfirm } from '../../hooks/useConfirm.jsx'
 
 export function ProfileModal({ onCreated, onClose }) {
   useEscapeKey(onClose)
@@ -21,8 +22,9 @@ export function ProfileModal({ onCreated, onClose }) {
   const [templates, setTemplates] = useState([])
   const [saveAsTemplate, setSaveAsTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
-  const [autoCreateDrop, setAutoCreateDrop] = useState(true)
+  const [autoCreateDrop, setAutoCreateDrop] = useState(false)
   const { toast, error: toastErr } = usePremiumToast()
+  const { confirm } = useConfirm()
 
   // ── Email auto-assignment state ──────────
   const [emailInput, setEmailInput] = useState('')
@@ -115,9 +117,9 @@ export function ProfileModal({ onCreated, onClose }) {
       if (free) {
         setEmailInput(free.email)
         setEmailId(free.id)
-        toast('Email auto-assigned', 'success')
+        toast(t('email_auto_assigned'), 'success')
       } else {
-        toast('No free emails available', 'warn')
+        toast(t('no_free_emails'), 'warn')
       }
     } catch (e) {
       const error = handleError(e, 'ProfileModal.handleAutoEmail')
@@ -125,6 +127,18 @@ export function ProfileModal({ onCreated, onClose }) {
     } finally {
       setEmailLoading(false)
     }
+  }
+
+  // Enabling auto-drop reveals encrypted card billing — ask first (UX-019)
+  const handleAutoCreateDropToggle = async checked => {
+    if (!checked) {
+      setAutoCreateDrop(false)
+      return
+    }
+    const ok = await confirm(t('auto_create_drop_confirm_msg'), {
+      title: t('auto_create_drop_confirm_title'),
+    })
+    setAutoCreateDrop(ok)
   }
 
   const handleCreate = async () => {
@@ -315,12 +329,12 @@ export function ProfileModal({ onCreated, onClose }) {
 
           {/* Email assignment */}
           <div className="form-group mb-0">
-            <label className="form-label mb-1">Email (optional)</label>
+            <label className="form-label mb-1">{t('email_label_optional')}</label>
             <div className="input-with-button">
               <input
                 className="form-input"
                 list="email-suggestions"
-                placeholder="Email address…"
+                placeholder={t('email_placeholder')}
                 value={emailInput}
                 onChange={e => {
                   setEmailInput(e.target.value)
@@ -332,7 +346,7 @@ export function ProfileModal({ onCreated, onClose }) {
               <button
                 className="btn btn-ghost btn-sm text-sm"
                 type="button"
-                title="Auto-assign free email"
+                title={t('email_auto_assign_title')}
                 disabled={emailLoading}
                 onClick={handleAutoAssignEmail}
               >
@@ -344,6 +358,19 @@ export function ProfileModal({ onCreated, onClose }) {
                 <option key={e.id} value={e.email} />
               ))}
             </datalist>
+            {/* UX-018: feedback — какой email будет привязан к профилю */}
+            {emailId && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-green-t">
+                <Check size={12} className="icon-no-shrink" />
+                <span>{t('email_will_be_linked', { email: emailInput })}</span>
+              </div>
+            )}
+            {!emailId && emailInput.trim() && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted">
+                <X size={12} className="icon-no-shrink" />
+                <span>{t('email_not_in_pool')}</span>
+              </div>
+            )}
           </div>
 
           {mode === 'quick' ? (
@@ -351,10 +378,10 @@ export function ProfileModal({ onCreated, onClose }) {
               <input
                 type="checkbox"
                 checked={autoCreateDrop}
-                onChange={e => setAutoCreateDrop(e.target.checked)}
+                onChange={e => handleAutoCreateDropToggle(e.target.checked)}
               />
-              <span>Auto-create drop from billing address</span>
-              <span className="helper-text">(faster setup)</span>
+              <span>{t('auto_create_drop')}</span>
+              <span className="helper-text">{t('auto_create_drop_helper')}</span>
             </label>
           ) : (
             <>
