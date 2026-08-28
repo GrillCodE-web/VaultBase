@@ -262,7 +262,7 @@
 | MGR-003 | UI менеджера: дашборд, работники+политики, аналитика (BIN/шопы/дропы), новости, алерты, приоритеты, апдейты, настройки (en/ru) | 🔴        | `manager-app/src/*`                           | ✅       |
 | MGR-004 | Воркер: отправка heartbeat + daily_stats запечатанными конвертами (X25519→HKDF→AES-GCM, см. MANAGER_APP.md §2.2, §4)           | 🔴        | `src-tauri/src/commands/telemetry.rs` (новый) | ✅ @main |
 | MGR-005 | Воркер: применение политик живьём (ban→лок, force_logout, мин. версия, permissions_override, квоты)                            | 🔴        | `src-tauri`, `src/hooks`                      | ✅ @main |
-| MGR-006 | Воркер: UI новостей (баннер по severity) и сортировка каталога по приоритетам шопов                                            | 🟠        | `src/pages/Catalog.jsx`, компонент            | ⬜       |
+| MGR-006 | Воркер: UI новостей (баннер по severity) и сортировка каталога по приоритетам шопов                                            | 🟠        | `src/pages/Catalog.jsx`, компонент            | 🔄 @main |
 | MGR-007 | Менеджер: движок числовых алертов (правила на расшифрованных отчётах: спайк деклайна, dead-ratio, квоты) + Telegram/webhook    | 🟠        | `manager-app`, сервер                         | ⬜       |
 | MGR-008 | Сервер-хард: sha-256-хеш токенов в БД, kill-switch деплоя, шифрованные бэкапы БД, анти-replay WS                               | 🟠        | `cc-sync-server`                              | ⬜       |
 | MGR-009 | Менеджер: tauri-plugin-updater (отдельный signing key) + staged rollout (stable/beta, %)                                       | 🟡        | `manager-app/src-tauri`                       | ⬜       |
