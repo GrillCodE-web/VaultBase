@@ -23,7 +23,8 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "transparent": false,
-        "shadow": true
+        "shadow": true,
+        "dragDropEnabled": false
       },
       {
         "label": "float",
