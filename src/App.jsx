@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
+import { AppTour } from './components/AppTour'
 import NewsAlert from './components/NewsAlert'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
@@ -461,6 +462,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     }
   })
   const [showOnboarding, setShowOnboarding] = useState(false)
+  // UX-013: интерактивный тур (react-joyride) — после онбординга или по кнопке в Settings
+  const [tourRun, setTourRun] = useState(false)
   // #27 — drag-to-reorder sidebar
   const [navOrder, setNavOrder] = useState(() => safeParseJSON(safeGetItem('cc_nav_order'), null))
   const dragNavRef = useRef(null)
@@ -575,6 +578,31 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         })
     }
   }, [])
+
+  // UX-013: ручной перезапуск тура из Settings
+  useEffect(() => {
+    const start = () => setTourRun(true)
+    window.addEventListener('vb:start-tour', start)
+    return () => window.removeEventListener('vb:start-tour', start)
+  }, [])
+
+  const handleTourFinish = () => {
+    setTourRun(false)
+    try {
+      safeSetItem('vb_ui_tour_done', '1')
+    } catch {
+      // localStorage недоступен — тур просто запустится при следующем старте
+    }
+  }
+
+  // UX-013: тур стартует один раз после завершения онбординга
+  const maybeStartTour = () => {
+    try {
+      if (!safeGetItem('vb_ui_tour_done')) setTourRun(true)
+    } catch {
+      setTourRun(true)
+    }
+  }
 
   // Атрибут data-theme и localStorage — забота useTheme.
 
@@ -1171,11 +1199,13 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
               onComplete={() => {
                 setShowOnboarding(false)
                 safeSetItem('onboarding_done', '1')
+                maybeStartTour()
               }}
               onNavigate={p => {
                 setShowOnboarding(false)
                 safeSetItem('onboarding_done', '1')
                 handlePageChange(p)
+                maybeStartTour()
               }}
             />
           </Suspense>
@@ -1185,12 +1215,14 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         <GlobalSearch onClose={() => setSearchOpen(false)} onNavigate={p => handlePageChange(p)} />
       )}
       {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
+      {tourRun && <AppTour onFinish={handleTourFinish} />}
 
       {/* ── Sidebar ── */}
       <nav
         id="sidebar-nav"
         className={`sidebar${sidebarExpanded ? ' expanded' : ''}`}
         aria-label="Main navigation"
+        data-tour="sidebar"
       >
         {/* macOS: drag region + traffic lights offset */}
         <div className="sidebar-drag-region" data-tauri-drag-region />
@@ -1219,6 +1251,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             <React.Fragment key={key}>
               <button
                 className={`sbi${active ? ' active' : ''}`}
+                data-tour={`nav-${p}`}
                 onClick={() => handlePageChange(p)}
                 draggable
                 onDragStart={() => {

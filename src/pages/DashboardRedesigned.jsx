@@ -3,6 +3,7 @@ import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import {
   RefreshCw,
+  RotateCcw,
   Download,
   FileDown,
   CreditCard,
@@ -35,6 +36,7 @@ import {
   ExpiringTable,
 } from './Dashboard/tables'
 import { CollapsePanel, PremiumStatCard, SmartAlertCard } from './Dashboard/cards'
+import { WidgetGrid } from './Dashboard/WidgetGrid.jsx'
 import { UpanelApiStatusWidget } from './Dashboard/upanelApiStatus'
 
 // Стили дашборд-карточек — в общем styles/pages.css (через index.css).
@@ -279,6 +281,13 @@ export default function DashboardRedesigned({ onNavigate }) {
           <button className="btn btn-ghost btn-sm" onClick={handleExportPDF}>
             <FileDown size={13} /> Export PDF
           </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => window.dispatchEvent(new window.CustomEvent('vb:reset-dash-layout'))}
+            title={t('dashboard_reset_layout')}
+          >
+            <RotateCcw size={13} /> {t('dashboard_reset_layout')}
+          </button>
         </div>
       </div>
 
@@ -342,256 +351,310 @@ export default function DashboardRedesigned({ onNavigate }) {
         </div>
       )}
 
-      {/* ── Premium Stat Cards Grid ── */}
-      {!isEmpty && (
-        <>
-          <div className="slabel mt-2">{t('dashboard_base_total')}</div>
-          <div className="smart-cards-grid">
-            <PremiumStatCard
-              icon={CreditCard}
-              label={t('total_cc')}
-              value={formatNumber(totalCards)}
-              subtext={`${formatNumber(freeCards)} available`}
-              trend="up"
-              variant="cards"
-              // Только кольцо прогресса: statusBadge «27%» занимал тот же
-              // верхне-правый угол и слипался с подписью в центре кольца.
-              progress={Math.round((freeCards / (totalCards || 1)) * 100)}
-              onClick={() => onNavigate?.('cards')}
-            />
-
-            <PremiumStatCard
-              icon={ShoppingBag}
-              label={t('nav_orders')}
-              value={formatNumber(s.total_orders ?? 0)}
-              subtext={`${formatNumber(deliveredOrders)} delivered`}
-              trend={orderTrend > 50 ? 'up' : 'down'}
-              trendValue={orderTrend}
-              variant="orders"
-              statusBadge={{
-                type: 'in-use',
-                label: `${orderTrend.toFixed(0)}% rate`,
-              }}
-              onClick={() => onNavigate?.('orders')}
-            />
-
-            <PremiumStatCard
-              icon={Users}
-              label={t('nav_profiles')}
-              value={formatNumber(s.total_profiles ?? 0)}
-              subtext={`${formatNumber(s.no_drop_profiles ?? 0)} without drops`}
-              trend="neutral"
-              variant="profit"
-              onClick={() => onNavigate?.('profiles')}
-            />
-
-            <PremiumStatCard
-              icon={DollarSign}
-              label={t('chart_revenue')}
-              value={formatCurrency(s.revenue ?? 0)}
-              subtext={`${formatCurrency(profit)} profit`}
-              trend={revenueTrend > 20 ? 'up' : revenueTrend < 10 ? 'down' : 'neutral'}
-              trendValue={revenueTrend}
-              variant="revenue"
-              statusBadge={{
-                type: 'free',
-                label: `${revenueTrend.toFixed(0)}% margin`,
-              }}
-              onClick={() => onNavigate?.('orders')}
-            />
-          </div>
-
-          {/* ── Period stat cards (compact strip) ── */}
-          {!hasNoActivity && (
-            <>
-              <div className="slabel">{t('dashboard_activity_period')}</div>
-              <div className="cards-grid">
-                <div className="sc cgr cursor-pointer" onClick={() => onNavigate?.('orders')}>
-                  <div className="sc-lbl">{t('status_pending')}</div>
-                  <div className="sc-val">{formatNumber(s.pending_orders ?? s.pending ?? 0)}</div>
-                  <div className="sc-sub">{t('dashboard_awaiting')}</div>
-                </div>
-                <div className="sc cb2">
-                  <div className="sc-lbl">{t('status_shipped')}</div>
-                  <div className="sc-val">{formatNumber(s.shipped_orders ?? s.shipped ?? 0)}</div>
-                </div>
-                <div className="sc cg">
-                  <div className="sc-lbl">{t('status_delivered')}</div>
-                  <div className="sc-val">
-                    {formatNumber(s.delivered_orders ?? s.delivered ?? 0)}
-                  </div>
-                </div>
-                <div className="sc cr">
-                  <div className="sc-lbl">{t('status_declined')}</div>
-                  <div className="sc-val">{formatNumber(s.declined_orders ?? s.declined ?? 0)}</div>
-                </div>
-                <div className="sc cb2 wide">
-                  <div className="sc-lbl">{t('net_profit')}</div>
-                  <div className="sc-val">{formatCurrency(s.profit ?? s.net_profit ?? 0)}</div>
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
-
-      {/* ── Charts row ── */}
-      <div className="grid2">
-        {/* Revenue chart */}
-        <div className="panel">
-          <div className="ptitle">
-            {t('chart_title')}
-            <div className="flex text-[11px] gap-4">
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block rounded-sm w-3 h-0.5"
-                  style={{ backgroundColor: 'var(--blue-t)' }}
-                />
-                <span className="text-muted">{t('chart_revenue')}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block rounded-sm w-3 h-0.5"
-                  style={{ backgroundColor: 'var(--green-t)' }}
-                />
-                <span className="text-muted">{t('chart_profit')}</span>
-              </span>
-            </div>
-          </div>
-          <Suspense fallback={<div className="h-[260px]" />}>
-            <RevenueChart data={chart} />
-          </Suspense>
-        </div>
-
-        {/* Heatmap */}
-        <div className="panel">
-          <div className="ptitle">
-            {t('heatmap_title')}
-            <div className="flex text-[10px] gap-2">
-              {[
-                { color: HEATMAP_COLORS.high, label: '≥50%', colorVar: '--green-t' },
-                { color: HEATMAP_COLORS.medium, label: '20–50%', colorVar: '--yellow-t' },
-                { color: HEATMAP_COLORS.low, label: '<20%', colorVar: '--red-t' },
-                { color: HEATMAP_COLORS.noData, label: '<3 orders', colorVar: '--border' },
-              ].map(({ label, colorVar }) => (
-                <span key={label} className="flex items-center gap-1">
-                  <span
-                    className="inline-block rounded-sm w-2.5 h-2.5"
-                    style={{ backgroundColor: `var(${colorVar})` }}
+      {/* ── UX-014: кастомизируемая сетка виджетов (react-grid-layout) ── */}
+      <WidgetGrid
+        items={[
+          !isEmpty && {
+            id: 'stats_base',
+            defaultH: 4,
+            node: (
+              <>
+                <div className="slabel mt-2">{t('dashboard_base_total')}</div>
+                <div className="smart-cards-grid">
+                  <PremiumStatCard
+                    icon={CreditCard}
+                    label={t('total_cc')}
+                    value={formatNumber(totalCards)}
+                    subtext={`${formatNumber(freeCards)} available`}
+                    trend="up"
+                    variant="cards"
+                    // Только кольцо прогресса: statusBadge «27%» занимал тот же
+                    // верхне-правый угол и слипался с подписью в центре кольца.
+                    progress={Math.round((freeCards / (totalCards || 1)) * 100)}
+                    onClick={() => onNavigate?.('cards')}
                   />
-                  <span className="text-muted">{label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-          <Suspense fallback={<div className="h-[120px]" />}>
-            <Heatmap data={heatmap} onCellClick={handleHeatmapClick} />
-          </Suspense>
-        </div>
-      </div>
 
-      {/* ── Recent Orders ── */}
-      {recentOrders.length > 0 && (
-        <div className="panel">
-          <div className="ptitle">
-            {t('dashboard_recent_orders')}
-            <button onClick={() => onNavigate?.('orders')} className="btn btn-ghost btn-sm">
-              {t('dashboard_view_all')} →
-            </button>
-          </div>
-          <div>
-            {recentOrders.map(o => (
-              <div
-                key={o.id}
-                className="flex items-center cursor-pointer border-b py-1.5 gap-2"
-                onClick={() => onNavigate?.('orders')}
-              >
-                <div className="flex-1">
-                  <div className="text-[12px] flex items-center gap-1.5">
-                    {o.order_number} <span className={`st st-${o.status}`}>{o.status}</span>
-                  </div>
-                  <div className="text-[10px] text-muted mt-0.5">
-                    {o.shop_name} · {o.created_at?.slice(0, 10)}
-                  </div>
+                  <PremiumStatCard
+                    icon={ShoppingBag}
+                    label={t('nav_orders')}
+                    value={formatNumber(s.total_orders ?? 0)}
+                    subtext={`${formatNumber(deliveredOrders)} delivered`}
+                    trend={orderTrend > 50 ? 'up' : 'down'}
+                    trendValue={orderTrend}
+                    variant="orders"
+                    statusBadge={{
+                      type: 'in-use',
+                      label: `${orderTrend.toFixed(0)}% rate`,
+                    }}
+                    onClick={() => onNavigate?.('orders')}
+                  />
+
+                  <PremiumStatCard
+                    icon={Users}
+                    label={t('nav_profiles')}
+                    value={formatNumber(s.total_profiles ?? 0)}
+                    subtext={`${formatNumber(s.no_drop_profiles ?? 0)} without drops`}
+                    trend="neutral"
+                    variant="profit"
+                    onClick={() => onNavigate?.('profiles')}
+                  />
+
+                  <PremiumStatCard
+                    icon={DollarSign}
+                    label={t('chart_revenue')}
+                    value={formatCurrency(s.revenue ?? 0)}
+                    subtext={`${formatCurrency(profit)} profit`}
+                    trend={revenueTrend > 20 ? 'up' : revenueTrend < 10 ? 'down' : 'neutral'}
+                    trendValue={revenueTrend}
+                    variant="revenue"
+                    statusBadge={{
+                      type: 'free',
+                      label: `${revenueTrend.toFixed(0)}% margin`,
+                    }}
+                    onClick={() => onNavigate?.('orders')}
+                  />
                 </div>
-                <div className="mono text-[11px] text-blue-t">
-                  ${o.amount ?? o.total_amount ?? 0}
+              </>
+            ),
+          },
+          !isEmpty &&
+            !hasNoActivity && {
+              id: 'stats_period',
+              defaultH: 3,
+              node: (
+                <>
+                  <div className="slabel">{t('dashboard_activity_period')}</div>
+                  <div className="cards-grid">
+                    <div className="sc cgr cursor-pointer" onClick={() => onNavigate?.('orders')}>
+                      <div className="sc-lbl">{t('status_pending')}</div>
+                      <div className="sc-val">
+                        {formatNumber(s.pending_orders ?? s.pending ?? 0)}
+                      </div>
+                      <div className="sc-sub">{t('dashboard_awaiting')}</div>
+                    </div>
+                    <div className="sc cb2">
+                      <div className="sc-lbl">{t('status_shipped')}</div>
+                      <div className="sc-val">
+                        {formatNumber(s.shipped_orders ?? s.shipped ?? 0)}
+                      </div>
+                    </div>
+                    <div className="sc cg">
+                      <div className="sc-lbl">{t('status_delivered')}</div>
+                      <div className="sc-val">
+                        {formatNumber(s.delivered_orders ?? s.delivered ?? 0)}
+                      </div>
+                    </div>
+                    <div className="sc cr">
+                      <div className="sc-lbl">{t('status_declined')}</div>
+                      <div className="sc-val">
+                        {formatNumber(s.declined_orders ?? s.declined ?? 0)}
+                      </div>
+                    </div>
+                    <div className="sc cb2 wide">
+                      <div className="sc-lbl">{t('net_profit')}</div>
+                      <div className="sc-val">{formatCurrency(s.profit ?? s.net_profit ?? 0)}</div>
+                    </div>
+                  </div>
+                </>
+              ),
+            },
+          {
+            id: 'charts',
+            defaultH: 9,
+            node: (
+              <div className="grid2">
+                {/* Revenue chart */}
+                <div className="panel">
+                  <div className="ptitle">
+                    {t('chart_title')}
+                    <div className="flex text-[11px] gap-4">
+                      <span className="flex items-center gap-1">
+                        <span
+                          className="inline-block rounded-sm w-3 h-0.5"
+                          style={{ backgroundColor: 'var(--blue-t)' }}
+                        />
+                        <span className="text-muted">{t('chart_revenue')}</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span
+                          className="inline-block rounded-sm w-3 h-0.5"
+                          style={{ backgroundColor: 'var(--green-t)' }}
+                        />
+                        <span className="text-muted">{t('chart_profit')}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <Suspense fallback={<div className="h-[260px]" />}>
+                    <RevenueChart data={chart} />
+                  </Suspense>
+                </div>
+
+                {/* Heatmap */}
+                <div className="panel">
+                  <div className="ptitle">
+                    {t('heatmap_title')}
+                    <div className="flex text-[10px] gap-2">
+                      {[
+                        { color: HEATMAP_COLORS.high, label: '≥50%', colorVar: '--green-t' },
+                        { color: HEATMAP_COLORS.medium, label: '20–50%', colorVar: '--yellow-t' },
+                        { color: HEATMAP_COLORS.low, label: '<20%', colorVar: '--red-t' },
+                        { color: HEATMAP_COLORS.noData, label: '<3 orders', colorVar: '--border' },
+                      ].map(({ label, colorVar }) => (
+                        <span key={label} className="flex items-center gap-1">
+                          <span
+                            className="inline-block rounded-sm w-2.5 h-2.5"
+                            style={{ backgroundColor: `var(${colorVar})` }}
+                          />
+                          <span className="text-muted">{label}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <Suspense fallback={<div className="h-[120px]" />}>
+                    <Heatmap data={heatmap} onCellClick={handleHeatmapClick} />
+                  </Suspense>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Collapsible analytics sections ── */}
-      <CollapsePanel
-        title={t('section_top_banks')}
-        id="banks"
-        collapsed={collapsed.banks}
-        onToggle={toggleSection}
-      >
-        <BanksTable data={banks} />
-      </CollapsePanel>
-
-      <CollapsePanel
-        title={t('section_by_country')}
-        id="countries"
-        collapsed={collapsed.countries}
-        onToggle={toggleSection}
-      >
-        <CountryTable data={countries} />
-      </CollapsePanel>
-
-      <CollapsePanel
-        title={t('section_by_source')}
-        id="sources"
-        collapsed={collapsed.sources}
-        onToggle={toggleSection}
-      >
-        <SourceTable data={sources} />
-      </CollapsePanel>
-
-      {/* P2-DOMAIN: Domain Statistics Section */}
-      <CollapsePanel
-        title="Domains"
-        id="domains"
-        collapsed={collapsed.domains ?? true}
-        onToggle={toggleSection}
-      >
-        <DomainTable data={domains} />
-      </CollapsePanel>
-
-      <CollapsePanel
-        title={t('section_expiring')}
-        id="expiring"
-        collapsed={collapsed.expiring}
-        onToggle={toggleSection}
-      >
-        <ExpiringTable data={expiring} onNavigate={onNavigate} />
-      </CollapsePanel>
-
-      {/* Панель видна только когда есть данные: get_users_stats закрыт
-          require_admin(), у оператора массив останется пустым и панель
-          просто не отрисуется — без ошибки на весь дашборд. */}
-      {operators.length > 0 && (
-        <CollapsePanel
-          title="Операторы · кто сколько сделал"
-          id="operators"
-          collapsed={collapsed.operators ?? false}
-          onToggle={toggleSection}
-        >
-          <OperatorsTable data={operators} onNavigate={onNavigate} />
-        </CollapsePanel>
-      )}
-
-      <CollapsePanel
-        title="BIN Performance"
-        id="bin_perf"
-        collapsed={collapsed.bin_perf}
-        onToggle={toggleSection}
-      >
-        <BinPerfTable data={binPerf} />
-      </CollapsePanel>
+            ),
+          },
+          recentOrders.length > 0 && {
+            id: 'recent_orders',
+            defaultH: 6,
+            node: (
+              <div className="panel">
+                <div className="ptitle">
+                  {t('dashboard_recent_orders')}
+                  <button onClick={() => onNavigate?.('orders')} className="btn btn-ghost btn-sm">
+                    {t('dashboard_view_all')} →
+                  </button>
+                </div>
+                <div>
+                  {recentOrders.map(o => (
+                    <div
+                      key={o.id}
+                      className="flex items-center cursor-pointer border-b py-1.5 gap-2"
+                      onClick={() => onNavigate?.('orders')}
+                    >
+                      <div className="flex-1">
+                        <div className="text-[12px] flex items-center gap-1.5">
+                          {o.order_number} <span className={`st st-${o.status}`}>{o.status}</span>
+                        </div>
+                        <div className="text-[10px] text-muted mt-0.5">
+                          {o.shop_name} · {o.created_at?.slice(0, 10)}
+                        </div>
+                      </div>
+                      <div className="mono text-[11px] text-blue-t">
+                        ${o.amount ?? o.total_amount ?? 0}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ),
+          },
+          {
+            id: 'banks',
+            defaultH: 7,
+            node: (
+              <CollapsePanel
+                title={t('section_top_banks')}
+                id="banks"
+                collapsed={collapsed.banks}
+                onToggle={toggleSection}
+              >
+                <BanksTable data={banks} />
+              </CollapsePanel>
+            ),
+          },
+          {
+            id: 'countries',
+            defaultH: 7,
+            node: (
+              <CollapsePanel
+                title={t('section_by_country')}
+                id="countries"
+                collapsed={collapsed.countries}
+                onToggle={toggleSection}
+              >
+                <CountryTable data={countries} />
+              </CollapsePanel>
+            ),
+          },
+          {
+            id: 'sources',
+            defaultH: 7,
+            node: (
+              <CollapsePanel
+                title={t('section_by_source')}
+                id="sources"
+                collapsed={collapsed.sources}
+                onToggle={toggleSection}
+              >
+                <SourceTable data={sources} />
+              </CollapsePanel>
+            ),
+          },
+          // P2-DOMAIN: Domain Statistics Section
+          {
+            id: 'domains',
+            defaultH: 7,
+            node: (
+              <CollapsePanel
+                title="Domains"
+                id="domains"
+                collapsed={collapsed.domains ?? true}
+                onToggle={toggleSection}
+              >
+                <DomainTable data={domains} />
+              </CollapsePanel>
+            ),
+          },
+          {
+            id: 'expiring',
+            defaultH: 7,
+            node: (
+              <CollapsePanel
+                title={t('section_expiring')}
+                id="expiring"
+                collapsed={collapsed.expiring}
+                onToggle={toggleSection}
+              >
+                <ExpiringTable data={expiring} onNavigate={onNavigate} />
+              </CollapsePanel>
+            ),
+          },
+          // Панель видна только когда есть данные: get_users_stats закрыт
+          // require_admin(), у оператора массив останется пустым.
+          operators.length > 0 && {
+            id: 'operators',
+            defaultH: 7,
+            node: (
+              <CollapsePanel
+                title="Операторы · кто сколько сделал"
+                id="operators"
+                collapsed={collapsed.operators ?? false}
+                onToggle={toggleSection}
+              >
+                <OperatorsTable data={operators} onNavigate={onNavigate} />
+              </CollapsePanel>
+            ),
+          },
+          {
+            id: 'bin_perf',
+            defaultH: 7,
+            node: (
+              <CollapsePanel
+                title="BIN Performance"
+                id="bin_perf"
+                collapsed={collapsed.bin_perf}
+                onToggle={toggleSection}
+              >
+                <BinPerfTable data={binPerf} />
+              </CollapsePanel>
+            ),
+          },
+        ].filter(Boolean)}
+      />
     </div>
   )
 }

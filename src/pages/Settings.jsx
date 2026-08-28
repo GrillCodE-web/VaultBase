@@ -26,6 +26,7 @@ import {
   Truck,
   Activity,
   X,
+  Compass,
 } from 'lucide-react'
 import { Modal } from '../components/Modal.jsx'
 import { useLang } from '../hooks/useLang'
@@ -1477,6 +1478,25 @@ export default function Settings() {
           )}
           <div className="text-[11px] text-dim">
             Catalog is downloaded automatically on first run and kept in sync in real-time.
+          </div>
+        </div>
+      </div>
+
+      {/* Тур по интерфейсу (UX-013) */}
+      <div className="panel">
+        <div className="ptitle">
+          <Compass size={13} className="inline mr-1.5" />
+          {t('settings_tour_title')}
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="text-[11px] text-dim">{t('settings_tour_hint')}</div>
+          <div>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => window.dispatchEvent(new window.CustomEvent('vb:start-tour'))}
+            >
+              {t('settings_tour_btn')}
+            </button>
           </div>
         </div>
       </div>

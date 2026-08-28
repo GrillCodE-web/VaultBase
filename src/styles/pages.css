@@ -3338,3 +3338,42 @@
     opacity: 0.5;
   }
 }
+
+/* ── UX-014: кастомизируемая сетка виджетов дашборда (react-grid-layout) ── */
+.dashboard-grid {
+  position: relative;
+}
+
+.widget-frame {
+  position: relative;
+  height: 100%;
+}
+
+/* Грип перетаскивания виджета: виден при наведении, иначе мусорит в углу */
+.widget-grip {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 2;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.widget-frame:hover .widget-grip {
+  opacity: 0.7;
+}
+
+/* Плейсхолдер перетаскивания — в цветах темы вместо дефолтного красного RGL */
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent) !important;
+  border-radius: var(--radius-md);
+  opacity: 0.25;
+}

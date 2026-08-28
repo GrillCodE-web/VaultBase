@@ -159,6 +159,23 @@ export const en = {
   cc_import_file_bad_type: 'Unsupported file type — use .csv, .txt or .tsv',
   cc_import_file_read_error: 'Failed to read the file',
   row_drag_title: 'Drag to reorder',
+  tour_step_sidebar: 'Sidebar — quick access to all sections. You can drag items to reorder them.',
+  tour_step_dashboard: 'Dashboard — key metrics, deadlines and card health at a glance.',
+  tour_step_cards:
+    'Cards — your card database. Tip: drop a .csv file anywhere on the page to import it.',
+  tour_step_profiles: 'Profiles — checkout profiles with cards, proxies and emails.',
+  tour_step_orders: 'Orders — purchases, statuses and risk checks.',
+  tour_step_imap: 'Email — inbox via IMAP, codes and confirmations.',
+  tour_step_settings: 'Settings — language, theme, sync, backups. You can restart this tour here.',
+  tour_back: 'Back',
+  tour_close: 'Close',
+  tour_last: 'Done',
+  tour_next: 'Next',
+  tour_skip: 'Skip',
+  settings_tour_title: 'Interface tour',
+  settings_tour_hint: 'A short guided tour of the main sections — sidebar, cards, orders.',
+  settings_tour_btn: 'Restart tour',
+  dashboard_reset_layout: 'Reset layout',
 
   // Profiles
   profiles: 'Profiles',

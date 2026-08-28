@@ -1,4 +1,4 @@
-import { useLang } from '../i18n/LangProvider'
+import { useLang } from '../hooks/useLang'
 
 /**
  * ARCH-015 / UX-003: Unified loading/empty/error state wrapper.
