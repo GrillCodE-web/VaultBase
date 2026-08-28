@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const { getDb } = require('../database');
 
 const router = express.Router();
@@ -36,19 +37,43 @@ router.get('/', (req, res) => {
   // Second app (VaultBase Manager): publishes its own updater artifacts under
   // file_type='manager-updater'. Version selection looks only at those rows,
   // never at the worker `versions` table.
+  // MGR-009 staged rollout: канал stable|beta (beta-клиент видит оба канала,
+  // stable — только stable) + rollout_percent с детерминированным бакетом по
+  // sha256(installation_id + ':' + version) — один и тот же клиент всегда
+  // попадает в один и тот же бакет релиза, «отыграть» процент назад нельзя.
   if (req.query.app === 'manager') {
+    const channel = req.query.channel === 'beta' ? 'beta' : 'stable';
+    const channelFilter =
+      channel === 'beta' ? "channel IN ('stable','beta')" : "channel = 'stable'";
     const mRows = db.prepare(`
-      SELECT version, notes, published_at, platform, download_url, signature, file_size
+      SELECT version, notes, published_at, platform, download_url, signature, file_size,
+             channel, rollout_percent
       FROM release_files
-      WHERE file_type = 'manager-updater' AND is_published = 1
+      WHERE file_type = 'manager-updater' AND is_published = 1 AND ${channelFilter}
         AND download_url IS NOT NULL AND signature IS NOT NULL
     `).all();
     if (mRows.length === 0) return res.status(204).end();
 
-    const latest = mRows.reduce(
-      (best, r) => (best === null || compareSemver(r.version, best.version) > 0 ? r : best),
-      null
+    // От новых версий к старым: первая, для которой клиент видим по каналу
+    // (уже отфильтровано выше) и попадает в роллаут. Без installation_id
+    // доступны только релизы со 100%.
+    const iid = String(req.query.iid || '').trim();
+    const versionsDesc = [...new Set(mRows.map((r) => r.version))].sort((a, b) =>
+      compareSemver(b, a)
     );
+    let latest = null;
+    for (const v of versionsDesc) {
+      const pct = Math.max(
+        0,
+        Math.min(100, Number(mRows.find((r) => r.version === v).rollout_percent ?? 100))
+      );
+      if (pct >= 100 || (iid && rolloutBucket(iid, v) < pct)) {
+        latest = mRows.find((r) => r.version === v);
+        break;
+      }
+    }
+    if (!latest) return res.status(204).end();
+
     const currentVersion = req.query.current_version || '';
     if (currentVersion && !isNewer(latest.version, currentVersion)) return res.status(204).end();
 
@@ -166,6 +191,15 @@ router.get('/check', (req, res) => {
   });
 });
 
+// Детерминированный бакет 0..99 для пары клиент+версия (MGR-009).
+function rolloutBucket(installationId, version) {
+  const h = crypto
+    .createHash('sha256')
+    .update(`${installationId}:${version}`)
+    .digest('hex');
+  return parseInt(h.slice(0, 8), 16) % 100;
+}
+
 // Simple semver compare: positive when a > b, negative when a < b, 0 when equal.
 function compareSemver(a, b) {
   const pa = (a || '0').split('.').map(Number);
@@ -183,3 +217,4 @@ function isNewer(a, b) {
 }
 
 module.exports = router;
+module.exports.rolloutBucket = rolloutBucket;

@@ -92,6 +92,18 @@ router.post('/', requireAdmin, (req, res) => {
       const signature = (parsed.fields.signature || '').trim();
       const publish   = parsed.fields.publish === '1';
 
+      // MGR-009: staged rollout для manager-updater (для остальных типов
+      // поля просто сохраняются, использует их только /update?app=manager).
+      const rawChannel = (parsed.fields.channel || 'stable').trim();
+      if (!['stable', 'beta'].includes(rawChannel)) {
+        return res.status(400).json({ error: 'Invalid channel. Allowed: stable, beta' });
+      }
+      const channel = rawChannel;
+      const rollout_percent = Number.parseInt(parsed.fields.rollout_percent || '100', 10);
+      if (!Number.isInteger(rollout_percent) || rollout_percent < 0 || rollout_percent > 100) {
+        return res.status(400).json({ error: 'Invalid rollout_percent. Allowed: 0..100' });
+      }
+
       // Validate file_type BEFORE processing
       const rawFileType = parsed.fields.file_type || 'updater';
       if (!FILE_TYPES.includes(rawFileType)) {
@@ -133,12 +145,12 @@ router.post('/', requireAdmin, (req, res) => {
       const existing_rf = db.prepare('SELECT id FROM release_files WHERE version=? AND file_type=?').get(version, file_type);
       if (existing_rf) {
         db.prepare(`UPDATE release_files SET notes=?,download_url=?,signature=?,file_size=?,
-          platform=?,is_published=?,published_at=CURRENT_TIMESTAMP WHERE version=? AND file_type=?`)
-          .run(notes, download_url, signature||null, file_size, platform, publish?1:0, version, file_type);
+          platform=?,is_published=?,channel=?,rollout_percent=?,published_at=CURRENT_TIMESTAMP WHERE version=? AND file_type=?`)
+          .run(notes, download_url, signature||null, file_size, platform, publish?1:0, channel, rollout_percent, version, file_type);
       } else {
-        db.prepare(`INSERT INTO release_files (version,file_type,notes,download_url,signature,file_size,platform,is_published)
-          VALUES (?,?,?,?,?,?,?,?)`)
-          .run(version, file_type, notes, download_url, signature||null, file_size, platform, publish?1:0);
+        db.prepare(`INSERT INTO release_files (version,file_type,notes,download_url,signature,file_size,platform,is_published,channel,rollout_percent)
+          VALUES (?,?,?,?,?,?,?,?,?,?)`)
+          .run(version, file_type, notes, download_url, signature||null, file_size, platform, publish?1:0, channel, rollout_percent);
       }
 
       // Backward compat: also write to versions for updater (Tauri /update endpoint)

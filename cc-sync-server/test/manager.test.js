@@ -16,6 +16,7 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use('/manager/api', managerApi);
 app.use('/api/telemetry', telemetry);
+app.use('/update', require('../routes/update'));
 
 const MGR_TOKEN = 'mgr-token-1234567890abcdef';
 const WRK_TOKEN = 'wrk-token-1234567890abcdef';
@@ -445,4 +446,85 @@ test('licenses: create/list/patch/revoke/restore + self-guards', async () => {
     "SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'manager_license_%'"
   ).get().n;
   assert.ok(audited >= 4, `expected >= 4 audited license actions, got ${audited}`);
+});
+
+
+// ── MGR-009: staged rollout manager-релизов (channel + rollout_percent) ─────
+
+test('manager updater: channels, deterministic rollout, PATCH rollout', async () => {
+  const db = getDb();
+  const { rolloutBucket } = require('../routes/update');
+
+  const ins = db.prepare(`INSERT INTO release_files
+    (version, file_type, platform, download_url, signature, notes, is_published, channel, rollout_percent)
+    VALUES (?,?,?,?,?,?,1,?,?)`);
+  ins.run('1.0.0', 'manager-updater', 'windows-x86_64', 'https://x/m-100.zip', 'sig100', 'stable', 'stable', 100);
+  ins.run('1.1.0', 'manager-updater', 'windows-x86_64', 'https://x/m-110.zip', 'sig110', 'beta', 'beta', 50);
+
+  // stable-клиент видит только stable.
+  const stable = await req('GET', '/update?app=manager&current_version=0.9.0');
+  assert.equal(stable.status, 200);
+  assert.equal(stable.json.version, '1.0.0');
+
+  // beta-клиент: 1.1.0 доступна только при бакете < 50; иначе — фолбэк на
+  // свежий stable (1.0.0), т.к. current_version 0.9.0 старше его.
+  const iid = 'mgr-rollout-iid';
+  const bucket = rolloutBucket(iid, '1.1.0');
+  const betaUrl = `/update?app=manager&current_version=0.9.0&channel=beta&iid=${iid}`;
+  const beta = await req('GET', betaUrl);
+  if (bucket < 50) {
+    assert.equal(beta.status, 200);
+    assert.equal(beta.json.version, '1.1.0');
+    assert.equal(beta.json.platforms['windows-x86_64'].signature, 'sig110');
+  } else {
+    assert.equal(beta.status, 200);
+    assert.equal(beta.json.version, '1.0.0');
+  }
+  // Бакет детерминирован: повторный запрос даёт тот же ответ.
+  const beta2 = await req('GET', betaUrl);
+  assert.equal(beta2.status, beta.status);
+  assert.ok((beta2.json?.version || null) === (beta.json?.version || null));
+
+  // Без iid частичный роллаут не отдаётся, но 100% stable — да.
+  const noIid = await req('GET', '/update?app=manager&current_version=1.0.0&channel=beta');
+  assert.equal(noIid.status, 204);
+
+  // PATCH от менеджера: 100% → beta отдаётся и без iid.
+  const patch = await req('PATCH', '/manager/api/releases/1.1.0', MGR_TOKEN, { rollout_percent: 100 });
+  assert.equal(patch.status, 200);
+  assert.equal(patch.json.rollout_percent, 100);
+  const after = await req('GET', '/update?app=manager&current_version=1.0.0&channel=beta');
+  assert.equal(after.status, 200);
+  assert.equal(after.json.version, '1.1.0');
+
+  // beta→stable: stable-клиенты тоже получают 1.1.0.
+  const toStable = await req('PATCH', '/manager/api/releases/1.1.0', MGR_TOKEN, { channel: 'stable' });
+  assert.equal(toStable.status, 200);
+  const stableNow = await req('GET', '/update?app=manager&current_version=1.0.0');
+  assert.equal(stableNow.status, 200);
+  assert.equal(stableNow.json.version, '1.1.0');
+
+  // Валидация и ограничения PATCH.
+  const badPct = await req('PATCH', '/manager/api/releases/1.1.0', MGR_TOKEN, { rollout_percent: 101 });
+  assert.equal(badPct.status, 400);
+  const badCh = await req('PATCH', '/manager/api/releases/1.1.0', MGR_TOKEN, { channel: 'nightly' });
+  assert.equal(badCh.status, 400);
+  const notFound = await req('PATCH', '/manager/api/releases/9.9.9', MGR_TOKEN, { rollout_percent: 50 });
+  assert.equal(notFound.status, 404);
+  const workerType = await req('PATCH', '/manager/api/releases/1.1.0?file_type=updater', MGR_TOKEN, { rollout_percent: 50 });
+  assert.equal(workerType.status, 400);
+  const asWorker = await req('PATCH', '/manager/api/releases/1.1.0', WRK_TOKEN, { rollout_percent: 50 });
+  assert.equal(asWorker.status, 403);
+
+  // GET /releases отдаёт channel/rollout_percent.
+  const list = await req('GET', '/manager/api/releases', MGR_TOKEN);
+  const rel = list.json.releases.find((r) => r.version === '1.1.0' && r.file_type === 'manager-updater');
+  assert.ok(rel, 'manager release listed');
+  assert.equal(rel.channel, 'stable');
+  assert.equal(rel.rollout_percent, 100);
+
+  const audited = db.prepare(
+    "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'manager_release_rollout'"
+  ).get().n;
+  assert.ok(audited >= 2, `expected >= 2 audited rollout actions, got ${audited}`);
 });

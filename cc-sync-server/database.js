@@ -366,6 +366,17 @@ function migrate(db) {
 
     db.pragma('user_version = 13');
   }
+
+  // MGR-009: staged rollout релизов manager-app. channel: stable|beta
+  // (beta-клиент видит оба канала, stable — только stable); rollout_percent —
+  // детерминированный процент флота по хешу installation_id+version.
+  if (ver < 14) {
+    db.exec(`
+      ALTER TABLE release_files ADD COLUMN channel TEXT NOT NULL DEFAULT 'stable';
+      ALTER TABLE release_files ADD COLUMN rollout_percent INTEGER NOT NULL DEFAULT 100;
+    `);
+    db.pragma('user_version = 14');
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

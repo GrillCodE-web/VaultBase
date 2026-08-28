@@ -569,12 +569,51 @@ router.get('/groups', (req, res) => {
 
 router.get('/releases', (req, res) => {
   const rows = getDb().prepare(`
-    SELECT version, file_type, platform, download_url, file_size, notes, is_published, published_at
+    SELECT version, file_type, platform, download_url, file_size, notes, is_published, published_at,
+           channel, rollout_percent
     FROM release_files
     ORDER BY published_at DESC, version DESC
     LIMIT 200
   `).all();
   res.json({ releases: rows });
+});
+
+// MGR-009: staged rollout manager-релизов — канал (stable|beta) и процент
+// флота. Менять можно только file_type=manager-updater: воркерские релизы
+// управляются через админку сервера.
+router.patch('/releases/:version', (req, res) => {
+  const db = getDb();
+  const version = req.params.version;
+  const file_type = req.query.file_type || 'manager-updater';
+  if (file_type !== 'manager-updater') {
+    return res.status(400).json({ error: 'only manager-updater releases are manageable here' });
+  }
+  const row = db
+    .prepare('SELECT version, channel, rollout_percent FROM release_files WHERE version = ? AND file_type = ?')
+    .get(version, file_type);
+  if (!row) return res.status(404).json({ error: 'release not found' });
+
+  const { channel, rollout_percent } = req.body || {};
+  let nextChannel = row.channel;
+  let nextPct = row.rollout_percent;
+  if (channel !== undefined) {
+    if (!['stable', 'beta'].includes(channel)) {
+      return res.status(400).json({ error: 'channel must be stable or beta' });
+    }
+    nextChannel = channel;
+  }
+  if (rollout_percent !== undefined) {
+    const pct = Number(rollout_percent);
+    if (!Number.isInteger(pct) || pct < 0 || pct > 100) {
+      return res.status(400).json({ error: 'rollout_percent must be an integer 0..100' });
+    }
+    nextPct = pct;
+  }
+
+  db.prepare('UPDATE release_files SET channel = ?, rollout_percent = ? WHERE version = ? AND file_type = ?')
+    .run(nextChannel, nextPct, version, file_type);
+  audit(req.managerIid, 'manager_release_rollout', `${file_type}:${version} channel=${nextChannel} pct=${nextPct}`);
+  res.json({ ok: true, version, file_type, channel: nextChannel, rollout_percent: nextPct });
 });
 
 // ── Licenses (MGR-010: CRUD лицензий из manager-app) ──────────────────────────
