@@ -570,7 +570,7 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
 
 // ─── Main ProxyList ───────────────────────────────────────────
 export default function ProxyList() {
-  const [activeTab, setActiveTab] = useState('proxies') // 'proxies' | 'pptp' (FEAT-018)
+  const [activeTab, setActiveTab] = useState('pptp') // 'pptp' (default) | 'proxies' (FEAT-018)
   const [proxies, setProxies] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -777,14 +777,8 @@ export default function ProxyList() {
 
   return (
     <div className="content">
-      {/* Tabs: список прокси / PPTP-серверы uPanel (FEAT-018) */}
+      {/* Tabs: PPTP-серверы uPanel (default) / список прокси (FEAT-018) */}
       <div className="tabs mb-3">
-        <button
-          className={`tab${activeTab === 'proxies' ? ' active' : ''}`}
-          onClick={() => setActiveTab('proxies')}
-        >
-          {t('proxy_tab_list')}
-        </button>
         {hasPerm('manage_proxies') && (
           <button
             className={`tab${activeTab === 'pptp' ? ' active' : ''}`}
@@ -793,9 +787,15 @@ export default function ProxyList() {
             {t('proxy_tab_pptp')}
           </button>
         )}
+        <button
+          className={`tab${activeTab === 'proxies' ? ' active' : ''}`}
+          onClick={() => setActiveTab('proxies')}
+        >
+          {t('proxy_tab_list')}
+        </button>
       </div>
 
-      {activeTab === 'pptp' ? (
+      {activeTab === 'pptp' && hasPerm('manage_proxies') ? (
         <ProxiesUpanelTab />
       ) : (
         <>
