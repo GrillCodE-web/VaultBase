@@ -20,6 +20,7 @@ import {
   LogOut,
   CheckCircle,
   Bell,
+  CalendarClock,
   Sun,
   Moon,
   Truck,
@@ -103,6 +104,9 @@ export default function Settings() {
   const [restoring, setRestoring] = useState(false)
   const [badgeNotifyImap, setBadgeNotifyImap] = useState(true)
   const [badgeNotifyTracking, setBadgeNotifyTracking] = useState(true)
+  // FEAT-006/007: пороги ежедневных напоминаний (cron в background.rs)
+  const [reminderCardDays, setReminderCardDays] = useState('14')
+  const [reminderTrackingDays, setReminderTrackingDays] = useState('5')
   const [catalogStats, setCatalogStats] = useState(null)
 
   useEffect(() => {
@@ -131,6 +135,12 @@ export default function Settings() {
       }),
       invoke('get_config', { key: 'badge_notify_tracking' }).then(v => {
         if (!cancelled) setBadgeNotifyTracking(v !== '0')
+      }),
+      invoke('get_config', { key: 'reminder_card_expiry_days' }).then(v => {
+        if (!cancelled && v) setReminderCardDays(v)
+      }),
+      invoke('get_config', { key: 'reminder_tracking_stale_days' }).then(v => {
+        if (!cancelled && v) setReminderTrackingDays(v)
       }),
       invoke('stuffer_get_config').then(cfg => {
         if (!cancelled && cfg) {
@@ -199,6 +209,26 @@ export default function Settings() {
       await invoke('set_config', { key: 'always_on_top', value: val ? '1' : '0' })
     } catch (e) {
       const error = handleError(e, 'Settings.toggleAlwaysOnTop')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleReminderCardDays = async val => {
+    setReminderCardDays(val)
+    try {
+      await invoke('set_config', { key: 'reminder_card_expiry_days', value: val })
+    } catch (e) {
+      const error = handleError(e, 'Settings.setReminderCardDays')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleReminderTrackingDays = async val => {
+    setReminderTrackingDays(val)
+    try {
+      await invoke('set_config', { key: 'reminder_tracking_stale_days', value: val })
+    } catch (e) {
+      const error = handleError(e, 'Settings.setReminderTrackingDays')
       toastErr(getErrorMessage(error))
     }
   }
@@ -593,6 +623,48 @@ export default function Settings() {
               />
               <span className="track" />
             </label>
+          </div>
+        </div>
+
+        {/* FEAT-006/007: ежедневные напоминания (cron в background.rs) */}
+        <div className="panel">
+          <div className="ptitle">
+            <CalendarClock size={13} className="inline mr-1.5" />
+            {t('reminders_section')}
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">{t('reminder_card_expiry_title')}</div>
+              <div className="setting-desc">{t('reminder_card_expiry_desc')}</div>
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {['3', '7', '14', '30'].map(v => (
+                <button
+                  key={v}
+                  onClick={() => handleReminderCardDays(v)}
+                  className={`btn btn-sm ${reminderCardDays === v ? 'btn-b' : 'btn-ghost'}`}
+                >
+                  {v} {t('reminder_days_short')}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">{t('reminder_tracking_title')}</div>
+              <div className="setting-desc">{t('reminder_tracking_desc')}</div>
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {['3', '5', '10', '14'].map(v => (
+                <button
+                  key={v}
+                  onClick={() => handleReminderTrackingDays(v)}
+                  className={`btn btn-sm ${reminderTrackingDays === v ? 'btn-b' : 'btn-ghost'}`}
+                >
+                  {v} {t('reminder_days_short')}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

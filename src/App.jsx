@@ -621,6 +621,55 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // FEAT-006: напоминание о картах с истекающим сроком (cron на бэке, раз в сутки)
+  useEffect(() => {
+    let unlistenFn = null
+    listen('card_expiry_reminder', e => {
+      const p = e.payload
+      if (!p || !p.count) return
+      toast(t('reminder_card_expiry_toast', { count: p.count, days: p.days }), 'warning', {
+        duration: 10000,
+        groupKey: 'card_expiry_reminder',
+        action: {
+          label: t('reminder_open_cards'),
+          onClick: () => {
+            handlePageChange('cards')
+            setActiveTab('expiring')
+          },
+        },
+      })
+    }).then(fn => {
+      unlistenFn = fn
+    })
+    return () => {
+      if (unlistenFn) unlistenFn()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // FEAT-007: напоминание проверить «застоявшиеся» трекинги (cron на бэке, раз в сутки)
+  useEffect(() => {
+    let unlistenFn = null
+    listen('tracking_stale_reminder', e => {
+      const p = e.payload
+      if (!p || !p.count) return
+      toast(t('reminder_tracking_stale_toast', { count: p.count, days: p.days }), 'warning', {
+        duration: 10000,
+        groupKey: 'tracking_stale_reminder',
+        action: {
+          label: t('reminder_open_orders'),
+          onClick: () => handlePageChange('orders'),
+        },
+      })
+    }).then(fn => {
+      unlistenFn = fn
+    })
+    return () => {
+      if (unlistenFn) unlistenFn()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // SEC-024: предупреждение при работе на непроверенной лицензии (offline grace)
   const licenseOfflineWarnedRef = useRef(false)
   useEffect(() => {

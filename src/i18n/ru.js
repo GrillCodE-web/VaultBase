@@ -701,6 +701,18 @@ export const ru = {
   imap_app_password: 'Пароль приложения *',
   imap_leave_blank: 'Оставьте пустым, чтобы не менять',
   imap_conn_alert: 'IMAP: устойчивый сбой подключения, аккаунт',
+  // FEAT-006/007: ежедневные напоминания (cron-события из background.rs)
+  reminder_card_expiry_toast: 'Карт с истекающим сроком: {count} (осталось ≤ {days} дн.)',
+  reminder_tracking_stale_toast: 'Посылок без обновления трека {days}+ дн.: {count}',
+  reminder_open_cards: 'Открыть карты',
+  reminder_open_orders: 'Открыть заказы',
+  reminder_card_expiry_title: 'Напоминание о сроке карт',
+  reminder_card_expiry_desc:
+    'Раз в сутки предупреждать о картах, у которых истекает срок в ближайшие N дней',
+  reminder_tracking_title: 'Напоминание о застоявшихся треках',
+  reminder_tracking_desc: 'Раз в сутки предупреждать о посылках без обновления трекинга N+ дней',
+  reminder_days_short: 'дн.',
+  reminders_section: 'Напоминания',
   imap_domain_routes_title: 'Маршруты: домен → почта',
   imap_domain_add_placeholder: 'Домен (напр. zoro.com)',
   imap_domain_account: 'Почтовый ящик',
