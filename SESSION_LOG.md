@@ -614,3 +614,40 @@
   под UX-013/014; package.json/lock уйдут коммитом вместе с их кодом.
 - Побочка: pre-commit lint-staged один раз упал с «Failed to clean up temporary
   files!» на md-файле — повторный коммит прошёл, транзиент.
+
+## 2026-08-28, @b — UX-013 + UX-014 ✅ (подобрано после обрыва сессии)
+
+> Сессия-автор оборвалась сразу после зелёных build/vitest, до аудита и
+> коммита: WIP висел незакоммиченным в worktree agent-frontend. Подобрано
+> новой сессией по git status + этому журналу (клеймы 🔄 @b были в коммите
+> `4b74b08`, код — нет). Ниже — факты по итоговому состоянию.
+
+- **UX-013** (онбординг-тур): `components/AppTour.jsx` на react-joyride 3.2.0 —
+  7 шагов по `data-tour` атрибутам сайдбара (добавлены в App.jsx: `.sidebar` +
+  каждая `.sbi` как `nav-<page>`); шаги с отсутствующими таргетами (скрытые
+  правами роли) вырезаются при монтировании. Локаль кнопок и цвета — из
+  i18n/токенов темы. Старт один раз после онбординга (флаг
+  `vb_ui_tour_done`), перезапуск — панель «Тур по интерфейсу» в Settings →
+  событие `vb:start-tour`. i18n: 16 ключей en+ru.
+- **UX-014** (кастомизируемый дашборд): `pages/Dashboard/WidgetGrid.jsx` на
+  react-grid-layout 2.2.4 (entry `/legacy`, WidthProvider) — 12 колонок,
+  persist только геометрии (x/y/w) в localStorage `vb_ui_dashboard_layout_v1`,
+  высота авто по контенту через ResizeObserver (таблицы/чарты не клипаются),
+  drag только за `.widget-grip` (не ломает выделение/кнопки), resize e/w.
+  Сброс раскладки — кнопка в шапке дашборда (событие `vb:reset-dash-layout`).
+  DashboardRedesigned разбит на 10 виджетов (stats_base, stats_period, charts,
+  recent_orders, banks, countries, sources, domains, expiring, operators,
+  bin_perf) — условные секции фильтруются через `.filter(Boolean)`.
+  Плейсхолдер RGL перекрашен в `--accent` (pages.css).
+- **Попутный фикс** (в том же WIP): `DataLoader.jsx` — мёртвый импорт
+  `../i18n/LangProvider` → `../hooks/useLang` (файла LangProvider в i18n нет).
+- **Фикс при доделке**: аудит флагнул сиротский класс `.layout` в
+  WidgetGrid (конвенция RGL, но ни один stylesheet его не определяет) —
+  класс убран, RGL его не требует.
+- **Проверки**: `audit_frontend.py` — 0 сирот / 0 фантомов; ESLint 0 err
+  (3 warning — pre-existing: float.jsx, charts.jsx, App.jsx:1569); vitest
+  337/337 (25 файлов); `vite build` зелёный (9.86с). Snapshots не затронуты
+  (CRLF-шум от vitest откачен `git restore` перед коммитом).
+- Коммиты: `555a306` (код, 9 файлов +606/-240), `4b7cb9f` (чеклист ✅ —
+  статистика 192/21, 🟡 14, 🟢 6; заодно учтены FEAT-001/011 — их ✅ в
+  `6ec2cd7` был без пересчёта), далее эта запись.
