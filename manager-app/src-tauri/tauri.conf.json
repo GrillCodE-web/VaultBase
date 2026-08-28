@@ -49,5 +49,13 @@
         "installMode": "perMachine"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://sec201-www.otpmanager.pro/update?app=manager&current_version={{current_version}}"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUyRjQ4NDJFREI4RDRDODcKUldTSFRJM2JMb1QwNHNRQ2tZeUIwcjhmZWpSOHhGbDN2cm1saVlibWZUZDNsYkRMM3phVEN1ZkIK"
+    }
   }
 }

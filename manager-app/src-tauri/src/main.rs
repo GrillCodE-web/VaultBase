@@ -14,6 +14,7 @@ use state::AppState;
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_state,
@@ -33,6 +34,8 @@ fn main() {
             commands::get_config_values,
             commands::set_config_value,
             commands::wipe_local_data,
+            commands::check_app_update,
+            commands::install_app_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running VaultBase Manager");

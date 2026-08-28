@@ -24,6 +24,8 @@ export const localAlertAction = (id, action) => invoke('local_alert_action', { i
 export const getConfigValues = (keys) => invoke('get_config_values', { keys })
 export const setConfigValue = (key, value) => invoke('set_config_value', { key, value })
 export const wipeLocalData = () => invoke('wipe_local_data', { confirm: true })
+export const checkAppUpdate = () => invoke('check_app_update')
+export const installAppUpdate = () => invoke('install_app_update')
 
 export function fmtDateTime(value) {
   if (!value) return '—'

@@ -38,6 +38,7 @@ pub fn get_app_state(state: State<'_, AppState>) -> Result<Value, String> {
                 "installation_id": database.get_config("installation_id"),
                 "server_url": http::server_base(database),
                 "role": database.get_config("license_role"),
+                "version": env!("CARGO_PKG_VERSION"),
             }))
         });
     }
@@ -381,4 +382,86 @@ pub fn wipe_local_data(state: State<'_, AppState>, confirm: bool) -> Result<Valu
         let _ = std::fs::remove_file(format!("{path}{suffix}"));
     }
     Ok(json!({ "ok": true }))
+}
+
+// ── MGR-009: self-update manager-app ────────────────────────────────────────
+// Эндпоинт строится в рантайме: в query добавляются channel (stable|beta) и
+// installation_id — по ним сервер (/update?app=manager) решает видимость
+// канала и бакет staged rollout. Подпись проверяется ОТДЕЛЬНЫМ ключом
+// manager-app (plugins.updater.pubkey в tauri.conf.json), не ключом воркера.
+
+fn manager_update_url(base: &str, channel: &str, iid: &str) -> Result<tauri::Url, String> {
+    let raw = format!(
+        "{}/update?app=manager&current_version={{{{current_version}}}}&channel={}&iid={}",
+        base.trim_end_matches('/'),
+        channel,
+        iid
+    );
+    tauri::Url::parse(&raw).map_err(|e| format!("bad_update_endpoint: {e}"))
+}
+
+fn manager_update_params(state: &State<'_, AppState>) -> Result<(String, String, String), String> {
+    with_open(state, |database, _| {
+        Ok((
+            http::server_base(database),
+            database
+                .get_config("update_channel")
+                .unwrap_or_else(|| "stable".to_string()),
+            database.get_config("installation_id").unwrap_or_default(),
+        ))
+    })
+}
+
+#[tauri::command]
+pub async fn check_app_update(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let (base, channel, iid) = manager_update_params(&state)?;
+    let url = manager_update_url(&base, &channel, &iid)?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(json!({
+            "available": true,
+            "version": update.version,
+            "current_version": update.current_version,
+            "notes": update.body,
+            "date": update.date.map(|d| d.to_string()),
+        })),
+        Ok(None) => Ok(json!({
+            "available": false,
+            "current_version": env!("CARGO_PKG_VERSION"),
+        })),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn install_app_update(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let (base, channel, iid) = manager_update_params(&state)?;
+    let url = manager_update_url(&base, &channel, &iid)?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
+    let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
+        return Ok(());
+    };
+    update
+        .download_and_install(|_chunk_len, _content_len| {}, || {})
+        .await
+        .map_err(|e| e.to_string())?;
+    app.restart();
 }
