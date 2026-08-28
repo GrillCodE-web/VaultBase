@@ -103,6 +103,38 @@ const analytics = {
   ],
 }
 
+const emptyWorkerStats = (iid) => ({
+  installation_id: iid,
+  label: '',
+  days: 30,
+  reports: 0,
+  totals: { orders: 0, delivered: 0, declined: 0, cancelled: 0, cards_taken: 0, cards_dead: 0, dead_ratio: 0, drops: 0, imap_ok: 0, imap_fail: 0, smtp_ok: 0, smtp_fail: 0, proxy_ok: 0, proxy_fail: 0 },
+  by_day: [],
+  feed: [],
+})
+
+const workerStats = {
+  'vb-worker-01aa7f2c9d4e6b8f': {
+    installation_id: 'vb-worker-01aa7f2c9d4e6b8f',
+    label: 'Worker — офис',
+    days: 30,
+    reports: 12,
+    totals: { orders: 140, delivered: 121, declined: 12, cancelled: 7, cards_taken: 34, cards_dead: 4, dead_ratio: 11.8, drops: 28, imap_ok: 26, imap_fail: 1, smtp_ok: 24, smtp_fail: 0, proxy_ok: 25, proxy_fail: 2 },
+    by_day: Array.from({ length: 12 }, (_, i) => ({ date: daysAgo(11 - i), orders: 8 + (i % 5), delivered: 7 + (i % 4), declined: i === 9 ? 5 : 0, dead: i === 9 ? 4 : 0 })),
+    feed: [
+      { date: daysAgo(2), kind: 'fail', code: 'decline_spike', params: { declined: 5, orders: 9 } },
+      { date: daysAgo(2), kind: 'fail', code: 'dead_cards', params: { dead: 4 } },
+      { date: daysAgo(0), kind: 'success', code: 'clean_streak', params: { n: 3 } },
+      { date: daysAgo(0), kind: 'success', code: 'clean_day', params: { orders: 11 } },
+      { date: daysAgo(4), kind: 'fail', code: 'proxy_down', params: { fails: 3 } },
+      { date: daysAgo(6), kind: 'success', code: 'high_volume', params: { orders: 14 } },
+      { date: daysAgo(8), kind: 'info', code: 'idle_day', params: {} },
+    ],
+  },
+}
+
+const emptyStats = emptyWorkerStats('')
+
 const overview = {
   workers_total: 4,
   workers_active: 4,
@@ -135,7 +167,7 @@ function buildMock() {
   window.__TAURI_INTERNALS__.metadata = { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: function () {} };
 
-  const DATA = ${JSON.stringify({ workers, snapshots, alerts, news, priorities, releases, keys, analytics, overview })};
+  const DATA = ${JSON.stringify({ workers, snapshots, alerts, news, priorities, releases, keys, analytics, overview, workerStats, emptyStats })};
   const state = {
     phase: 'not_activated',
     installation_id: 'vb-mgr-a1b2c3d4e5f6a7b8',
@@ -207,6 +239,8 @@ function buildMock() {
         return Promise.resolve(DATA.analytics);
       case 'get_worker_snapshots':
         return Promise.resolve({ snapshots: DATA.snapshots });
+      case 'get_worker_stats':
+        return Promise.resolve(DATA.workerStats[args.installationId] || Object.assign({}, DATA.emptyStats, { installation_id: args.installationId }));
       case 'server_request':
         return Promise.resolve(route(args.method, args.path));
       default:
@@ -282,6 +316,15 @@ for (let i = 0; i < nav.length; i++) {
       await policyBtn.click()
       await page.waitForTimeout(500)
       await shot('modal-worker-policy')
+      await page.mouse.click(8, 8)
+      await page.waitForTimeout(400)
+    }
+    // Карточка работника: персональная стата + умная лента
+    const row = page.locator('table.data tr.clickable').first()
+    if (await row.isVisible().catch(() => false)) {
+      await row.click()
+      await page.waitForTimeout(700)
+      await shot('modal-worker-detail')
       await page.mouse.click(8, 8)
       await page.waitForTimeout(400)
     }

@@ -281,6 +281,20 @@ pub fn get_worker_snapshots(state: State<'_, AppState>) -> Result<Value, String>
 }
 
 #[tauri::command]
+pub fn get_worker_stats(
+    state: State<'_, AppState>,
+    installation_id: String,
+    days: Option<i64>,
+) -> Result<Value, String> {
+    if installation_id.is_empty() || installation_id.len() > 128 {
+        return Err("invalid_installation_id".into());
+    }
+    with_open(&state, |database, _| {
+        telemetry::worker_stats(database, &installation_id, days.unwrap_or(30))
+    })
+}
+
+#[tauri::command]
 pub fn wipe_local_data(state: State<'_, AppState>, confirm: bool) -> Result<Value, String> {
     if !confirm {
         return Err("confirm_required".into());

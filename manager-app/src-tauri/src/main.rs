@@ -24,6 +24,7 @@ fn main() {
             commands::sync_telemetry,
             commands::get_analytics,
             commands::get_worker_snapshots,
+            commands::get_worker_stats,
             commands::wipe_local_data,
         ])
         .run(tauri::generate_context!())

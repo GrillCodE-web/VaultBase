@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
-import { api, getWorkerSnapshots, fmtDateTime, fmtRelative } from '../api/server.js'
+import { api, getWorkerSnapshots, getWorkerStats, fmtDateTime, fmtRelative } from '../api/server.js'
 
 function PolicyModal({ worker, onClose, onChanged }) {
   const { t } = useLang()
@@ -175,6 +175,70 @@ function HeartbeatDetail({ snap }) {
   )
 }
 
+const FEED_TAG = { success: 'green', fail: 'red', warn: 'amber', info: 'gray' }
+
+function WorkerStats({ iid }) {
+  const { t } = useLang()
+  const [stats, setStats] = useState(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    setStats(null)
+    setFailed(false)
+    getWorkerStats(iid, 30)
+      .then((r) => live && setStats(r))
+      .catch(() => live && setFailed(true))
+    return () => {
+      live = false
+    }
+  }, [iid])
+
+  if (failed) return <div className="error-box">{t('err_generic')}</div>
+  if (!stats) return <div className="meta" style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('stats_loading')}</div>
+  if (stats.reports === 0) return <div className="meta" style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('worker_stats_empty')}</div>
+
+  const tot = stats.totals || {}
+  const cells = [
+    [t('orders_total'), tot.orders ?? 0, ''],
+    [t('delivered_col'), tot.delivered ?? 0, 'green'],
+    [t('declined_col'), tot.declined ?? 0, tot.declined > 0 ? 'red' : ''],
+    [t('cards_taken_col'), tot.cards_taken ?? 0, ''],
+    [t('dead_ratio'), `${tot.dead_ratio ?? 0}%`, tot.dead_ratio >= 30 ? 'red' : ''],
+    [t('drops_col'), tot.drops ?? 0, ''],
+  ]
+
+  return (
+    <div>
+      <div className="mini-stats">
+        {cells.map(([label, value, cls], i) => (
+          <div key={i} className="mini-stat">
+            <div className={`v ${cls}`}>{value}</div>
+            <div className="l">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mono" style={{ color: 'var(--text-3)', fontSize: 12, marginBottom: 12 }}>
+        {t('health_imap')}: {tot.imap_ok ?? 0}/{tot.imap_fail ?? 0} · {t('health_smtp')}: {tot.smtp_ok ?? 0}/{tot.smtp_fail ?? 0} · {t('health_proxy')}: {tot.proxy_ok ?? 0}/{tot.proxy_fail ?? 0}
+      </div>
+      <h3 style={{ fontSize: 13 }}>{t('feed_title')}</h3>
+      {stats.feed && stats.feed.length > 0 ? (
+        <ul className="feed">
+          {stats.feed.map((e, i) => (
+            <li key={i}>
+              <span className="date">{e.date}</span>
+              <span className={`tag ${FEED_TAG[e.kind] || 'gray'}`}>{t(`feed_kind_${e.kind}`)}</span>
+              <span className="msg">{t(`feed_${e.code}`, e.params || {})}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="meta" style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('feed_empty')}</div>
+      )}
+    </div>
+  )
+}
+
 export default function Workers() {
   const { t, lang } = useLang()
   const [workers, setWorkers] = useState(null)
@@ -183,6 +247,7 @@ export default function Workers() {
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
   const [onlyWorkers, setOnlyWorkers] = useState(true)
+  const [sortBy, setSortBy] = useState('activity')
 
   const load = () => {
     Promise.all([
@@ -205,8 +270,27 @@ export default function Workers() {
 
   const rows = useMemo(() => {
     if (!workers) return []
-    return onlyWorkers ? workers.filter((w) => w.role && w.role !== 'manager') : workers
-  }, [workers, onlyWorkers])
+    const list = onlyWorkers ? workers.filter((w) => w.role && w.role !== 'manager') : [...workers]
+    const ts = (w) => {
+      const v = w.hb_last_seen || w.last_seen
+      if (!v) return 0
+      const t = new Date(String(v).replace(' ', 'T') + 'Z').getTime()
+      return Number.isNaN(t) ? 0 : t
+    }
+    const rank = (w) => {
+      if (w.is_active === 0) return 3
+      if (w.banned === 1) return 2
+      return isOnline(w.hb_last_seen) ? 0 : 1
+    }
+    if (sortBy === 'label') {
+      list.sort((a, b) => (a.label || a.installation_id).localeCompare(b.label || b.installation_id, lang))
+    } else if (sortBy === 'status') {
+      list.sort((a, b) => rank(a) - rank(b) || ts(b) - ts(a))
+    } else {
+      list.sort((a, b) => Number(isOnline(b.hb_last_seen)) - Number(isOnline(a.hb_last_seen)) || ts(b) - ts(a))
+    }
+    return list
+  }, [workers, onlyWorkers, sortBy, lang])
 
   const forceLogout = async (iid) => {
     if (!window.confirm(t('policy_force_logout_confirm'))) return
@@ -227,6 +311,11 @@ export default function Workers() {
           <input type="checkbox" checked={onlyWorkers} onChange={(e) => setOnlyWorkers(e.target.checked)} />
           {t('only_workers')}
         </label>
+        <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)} title={t('sort_by')}>
+          <option value="activity">{t('sort_activity')}</option>
+          <option value="label">{t('sort_label')}</option>
+          <option value="status">{t('sort_status')}</option>
+        </select>
         <div className="grow" />
         {toast && <span className="tag green">{toast}</span>}
       </div>
@@ -290,11 +379,15 @@ export default function Workers() {
 
       {selected && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setSelected(null)}>
-          <div className="modal">
+          <div className="modal wide">
             <h3>{selected.label || selected.installation_id.slice(0, 12)}</h3>
             <div className="panel" style={{ marginBottom: 16, padding: 14 }}>
               <h3 style={{ fontSize: 13 }}>{t('heartbeat_details')}</h3>
               <HeartbeatDetail snap={snapshots[selected.installation_id]?.snapshot || null} />
+            </div>
+            <div className="panel" style={{ marginBottom: 16, padding: 14 }}>
+              <h3 style={{ fontSize: 13 }}>{t('worker_stats_title', { n: 30 })}</h3>
+              <WorkerStats iid={selected.installation_id} />
             </div>
             <div className="kv">
               <span className="k">{t('installation_id')}</span>

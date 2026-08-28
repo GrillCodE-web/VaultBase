@@ -622,3 +622,79 @@ textarea.code {
   min-height: 110px;
   resize: vertical;
 }
+
+/* ── worker stats / smart feed ────────────────────────────────── */
+
+.modal.wide {
+  max-width: 860px;
+}
+
+.sort-select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  outline: none;
+}
+.sort-select:focus {
+  border-color: var(--accent);
+}
+
+.mini-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.mini-stat {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.mini-stat .v {
+  font-size: 18px;
+  font-weight: 700;
+}
+.mini-stat .v.green {
+  color: var(--green);
+}
+.mini-stat .v.red {
+  color: var(--red);
+}
+.mini-stat .l {
+  color: var(--text-3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.feed li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.feed li:last-child {
+  border-bottom: none;
+}
+.feed .date {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.feed .msg {
+  color: var(--text-2);
+  flex: 1;
+}

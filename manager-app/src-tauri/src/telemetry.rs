@@ -404,6 +404,209 @@ fn vi64_w(map: &serde_json::Map<String, Value>, key: &str) -> i64 {
     map.get(key).and_then(|x| x.as_i64()).unwrap_or(0)
 }
 
+#[derive(Default, Clone, Copy)]
+struct DayStats {
+    orders: i64,
+    delivered: i64,
+    declined: i64,
+    cancelled: i64,
+    cards_taken: i64,
+    cards_dead: i64,
+    drops: i64,
+    imap_ok: i64,
+    imap_fail: i64,
+    smtp_ok: i64,
+    smtp_fail: i64,
+    proxy_ok: i64,
+    proxy_fail: i64,
+}
+
+impl DayStats {
+    fn add(&mut self, o: &DayStats) {
+        self.orders += o.orders;
+        self.delivered += o.delivered;
+        self.declined += o.declined;
+        self.cancelled += o.cancelled;
+        self.cards_taken += o.cards_taken;
+        self.cards_dead += o.cards_dead;
+        self.drops += o.drops;
+        self.imap_ok += o.imap_ok;
+        self.imap_fail += o.imap_fail;
+        self.smtp_ok += o.smtp_ok;
+        self.smtp_fail += o.smtp_fail;
+        self.proxy_ok += o.proxy_ok;
+        self.proxy_fail += o.proxy_fail;
+    }
+}
+
+fn parse_day(v: &Value) -> DayStats {
+    let mut d = DayStats::default();
+    if let Some(orders) = vobj(v, "orders") {
+        d.orders = vi64_w(orders, "total");
+        if let Some(statuses) = orders.get("by_status").and_then(|x| x.as_object()) {
+            d.delivered = vi64_w(statuses, "delivered");
+            d.declined = vi64_w(statuses, "declined");
+            d.cancelled = vi64_w(statuses, "cancelled");
+            if d.orders == 0 {
+                d.orders = statuses.values().filter_map(|x| x.as_i64()).sum();
+            }
+        }
+    }
+    if let Some(cards) = vobj(v, "cards") {
+        d.cards_taken = vi64_w(cards, "taken");
+        d.cards_dead = vi64_w(cards, "dead");
+    }
+    if let Some(drops) = vobj(v, "drops") {
+        d.drops = vi64_w(drops, "taken");
+    }
+    if let Some(h) = vobj(v, "health") {
+        d.imap_ok = vi64_w(h, "imap_ok");
+        d.imap_fail = vi64_w(h, "imap_fail");
+        d.smtp_ok = vi64_w(h, "smtp_ok");
+        d.smtp_fail = vi64_w(h, "smtp_fail");
+        d.proxy_ok = vi64_w(h, "proxy_ok");
+        d.proxy_fail = vi64_w(h, "proxy_fail");
+    }
+    d
+}
+
+fn feed_for_day(date: &str, d: &DayStats) -> Vec<Value> {
+    let mut out = Vec::new();
+    let mut ev = |kind: &str, code: &str, params: Value| {
+        out.push(json!({ "date": date, "kind": kind, "code": code, "params": params }));
+    };
+    if d.orders >= 3 && d.declined * 2 >= d.orders {
+        ev("fail", "decline_spike", json!({ "declined": d.declined, "orders": d.orders }));
+    }
+    if d.cards_dead >= 3 {
+        ev("fail", "dead_cards", json!({ "dead": d.cards_dead }));
+    }
+    if d.imap_fail > 0 && d.imap_ok == 0 {
+        ev("fail", "imap_down", json!({ "fails": d.imap_fail }));
+    }
+    if d.smtp_fail > 0 && d.smtp_ok == 0 {
+        ev("fail", "smtp_down", json!({ "fails": d.smtp_fail }));
+    }
+    if d.proxy_fail > 0 && d.proxy_ok == 0 {
+        ev("fail", "proxy_down", json!({ "fails": d.proxy_fail }));
+    }
+    if d.orders >= 3 && d.declined == 0 && d.cards_dead == 0 {
+        ev("success", "clean_day", json!({ "orders": d.orders }));
+    }
+    if d.orders >= 10 {
+        ev("success", "high_volume", json!({ "orders": d.orders }));
+    }
+    if d.orders == 0 && d.cards_taken == 0 && d.drops == 0 {
+        ev("info", "idle_day", json!({}));
+    }
+    out
+}
+
+pub fn worker_stats(db: &Database, installation_id: &str, days: i64) -> Result<Value, String> {
+    let days = days.clamp(1, 90);
+    let from = (chrono::Local::now() - chrono::Duration::days(days - 1))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    let mut stmt = db
+        .conn
+        .prepare(
+            "SELECT label, report_date, payload FROM reports
+             WHERE installation_id = ?1 AND kind = 'daily_stats' AND report_date >= ?2
+             ORDER BY report_date ASC",
+        )
+        .map_err(|e| format!("select: {e}"))?;
+    let rows = stmt
+        .query_map(rusqlite::params![installation_id, from], |row| {
+            Ok((
+                row.get::<_, Option<String>>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| format!("query: {e}"))?;
+
+    let mut label = String::new();
+    let mut reports = 0usize;
+    let mut totals = DayStats::default();
+    let mut by_day: Vec<Value> = Vec::new();
+    let mut feed: Vec<Value> = Vec::new();
+    let mut days_seq: Vec<(String, DayStats)> = Vec::new();
+
+    for row in rows.flatten() {
+        let (lbl, date, payload) = row;
+        let v: Value = match serde_json::from_str(&payload) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        reports += 1;
+        if let Some(l) = lbl {
+            if !l.is_empty() {
+                label = l;
+            }
+        }
+        let d = parse_day(&v);
+        totals.add(&d);
+        by_day.push(json!({
+            "date": date,
+            "orders": d.orders,
+            "delivered": d.delivered,
+            "declined": d.declined,
+            "dead": d.cards_dead,
+        }));
+        feed.extend(feed_for_day(&date, &d));
+        days_seq.push((date, d));
+    }
+
+    let mut streak = 0i64;
+    for (_, d) in days_seq.iter().rev() {
+        if d.orders > 0 && d.declined == 0 && d.cards_dead == 0 {
+            streak += 1;
+        } else {
+            break;
+        }
+    }
+    if streak >= 3 {
+        let date = days_seq.last().map(|(d, _)| d.clone()).unwrap_or_default();
+        feed.push(json!({ "date": date, "kind": "success", "code": "clean_streak", "params": { "n": streak } }));
+    }
+
+    feed.sort_by(|a, b| {
+        let da = a.get("date").and_then(|x| x.as_str()).unwrap_or("");
+        let db_ = b.get("date").and_then(|x| x.as_str()).unwrap_or("");
+        db_.cmp(da)
+    });
+    feed.truncate(40);
+
+    let dead_ratio = if totals.cards_taken > 0 {
+        ((totals.cards_dead as f64 / totals.cards_taken as f64) * 1000.0).round() / 10.0
+    } else {
+        0.0
+    };
+
+    Ok(json!({
+        "installation_id": installation_id,
+        "label": label,
+        "days": days,
+        "reports": reports,
+        "totals": {
+            "orders": totals.orders,
+            "delivered": totals.delivered,
+            "declined": totals.declined,
+            "cancelled": totals.cancelled,
+            "cards_taken": totals.cards_taken,
+            "cards_dead": totals.cards_dead,
+            "dead_ratio": dead_ratio,
+            "drops": totals.drops,
+            "imap_ok": totals.imap_ok, "imap_fail": totals.imap_fail,
+            "smtp_ok": totals.smtp_ok, "smtp_fail": totals.smtp_fail,
+            "proxy_ok": totals.proxy_ok, "proxy_fail": totals.proxy_fail,
+        },
+        "by_day": by_day,
+        "feed": feed,
+    }))
+}
+
 pub fn worker_snapshots(db: &Database) -> Result<Value, String> {
     let mut stmt = db
         .conn
@@ -442,4 +645,136 @@ pub fn worker_snapshots(db: &Database) -> Result<Value, String> {
         }));
     }
     Ok(json!({ "snapshots": out }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_db() -> (tempfile::TempDir, Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.db");
+        let db = Database::open_plain(path.to_str().unwrap()).unwrap();
+        (dir, db)
+    }
+
+    fn insert_report(db: &Database, iid: &str, date: &str, payload: &str) {
+        db.conn
+            .execute(
+                "INSERT INTO reports (installation_id, label, kind, report_date, payload)
+                 VALUES (?1, 'W', 'daily_stats', ?2, ?3)",
+                rusqlite::params![iid, date, payload],
+            )
+            .unwrap();
+    }
+
+    fn date_days_ago(n: i64) -> String {
+        (chrono::Local::now() - chrono::Duration::days(n))
+            .format("%Y-%m-%d")
+            .to_string()
+    }
+
+    fn codes(feed: &Value) -> Vec<String> {
+        feed.as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["code"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn worker_stats_aggregates_and_flags_bad_day() {
+        let (_dir, db) = temp_db();
+        insert_report(
+            &db,
+            "w1",
+            &date_days_ago(0),
+            r#"{"orders":{"total":6,"by_status":{"delivered":3,"declined":3}},
+                "cards":{"taken":5,"used":4,"dead":4},
+                "drops":{"taken":1},
+                "health":{"imap_ok":0,"imap_fail":2,"smtp_ok":3,"smtp_fail":0}}"#,
+        );
+        let s = worker_stats(&db, "w1", 30).unwrap();
+        assert_eq!(s["reports"], 1);
+        assert_eq!(s["totals"]["orders"], 6);
+        assert_eq!(s["totals"]["declined"], 3);
+        assert_eq!(s["totals"]["cards_dead"], 4);
+        assert_eq!(s["totals"]["dead_ratio"], 80.0);
+        let c = codes(&s["feed"]);
+        assert!(c.contains(&"decline_spike".to_string()));
+        assert!(c.contains(&"dead_cards".to_string()));
+        assert!(c.contains(&"imap_down".to_string()));
+        assert!(!c.contains(&"clean_day".to_string()));
+    }
+
+    #[test]
+    fn worker_stats_clean_streak_and_high_volume() {
+        let (_dir, db) = temp_db();
+        for n in (0..3).rev() {
+            insert_report(
+                &db,
+                "w1",
+                &date_days_ago(n),
+                r#"{"orders":{"total":12,"by_status":{"delivered":12}},
+                    "cards":{"taken":4,"used":4,"dead":0}}"#,
+            );
+        }
+        let s = worker_stats(&db, "w1", 30).unwrap();
+        assert_eq!(s["reports"], 3);
+        let c = codes(&s["feed"]);
+        assert!(c.contains(&"clean_day".to_string()));
+        assert!(c.contains(&"high_volume".to_string()));
+        let streak = s["feed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["code"] == "clean_streak")
+            .expect("clean_streak event");
+        assert_eq!(streak["params"]["n"], 3);
+        assert_eq!(streak["date"].as_str().unwrap(), date_days_ago(0));
+    }
+
+    #[test]
+    fn worker_stats_streak_breaks_on_dirty_day() {
+        let (_dir, db) = temp_db();
+        insert_report(&db, "w1", &date_days_ago(2), r#"{"orders":{"total":5,"by_status":{"delivered":5}}}"#);
+        insert_report(&db, "w1", &date_days_ago(1), r#"{"orders":{"total":4,"by_status":{"delivered":2,"declined":2}}}"#);
+        insert_report(&db, "w1", &date_days_ago(0), r#"{"orders":{"total":5,"by_status":{"delivered":5}}}"#);
+        let s = worker_stats(&db, "w1", 30).unwrap();
+        let c = codes(&s["feed"]);
+        assert!(!c.contains(&"clean_streak".to_string()));
+    }
+
+    #[test]
+    fn worker_stats_isolated_per_worker_and_empty() {
+        let (_dir, db) = temp_db();
+        insert_report(
+            &db,
+            "w2",
+            &date_days_ago(1),
+            r#"{"orders":{"total":2,"by_status":{"delivered":2}}}"#,
+        );
+        let s = worker_stats(&db, "w1", 30).unwrap();
+        assert_eq!(s["reports"], 0);
+        assert_eq!(s["totals"]["orders"], 0);
+        assert!(s["feed"].as_array().unwrap().is_empty());
+        assert!(s["by_day"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn worker_stats_feed_sorted_desc_and_idle_day() {
+        let (_dir, db) = temp_db();
+        insert_report(&db, "w1", &date_days_ago(2), r#"{"cards":{"taken":1,"dead":5}}"#);
+        insert_report(&db, "w1", &date_days_ago(1), r#"{"orders":{"total":0}}"#);
+        insert_report(&db, "w1", &date_days_ago(0), r#"{"cards":{"taken":1,"dead":3}}"#);
+        let s = worker_stats(&db, "w1", 30).unwrap();
+        let feed = s["feed"].as_array().unwrap();
+        let dates: Vec<&str> = feed.iter().map(|e| e["date"].as_str().unwrap()).collect();
+        let mut sorted = dates.clone();
+        sorted.sort_by(|a, b| b.cmp(a));
+        assert_eq!(dates, sorted);
+        let c = codes(&s["feed"]);
+        assert!(c.contains(&"idle_day".to_string()));
+        assert_eq!(c.iter().filter(|x| *x == "dead_cards").count(), 2);
+    }
 }

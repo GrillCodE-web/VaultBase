@@ -17,6 +17,7 @@ export const lockApp = () => invoke('lock_app')
 export const syncTelemetry = () => invoke('sync_telemetry')
 export const getAnalytics = (from, to) => invoke('get_analytics', { from, to })
 export const getWorkerSnapshots = () => invoke('get_worker_snapshots')
+export const getWorkerStats = (installationId, days = 30) => invoke('get_worker_stats', { installationId, days })
 export const wipeLocalData = () => invoke('wipe_local_data', { confirm: true })
 
 export function fmtDateTime(value) {
