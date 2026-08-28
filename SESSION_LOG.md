@@ -651,3 +651,25 @@
 - Коммиты: `555a306` (код, 9 файлов +606/-240), `4b7cb9f` (чеклист ✅ —
   статистика 192/21, 🟡 14, 🟢 6; заодно учтены FEAT-001/011 — их ✅ в
   `6ec2cd7` был без пересчёта), далее эта запись.
+
+## 2026-08-28 — доведение оборванного ребейза agent/frontend + слияние в main @b
+
+- Сессия-продолжение после обрыва: ребейз `agent/frontend` на `bedbd8d` стоял
+  на 4/8 (конфликт SESSION_LOG.md в pick `be43b46`). Разрешения: SESSION_LOG —
+  keep-both (запись UX-012 @main первой, затем UX-010/011 @b); MASTER_CHECKLIST —
+  UX-012 `✅ @main` (HEAD) + UX-013/014 `✅` (incoming). Дальше легло чисто,
+  ребейз завершён (8/8), дерево чистое.
+- **Фикс после ребейза**: `vite build` упал — `@tauri-apps/plugin-notification`
+  (пришёл с main из UX-012) отсутствовал в node_modules worktree
+  (package.json/lock смержились корректно, node_modules был до-ребейзовый).
+  `npm install` → модуль на месте, build зелёный (55с).
+- Проверки на смерженном дереве (App.jsx/Settings.jsx — точки пересечения
+  UX-012 × UX-013/014 — просмотрены вручную, оба блока на месте): ESLint
+  0 err (3 pre-existing warnings), audit_frontend 0 критичных, vitest
+  337/337 (25 файлов), vite build OK. CRLF-шум в snapshots.test.jsx.snap
+  откачен `git restore`.
+- Слияние: main `bedbd8d..e66938b` (ff-only) + push origin main; ветка
+  `agent/frontend` запушена с `--force-with-lease` (`eb0534f`→`e66938b`).
+- Открытый стык не закрыт: запрос B→A в PARALLEL_WORK.md —
+  `dragDropEnabled: false` в tauri.conf.json, иначе OS-дроп файлов в десктопе
+  не доходит до webview (UX-010 в браузере работает, в Tauri — нет).
