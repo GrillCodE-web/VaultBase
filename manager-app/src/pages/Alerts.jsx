@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
-import { api, fmtDateTime } from '../api/server.js'
+import { api, evaluateAlerts, fmtDateTime, getLocalAlerts, localAlertAction } from '../api/server.js'
 
 const STATUSES = ['all', 'new', 'ack', 'closed']
 
@@ -11,19 +11,35 @@ export default function Alerts({ onAlertsChanged }) {
 
   const load = () => {
     const query = status === 'all' ? '' : `?status=${status}`
-    api('GET', `/manager/api/alerts${query}`)
-      .then((r) => setAlerts(r.status === 200 ? r.body.alerts || [] : []))
-      .catch(() => setAlerts([]))
+    const serverAlerts = api('GET', `/manager/api/alerts${query}`)
+      .then((r) => (r.status === 200 ? r.body.alerts || [] : []))
+      .catch(() => [])
+    const localAlerts = evaluateAlerts()
+      .catch(() => null)
+      .then(() => getLocalAlerts(status))
+      .then((r) => r.alerts || [])
+      .catch(() => [])
+    Promise.all([serverAlerts, localAlerts]).then(([srv, loc]) => {
+      const merged = [...srv, ...loc].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      setAlerts(merged)
+    })
   }
 
   useEffect(load, [status])
 
-  const act = async (id, action) => {
-    const r = await api('POST', `/manager/api/alerts/${id}/${action}`)
-    if (r.status === 200) {
-      load()
-      onAlertsChanged?.()
+  const act = async (alert, action) => {
+    if (alert.source === 'local') {
+      try {
+        await localAlertAction(alert.id, action)
+      } catch {
+        return
+      }
+    } else {
+      const r = await api('POST', `/manager/api/alerts/${alert.id}/${action}`)
+      if (r.status !== 200) return
     }
+    load()
+    onAlertsChanged?.()
   }
 
   if (alerts === null) return <div className="empty">{t('loading')}</div>
@@ -59,13 +75,16 @@ export default function Alerts({ onAlertsChanged }) {
             </thead>
             <tbody>
               {alerts.map((a) => (
-                <tr key={a.id}>
+                <tr key={`${a.source === 'local' ? 'L' : 'S'}${a.id}`}>
                   <td>
                     <span className={`tag ${a.severity === 'critical' ? 'red' : a.severity === 'warning' ? 'amber' : 'accent'}`}>
                       {t(`sev_${a.severity}`)}
                     </span>
                   </td>
-                  <td className="mono">{t(`cat_${a.category}`) === `cat_${a.category}` ? a.category : t(`cat_${a.category}`)}</td>
+                  <td className="mono">
+                    {t(`cat_${a.category}`) === `cat_${a.category}` ? a.category : t(`cat_${a.category}`)}
+                    {a.source === 'local' && <span className="tag gray" style={{ marginLeft: 6 }}>{t('alert_src_local')}</span>}
+                  </td>
                   <td title={a.message}>{a.title}</td>
                   <td>{fmtDateTime(a.created_at)}</td>
                   <td>
@@ -75,10 +94,10 @@ export default function Alerts({ onAlertsChanged }) {
                   </td>
                   <td>
                     {a.status === 'new' && (
-                      <button className="btn small" onClick={() => act(a.id, 'ack')}>{t('alert_ack')}</button>
+                      <button className="btn small" onClick={() => act(a, 'ack')}>{t('alert_ack')}</button>
                     )}{' '}
                     {a.status !== 'closed' && (
-                      <button className="btn small" onClick={() => act(a.id, 'close')}>{t('alert_close')}</button>
+                      <button className="btn small" onClick={() => act(a, 'close')}>{t('alert_close')}</button>
                     )}
                   </td>
                 </tr>

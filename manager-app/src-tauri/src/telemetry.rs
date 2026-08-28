@@ -121,15 +121,19 @@ pub fn sync(db: &Database, enc: &crate::crypto::FieldEncryption) -> Result<Value
         let is_active = w.get("is_active").and_then(|v| v.as_i64()).unwrap_or(0);
         let last_seen = w.get("last_seen").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let hb_last_seen = w.get("hb_last_seen").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let quota_cards = w.get("quota_cards_day").and_then(|v| v.as_i64());
+        let quota_orders = w.get("quota_orders_day").and_then(|v| v.as_i64());
 
         db.conn
             .execute(
-                "INSERT INTO worker_snapshots (installation_id, label, role, is_active, last_seen, hb_last_seen, snapshot, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, CURRENT_TIMESTAMP)
+                "INSERT INTO worker_snapshots (installation_id, label, role, is_active, last_seen, hb_last_seen, snapshot, quota_cards_day, quota_orders_day, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, CURRENT_TIMESTAMP)
                  ON CONFLICT(installation_id) DO UPDATE SET
                     label = excluded.label, role = excluded.role, is_active = excluded.is_active,
                     last_seen = excluded.last_seen, hb_last_seen = excluded.hb_last_seen,
                     snapshot = COALESCE(excluded.snapshot, worker_snapshots.snapshot),
+                    quota_cards_day = excluded.quota_cards_day,
+                    quota_orders_day = excluded.quota_orders_day,
                     updated_at = CURRENT_TIMESTAMP",
                 rusqlite::params![
                     iid,
@@ -138,7 +142,9 @@ pub fn sync(db: &Database, enc: &crate::crypto::FieldEncryption) -> Result<Value
                     is_active,
                     last_seen,
                     hb_last_seen,
-                    snapshot
+                    snapshot,
+                    quota_cards,
+                    quota_orders
                 ],
             )
             .map_err(|e| format!("snapshot store: {e}"))?;
@@ -191,6 +197,11 @@ pub fn sync(db: &Database, enc: &crate::crypto::FieldEncryption) -> Result<Value
         }
     }
 
+    let alerts = crate::alerts::evaluate(db).unwrap_or_else(|e| {
+        db.log_event("alert_eval_fail", &e);
+        json!({ "evaluated": 0, "alerts_new": 0, "new_alerts": [] })
+    });
+
     db.log_event("sync", &format!("workers={workers_seen} reports={reports_stored}"));
     Ok(json!({
         "ok": true,
@@ -199,6 +210,8 @@ pub fn sync(db: &Database, enc: &crate::crypto::FieldEncryption) -> Result<Value
         "reports": reports_stored,
         "sealed_to_other_key": sealed_to_other_key,
         "unseal_failures": unseal_failures,
+        "alerts_new": alerts.get("alerts_new").and_then(|v| v.as_i64()).unwrap_or(0),
+        "new_alerts": alerts.get("new_alerts").cloned().unwrap_or(json!([])),
     }))
 }
 
@@ -405,20 +418,20 @@ fn vi64_w(map: &serde_json::Map<String, Value>, key: &str) -> i64 {
 }
 
 #[derive(Default, Clone, Copy)]
-struct DayStats {
-    orders: i64,
-    delivered: i64,
-    declined: i64,
-    cancelled: i64,
-    cards_taken: i64,
-    cards_dead: i64,
-    drops: i64,
-    imap_ok: i64,
-    imap_fail: i64,
-    smtp_ok: i64,
-    smtp_fail: i64,
-    proxy_ok: i64,
-    proxy_fail: i64,
+pub(crate) struct DayStats {
+    pub(crate) orders: i64,
+    pub(crate) delivered: i64,
+    pub(crate) declined: i64,
+    pub(crate) cancelled: i64,
+    pub(crate) cards_taken: i64,
+    pub(crate) cards_dead: i64,
+    pub(crate) drops: i64,
+    pub(crate) imap_ok: i64,
+    pub(crate) imap_fail: i64,
+    pub(crate) smtp_ok: i64,
+    pub(crate) smtp_fail: i64,
+    pub(crate) proxy_ok: i64,
+    pub(crate) proxy_fail: i64,
 }
 
 impl DayStats {
@@ -439,7 +452,7 @@ impl DayStats {
     }
 }
 
-fn parse_day(v: &Value) -> DayStats {
+pub(crate) fn parse_day(v: &Value) -> DayStats {
     let mut d = DayStats::default();
     if let Some(orders) = vobj(v, "orders") {
         d.orders = vi64_w(orders, "total");

@@ -2,5 +2,5 @@
   "identifier": "default",
   "description": "VaultBase Manager minimal capability: no fs, no shell, no dialog",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "notification:default"]
 }

@@ -18,6 +18,11 @@ export const syncTelemetry = () => invoke('sync_telemetry')
 export const getAnalytics = (from, to) => invoke('get_analytics', { from, to })
 export const getWorkerSnapshots = () => invoke('get_worker_snapshots')
 export const getWorkerStats = (installationId, days = 30) => invoke('get_worker_stats', { installationId, days })
+export const evaluateAlerts = () => invoke('evaluate_alerts')
+export const getLocalAlerts = (status = 'all') => invoke('get_local_alerts', { status })
+export const localAlertAction = (id, action) => invoke('local_alert_action', { id, action })
+export const getConfigValues = (keys) => invoke('get_config_values', { keys })
+export const setConfigValue = (key, value) => invoke('set_config_value', { key, value })
 export const wipeLocalData = () => invoke('wipe_local_data', { confirm: true })
 
 export function fmtDateTime(value) {

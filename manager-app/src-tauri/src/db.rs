@@ -68,9 +68,42 @@ impl Database {
                     kind TEXT,
                     message TEXT
                 );
+                CREATE TABLE IF NOT EXISTS local_alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info','warning','critical')),
+                    category TEXT NOT NULL,
+                    installation_id TEXT,
+                    label TEXT,
+                    title TEXT NOT NULL,
+                    message TEXT DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','ack','closed')),
+                    dedupe_key TEXT UNIQUE,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                );
                 "#,
             )
-            .map_err(|e| format!("init schema: {e}"))
+            .map_err(|e| format!("init schema: {e}"))?;
+        self.ensure_column("worker_snapshots", "quota_cards_day", "INTEGER")?;
+        self.ensure_column("worker_snapshots", "quota_orders_day", "INTEGER")?;
+        Ok(())
+    }
+
+    fn ensure_column(&self, table: &str, col: &str, decl: &str) -> Result<(), String> {
+        let mut stmt = self
+            .conn
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .map_err(|e| format!("pragma: {e}"))?;
+        let names: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|e| format!("pragma: {e}"))?
+            .flatten()
+            .collect();
+        if !names.iter().any(|n| n == col) {
+            self.conn
+                .execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {col} {decl}"))
+                .map_err(|e| format!("alter {table}.{col}: {e}"))?;
+        }
+        Ok(())
     }
 
     pub fn get_config(&self, key: &str) -> Option<String> {

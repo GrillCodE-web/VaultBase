@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { useLang } from '../hooks/useLang.jsx'
-import { api, lockApp, syncTelemetry } from '../api/server.js'
+import { api, getConfigValues, getLocalAlerts, lockApp, syncTelemetry } from '../api/server.js'
 import Dashboard from './Dashboard.jsx'
 import Workers from './Workers.jsx'
 import Analytics from './Analytics.jsx'
@@ -28,12 +29,16 @@ export default function Shell({ appState, onLock }) {
   const [syncInfo, setSyncInfo] = useState('')
   const [syncing, setSyncing] = useState(false)
 
+  const idleMin = useRef(10)
+
   const refreshAlerts = () => {
-    api('GET', '/manager/api/alerts?status=new&limit=1')
-      .then((r) => {
-        if (r.status === 200 && Array.isArray(r.body?.alerts)) setAlertsNew(r.body.alerts.length)
-      })
-      .catch(() => {})
+    const serverNew = api('GET', '/manager/api/alerts?status=new&limit=100')
+      .then((r) => (r.status === 200 && Array.isArray(r.body?.alerts) ? r.body.alerts.length : 0))
+      .catch(() => 0)
+    const localNew = getLocalAlerts('new')
+      .then((r) => (Array.isArray(r.alerts) ? r.alerts.length : 0))
+      .catch(() => 0)
+    Promise.all([serverNew, localNew]).then(([s, l]) => setAlertsNew(s + l))
   }
 
   useEffect(() => {
@@ -41,6 +46,50 @@ export default function Shell({ appState, onLock }) {
     const timer = setInterval(refreshAlerts, 30000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    getConfigValues(['idle_lock_min'])
+      .then((cfg) => {
+        const n = parseInt(cfg.idle_lock_min, 10)
+        if (!Number.isNaN(n)) idleMin.current = n
+      })
+      .catch(() => {})
+    let timer
+    const arm = () => {
+      clearTimeout(timer)
+      if (idleMin.current <= 0) return
+      timer = setTimeout(async () => {
+        await lockApp().catch(() => {})
+        onLock()
+      }, idleMin.current * 60000)
+    }
+    const events = ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart']
+    events.forEach((e) => window.addEventListener(e, arm, { passive: true }))
+    arm()
+    return () => {
+      clearTimeout(timer)
+      events.forEach((e) => window.removeEventListener(e, arm))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const notifyNewAlerts = async (newAlerts) => {
+    if (!Array.isArray(newAlerts) || newAlerts.length === 0) return
+    const cfg = await getConfigValues(['alert_notify_os']).catch(() => ({}))
+    if (cfg.alert_notify_os === '0') return
+    let granted = await isPermissionGranted().catch(() => false)
+    if (!granted) {
+      granted = (await requestPermission().catch(() => 'denied')) === 'granted'
+    }
+    if (!granted) return
+    const top = newAlerts[0]
+    sendNotification({
+      title: t('notify_alerts_title'),
+      body: newAlerts.length === 1
+        ? top.title
+        : t('notify_alerts_body', { n: newAlerts.length, title: top.title }),
+    })
+  }
 
   const doSync = async () => {
     setSyncing(true)
@@ -52,6 +101,8 @@ export default function Shell({ appState, onLock }) {
         reports: res.reports,
         fails: res.unseal_failures + res.sealed_to_other_key,
       }))
+      notifyNewAlerts(res.new_alerts)
+      refreshAlerts()
     } catch (e) {
       setSyncInfo(`${t('err_generic')}: ${e}`)
     } finally {

@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod alerts;
 mod commands;
 mod crypto;
 mod db;
@@ -12,6 +13,7 @@ use state::AppState;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_state,
@@ -25,6 +27,11 @@ fn main() {
             commands::get_analytics,
             commands::get_worker_snapshots,
             commands::get_worker_stats,
+            commands::evaluate_alerts,
+            commands::get_local_alerts,
+            commands::local_alert_action,
+            commands::get_config_values,
+            commands::set_config_value,
             commands::wipe_local_data,
         ])
         .run(tauri::generate_context!())

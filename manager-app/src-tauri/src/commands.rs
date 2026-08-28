@@ -1,3 +1,4 @@
+use crate::alerts;
 use crate::crypto::{self, FieldEncryption, PasswordValidation};
 use crate::db::{self, Database, Sidecar};
 use crate::http;
@@ -292,6 +293,74 @@ pub fn get_worker_stats(
     with_open(&state, |database, _| {
         telemetry::worker_stats(database, &installation_id, days.unwrap_or(30))
     })
+}
+
+#[tauri::command]
+pub fn evaluate_alerts(state: State<'_, AppState>) -> Result<Value, String> {
+    with_open(&state, |database, _| alerts::evaluate(database))
+}
+
+#[tauri::command]
+pub fn get_local_alerts(state: State<'_, AppState>, status: Option<String>) -> Result<Value, String> {
+    with_open(&state, |database, _| alerts::list(database, status.as_deref().unwrap_or("all")))
+}
+
+#[tauri::command]
+pub fn local_alert_action(state: State<'_, AppState>, id: i64, action: String) -> Result<(), String> {
+    with_open(&state, |database, _| alerts::act(database, id, &action))
+}
+
+const WRITABLE_CONFIG_KEYS: &[&str] = &[
+    "alert_decline_pct",
+    "alert_dead_pct",
+    "alert_min_orders",
+    "alert_min_cards",
+    "alert_webhook_url",
+    "alert_notify_os",
+    "idle_lock_min",
+];
+
+#[tauri::command]
+pub fn get_config_values(state: State<'_, AppState>, keys: Vec<String>) -> Result<Value, String> {
+    with_open(&state, |database, _| {
+        let mut out = serde_json::Map::new();
+        for key in keys {
+            if WRITABLE_CONFIG_KEYS.contains(&key.as_str()) {
+                if let Some(v) = database.get_config(&key) {
+                    out.insert(key, Value::String(v));
+                }
+            }
+        }
+        Ok(Value::Object(out))
+    })
+}
+
+#[tauri::command]
+pub fn set_config_value(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
+    if !WRITABLE_CONFIG_KEYS.contains(&key.as_str()) {
+        return Err("config_key_not_allowed".into());
+    }
+    match key.as_str() {
+        "alert_decline_pct" | "alert_dead_pct" | "alert_min_orders" | "alert_min_cards" | "idle_lock_min" => {
+            let n: i64 = value.trim().parse().map_err(|_| "config_value_not_int".to_string())?;
+            if !(0..=10000).contains(&n) {
+                return Err("config_value_out_of_range".into());
+            }
+        }
+        "alert_webhook_url" => {
+            let t = value.trim();
+            if !t.is_empty() && !(t.starts_with("https://") || t.starts_with("http://")) {
+                return Err("url_must_be_http_s".into());
+            }
+        }
+        "alert_notify_os" => {
+            if value.trim() != "0" && value.trim() != "1" {
+                return Err("config_value_invalid".into());
+            }
+        }
+        _ => {}
+    }
+    with_open(&state, |database, _| database.set_config(&key, value.trim()))
 }
 
 #[tauri::command]
