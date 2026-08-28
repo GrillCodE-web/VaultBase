@@ -586,7 +586,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-app">
+    <div className="h-full min-h-0 flex flex-col bg-app">
       {/* ── Header ── */}
       <header className="h-14 border-b border-border bg-surface flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">

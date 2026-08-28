@@ -950,13 +950,6 @@ export const en = {
   select_all: 'Select all',
   primary_drop: 'Primary Drop',
 
-  // IMAP tabs
-  imap_tab_inbox: 'Inbox',
-  imap_tab_accounts: 'Accounts',
-  imap_tab_smtp: 'SMTP',
-  imap_tab_sent: 'Sent',
-  imap_tab_pool: 'Email Pool',
-
   // IMAP actions
   imap_compose: 'Compose',
   imap_check_done: 'Checked {a} accounts, found {m} messages',

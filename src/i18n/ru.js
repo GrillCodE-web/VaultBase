@@ -952,13 +952,6 @@ export const ru = {
   select_all: 'Выбрать все',
   primary_drop: 'Основной дроп',
 
-  // IMAP tabs
-  imap_tab_inbox: 'Входящие',
-  imap_tab_accounts: 'Аккаунты',
-  imap_tab_smtp: 'SMTP',
-  imap_tab_sent: 'Отправленные',
-  imap_tab_pool: 'Пул Email',
-
   // IMAP actions
   imap_compose: 'Написать',
   imap_check_done: 'Проверено {a} акк., найдено {m} сообщений',

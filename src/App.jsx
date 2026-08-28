@@ -430,10 +430,9 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       { key: 'shared', label: t('couriers_tab_shared') },
       { key: 'packages', label: t('couriers_tab_packages') },
     ],
-    imap: [
-      { key: 'accounts', label: t('imap_tab_accounts') },
-      { key: 'messages', label: t('imap_tab_inbox') },
-    ],
+    // imap — без топбар-табов: страница сама 3-панельный почтовый клиент,
+    // табы Accounts/Inbox дублировали её шапку и ничего не переключали.
+    imap: [],
     activity_log: [{ key: 'list', label: t('log_title') }],
     updates: [{ key: 'list', label: t('updates_title') }],
     dashboard: [],
@@ -1509,9 +1508,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
                     ? badges.expiring_cards
                     : page === 'profiles' && tab.key === 'nodrop'
                       ? badges.no_drop_profiles
-                      : page === 'imap' && tab.key === 'messages'
-                        ? badges.unread_imap
-                        : 0
+                      : 0
               const isYellow = page === 'cards' || page === 'profiles'
               return (
                 <button
@@ -1531,7 +1528,10 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           </div>
         )}
 
-        <main id="main-content" className="main-content-scroll">
+        <main
+          id="main-content"
+          className={`main-content-scroll${page === 'imap' ? ' main-content-fill' : ''}`}
+        >
           <ErrorBoundary resetKey={page} onReset={() => handlePageChange('dashboard')}>
             <Suspense
               fallback={
