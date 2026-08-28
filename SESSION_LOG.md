@@ -174,3 +174,30 @@
   падает без `as.exe` («CreateProcess»). MSVC-тулчейн на машине сломан
   (см. комментарий в src-tauri/rust-toolchain.toml), поэтому перед
   cargo/npm tauri-командами: `$env:PATH = "C:\msys64\mingw64\bin;$env:PATH"`.
+
+### 2026-08-28 — UX-018 + UX-019 ✅ @b (worktree agent-frontend)
+
+- UX-018: в ProfileModal под полем email добавлен фидбек привязки — зелёная
+  строка «Will be linked: {email}» при совпадении с пулом (get_available_emails
+  отдаёт только {id, email}) и серая «Not in email pool — won't be linked»,
+  если введённый адрес в пуле не найден.
+- UX-019: `autoCreateDrop` теперь по умолчанию `false` (был `true`); включение
+  чекбокса идёт через `useConfirm` — диалог предупреждает, что биллинг-адрес
+  карты будет расшифрован (reveal_card) для создания дропа. Отказ → чекбокс
+  остаётся выключенным.
+- Заодно переведены на i18n трогаемые строки модалки (label/placeholder email,
+  title кнопки 🎲, тосты авто-назначения, подпись чекбокса). Новые ключи
+  (en+ru, 11 шт.): email_label_optional, email_placeholder,
+  email_auto_assign_title, email_auto_assigned, no_free_emails,
+  email_will_be_linked, email_not_in_pool, auto_create_drop,
+  auto_create_drop_helper, auto_create_drop_confirm_title,
+  auto_create_drop_confirm_msg.
+- Коммиты: `98103e6` (клейм), `3b954c5` (код), `2ae1ac8` (чеклист ✅).
+- Проверки: `python scripts/audit_frontend.py` — критичных проблем нет;
+  `npm run lint` — 0 ошибок (4 pre-existing warnings в Dashboard/charts.jsx);
+  `npx vitest run` — 327/327.
+- Слияние: main был занят сессией MGR-013 (checkout в manager-work), поэтому
+  влито пушем `agent/frontend:main` (ff 6273b16→2ae1ac8). Сессии MGR-013 при
+  своём слиянии нужен rebase локального main на origin/main.
+- Побочка: vitest-тронутый snapshot-файл (только CRLF/LF) — откачен
+  `git restore`, в коммит не попал.
