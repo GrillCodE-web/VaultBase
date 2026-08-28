@@ -509,3 +509,28 @@
   2 файла +291), `8fb96e5` (чеклист ✅, 26.08 00:11).
 - Проверки на момент закрытия (из сообщения `8fb96e5`): 84/84 e2e
   chromium+firefox green.
+
+## 2026-08-28, @main — FEAT-001 + FEAT-011 ✅
+
+- **FEAT-001** (авто-архив dead-карт): команда `archive_dead_cards`
+  (`commands/cards.rs`, DB-метод в `_cards.rs` — архивирует ВЕСЬ пул dead,
+  возвращает count), кнопка в `Cards.jsx` + `archiveDeadCards` в
+  `store/cards.js`, i18n en/ru. Тест `perf_tests::test_archive_dead_cards`.
+- **FEAT-011** (общий список курьеров): модель `StufferAccount` (models.rs),
+  миграция **v19** `stuffer_accounts` (см. инцидент ниже), DB-методы
+  `_stuffer.rs`, команды в `commands/stuffer.rs` (list/add/delete аккаунтов,
+  общий список агрегируется по аккаунтам; легаси `stuffer_api_key` = аккаунт
+  id=0), UI: общая вкладка в `Couriers.jsx` + управление аккаунтами в
+  `Settings.jsx`, i18n en/ru. Тест `opl_tests::test_stuffer_accounts_roundtrip`.
+- **Инцидент**: при правке `_migrations.rs` затёрта чужая миграция v18
+  (`upanel_connections`, FEAT-018, уже в main) — 7 upanel-тестов падали
+  "no such table". Починено: upanel возвращена как v18, моя стала v19,
+  `LATEST_VERSION=19`. Перед перенумерацией миграций — сверяться с HEAD!
+- **Проверки**: cargo test 175 passed / 4 failed — падения только
+  `database::tests::test_risk_v2_*` (чужой незакоммиченный WIP FEAT-002 в этом
+  же ворктри, `_orders.rs` +189 строк; CHECK "invalid order status" — НЕ мой
+  код, не трогал). Vitest 330/330, ESLint 0 err, audit_frontend 0/0.
+- **Инфра**: параллельные сессии грузили машину сборками OpenSSL
+  (race `mv: cannot stat *.d.tmp` в MSYS2) — лечилось ретраями
+  (`scripts/openssl-retry.cmd`, untracked).
+- Коммиты: `dfde093` (клейм), `018b570` (код, 14 файлов +862/-36).
