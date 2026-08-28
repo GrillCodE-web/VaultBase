@@ -53,6 +53,14 @@ test.describe('TEST-002: CRUD — Profiles', () => {
     const cardItem = modal.locator('.card-selection-item', { hasText: '1111' }).first()
     await cardItem.click()
 
+    // UX-019: авто-дроп по умолчанию выкл — включаем чекбокс и подтверждаем диалог
+    // (controlled input: .check() не подходит — состояние меняется только после Confirm)
+    await modal
+      .locator('label.checkbox-label', { hasText: 'Auto-create drop' })
+      .locator('input[type="checkbox"]')
+      .click()
+    await page.locator('[role="dialog"] button', { hasText: 'Confirm' }).click()
+
     await modal.locator('button', { hasText: 'New Profile' }).last().click()
     await expect(modal).toBeHidden({ timeout: 10000 })
 
