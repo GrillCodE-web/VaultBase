@@ -896,4 +896,57 @@ mod tests {
         assert_eq!(res.score, 0);
         assert!(res.warnings.is_empty());
     }
+
+    // ── FEAT-003: smart-подсказки ──
+
+    /// card_burning: in_use карта с 3 consecutive declines попадает в подсказки,
+    /// а после delivered серия прерывается и подсказка исчезает
+    #[test]
+    fn test_smart_hints_card_burning() {
+        let (db, prof, shop) = risk_v2_fixture();
+        // карта становится in_use через профиль; магазину нужен success_rate >= 30%
+        // (2 delivered из 5 = 40%), иначе get_consecutive_declines отбрасывает
+        // его declines как «плохой магазин»
+        risk_v2_add_order(&db, &prof, shop, "delivered", None);
+        risk_v2_add_order(&db, &prof, shop, "delivered", None);
+        // разносим created_at, чтобы ORDER BY created_at DESC не перепутывал
+        // заказы с одинаковой секундой (delivered должны быть старше declined)
+        db.conn.execute("UPDATE orders SET created_at = datetime('now', '-10 seconds')", []).unwrap();
+        // 3 declined подряд → карта горит (порог авто-архива по умолчанию = 5)
+        for _ in 0..3 { risk_v2_add_order(&db, &prof, shop, "declined", None); }
+        let hints = db.smart_hints().unwrap();
+        let burning: Vec<_> = hints.iter().filter(|h| h["kind"] == "card_burning").collect();
+        assert_eq!(burning.len(), 1, "3 declines должны дать card_burning");
+        assert_eq!(burning[0]["declines"], 3);
+        assert_eq!(burning[0]["threshold"], 5);
+
+        // delivered прерывает серию → подсказка снимается
+        db.conn.execute("UPDATE orders SET created_at = datetime('now', '-5 seconds')", []).unwrap();
+        risk_v2_add_order(&db, &prof, shop, "delivered", None);
+        let hints = db.smart_hints().unwrap();
+        assert!(hints.iter().all(|h| h["kind"] != "card_burning"));
+    }
+
+    /// order_fail_streak: 3+ declined/failed подряд (по всем заказам) → подсказка
+    #[test]
+    fn test_smart_hints_order_fail_streak() {
+        let (db, prof, shop) = risk_v2_fixture();
+        // сначала delivered, чтобы серия прервалась, потом 3 declined
+        risk_v2_add_order(&db, &prof, shop, "delivered", None);
+        assert!(db.smart_hints().unwrap().iter().all(|h| h["kind"] != "order_fail_streak"));
+
+        for _ in 0..3 { risk_v2_add_order(&db, &prof, shop, "declined", None); }
+        let hints = db.smart_hints().unwrap();
+        let streak: Vec<_> = hints.iter().filter(|h| h["kind"] == "order_fail_streak").collect();
+        assert_eq!(streak.len(), 1, "3 declined подряд должны дать order_fail_streak");
+        assert_eq!(streak[0]["count"], 3);
+    }
+
+    /// Пустая БД: ни одной подсказки
+    #[test]
+    fn test_smart_hints_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(dir.path().join("t.db").to_str().unwrap()).unwrap();
+        assert!(db.smart_hints().unwrap().is_empty());
+    }
 }
