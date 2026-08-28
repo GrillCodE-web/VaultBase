@@ -596,6 +596,22 @@ pub struct ProfilePackageLink {
     pub order_status: String,
 }
 
+/// FEAT-011: аккаунт внешней stuffer-панели с индивидуальным API-ключом.
+/// Общий список курьеров агрегируется по всем таким аккаунтам; операции
+/// с курьером выполняются ключом его аккаунта-источника.
+/// api_key — секрет: никогда не сериализуется на фронтенд (skip_serializing),
+/// фронт видит лишь факт существования аккаунта в списке.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct StufferAccount {
+    pub id: i64,
+    pub label: String,
+    pub provider: String,
+    pub base_url: String,
+    #[serde(skip_serializing)]
+    pub api_key: String,
+    pub created_at: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PaginatedOrders {
     pub items: Vec<Order>,

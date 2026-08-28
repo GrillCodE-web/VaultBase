@@ -436,6 +436,34 @@ impl Database {
         }
     }
 
+    /// FEAT-001: авто-архив dead-карт по нажатию пользователя — переводит
+    /// ВЕСЬ пул dead → archive одной операцией (раньше UI архивировал только
+    /// текущую страницу через bulk_update_status). Возвращает число
+    /// архивированных карт и sync-обновления (по картам с непустым hash).
+    pub fn archive_dead_cards(&self) -> Result<(u32, Vec<crate::models::CardSyncUpdate>), String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT card_hash, notes FROM credit_cards \
+             WHERE status='dead' AND card_hash IS NOT NULL AND card_hash != ''",
+        ).map_err(|e| e.to_string())?;
+        let updates: Vec<crate::models::CardSyncUpdate> = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .map(|(card_hash, notes)| crate::models::CardSyncUpdate {
+                card_hash,
+                status: "archive".into(),
+                notes,
+                encrypted_data: None,
+            })
+            .collect();
+        drop(stmt);
+        let n = self.conn.execute(
+            "UPDATE credit_cards SET status='archive' WHERE status='dead'",
+            [],
+        ).map_err(|e| e.to_string())?;
+        Ok((n as u32, updates))
+    }
+
     // FIX B06: bulk_delete с транзакцией
     pub fn bulk_delete(&self, ids: &[i64]) -> Result<(), String> {
         if ids.is_empty() { return Ok(()); }
@@ -827,6 +855,39 @@ mod perf_tests {
         let narrow = db.cards_expiring_within(0).unwrap();
         assert!(narrow.iter().any(|c| c.3 == "01/20"));
         assert!(!narrow.iter().any(|c| c.3 == "12/35"));
+    }
+
+    // FEAT-001: авто-архив dead-карт одной операцией по всему пулу
+    #[test]
+    fn test_archive_dead_cards() {
+        let (_dir, db) = test_db();
+        db.insert_cards(vec![make_card(1), make_card(2), make_card(3), make_card(4)]).unwrap();
+        // 1,2 → dead; 3 → archive (не трогаем); 4 → free (не трогаем)
+        db.conn.execute(
+            "UPDATE credit_cards SET status='dead' WHERE id IN (1,2)",
+            [],
+        ).unwrap();
+        db.conn.execute("UPDATE credit_cards SET status='archive' WHERE id=3", []).unwrap();
+
+        let (count, updates) = db.archive_dead_cards().unwrap();
+        assert_eq!(count, 2, "архивируются только dead");
+        assert_eq!(updates.len(), 2, "sync-обновления по обеим картам (hash есть всегда)");
+        assert!(updates.iter().all(|u| u.status == "archive"));
+        assert!(updates.iter().all(|u| !u.card_hash.is_empty()));
+
+        let dead_left: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM credit_cards WHERE status='dead'", [], |r| r.get(0),
+        ).unwrap();
+        let archived: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM credit_cards WHERE status='archive'", [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(dead_left, 0);
+        assert_eq!(archived, 3, "2 свежих + 1 уже была в архиве");
+
+        // Повторный прогон — no-op
+        let (count2, updates2) = db.archive_dead_cards().unwrap();
+        assert_eq!(count2, 0);
+        assert!(updates2.is_empty());
     }
 
     // TEST-013: вставка 10k карт — замер времени (не ассерт, а регрессионный ориентир).

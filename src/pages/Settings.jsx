@@ -25,6 +25,7 @@ import {
   Moon,
   Truck,
   Activity,
+  X,
 } from 'lucide-react'
 import { Modal } from '../components/Modal.jsx'
 import { useLang } from '../hooks/useLang'
@@ -85,6 +86,12 @@ export default function Settings() {
   const [stufferKey, setStufferKey] = useState('')
   const [stufferKeySet, setStufferKeySet] = useState(false)
   const [stufferSaved, setStufferSaved] = useState(false)
+  // FEAT-011: реестр stuffer-аккаунтов с индивидуальными API-ключами
+  const [stufferAccounts, setStufferAccounts] = useState([])
+  const [accLabel, setAccLabel] = useState('')
+  const [accKey, setAccKey] = useState('')
+  const [accUrl, setAccUrl] = useState('')
+  const [accSaving, setAccSaving] = useState(false)
   const [exportingBackup, setExportingBackup] = useState(false)
   const [wsStatus, setWsStatus] = useState(null) // { connected, connecting, group_id? }
   const [changingPw, setChangingPw] = useState(false)
@@ -104,6 +111,10 @@ export default function Settings() {
   const [restoring, setRestoring] = useState(false)
   const [badgeNotifyImap, setBadgeNotifyImap] = useState(true)
   const [badgeNotifyTracking, setBadgeNotifyTracking] = useState(true)
+  // UX-012: нативные OS-уведомления (config os_notify_*, '0' = выкл)
+  const [osNotifyMail, setOsNotifyMail] = useState(true)
+  const [osNotifyPackage, setOsNotifyPackage] = useState(true)
+  const [osNotifyErrors, setOsNotifyErrors] = useState(true)
   // FEAT-006/007: пороги ежедневных напоминаний (cron в background.rs)
   const [reminderCardDays, setReminderCardDays] = useState('14')
   const [reminderTrackingDays, setReminderTrackingDays] = useState('5')
@@ -140,6 +151,15 @@ export default function Settings() {
       invoke('get_config', { key: 'badge_notify_tracking' }).then(v => {
         if (!cancelled) setBadgeNotifyTracking(v !== '0')
       }),
+      invoke('get_config', { key: 'os_notify_mail' }).then(v => {
+        if (!cancelled) setOsNotifyMail(v !== '0')
+      }),
+      invoke('get_config', { key: 'os_notify_package' }).then(v => {
+        if (!cancelled) setOsNotifyPackage(v !== '0')
+      }),
+      invoke('get_config', { key: 'os_notify_errors' }).then(v => {
+        if (!cancelled) setOsNotifyErrors(v !== '0')
+      }),
       invoke('get_config', { key: 'reminder_card_expiry_days' }).then(v => {
         if (!cancelled && v) setReminderCardDays(v)
       }),
@@ -152,6 +172,11 @@ export default function Settings() {
           setStufferKeySet(!!cfg.api_key_set)
         }
       }),
+      invoke('stuffer_list_accounts')
+        .then(list => {
+          if (!cancelled && Array.isArray(list)) setStufferAccounts(list)
+        })
+        .catch(() => {}),
       invoke('get_catalog_stats')
         .then(s => {
           if (!cancelled) setCatalogStats(s)
@@ -205,6 +230,37 @@ export default function Settings() {
       await invoke('set_config', { key: 'badge_notify_tracking', value: val ? '1' : '0' })
     } catch (e) {
       const error = handleError(e, 'Settings.toggleTrackingNotify')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  // UX-012: OS-уведомления вкл/выкл
+  const handleOsNotifyMail = async val => {
+    setOsNotifyMail(val)
+    try {
+      await invoke('set_config', { key: 'os_notify_mail', value: val ? '1' : '0' })
+    } catch (e) {
+      const error = handleError(e, 'Settings.toggleOsNotifyMail')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleOsNotifyPackage = async val => {
+    setOsNotifyPackage(val)
+    try {
+      await invoke('set_config', { key: 'os_notify_package', value: val ? '1' : '0' })
+    } catch (e) {
+      const error = handleError(e, 'Settings.toggleOsNotifyPackage')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleOsNotifyErrors = async val => {
+    setOsNotifyErrors(val)
+    try {
+      await invoke('set_config', { key: 'os_notify_errors', value: val ? '1' : '0' })
+    } catch (e) {
+      const error = handleError(e, 'Settings.toggleOsNotifyErrors')
       toastErr(getErrorMessage(error))
     }
   }
@@ -339,6 +395,48 @@ export default function Settings() {
       setTimeout(() => setStufferSaved(false), 2000)
     } catch (e) {
       const error = handleError(e, 'Settings.saveStufferConfig')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  // FEAT-011: аккаунты панели с индивидуальными API-ключами. Ключ после
+  // сохранения не показывается (бэкенд его не отдаёт — serde skip), поэтому
+  // список отображает только label/url; смена ключа = удалить + добавить.
+  const addStufferAccount = async () => {
+    if (!accLabel.trim() || !accKey.trim()) {
+      toastErr(t('settings_stuffer_acc_required'))
+      return
+    }
+    setAccSaving(true)
+    try {
+      const args = { label: accLabel.trim(), apiKey: accKey.trim() }
+      if (accUrl.trim()) args.baseUrl = accUrl.trim()
+      await invoke('stuffer_add_account', args)
+      setStufferAccounts(await invoke('stuffer_list_accounts'))
+      setAccLabel('')
+      setAccKey('')
+      setAccUrl('')
+      toastOk(t('settings_stuffer_acc_added'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.addStufferAccount')
+      toastErr(getErrorMessage(error))
+    } finally {
+      setAccSaving(false)
+    }
+  }
+
+  const deleteStufferAccount = async acc => {
+    const ok = await confirm(t('settings_stuffer_acc_delete_confirm', { label: acc.label }), {
+      title: t('settings_stuffer_accounts'),
+      confirmLabel: t('btn_delete') || 'Delete',
+    })
+    if (!ok) return
+    try {
+      await invoke('stuffer_delete_account', { id: acc.id })
+      setStufferAccounts(prev => prev.filter(a => a.id !== acc.id))
+      toastOk(t('settings_stuffer_acc_deleted'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.deleteStufferAccount')
       toastErr(getErrorMessage(error))
     }
   }
@@ -664,6 +762,56 @@ export default function Settings() {
           </div>
         </div>
 
+        {/* UX-012: нативные OS-уведомления */}
+        <div className="panel">
+          <div className="ptitle">
+            <Bell size={13} className="inline mr-1.5" />
+            {t('notify_os_section')}
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">{t('notify_os_mail')}</div>
+              <div className="setting-desc">{t('notify_os_mail_desc')}</div>
+            </div>
+            <label className="toggle-wrap">
+              <input
+                type="checkbox"
+                checked={osNotifyMail}
+                onChange={e => handleOsNotifyMail(e.target.checked)}
+              />
+              <span className="track" />
+            </label>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">{t('notify_os_package')}</div>
+              <div className="setting-desc">{t('notify_os_package_desc')}</div>
+            </div>
+            <label className="toggle-wrap">
+              <input
+                type="checkbox"
+                checked={osNotifyPackage}
+                onChange={e => handleOsNotifyPackage(e.target.checked)}
+              />
+              <span className="track" />
+            </label>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">{t('notify_os_errors')}</div>
+              <div className="setting-desc">{t('notify_os_errors_desc')}</div>
+            </div>
+            <label className="toggle-wrap">
+              <input
+                type="checkbox"
+                checked={osNotifyErrors}
+                onChange={e => handleOsNotifyErrors(e.target.checked)}
+              />
+              <span className="track" />
+            </label>
+          </div>
+        </div>
+
         {/* FEAT-006/007: ежедневные напоминания (cron в background.rs) */}
         <div className="panel">
           <div className="ptitle">
@@ -910,6 +1058,63 @@ export default function Settings() {
                     <Activity size={14} />
                   )}
                   {stufferTesting ? t('stuffer_test_running') : t('stuffer_test_btn')}
+                </button>
+              </div>
+            </div>
+
+            {/* FEAT-011: дополнительные аккаунты панели с индивидуальными
+                API-ключами. Ключи не отображаются — бэкенд их не отдаёт. */}
+            <div className="mt-3">
+              <div className="setting-desc mb-2">{t('settings_stuffer_accounts')}</div>
+              {stufferAccounts.length > 0 && (
+                <div className="flex flex-col gap-1 mb-2">
+                  {stufferAccounts.map(acc => (
+                    <div key={acc.id} className="flex items-center justify-between gap-2">
+                      <span className="text-sm">
+                        {acc.label}
+                        {acc.base_url ? (
+                          <span className="text-muted text-xs"> · {acc.base_url}</span>
+                        ) : null}
+                      </span>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        title={t('btn_delete')}
+                        onClick={() => deleteStufferAccount(acc)}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={accLabel}
+                  onChange={e => setAccLabel(e.target.value)}
+                  placeholder={t('settings_stuffer_acc_label_ph')}
+                  className="form-input"
+                />
+                <input
+                  type="password"
+                  value={accKey}
+                  onChange={e => setAccKey(e.target.value)}
+                  placeholder={t('settings_stuffer_acc_key_ph')}
+                  className="form-input"
+                />
+                <input
+                  type="text"
+                  value={accUrl}
+                  onChange={e => setAccUrl(e.target.value)}
+                  placeholder={t('settings_stuffer_acc_url_ph')}
+                  className="form-input"
+                />
+                <button
+                  onClick={addStufferAccount}
+                  disabled={accSaving}
+                  className="btn btn-sm btn-b self-end"
+                >
+                  {accSaving ? t('settings_stuffer_acc_adding') : t('settings_stuffer_acc_add')}
                 </button>
               </div>
             </div>

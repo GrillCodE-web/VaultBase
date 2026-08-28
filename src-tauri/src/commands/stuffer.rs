@@ -120,9 +120,18 @@ pub(crate) fn stuffer_get_labels(package_id: i64) -> Result<Vec<crate::stuffer::
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_create_package(package: crate::stuffer::PackageInput) -> Result<i64, String> {
+pub(crate) fn stuffer_create_package(
+    package: crate::stuffer::PackageInput,
+    account_id: Option<i64>,
+) -> Result<i64, String> {
     require_perm(models::perms::CREATE_PACKAGES)?;
-    let package_id = active_provider()?.create_package(&package)?;
+    // FEAT-011: посылка создаётся ключом аккаунта-источника курьера
+    // (общий список). Без account_id — легаси-ключ из настроек.
+    let provider = match account_id {
+        Some(id) if id > 0 => provider_for_account(id)?,
+        _ => active_provider()?,
+    };
+    let package_id = provider.create_package(&package)?;
     // FEAT-009: запоминаем последнюю созданную посылку — stuffer_link_order_package
     // без явного package_id привяжет именно её (сценарий «создал из карточки заказа»).
     if let Ok(mut last) = LAST_CREATED_PACKAGE.lock() {
@@ -292,6 +301,147 @@ pub(crate) fn stuffer_list_courier_tags(
         }
         tags.sort();
         Ok(tags)
+    })
+}
+
+// ── FEAT-011: общий список курьеров по аккаунтам панели ──
+// У каждого аккаунта свой API-ключ; список агрегируется со всех настроенных
+// аккаунтов (легаси-ключ из настроек = псевдоаккаунт #0 «Default» +
+// записи stuffer_accounts). Падение одного аккаунта не роняет весь список.
+
+/// Курьер в общем списке: данные панели + аккаунт-источник.
+#[derive(serde::Serialize)]
+pub(crate) struct SharedCourier {
+    account_id: i64,
+    account_label: String,
+    #[serde(flatten)]
+    courier: crate::stuffer::CourierFull,
+}
+
+/// Аккаунт, чей список курьеров не загрузился (сеть/ключ/панель).
+#[derive(serde::Serialize)]
+pub(crate) struct SharedCourierError {
+    account_id: i64,
+    account_label: String,
+    error: String,
+}
+
+#[derive(serde::Serialize)]
+pub(crate) struct SharedCourierList {
+    couriers: Vec<SharedCourier>,
+    errors: Vec<SharedCourierError>,
+}
+
+/// Источники общего списка: (account_id, label, provider_id, base_url, api_key).
+/// Легаси-ключ из настроек — account_id=0; аккаунт-дубликат легаси-ключа
+/// (та же тройка provider+url+key) пропускается, чтобы не плодить дубли.
+fn stuffer_account_sources() -> Result<Vec<(i64, String, String, String, String)>, String> {
+    with_db!(db, {
+        let mut sources: Vec<(i64, String, String, String, String)> = Vec::new();
+        if let Some(key) = db.get_config("stuffer_api_key").map_err(|e| e.to_string())? {
+            if !key.is_empty() {
+                let base = db.get_config("stuffer_base_url").map_err(|e| e.to_string())?
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| crate::stuffer::DEFAULT_BASE_URL.to_string());
+                let provider = db.get_config("stuffer_provider").map_err(|e| e.to_string())?
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "swat".to_string());
+                sources.push((0, "Default".to_string(), provider, base, key));
+            }
+        }
+        for acc in db.list_stuffer_accounts()? {
+            if acc.api_key.is_empty() { continue; }
+            let base = if acc.base_url.is_empty() {
+                crate::stuffer::DEFAULT_BASE_URL.to_string()
+            } else {
+                acc.base_url.clone()
+            };
+            if sources.iter().any(|(_, _, p, b, k)| p == &acc.provider && b == &base && k == &acc.api_key) {
+                continue;
+            }
+            sources.push((acc.id, acc.label, acc.provider, base, acc.api_key));
+        }
+        Ok(sources)
+    })
+}
+
+/// Провайдер конкретного аккаунта из реестра (его индивидуальный API-ключ).
+fn provider_for_account(account_id: i64) -> Result<Box<dyn stuffer::Provider>, String> {
+    let acc = with_db!(db, { db.get_stuffer_account(account_id) })?;
+    let base = if acc.base_url.is_empty() {
+        crate::stuffer::DEFAULT_BASE_URL.to_string()
+    } else {
+        acc.base_url
+    };
+    stuffer::provider_by_id(&acc.provider, &base, &acc.api_key)
+}
+
+/// Общий список курьеров со всех аккаунтов. Ошибки по отдельным аккаунтам
+/// возвращаются в errors, список остальных при этом отдаётся.
+#[tauri::command]
+pub(crate) fn stuffer_list_all_couriers() -> Result<SharedCourierList, String> {
+    require_perm(models::perms::VIEW_COURIERS)?;
+    let sources = stuffer_account_sources()?;
+    let mut out = SharedCourierList { couriers: Vec::new(), errors: Vec::new() };
+    for (account_id, label, provider_id, base_url, api_key) in sources {
+        match stuffer::provider_by_id(&provider_id, &base_url, &api_key)
+            .and_then(|p| p.list_couriers())
+        {
+            Ok(cs) => out.couriers.extend(cs.into_iter().map(|courier| SharedCourier {
+                account_id,
+                account_label: label.clone(),
+                courier,
+            })),
+            Err(e) => out.errors.push(SharedCourierError {
+                account_id,
+                account_label: label,
+                error: e,
+            }),
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub(crate) fn stuffer_list_accounts() -> Result<Vec<StufferAccount>, String> {
+    require_perm(models::perms::VIEW_COURIERS)?;
+    with_db!(db, { db.list_stuffer_accounts() })
+}
+
+#[tauri::command]
+pub(crate) fn stuffer_add_account(
+    label: String,
+    api_key: String,
+    base_url: Option<String>,
+) -> Result<i64, String> {
+    require_perm(models::perms::MANAGE_COURIERS)?;
+    let label = label.trim().to_string();
+    let base = base_url.as_deref().unwrap_or("").trim().to_string();
+    let key = api_key.trim().to_string();
+    with_db!(db, {
+        let id = db.add_stuffer_account(&label, &base, &key)?;
+        let _ = db.log_event(
+            "stuffer.account_added",
+            &format!("Stuffer account '{}' added", label),
+            Some("stuffer"),
+            Some(&id.to_string()),
+        );
+        Ok(id)
+    })
+}
+
+#[tauri::command]
+pub(crate) fn stuffer_delete_account(id: i64) -> Result<(), String> {
+    require_perm(models::perms::MANAGE_COURIERS)?;
+    with_db!(db, {
+        db.delete_stuffer_account(id)?;
+        let _ = db.log_event(
+            "stuffer.account_deleted",
+            &format!("Stuffer account {} deleted", id),
+            Some("stuffer"),
+            Some(&id.to_string()),
+        );
+        Ok(())
     })
 }
 

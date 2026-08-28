@@ -5,7 +5,7 @@
 // Файл подключается через include!() внутрь impl Database (см. mod.rs),
 // поэтому impl-обёртка не нужна.
 
-use crate::models::{OrderPackageLink, ProfilePackageLink};
+use crate::models::{OrderPackageLink, ProfilePackageLink, StufferAccount};
 
 const OPL_COLS: &str =
     "id,order_id,provider,package_id,courier_id,track,status,created_at,updated_at";
@@ -133,6 +133,65 @@ impl Database {
             updated += n as u32;
         }
         Ok(updated)
+    }
+
+    // ── FEAT-011: реестр stuffer-аккаунтов (индивидуальные API-ключи) ────
+
+    fn map_stuffer_account(r: &rusqlite::Row) -> rusqlite::Result<StufferAccount> {
+        Ok(StufferAccount {
+            id: r.get(0)?,
+            label: r.get(1)?,
+            provider: r.get(2)?,
+            base_url: r.get(3)?,
+            api_key: r.get(4)?,
+            created_at: r.get(5)?,
+        })
+    }
+
+    pub fn list_stuffer_accounts(&self) -> Result<Vec<StufferAccount>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id,label,provider,base_url,api_key,created_at FROM stuffer_accounts ORDER BY id",
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], Self::map_stuffer_account).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Аккаунт с API-ключом — только для внутреннего использования
+    /// (построение провайдера); на фронт ключ не уходит (serde skip).
+    pub fn get_stuffer_account(&self, id: i64) -> Result<StufferAccount, String> {
+        self.conn.query_row(
+            "SELECT id,label,provider,base_url,api_key,created_at FROM stuffer_accounts WHERE id=?1",
+            params![id], Self::map_stuffer_account,
+        ).map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => format!("stuffer_account_not_found: {}", id),
+            other => other.to_string(),
+        })
+    }
+
+    pub fn add_stuffer_account(&self, label: &str, base_url: &str, api_key: &str) -> Result<i64, String> {
+        if self.is_locked() { return Err("database_locked".into()); }
+        if label.is_empty() || label.chars().count() > 100 {
+            return Err("stuffer_account_label_invalid".into());
+        }
+        if api_key.is_empty() {
+            return Err("stuffer_account_key_empty".into());
+        }
+        if base_url.chars().count() > 500 {
+            return Err("stuffer_account_url_invalid".into());
+        }
+        self.conn.execute(
+            "INSERT INTO stuffer_accounts(label,base_url,api_key) VALUES(?1,?2,?3)",
+            params![label, base_url, api_key],
+        ).map_err(|e| e.to_string())?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn delete_stuffer_account(&self, id: i64) -> Result<(), String> {
+        if self.is_locked() { return Err("database_locked".into()); }
+        let n = self.conn.execute("DELETE FROM stuffer_accounts WHERE id=?1", params![id])
+            .map_err(|e| e.to_string())?;
+        if n == 0 { return Err(format!("stuffer_account_not_found: {}", id)); }
+        Ok(())
     }
 
     // ── FEAT-010: теги курьеров ("использован под X"), sync по хешу ─────
@@ -434,5 +493,50 @@ mod opl_tests {
 
         // изоляция по provider
         assert!(db.list_courier_tags_by_hash("other", &hash).unwrap().is_empty());
+    }
+
+    // ── FEAT-011: реестр stuffer-аккаунтов ──────────────────────────────
+
+    #[test]
+    fn test_stuffer_accounts_roundtrip() {
+        let (_dir, db) = test_db();
+        assert!(db.list_stuffer_accounts().unwrap().is_empty());
+
+        let id1 = db.add_stuffer_account("Main panel", "https://p1.example.com", "key-one").unwrap();
+        let id2 = db.add_stuffer_account("Second", "", "key-two").unwrap();
+
+        let all = db.list_stuffer_accounts().unwrap();
+        assert_eq!(all.len(), 2);
+        assert_eq!(all[0].label, "Main panel");
+        assert_eq!(all[0].provider, "swat", "провайдер по умолчанию");
+        assert_eq!(all[0].base_url, "https://p1.example.com");
+        assert_eq!(all[1].base_url, "", "пустой url → дефолт провайдера на бэкенде");
+
+        let got = db.get_stuffer_account(id2).unwrap();
+        assert_eq!(got.api_key, "key-two", "внутренний доступ видит ключ");
+
+        db.delete_stuffer_account(id1).unwrap();
+        assert_eq!(db.list_stuffer_accounts().unwrap().len(), 1);
+        assert!(db.delete_stuffer_account(id1).is_err(), "повторное удаление — ошибка");
+        assert!(db.get_stuffer_account(id1).is_err());
+    }
+
+    #[test]
+    fn test_stuffer_account_validation() {
+        let (_dir, db) = test_db();
+        assert_eq!(db.add_stuffer_account("", "", "k").unwrap_err(), "stuffer_account_label_invalid");
+        assert_eq!(db.add_stuffer_account("x".repeat(101).as_str(), "", "k").unwrap_err(), "stuffer_account_label_invalid");
+        assert_eq!(db.add_stuffer_account("ok", "", "").unwrap_err(), "stuffer_account_key_empty");
+        assert_eq!(db.add_stuffer_account("ok", "u".repeat(501).as_str(), "k").unwrap_err(), "stuffer_account_url_invalid");
+    }
+
+    #[test]
+    fn test_stuffer_account_key_never_serialized() {
+        let (_dir, db) = test_db();
+        let id = db.add_stuffer_account("Sec", "", "super-secret-key").unwrap();
+        let acc = db.get_stuffer_account(id).unwrap();
+        let json = serde_json::to_value(&acc).unwrap();
+        assert!(json.get("api_key").is_none(), "api_key не должен уходить на фронт");
+        assert!(json.get("label").is_some());
     }
 }

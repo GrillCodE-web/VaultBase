@@ -341,6 +341,17 @@ export const useCardsStore = create((set, get) => ({
     }
   },
 
+  // FEAT-001: авто-архив dead-карт — ВЕСЬ пул одной командой (не только
+  // текущая страница). Возвращает число архивированных карт.
+  archiveDeadCards: async () => {
+    const count = await invoke('archive_dead_cards')
+    if (count > 0) {
+      set({ selected: [], cache: {} })
+      await get().fetchCards(true)
+    }
+    return count
+  },
+
   bulkDelete: async ids => {
     await invoke('bulk_delete_cards', { ids })
 

@@ -20,6 +20,8 @@ import { safeGetItem, safeSetItem, safeSetJSON } from './utils/localStorage'
 import { escapeHtml } from './utils/escape.js'
 // SPRINT3-DAY2: Structured logging
 import { createLogger } from './utils/logger'
+// UX-012: нативные OS-уведомления (новая почта, статус посылки, ошибки sync)
+import { osNotify } from './utils/osNotify.js'
 
 const logger = createLogger('App')
 
@@ -430,6 +432,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     couriers: [
       { key: 'assigned', label: t('couriers_tab_assigned') },
       { key: 'available', label: t('couriers_tab_available') },
+      { key: 'shared', label: t('couriers_tab_shared') },
       { key: 'packages', label: t('couriers_tab_packages') },
     ],
     imap: [
@@ -612,6 +615,11 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       if (!p) return
       const shortErr = String(p.error || '').slice(0, 120)
       toast(`${t('imap_conn_alert')} #${p.account_id}: ${shortErr}`, 'error')
+      osNotify(
+        'os_notify_errors',
+        t('notify_imap_alert_title'),
+        t('notify_imap_alert_body', { id: p.account_id, error: shortErr })
+      )
     }).then(fn => {
       unlistenFn = fn
     })
@@ -670,6 +678,70 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // UX-012: нативные OS-уведомления — новая почта, смена статуса посылки, сбой sync.
+  // Тоглы: Settings → OS Notifications (config os_notify_*; '0' = выкл, дефолт вкл).
+  useEffect(() => {
+    let unlistenFns = []
+    let isMounted = true
+    Promise.all([
+      listen('new_imap_message', e => {
+        const p = e.payload
+        if (!p) return
+        osNotify(
+          'os_notify_mail',
+          t('notify_mail_title'),
+          t('notify_mail_body', { from: p.from || '—', subject: p.subject || '' })
+        )
+      }),
+      listen('order_status_update', e => {
+        const p = e.payload
+        if (!p) return
+        const statusKey = `status_${p.status}`
+        const statusLabel = t(statusKey)
+        osNotify(
+          'os_notify_package',
+          t('notify_package_title'),
+          t('notify_package_body', {
+            tracking: p.tracking_number || '—',
+            status: statusLabel === statusKey ? p.status : statusLabel,
+          })
+        )
+      }),
+      listen('sync_failed', e => {
+        const p = e.payload
+        osNotify(
+          'os_notify_errors',
+          t('notify_sync_failed_title'),
+          t('notify_sync_failed_body', { message: String((p && p.message) || '').slice(0, 120) })
+        )
+      }),
+    ])
+      .then(fns => {
+        if (isMounted) {
+          unlistenFns = fns
+        } else {
+          fns.forEach(fn => fn && fn())
+        }
+      })
+      .catch(err => {
+        if (import.meta.env.DEV) console.error('[App] OS notify listeners failed:', err)
+      })
+    return () => {
+      isMounted = false
+      unlistenFns.forEach(fn => {
+        if (typeof fn === 'function') {
+          try {
+            fn()
+          } catch (e) {
+            if (import.meta.env.DEV) console.error('[App] Error cleaning up OS notify listener:', e)
+          }
+        }
+      })
+      unlistenFns = []
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // SEC-024: предупреждение при работе на непроверенной лицензии (offline grace)
   const licenseOfflineWarnedRef = useRef(false)
   useEffect(() => {
@@ -700,6 +772,11 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             if (isMounted) {
               setOfflineMode(true)
               toast('Connection lost — Sync, Risk check, BIN lookup unavailable', 'error')
+              osNotify(
+                'os_notify_errors',
+                t('notify_sync_offline_title'),
+                t('notify_sync_offline_body')
+              )
             }
           }),
         ])

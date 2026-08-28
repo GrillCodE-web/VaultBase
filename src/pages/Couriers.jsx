@@ -53,11 +53,15 @@ export default function Couriers({ activeTab, onNavigate }) {
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const { hasPerm } = useAuth()
 
-  const tab = ['assigned', 'available', 'packages'].includes(activeTab) ? activeTab : 'assigned'
+  const tab = ['assigned', 'available', 'packages', 'shared'].includes(activeTab)
+    ? activeTab
+    : 'assigned'
 
   const [couriers, setCouriers] = useState([])
   const [available, setAvailable] = useState([])
   const [packages, setPackages] = useState([])
+  // FEAT-011: общий список курьеров по всем аккаунтам панели
+  const [shared, setShared] = useState({ couriers: [], errors: [] })
   const [loading, setLoading] = useState(false)
   const [addingId, setAddingId] = useState(null)
 
@@ -81,14 +85,18 @@ export default function Couriers({ activeTab, onNavigate }) {
   // валидирует значения). Дефолт — енум SWAT из docs/API_STUFFER.md.
   const [payOptions, setPayOptions] = useState(DEFAULT_PAY_OPTIONS)
   useEffect(() => {
-    invoke('stuffer_get_config')
-      .then(cfg => {
-        setStufferReady(!!cfg?.api_key_set)
-        if (Array.isArray(cfg?.pay_options) && cfg.pay_options.length) {
-          setPayOptions(cfg.pay_options)
-        }
-      })
-      .catch(() => setStufferReady(false))
+    // FEAT-011: раздел готов, если настроен легаси-ключ ИЛИ есть хотя бы
+    // один аккаунт в реестре (stuffer_accounts) с индивидуальным ключом.
+    Promise.all([
+      invoke('stuffer_get_config').catch(() => null),
+      invoke('stuffer_list_accounts').catch(() => []),
+    ]).then(([cfg, accs]) => {
+      const list = Array.isArray(accs) ? accs : []
+      setStufferReady(!!cfg?.api_key_set || list.length > 0)
+      if (Array.isArray(cfg?.pay_options) && cfg.pay_options.length) {
+        setPayOptions(cfg.pay_options)
+      }
+    })
   }, [])
 
   const load = useCallback(async () => {
@@ -98,6 +106,7 @@ export default function Couriers({ activeTab, onNavigate }) {
       if (tab === 'assigned') setCouriers(await invoke('stuffer_list_couriers'))
       else if (tab === 'available') setAvailable(await invoke('stuffer_list_available_couriers'))
       else if (tab === 'packages') setPackages(await invoke('stuffer_list_packages'))
+      else if (tab === 'shared') setShared(await invoke('stuffer_list_all_couriers'))
     } catch (e) {
       notify(e, `Couriers.load.${tab}`)
     } finally {
@@ -110,14 +119,16 @@ export default function Couriers({ activeTab, onNavigate }) {
     load()
   }, [load])
 
-  // Assigned couriers are needed for the "new package" courier selector.
+  // Курьеры для селектора «новой посылки» — FEAT-011: общий список со всех
+  // аккаунтов; посылка создаётся ключом аккаунта-источника курьера.
+  const [formCouriers, setFormCouriers] = useState([])
   useEffect(() => {
-    if (stufferReady && tab === 'packages' && couriers.length === 0) {
-      invoke('stuffer_list_couriers')
-        .then(setCouriers)
+    if (stufferReady && tab === 'packages' && formCouriers.length === 0) {
+      invoke('stuffer_list_all_couriers')
+        .then(res => setFormCouriers(res?.couriers || []))
         .catch(() => {})
     }
-  }, [tab, couriers.length, stufferReady])
+  }, [tab, formCouriers.length, stufferReady])
 
   const handleAdd = async id => {
     if (!hasPerm('manage_couriers')) return
@@ -184,8 +195,11 @@ export default function Couriers({ activeTab, onNavigate }) {
     setCreating(true)
     try {
       const tracks = form.tracks.filter(tr => tr.track.trim())
+      // FEAT-011: значение селектора — "accountId:courierId" (общий список);
+      // accountId=0 — легаси-аккаунт из настроек, параметр не передаём.
+      const [accId, courId] = String(form.courier_id).split(':')
       const pkg = {
-        courier_id: parseInt(form.courier_id, 10),
+        courier_id: parseInt(courId, 10),
         name: form.name || null,
         comment: form.comment || null,
         holder_name: form.holder_name || null,
@@ -202,7 +216,9 @@ export default function Couriers({ activeTab, onNavigate }) {
         pickup_holder_name: null,
         tracks: tracks.length ? tracks : null,
       }
-      const id = await invoke('stuffer_create_package', { package: pkg })
+      const args = { package: pkg }
+      if (Number(accId) > 0) args.accountId = Number(accId)
+      const id = await invoke('stuffer_create_package', args)
       toastOk(`${t('pkg_created')} #${id}`)
       setShowForm(false)
       setForm(EMPTY_FORM)
@@ -353,6 +369,66 @@ export default function Couriers({ activeTab, onNavigate }) {
     )
   }
 
+  // ── FEAT-011: Shared couriers (все аккаунты панели) ──
+  if (tab === 'shared') {
+    return (
+      <div className="content">
+        <div className="flex items-center justify-between mb-3">
+          <button className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />{' '}
+            {t('couriers_refresh')}
+          </button>
+          {hasPerm('manage_couriers') && (
+            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('settings')}>
+              <SettingsIcon size={14} /> {t('couriers_accounts_manage')}
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <SkeletonBlock rows={6} />
+        ) : (
+          <>
+            {shared.errors.length > 0 && (
+              <div className="text-muted mb-3">
+                {shared.errors.map(e => (
+                  <div key={e.account_id}>
+                    {t('couriers_shared_error', { label: e.account_label, error: e.error })}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!shared.couriers.length ? (
+              <EmptyState icon={<Truck size={40} />} title={t('couriers_shared_empty')} />
+            ) : (
+              <div className="couriers-grid p-4">
+                {shared.couriers.map(c => (
+                  <div key={`${c.account_id}:${c.id}`} className="courier-card">
+                    <div className="courier-card__head">
+                      <span className="courier-card__name">{c.name || `#${c.id}`}</span>
+                      <span className={`st st-${c.status || 'used'}`}>{c.status}</span>
+                    </div>
+                    <div className="courier-card__addr">
+                      <MapPin size={13} />
+                      <span>
+                        {[c.address1, c.address2].filter(Boolean).join(', ')}
+                        {c.city ? `, ${c.city}` : ''} {c.state} {c.zip} {c.country}
+                      </span>
+                    </div>
+                    <div className="courier-card__exp">
+                      <span className="st st-pending">{c.account_label}</span>
+                    </div>
+                    {renderPkgCount(c.packages)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
   // ── Packages ──
   return (
     <div className="content">
@@ -494,9 +570,9 @@ export default function Couriers({ activeTab, onNavigate }) {
             <span>{t('pkg_courier')} *</span>
             <select value={form.courier_id} onChange={e => setField('courier_id', e.target.value)}>
               <option value="">{t('pkg_select_courier')}</option>
-              {couriers.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name || `#${c.id}`}
+              {formCouriers.map(c => (
+                <option key={`${c.account_id}:${c.id}`} value={`${c.account_id}:${c.id}`}>
+                  {c.name || `#${c.id}`} · {c.account_label}
                 </option>
               ))}
             </select>

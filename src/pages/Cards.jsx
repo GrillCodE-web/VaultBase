@@ -105,6 +105,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     deleteCard,
     undoDelete,
     bulkUpdateStatus,
+    archiveDeadCards,
     bulkDelete,
     bulkEnrich,
     exportCards,
@@ -450,20 +451,18 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     }
   }
 
+  // FEAT-001: архивируются ВСЕ dead-карты пула одной командой бэкенда
+  // (archive_dead_cards), а не только текущая страница.
   const handleArchiveDead = async () => {
-    const deadIds = cards.filter(c => c.status === 'dead').map(c => c.id)
-    if (deadIds.length === 0) {
-      toast('No dead cards on this page', 'warn')
-      return
-    }
-    const ok = await confirm(
-      `Archive ${deadIds.length} dead card${deadIds.length !== 1 ? 's' : ''}?`,
-      t('status_archive')
-    )
+    const ok = await confirm(t('cc_archive_dead_confirm'), t('cc_archive_dead'))
     if (!ok) return
     try {
-      await bulkUpdateStatus(deadIds, 'archive')
-      toast(`${deadIds.length} dead cards archived`, 'success')
+      const count = await archiveDeadCards()
+      if (count === 0) {
+        toast(t('cc_archive_dead_none'), 'warn')
+      } else {
+        toast(t('cc_archive_dead_done', { n: count }), 'success')
+      }
     } catch (e) {
       const error = handleError(e, 'Cards.handleArchiveDead')
       toast(getErrorMessage(error), 'error')
@@ -672,8 +671,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             <button
               onClick={handleArchiveDead}
               className="btn btn-ghost btn-sm"
-              title="Archive all dead cards on this page"
-              aria-label={`${t('cc_archive_dead') || 'Archive dead cards'} - ${t('cc_archive_dead') || 'Archive dead cards'}`}
+              title={t('cc_archive_dead_hint')}
+              aria-label={t('cc_archive_dead') || 'Archive dead cards'}
             >
               <Archive size={12} aria-hidden="true" /> {t('cc_archive_dead')}
             </button>

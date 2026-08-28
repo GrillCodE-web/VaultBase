@@ -285,6 +285,30 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
     })
 }
 
+/// FEAT-001: авто-архив dead-карт по нажатию пользователя. В отличие от
+/// bulk_update_cards по выбранным id, одной командой переводит ВЕСЬ пул
+/// dead → archive. Возвращает число архивированных карт.
+#[tauri::command]
+pub(crate) fn archive_dead_cards() -> Result<u32, String> {
+    require_user()?;
+    with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        let (count, updates) = db.archive_dead_cards()?;
+        if count > 0 {
+            let _ = db.log_event(
+                "card.dead_archived",
+                &format!("{} dead cards archived (user-triggered)", count),
+                Some("card"), None,
+            );
+            // FIX P1-RETRY-05: тот же канал, что и у bulk_update_cards
+            if !updates.is_empty() {
+                let _ = crate::sync::SyncGroupClient::push_card_updates(db, &updates);
+            }
+        }
+        Ok(count)
+    })
+}
+
 #[tauri::command]
 pub(crate) fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
     // Массовое необратимое удаление — только админ, как и delete_card.

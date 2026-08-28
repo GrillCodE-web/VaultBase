@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 18;
+    const LATEST_VERSION: u32 = 19;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -76,6 +76,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
+        (19, migration_v19),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -651,6 +652,8 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     // courier_hash — SHA-256 нормализованной личности курьера
     // (provider|name|address1|city|state|zip) — по нему применяются
     // приходящие из группы теги, не раскрывая данные курьера серверу.
+    // ВНИМАНИЕ: ветка agent/upanel (FEAT-018) тоже несёт миграцию "v15"
+    // (upanel_connections) — при её влитии перенумеровать её в v17.
     fn migration_v16(conn: &Connection) -> SqlResult<()> {
         conn.execute_batch(r#"
             CREATE TABLE IF NOT EXISTS courier_tags (
@@ -715,5 +718,25 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 updated_at TEXT NOT NULL
             );",
         )?;
+        Ok(())
+    }
+
+    // FEAT-011: реестр stuffer-аккаунтов с индивидуальными API-ключами.
+    // Общий список курьеров агрегируется по всем аккаунтам; операции с
+    // курьером выполняются ключом его аккаунта. api_key — секрет (БД сама
+    // зашифрована SQLCipher; на фронт ключ не сериализуется — см. models.rs).
+    // Легаси-ключ из config (stuffer_api_key) остаётся «аккаунтом по
+    // умолчанию» (id=0 в общем списке) — мигрировать его сюда не нужно.
+    fn migration_v19(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS stuffer_accounts (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                label      TEXT NOT NULL,
+                provider   TEXT NOT NULL DEFAULT 'swat',
+                base_url   TEXT NOT NULL DEFAULT '',
+                api_key    TEXT NOT NULL DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        "#)?;
         Ok(())
     }

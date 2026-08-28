@@ -177,6 +177,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(move |app| {
@@ -236,6 +237,7 @@ fn main() {
             commands::cards::import_cards, commands::cards::get_cards, commands::cards::get_card, commands::cards::get_card_filter_meta, commands::cards::reveal_card,
             commands::cards::update_card_status, commands::cards::update_card_notes, commands::cards::delete_card,
             commands::cards::bulk_update_cards, commands::cards::bulk_delete_cards, commands::cards::export_cards, commands::cards::enrich_bin,
+            commands::cards::archive_dead_cards,
             commands::cards::create_profile, commands::cards::get_profiles, commands::cards::get_profile, commands::cards::get_profile_detail,
             commands::cards::update_profile, commands::cards::update_profile_notes,
             commands::cards::delete_profile, commands::cards::duplicate_profile, commands::cards::find_duplicate_profiles,
@@ -270,6 +272,8 @@ fn main() {
             commands::stuffer::stuffer_list_couriers, commands::stuffer::stuffer_list_available_couriers, commands::stuffer::stuffer_add_courier,
             commands::stuffer::stuffer_list_packages, commands::stuffer::stuffer_get_labels, commands::stuffer::stuffer_create_package,
             commands::stuffer::stuffer_test_write,
+            commands::stuffer::stuffer_list_accounts, commands::stuffer::stuffer_add_account,
+            commands::stuffer::stuffer_delete_account, commands::stuffer::stuffer_list_all_couriers,
             // FEAT-009: привязка посылок панели к заказам
             commands::stuffer::stuffer_link_order_package,
             commands::stuffer::stuffer_unlink_order_package,
