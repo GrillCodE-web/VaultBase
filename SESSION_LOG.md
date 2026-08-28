@@ -19,11 +19,13 @@
 
 ## Открыто сейчас (обновлять последней записью)
 
-- Активных клеймов нет. FEAT-006/007 закрыты 2026-08-28 (UI напоминаний,
-  запись ниже).
-- Следующие по приоритету (🟠): **MGR-013** (panic-пароль воркера — ждёт
-  утверждения дизайна у владельца). MGR-010 закрыт 2026-08-28 (запись ниже).
-- Далее (🟡): свободные 🟡/🟢 по чеклисту (MGR-009 закрыт 2026-08-28).
+- Активных клеймов нет. MGR-013 закрыт 2026-08-28 (запись ниже) — открытых
+  🟠 в чеклисте не осталось (24 открытых: 17 🟡 + 7 🟢).
+- Ночная вахта @main (владелец недоступен, работа автономная): дальше —
+  добор хвостов соседних worktree: agent/upanel (FEAT-018 готов на ветке,
+  влить в main), agent/frontend (PERF-009 закоммичен + незакоммиченный
+  snapshot), agent/backend (TEST-005 🔄 @a, WIP: e2e/settings.spec.js).
+- Далее (🟡/🟢): свободные пункты по чеклисту после разбора хвостов.
 - Флаг `ws_require_nonce` на сервере ВЫКЛ (legacy-совместимость): включить в
   админке после того, как флот воркеров обновится на версию с эхом nonce.
 
@@ -174,3 +176,41 @@
   падает без `as.exe` («CreateProcess»). MSVC-тулчейн на машине сломан
   (см. комментарий в src-tauri/rust-toolchain.toml), поэтому перед
   cargo/npm tauri-командами: `$env:PATH = "C:\msys64\mingw64\bin;$env:PATH"`.
+
+### 2026-08-28 — MGR-013 ✅ @main (ночная сессия, старт с восстановления обрыва)
+
+- Состояние на старте: серверная часть закоммичена прошлой сессией
+  (978c95d, 82/82), клиентская лежала незакоммиченным WIP оборванной сессии.
+  Разбор WIP: `wipe.rs`, `auth.rs`, `telemetry.rs`, `_core.rs`, `main.rs`,
+  manager-app (Workers.jsx + i18n), `src/i18n/*` — чистые; а вот
+  `src/pages/Settings.jsx` был испорчен mojibake (UTF-8 пересохранён как
+  CP1251: BOM + кракозябры во ВСЕХ кириллических строках файла). Файл откачен
+  (`git checkout --`), panic-фича накатана заново точечными правками:
+  state + `has_panic_password` в useEffect + handlers + setting-row в
+  Security-панели (классы только существующие: `st st-active`, `field-input`).
+- Клиент: sidecar v3 (`v3:salt:wrapped_dek:bcrypt(panic)`), команды
+  `set_panic_password` (panic ≠ master, bcrypt cost 14, только на
+  зашифрованной БД), `remove_panic_password`, `has_panic_password`.
+  `unlock` проверяет panic ДО открытия БД → `close_connections` +
+  `wipe::wipe_local_data` (перезапись первых 16 МБ + удаление sidecar/.bak/
+  DB/-wal/-shm/.plaintext.bak; БЕЗ логов и audit — снаружи «неверный пароль»).
+- Удалённый wipe: `wipe` из heartbeat-политики — одноразовый эффект (в
+  персистящийся `worker_policy` НЕ пишется, иначе restore после рестарта
+  повторил бы стирание); `wipe_ack` уходит ДО стирания (после него токен
+  мёртв); `perform_wipe_and_restart` в `telemetry_tick` и
+  `telemetry_send_heartbeat` (оба теперь принимают AppHandle; `app.restart()`
+  после удаления файлов). При 403-политике (бан+wipe) ack уходит тем же
+  конвертом.
+- manager-app: Workers.jsx — кнопка «Стереть данные» (только не-менеджерам),
+  тег «wipe ожидает» при `wipe=1` (GET /workers поле уже отдаёт); i18n en+ru.
+- Коммиты: `546fc40` (клиент+UI+i18n обоих приложений). Ранее: `6273b16`
+  (клейм), `978c95d` (сервер).
+- Проверки: cargo test 157/157 (+5 новых: wipe×2, sidecar v1/v2/v3×2,
+  apply_policy_wipe one-shot); vitest 327/327; eslint 0 err (4 pre-existing
+  warnings); audit_frontend 0 сирот/0 фантомов; manager-app eslint 0.
+  Серверные тесты не перепрогонялись — сервер не менялся с 82/82 (978c95d).
+  Живой прогон wipe в собранном приложении не делался (нужен полный цикл
+  Tauri: unlock→panic, heartbeat→wipe) — логика покрыта юнит-тестами.
+- Урок для сессий на этой машине: НЕ редактировать файлы с кириллицей через
+  PowerShell Set-Content/Add-Content без `-Encoding utf8` — получается
+  mojibake. Править только file-инструментами агента.
