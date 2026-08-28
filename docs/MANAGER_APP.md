@@ -70,20 +70,24 @@ plaintext-полем (единственная не-PII метка, нужна �
 
 ### /manager/api (Bearer token, role=manager)
 
-| Метод и путь                                            | Назначение                                                                                                               |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| GET `/overview`                                         | счётчики: воркеры/онлайн/баны/алерты/новости/карты/группы/футпринты                                                      |
-| GET `/workers`                                          | лицензии + последний heartbeat (конверт) + политика                                                                      |
-| POST `/workers/:iid/policy`                             | бан/причина/до, квоты cards/orders, permissions_override (JSON bool), min_version, version_exempt (разлок), force_logout |
-| POST `/workers/:iid/force-logout`                       | одномоментный force_logout=1                                                                                             |
-| GET/POST `/news`, PATCH/DELETE `/news/:id`              | черновики и правки                                                                                                       |
-| POST `/news/:id/publish` \| `/unpublish`                | публикация → WS-broadcast `news` всем воркерам                                                                           |
-| GET `/news/:id/readers`                                 | кто прочитал + размер аудитории                                                                                          |
-| GET `/alerts?status=`, POST `/alerts/:id/ack`\|`/close` | алерты и их жизненный цикл                                                                                               |
-| GET/POST/PATCH/DELETE `/priorities`                     | приоритеты магазинов (target: `\|iid:<id>\|role:operator\|role:admin`, weight 1–10)                                      |
-| POST `/keys` (ротация), GET `/keys`                     | менеджерские X25519-ключи                                                                                                |
-| GET `/reports?from&to&kind`                             | зашифрованные отчёты (ciphertext)                                                                                        |
-| GET `/groups`, GET `/releases`                          | только счётчики/метаданные                                                                                               |
+| Метод и путь                                            | Назначение                                                                                                                         |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/overview`                                         | счётчики: воркеры/онлайн/баны/алерты/новости/карты/группы/футпринты                                                                |
+| GET `/workers`                                          | лицензии + последний heartbeat (конверт) + политика                                                                                |
+| POST `/workers/:iid/policy`                             | бан/причина/до, квоты cards/orders, permissions_override (JSON bool), min_version, version_exempt (разлок), force_logout           |
+| POST `/workers/:iid/force-logout`                       | одномоментный force_logout=1                                                                                                       |
+| GET/POST `/news`, PATCH/DELETE `/news/:id`              | черновики и правки                                                                                                                 |
+| POST `/news/:id/publish` \| `/unpublish`                | публикация → WS-broadcast `news` всем воркерам                                                                                     |
+| GET `/news/:id/readers`                                 | кто прочитал + размер аудитории                                                                                                    |
+| GET `/alerts?status=`, POST `/alerts/:id/ack`\|`/close` | алерты и их жизненный цикл                                                                                                         |
+| GET/POST/PATCH/DELETE `/priorities`                     | приоритеты магазинов (target: `\|iid:<id>\|role:operator\|role:admin`, weight 1–10)                                                |
+| POST `/keys` (ротация), GET `/keys`                     | менеджерские X25519-ключи                                                                                                          |
+| GET `/reports?from&to&kind`                             | зашифрованные отчёты (ciphertext)                                                                                                  |
+| GET `/groups`, GET `/releases`                          | только счётчики/метаданные                                                                                                         |
+| GET `/licenses`                                         | список лицензий: label/role/is_active/даты, `token_issued` + маскированный префикс хеша (открытых токенов нет), бан из политики    |
+| POST `/licenses`                                        | регистрация лицензии (installation_id + challenge, role `operator`\|`manager`); ответ — `activation_key` (деривация как в админке) |
+| PATCH `/licenses/:iid`                                  | правка label/role (свою роль менять нельзя, `admin` — только в админке)                                                            |
+| POST `/licenses/:iid/revoke` \| `/restore`              | деактивация (токен мёртв сразу, себя отозвать нельзя) / восстановление                                                             |
 
 ### /api/telemetry (Bearer token, роль worker — manager запрещён)
 
@@ -171,10 +175,11 @@ Payload heartbeat (в конверте):
   (включается в фазе 2 вместе с отдельным signing key).
 - Аналитика работает по факту появления отчётов; пока воркер не шлёт телеметрию — пустые
   состояния (заложены в UI).
-- Список лицензий/создание менеджерских лицензий — пока только через веб-админку
-  сервера (`role=manager` в форме создания лицензии уже поддержано моделью БД).
-  План: полное управление лицензиями из manager-app (MGR-010) — минимальный
-  админ-эндпоинт CRUD лицензий на сервере + UI в manager-app.
+- Управление лицензиями (MGR-010) выполнено: список, создание (operator/manager),
+  переименование, деактивация/восстановление — прямо из manager-app (страница
+  «Лицензии»). Создание `role=admin` и ротация токена намеренно остаются только
+  в веб-админке сервера. Открытые токены менеджеру не показываются — только факт
+  выдачи и префикс хеша (MGR-008).
 - WS для менеджер-приложения (live-feed) — опрос 30 с (轮будет заменён на WS в фазе 3).
 - Сервер-харденинг (MGR-008) выполнен: токены лицензий и user_token в footprints
   хранятся только как SHA-256 (миграция v13), kill-switch деплоя глушит
@@ -186,9 +191,10 @@ Payload heartbeat (в конверте):
 
 ## 7. Проверки
 
-- Сервер: `cd cc-sync-server && npm test` — 79 интеграционных тестов
+- Сервер: `cd cc-sync-server && npm test` — 80 интеграционных тестов
   (роли, бан на всех каналах, конверты, новости+таргетинг+прочтения, приоритеты,
-  алерты, аудит, админ-сессии, rate-limit, WS: nonce-anti-replay и kill-switch).
+  алерты, аудит, админ-сессии, rate-limit, WS: nonce-anti-replay и kill-switch,
+  CRUD лицензий менеджером).
 - Менеджер-приложение: `cd manager-app && npm run lint && npm run build`
   (0 error), `cd manager-app/src-tauri && cargo test` (unit: crypto roundtrip,
   sidecar, SQLCipher-миграция, challenge).

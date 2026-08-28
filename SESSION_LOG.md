@@ -24,8 +24,8 @@
   `card_expiry_reminder` / `tracking_stale_reminder`, i18n en+ru, опц. пороги в
   Settings). Заявка лежит в «Запросы между потоками» PARALLEL_WORK.md →
   frontend-поток. Если UI берёт @main — обновить клейм.
-- Следующие по приоритету (🟠): **MGR-010** (CRUD лицензий из manager-app),
-  **MGR-013** (panic-пароль воркера — ждёт утверждения дизайна у владельца).
+- Следующие по приоритету (🟠): **MGR-013** (panic-пароль воркера — ждёт
+  утверждения дизайна у владельца). MGR-010 закрыт 2026-08-28 (запись ниже).
 - Далее (🟡): MGR-009 (updater + staged rollout для manager-app).
 - Флаг `ws_require_nonce` на сервере ВЫКЛ (legacy-совместимость): включить в
   админке после того, как флот воркеров обновится на версию с эхом nonce.
@@ -100,3 +100,26 @@
   middleware ищет по `token_hash`; фикс — сидить `token=NULL` +
   `hashToken(...)`. После фикса 79/79. Хвост закрыт, записан также в
   PARALLEL_WORK.md «Незакрытые хвосты».
+
+### 2026-08-28 — MGR-010 ✅ @main
+
+- Полное управление лицензиями из manager-app. Сервер
+  (`cc-sync-server/routes/manager-api.js`): GET `/licenses` (список с
+  `token_issued` + маск. префиксом хеша и баном из политики — открытых токенов
+  нет, MGR-008), POST `/licenses` (installation_id+challenge, role
+  operator|manager, ответ `activation_key` через `deriveActivationKey` —
+  та же деривация, что в админке), PATCH `/licenses/:iid` (label/role;
+  свою роль менять нельзя, admin — только в админке), POST
+  `/licenses/:iid/revoke` | `/restore` (себя отозвать нельзя; revoke убивает
+  токен сразу). Все мутации в `audit_log` (`manager_license_*`).
+- UI: `manager-app/src/pages/Licenses.jsx` — таблица лицензий, создание с
+  показом ключа активации (копирование в буфер), переименование,
+  деактивация/восстановление; врезана в Shell.jsx (nav `nav_licenses`), i18n
+  en+ru. Доки: MANAGER_APP.md (таблица API + ограничения + счётчик тестов).
+- Коммиты `084975d` (клейм), `f83727d` (код+тесты+i18n).
+- Проверки: сервер `npm test` — 80/80 (новый тест: create/list/patch/
+  revoke/restore + self-guards + 403 для воркера + мёртвый токен после
+  revoke); manager-app `npm run lint` — 0 ошибок; `npm run build` — ok.
+- Обрыв: сессия стартовала с незакоммиченными правками прошлой сессии
+  (сервер+тесты+i18n+Licenses.jsx готовы, не врезана в Shell, не прогнаны
+  проверки). Подобрано по `git status` + журналу, доведено до конца.
