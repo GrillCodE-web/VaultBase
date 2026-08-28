@@ -159,6 +159,11 @@ const data = {
   get_challenge_code: 'MOCK-CHALLENGE',
   get_sidebar_badges: { pending_orders: 1, expiring_cards: 2, no_drop_profiles: 0, clean_emails: 3, unread_imap: 4, unsynced_footprints: 0 },
   global_search: { cards: cards.slice(0, 2), orders: orders.slice(0, 2), profiles: profiles.slice(0, 1), shops: shops.slice(0, 1), emails: [], proxies: [] },
+  // FEAT-018/FEAT-011/UX: стабы, чтобы вкладки рендерились без warning-шума
+  upanel_connections_list: [],
+  upanel_get_api_status: { ok: true, message: 'mock' },
+  stuffer_list_accounts: [],
+  has_panic_password: false,
 
   get_cards: { items: cards, total: cards.length, free_total: 2 },
   get_card: cards[0],
@@ -213,7 +218,7 @@ const data = {
   // JSON.stringify выкидывает функции из мока — только статичные значения
   get_imap_stats: { total: 25, unread: 4 },
   get_imap_folders: ['INBOX', 'Sent', 'Spam'],
-  get_smtp_configs: [],
+  get_smtp_configs: [{ id: 1, name: 'Mock SMTP', host: 'smtp.mock.dev', port: 587, username: 'mock', from_email: 'mock@example.com', use_tls: true }],
   list_domain_routes: [],
   get_emails: { items: imapAccounts.map(a => ({ id: a.id, email: a.label, status: 'free' })), total: 2 },
 
@@ -393,41 +398,121 @@ for (let i = 0; i < count; i++) {
   }
 }
 
-// 3. MGR-006: вкладка «Shops» каталога — сортировка по приоритетам менеджера
-try {
-  const catalogNav = page.locator('button.sbi', { hasText: /catalog|каталог/i })
-  if (await catalogNav.count()) {
-    await catalogNav.first().click({ timeout: 5000 })
-    await page.waitForTimeout(700)
-    const shopsTab = page.locator('.topbar .tab', { hasText: /shops/i })
-    if (await shopsTab.count()) {
-      await shopsTab.first().click({ timeout: 3000 })
-      await shot('nav-98-catalog-shops-priority')
-    }
-  }
-} catch (e) {
-  report.pages['nav-98-catalog-shops-priority'] = 'FAILED: ' + e.message.split('\n')[0]
-  console.log('[fail] catalog-shops-priority', e.message.split('\n')[0])
+function slug(s, fallback) {
+  const v = String(s || '').replace(/\d+/g, '').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').toLowerCase()
+  return v || fallback
 }
 
-// 4. Попытаться открыть типовые модалки (создание) — ищем кнопки с плюсом/«добавить»
-const modalTriggers = [
-  /создать|добавить|нов|add|create|import|импорт/i,
+async function navTo(re) {
+  const nav = page.locator('button.sbi', { hasText: re }).first()
+  if (!(await nav.count())) return false
+  try {
+    await nav.click({ timeout: 5000 })
+    await page.waitForTimeout(700)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// 3. Под-табы топбара на всех страницах, где они есть
+const tabbedPages = [
+  { nav: /cards|карты/i, prefix: 'cards' },
+  { nav: /orders|заказы/i, prefix: 'orders' },
+  { nav: /profiles|профили/i, prefix: 'profiles' },
+  { nav: /catalog|каталог/i, prefix: 'catalog' },
+  { nav: /couriers|курьер/i, prefix: 'couriers' },
 ]
-for (const re of modalTriggers) {
-  const btns = page.locator('button', { hasText: re })
-  const n = Math.min(await btns.count(), 3)
+for (const p of tabbedPages) {
+  if (!(await navTo(p.nav))) continue
+  const tabs = page.locator('.topbar .tab')
+  const tn = await tabs.count()
+  for (let i = 0; i < tn; i++) {
+    try {
+      const label = ((await tabs.nth(i).textContent()) || '').trim()
+      await tabs.nth(i).click({ timeout: 3000 })
+      await shot(`tab-${p.prefix}-${String(i + 1).padStart(2, '0')}-${slug(label, 'tab-' + i)}`)
+    } catch (e) {
+      report.pages[`tab-${p.prefix}-${i}`] = 'FAILED: ' + e.message.split('\n')[0]
+      console.log('[fail] tab', p.prefix, i, e.message.split('\n')[0])
+    }
+  }
+}
+
+// 4. Proxies: внутренние вкладки (PPTP — дефолт, список прокси — вторая)
+if (await navTo(/proxies|прокси/i)) {
+  const innerTabs = page.locator('.content .tabs .tab')
+  const n = await innerTabs.count()
   for (let i = 0; i < n; i++) {
     try {
-      await btns.nth(i).click({ timeout: 3000 })
-      await page.waitForTimeout(700)
-      const modal = page.locator('.modal, [role="dialog"]').first()
-      if (await modal.isVisible().catch(() => false)) {
-        await shot(`modal-${i}`)
+      const label = ((await innerTabs.nth(i).textContent()) || '').trim()
+      await innerTabs.nth(i).click({ timeout: 3000 })
+      await shot(`tab-proxies-${String(i + 1).padStart(2, '0')}-${slug(label, 'tab-' + i)}`)
+    } catch (e) {
+      console.log('[fail] proxies tab', i, e.message.split('\n')[0])
+    }
+  }
+}
+
+// 5. Типовые модалки создания на ключевых страницах
+const modalPages = [
+  { nav: /cards|карты/i, prefix: 'cards', triggers: [/add|добавить|import|импорт/i] },
+  { nav: /orders|заказы/i, prefix: 'orders', triggers: [/create|создать|new|нов/i] },
+  { nav: /profiles|профили/i, prefix: 'profiles', triggers: [/нов|new|add|добавить|create|создать/i] },
+  { nav: /shops|магаз/i, prefix: 'shops', triggers: [/нов|new|add|добавить|create|создать/i] },
+  { nav: /imap|почта|mail/i, prefix: 'imap', triggers: [/compose|написать/i] },
+]
+for (const p of modalPages) {
+  if (!(await navTo(p.nav))) continue
+  for (const re of p.triggers) {
+    const btns = page.locator('main button', { hasText: re })
+    const n = Math.min(await btns.count(), 2)
+    for (let i = 0; i < n; i++) {
+      try {
+        const label = ((await btns.nth(i).textContent()) || '').trim()
+        await btns.nth(i).click({ timeout: 3000 })
+        await page.waitForTimeout(800)
+        const modal = page.locator('.modal, [role="dialog"]').first()
+        if (await modal.isVisible().catch(() => false)) {
+          await shot(`modal-${p.prefix}-${slug(label, 'm' + i)}`)
+        }
         await page.keyboard.press('Escape')
         await page.waitForTimeout(400)
-      }
-    } catch { /* триггер не сработал — не критично */ }
+      } catch { /* триггер не сработал — не критично */ }
+    }
+  }
+}
+
+// 6. Глобальный поиск с результатами
+try {
+  const searchBtn = page.locator('button.sbi', { hasText: /search|поиск/i }).first()
+  if (await searchBtn.count()) {
+    await searchBtn.click({ timeout: 5000 })
+    await page.waitForTimeout(600)
+    const input = page.locator('.search-overlay input, [class*="search"] input').first()
+    if (await input.isVisible().catch(() => false)) {
+      await input.fill('amazon')
+      await page.waitForTimeout(900)
+      await shot('search-results')
+    }
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+  }
+} catch (e) {
+  console.log('[fail] search', e.message.split('\n')[0])
+}
+
+// 7. Settings: секции длинной страницы (верх / середина / низ)
+if (await navTo(/settings|настройки/i)) {
+  const scroller = page.locator('.main-content-scroll')
+  try {
+    const h = await scroller.evaluate(el => el.scrollHeight - el.clientHeight)
+    for (const [i, pos] of [0, 0.5, 1].entries()) {
+      await scroller.evaluate((el, y) => el.scrollTo({ top: y }), Math.round(h * pos))
+      await shot(`settings-scroll-${i + 1}`)
+    }
+  } catch (e) {
+    console.log('[fail] settings scroll', e.message.split('\n')[0])
   }
 }
 
