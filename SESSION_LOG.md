@@ -19,15 +19,18 @@
 
 ## Открыто сейчас (обновлять последней записью)
 
-- Активных клеймов нет. MGR-013 закрыт 2026-08-28 (запись ниже) — открытых
-  🟠 в чеклисте не осталось. От @b влиты UX-018/019 и PERF-009
-  (origin/main → main, записи ниже). FEAT-006/007 закрыты 2026-08-28.
-- В manager-work параллельно идёт вторая живая сессия (claim FEAT-002,
-  PERF-014): её WIP-файлы не трогать, коммиты только с явными путями.
-- Ночная вахта @main (владелец недоступен, работа автономная): дальше —
-  добор хвостов соседних worktree: agent/upanel (FEAT-018 готов на ветке,
-  влить в main), agent/frontend (незакоммиченный snapshot после PERF-009),
-  agent/backend (TEST-005 🔄 @a, WIP: e2e/settings.spec.js).
+- MGR-013 закрыт 2026-08-28 (запись ниже) — открытых 🟠 в чеклисте не
+  осталось. От @b влиты UX-018/019 и PERF-009 (origin/main → main, записи
+  ниже). FEAT-006/007 закрыты 2026-08-28. PERF-014 закрыт 2026-08-28 второй
+  сессией @main (запись ниже).
+- В manager-work параллельно идут ДВЕ сессии @main (владелец дал обеим
+  одинаковую ночную задачу). Разделение: вахта-1 делает FEAT-002 🔄 и добор
+  хвостов worktree (ниже), вахта-2 сделала PERF-014 ✅. WIP-файлы друг друга
+  не трогать, коммиты только с явными путями.
+- Ночная вахта @main-1: дальше — добор хвостов соседних worktree:
+  agent/upanel (FEAT-018 готов на ветке, влить в main), agent/frontend
+  (незакоммиченный snapshot после PERF-009), agent/backend (TEST-005 🔄 @a,
+  WIP: e2e/settings.spec.js).
 - Далее (🟡/🟢): свободные пункты по чеклисту после разбора хвостов.
 - Флаг `ws_require_nonce` на сервере ВЫКЛ (legacy-совместимость): включить в
   админке после того, как флот воркеров обновится на версию с эхом nonce.
@@ -266,3 +269,37 @@
 - Слияние: как и в прошлый раз, пуш `agent/frontend:main` (ff) — main в
   manager-work занят сессией MGR-013. Ручной прогон в Tauri не делался:
   поведение покрыто unit-тестами, e2e-мок reveal не гоняет.
+
+### 2026-08-28 — PERF-014 ✅ @main (вахта-2, manager-work)
+
+- Lazy-загрузка recharts и jsPDF — стартовый бандл похудел с ~1.71 МБ до
+  ~1.12 МБ (eager: main 54 КБ + vendor 739 КБ + pages-components 325 КБ;
+  async: charts 305 КБ, jspdf.es.min 338 КБ + autotable 31 КБ — ни один не
+  попадает в modulepreload index.html, проверено по dist).
+- `DashboardRedesigned.jsx`: `RevenueChart`/`Heatmap` через
+  `React.lazy(() => import('./Dashboard/charts').then(...))` + `<Suspense>`
+  (fallback — пустой div фиксированной высоты, 260/120px). `PERIODS` вынесены
+  в новый `src/pages/Dashboard/periods.js` (без recharts); `charts.jsx`
+  реэкспортирует их (`export { PERIODS } from './periods.js'`) — старые
+  импорты не сломаны.
+- `src/utils/pdfExport.js`: `exportCardsToPDF` стал async, внутри
+  `Promise.all([import('jspdf'), import('jspdf-autotable')])`. Точка вызова в
+  `Cards.jsx` (bulk PDF-экспорт): `.catch(e => handleError(e, 'Cards.exportPDF'))`.
+- КЛЮЧЕВАЯ ЛОВУШКА (rolldown-vite): `manualChunks` с именованными чанками
+  (`recharts → 'charts'` и т.п.) ЛОМАЕТ ленивость — такой чанк попадает в
+  `<link rel="modulepreload">` обоих entry (index.html и float.html) и
+  грузится на старте, даже если достижим только через динамический import().
+  Лечение: `return undefined` для `recharts`/`d3-`/`jspdf` в manualChunks —
+  тогда rolldown сам кладёт их в async-чанки. Та же болезнь у чанка
+  `pages-components` (325 КБ preloaded) — НЕ трогал: его правило помечено
+  как защита от circular deps, отдельный пункт если что.
+- Коммиты: `982c904` (клейм), `4105cfc` (код).
+- Проверки: `npm run lint` — 0 ошибок (3 pre-existing warnings: App.jsx,
+  float.jsx, charts.jsx getHeatmapClass); `npx vitest run` — 327/327 (прогон
+  до мержа @b; после a12651d в main 330); `python scripts/audit_frontend.py` —
+  критичных проблем нет; `npm run build` — чанки разнесены, preload-лист
+  чистый; e2e `cards.spec.js` chromium — 4/4.
+- Ручной прогон в Tauri не делался (в manager-work работает вторая сессия).
+- Параллелизм: за время моей работы вахта-1 закрыла MGR-013 (546fc40,
+  71435d1) и взяла FEAT-002 (f761502, _orders.rs/orders.rs). Коллизий по
+  файлам не было — потоки разошлись.
