@@ -162,6 +162,11 @@ Push отклонили (кто-то уже влился) → снова `fetch`
     Пороги — config-ключи `reminder_card_expiry_days` (деф. 14) и
     `reminder_tracking_stale_days` (деф. 5). Нужно: тосты/баннеры по этим событиям
     (i18n en+ru); опционально — поля порогов в Settings.
+- 2026-08-28 — **B → A (backend)**: UX-010 (DnD-импорт CSV) — фронт на HTML5 drop,
+  но в десктопе OS-дроп перехватывается нативно (Tauri `dragDropEnabled` по умолчанию
+  true) и до webview не доходит. Просьба: в `src-tauri/tauri.conf.json` для окна `main`
+  выставить `"dragDropEnabled": false` — тогда drop придёт как HTML5-событие. Либо дать
+  `fs:allow-read-text-file` в capabilities — тогда дочитаю путь из `onFileDropEvent`.
 
 ## Стартовые промпты для сессий
 
