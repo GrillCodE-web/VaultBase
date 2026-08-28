@@ -571,3 +571,26 @@
   из App.jsx/Settings.jsx.
 - Коммиты: `8953f73` (код FEAT-002, 5 файлов +221/-18), `42d4a10`
   (build: check-env.ps1).
+
+## 2026-08-28, @main — UX-012 ✅ (докоммит осиротевшего WIP)
+
+- **UX-012** (OS-уведомления): докоммитил WIP умершей сессии одним коммитом
+  (8 файлов, +596): `@tauri-apps/plugin-notification` (package.json/lock,
+  Cargo.toml/lock, `notification:default` в capabilities), `src/utils/osNotify.js`
+  (best-effort обёртка: конфиг-ключи os_notify_mail/package/errors, запрос
+  permission, ошибки проглатываются), `background.rs` — edge-события
+  `sync_failed` (только первый сбой подряд, антиспам) и `order_status_update`
+  (только реальная смена статуса: терминальные и shipped→shipped отсекаются),
+  e2e-мок `plugin:notification|*` → `window.__e2e.notifications`.
+- **Связность проверена перед коммитом**: регистрация плагина в main.rs
+  (`.plugin(tauri_plugin_notification::init())`) уже была в HEAD; App.jsx
+  слушает `sync_failed`/`new_imap_message`/`imap_connection_alert`/
+  `order_status_update` → `osNotify`; три тогла в Settings.jsx — в HEAD.
+  До коммита HEAD был рассинхронизирован (импорты `./utils/osNotify.js` без
+  самого файла) — теперь согласован.
+- **Проверки**: вся связка (cargo 179/179, vitest 330/330, ESLint 0 err,
+  audit 0/0) прогонялась ранее С этим кодом в дереве; lint-staged зелёный
+  на обоих коммитах. Live-отображение нативного уведомления в ОС НЕ
+  проверялось (headless-среда, нет запуска `tauri dev`).
+- Также закоммичены хелперы: `openssl-retry.cmd`, `run-cargo-test.cmd`.
+- Коммиты: `8cc984a` (UX-012), `770e651` (хелперы). Дерево чистое.
