@@ -19,11 +19,8 @@
 
 ## Открыто сейчас (обновлять последней записью)
 
-- Активные клеймы: **FEAT-006/007** 🔄 @main — backend (cron в
-  `background.rs`) готов, осталась UI-часть (тосты/баннеры по событиям
-  `card_expiry_reminder` / `tracking_stale_reminder`, i18n en+ru, опц. пороги в
-  Settings). Заявка лежит в «Запросы между потоками» PARALLEL_WORK.md →
-  frontend-поток. Если UI берёт @main — обновить клейм.
+- Активных клеймов нет. FEAT-006/007 закрыты 2026-08-28 (UI напоминаний,
+  запись ниже).
 - Следующие по приоритету (🟠): **MGR-013** (panic-пароль воркера — ждёт
   утверждения дизайна у владельца). MGR-010 закрыт 2026-08-28 (запись ниже).
 - Далее (🟡): MGR-009 (updater + staged rollout для manager-app).
@@ -123,3 +120,26 @@
 - Обрыв: сессия стартовала с незакоммиченными правками прошлой сессии
   (сервер+тесты+i18n+Licenses.jsx готовы, не врезана в Shell, не прогнаны
   проверки). Подобрано по `git status` + журналу, доведено до конца.
+
+### 2026-08-28 — FEAT-006/007 ✅ @main
+
+- UI-часть ежедневных напоминаний (backend-cron `card_expiry_reminder` /
+  `tracking_stale_reminder` в `background.rs` уже был). Frontend-поток,
+  висящий клейм @main закрыт.
+- `src/App.jsx`: два `listen()` в MainShell. Тост `warning` 10 с с
+  groupKey-дедупом (cron раз в сутки, но окно может пережить ремаунт).
+  FEAT-006 → action «Открыть карты»: `handlePageChange('cards')` +
+  `setActiveTab('expiring')`. FEAT-007 → action «Открыть заказы»:
+  `handlePageChange('orders')`.
+- `src/pages/Settings.jsx`: новая панель «Напоминания» (иконка
+  CalendarClock). Пороги `reminder_card_expiry_days` (3/7/14/30, default 14)
+  и `reminder_tracking_stale_days` (3/5/10/14, default 5) — get/set через
+  `get_config`/`set_config`, подхватываются cron'ом на бэке.
+- i18n en+ru: reminder_card_expiry_toast/tracking_stale_toast ({count}/{days}),
+  open_cards/open_orders, заголовки/описания порогов, reminders_section,
+  reminder_days_short.
+- Коммиты: `0565e3f` (код), `7e8c172` (чеклист).
+- Проверки: `npm run lint` — 0 ошибок (4 pre-existing warnings в
+  Dashboard/charts.jsx); `python scripts/audit_frontend.py` — 0 сиротских
+  классов, 0 фантомных токенов (долги — pre-existing); `npx vitest run` —
+  327/327. Ручной прогон Tauri не делал — listener'ы не покрыты e2e-моком.
