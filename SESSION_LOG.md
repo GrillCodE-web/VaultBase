@@ -20,9 +20,9 @@
 ## Открыто сейчас (обновлять последней записью)
 
 - MGR-013 закрыт 2026-08-28 (запись ниже) — открытых 🟠 в чеклисте не
-  осталось. От @b влиты UX-018/019 и PERF-009 (origin/main → main, записи
-  ниже). FEAT-006/007 закрыты 2026-08-28. PERF-014 закрыт 2026-08-28 второй
-  сессией @main (запись ниже).
+  осталось. От @b влиты UX-018/019, PERF-009 и UX-003 (origin/main → main,
+  записи ниже). FEAT-006/007 закрыты 2026-08-28. PERF-014 закрыт 2026-08-28
+  второй сессией @main (запись ниже).
 - В manager-work параллельно идут ДВЕ сессии @main (владелец дал обеим
   одинаковую ночную задачу). Разделение: вахта-1 делает FEAT-002 🔄 и добор
   хвостов worktree (ниже), вахта-2 сделала PERF-014 ✅. WIP-файлы друг друга
@@ -303,3 +303,38 @@
 - Параллелизм: за время моей работы вахта-1 закрыла MGR-013 (546fc40,
   71435d1) и взяла FEAT-002 (f761502, _orders.rs/orders.rs). Коллизий по
   файлам не было — потоки разошлись.
+
+### 2026-08-28 — UX-003 ✅ @b (worktree agent-frontend)
+
+- Единые loading/empty/error состояния. Новый примитив `SkeletonBlock` в
+  `src/components/SkeletonRow.jsx` — div-вариант скелетона для не-табличных
+  списков. Couriers.jsx: 5 мест рендерили `<SkeletonRows>` (`<tr>`) внутри
+  div/modal — table-row разметка вне table-контекста ломает раскладку
+  скелетона; переведены на `SkeletonBlock`.
+- `DataLoader` (существовал с ARCH-015, но не использовался нигде) —
+  экспортирован из `components/index.js` и подключён в Updates.jsx: error
+  с retry-кнопкой и empty-строка теперь через общий обёрточный компонент.
+- Bare `Loading...` → `t('msg_loading')`: CardShopUsagePanel,
+  CardTimelinePanel, CardSidePanel, Shops (ShopDetail), Settings (sync
+  groups), ImapFolderTree. В Settings заодно переведён блок «Тестовые
+  данные» (3 новых ключа settings_seed_* в en+ru).
+- Catalog.jsx: текстовые «Loading...»/«No found» строки таблиц →
+  `SkeletonRows` + `EmptyState colSpan`; удалён мёртвый дублирующийся
+  empty-branch (`shops.length === 0` дважды, второй с colSpan=6 был
+  недостижим). Страница остаётся English-only (i18n там не было — не
+  вводил).
+- Мёртвый ключ `upd_loading` удалён из en.js/ru.js (после перехода Updates
+  на DataLoader использований не осталось).
+- Не тронуто сознательно: страницы уже на унифицированных паттернах
+  (Dashboard/MyStats — скелетоны/spinner, ActivityLog/Orders/Profiles —
+  SkeletonRows+EmptyState в таблицах, UsersPage — spinner-xs); error-state
+  на страницах без локального error-state (остальные показывают toast) —
+  переводить все на inline error + retry это отдельный UX-вопрос.
+- Коммиты: `e7003a8` (клейм), `ecd2cd9` (код, 13 файлов +68/−66),
+  `9d003cc` (чеклист ✅).
+- Проверки: `npm run lint` — 0 ошибок (3 pre-existing warnings);
+  `npx vitest run` — 330/330; `python scripts/audit_frontend.py` —
+  критичных проблем нет.
+- Слияние: пуш `agent/frontend:main` (ff). Ручной прогон в Tauri не
+  делался; визуально проверить: Couriers (все 3 вкладки + модалка лейблов),
+  Updates (loading/error/empty), Catalog (обе таблицы).
