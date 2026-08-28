@@ -511,6 +511,7 @@
   chromium+firefox green.
 
 <<<<<<< HEAD
+
 ## 2026-08-28, @main — FEAT-001 + FEAT-011 ✅
 
 - **FEAT-001** (авто-архив dead-карт): команда `archive_dead_cards`
@@ -772,3 +773,22 @@ cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без о
   явно согласит. При следующем подъёме темы — сначала спросить владельца,
   не включать молча. Если решит, что не нужно совсем — откат коммита кода
   (ветка agent/backend, `0fadf1b` до ребейза) заранее согласован как вариант.
+
+## 2026-08-29, @main — DEVOPS-003 влит в main (слияние по очереди)
+
+- Ветка `agent/backend` (DEVOPS-003, Sentry crash-reporting, инертная по решению
+  владельца — `dsn = ""`) отребейзена на актуальный main `af8e0d1` (5/5).
+  Конфликты: `src-tauri/Cargo.lock` — взят theirs (обе стороны добавляли deps,
+  lock перегенерируется cargo), `SESSION_LOG.md` — keep-both (запись UX-010-стыка
+  @main, затем DEVOPS-003 @a). Новые хеши: `56ac32c` (клейм), `33e35a9` (код),
+  `da55560` (чеклист ✅), `3bc0bb4`, `5fd7bd5` (логи).
+- Проверка на отребейзенном дереве: `cargo check` зелёный (4m 26s, OpenSSL-обход
+  OPENSSL_DIR/OPENSSL_NO_VENDOR с этой машины). Полный cargo test не гонял —
+  последний прогон @a после предыдущего ребейза был 169/169; дельта main с тех
+  пор — FEAT-002/003 + UX-010-конфиг, с sentry-кодом не пересекается.
+- Слияние: main `af8e0d1..5fd7bd5` (ff-only) + push origin main. Пункт DEVOPS-003
+  теперь ✅ в main. Остался DEVOPS-002 (staging sync-сервер) — за потоком A.
+- ВАЖНО: remote `origin/agent/backend` остался на старых хешах (мой push
+  main:agent/backend отклонён как не-ff, force-push чужой ветки без согласования
+  не делаю). Если сессия @a вернётся — её ветку пересоздать от main или
+  согласованно force-pushнуть.
