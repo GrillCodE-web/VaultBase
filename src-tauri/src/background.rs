@@ -119,6 +119,11 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                                     } else if res.failed > 0 {
                                         eprintln!("[sync] Footprint sync failed: {} (server_reached: {})", res.message, res.server_reached);
                                         consecutive_failures += 1;
+                                        // UX-012: событие для OS-уведомления — только на первом сбое
+                                        // подряд (edge), чтобы не спамить каждые 2 минуты.
+                                        if consecutive_failures == 1 {
+                                            let _ = h.emit("sync_failed", serde_json::json!({ "message": res.message }));
+                                        }
                                     }
                                     // nothing to sync — don't increment failures
                                 }
@@ -126,6 +131,10 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                                     eprintln!("[sync] Footprint sync error: {}", e);
                                     let _ = db.log_event("sync.footprints_error", &e, Some("sync"), None);
                                     consecutive_failures += 1;
+                                    // UX-012: см. выше — уведомление только по фронту сбоев.
+                                    if consecutive_failures == 1 {
+                                        let _ = h.emit("sync_failed", serde_json::json!({ "message": &e }));
+                                    }
                                 }
                             }
 
@@ -277,6 +286,7 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
     });
 
     // FIX B30: 17track батчинг по 40 номеров
+    let h = handle.clone();
     std::thread::spawn(move || {
         // FIX CONFIG: Use constant for risk check initial delay
         std::thread::sleep(std::time::Duration::from_secs(
@@ -292,7 +302,7 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                     .and_then(|d| d.get_config("tracking_api_key").ok().flatten())
                     .filter(|k| !k.is_empty());
                 if let Some(key) = api_key {
-                    run_tracking_update(&key);
+                    run_tracking_update(&h, &key);
                 }
             }
             // FIX CONFIG: Use constant for fulfillment check interval
@@ -559,7 +569,7 @@ mod cron_tests {
     }
 }
 
-pub(crate) fn run_tracking_update(api_key: &str) {
+pub(crate) fn run_tracking_update(handle: &tauri::AppHandle, api_key: &str) {
     let orders = match STATE.get() {
         Some(st) => st.db.lock().ok()
             .and_then(|db| db.get_orders_with_tracking().ok())
@@ -567,6 +577,12 @@ pub(crate) fn run_tracking_update(api_key: &str) {
         None => return,
     };
     if orders.is_empty() { return; }
+
+    // UX-012: карта tracking → order id — нужна, чтобы отличить реальную смену
+    // статуса от перезаписи тем же значением (иначе спам уведомлениями).
+    let order_ids: HashMap<String, i64> = orders.iter()
+        .filter_map(|(id, num)| num.clone().map(|n| (n, *id)))
+        .collect();
 
     let tracking_numbers: Vec<String> = orders.iter()
         .filter_map(|(_, num)| num.clone())
@@ -597,10 +613,34 @@ pub(crate) fn run_tracking_update(api_key: &str) {
             _ => None,
         }
     }
-    fn apply_tracking_update(tracking: &str, status: &str) {
+    // UX-012: обновление статуса + событие для OS-уведомления. Эмитим только
+    // при реальной смене (update_order_status_by_tracking сам игнорирует
+    // терминальные статусы, но shipped→shipped перезаписывал бы каждый проход).
+    fn apply_tracking_update(
+        handle: &tauri::AppHandle,
+        order_ids: &HashMap<String, i64>,
+        tracking: &str,
+        status: &str,
+    ) {
         if let Some(st) = STATE.get() {
             if let Ok(mut db) = st.db.lock() {
-                let _ = db.update_order_status_by_tracking(tracking, status);
+                let cur = order_ids.get(tracking).and_then(|oid| db.get_order(*oid).ok());
+                if let Some(o) = &cur {
+                    let terminal = matches!(o.status.as_str(), "delivered" | "cancelled" | "failed");
+                    if terminal || o.status == status {
+                        return;
+                    }
+                }
+                if db.update_order_status_by_tracking(tracking, status).is_ok() {
+                    if let Some(o) = &cur {
+                        let _ = handle.emit("order_status_update", serde_json::json!({
+                            "order_id": o.id,
+                            "order_number": o.order_number.as_deref(),
+                            "tracking_number": tracking,
+                            "status": status,
+                        }));
+                    }
+                }
             }
         }
     }
@@ -609,7 +649,7 @@ pub(crate) fn run_tracking_update(api_key: &str) {
     for tracking in &ups {
         if let Ok(status) = tracking::check_ups_tracking(tracking) {
             if let Some(s) = map_carrier_status(&status.status) {
-                apply_tracking_update(tracking, s);
+                apply_tracking_update(handle, &order_ids, tracking, s);
             }
         }
     }
@@ -617,7 +657,7 @@ pub(crate) fn run_tracking_update(api_key: &str) {
     for tracking in &fedex {
         if let Ok(status) = tracking::check_fedex_tracking(tracking) {
             if let Some(s) = map_carrier_status(&status.status) {
-                apply_tracking_update(tracking, s);
+                apply_tracking_update(handle, &order_ids, tracking, s);
             }
         }
     }
@@ -625,7 +665,7 @@ pub(crate) fn run_tracking_update(api_key: &str) {
     for tracking in &usps {
         if let Ok(status) = tracking::check_usps_tracking(tracking) {
             if let Some(s) = map_carrier_status(&status.status) {
-                apply_tracking_update(tracking, s);
+                apply_tracking_update(handle, &order_ids, tracking, s);
             }
         }
     }
@@ -664,11 +704,7 @@ pub(crate) fn run_tracking_update(api_key: &str) {
                     _                                         => None,
                 };
                 if let Some(status) = new_status {
-                    if let Some(st) = STATE.get() {
-                        if let Ok(mut db) = st.db.lock() {
-                            let _ = db.update_order_status_by_tracking(number, status);
-                        }
-                    }
+                    apply_tracking_update(handle, &order_ids, number, status);
                 }
             }
         }

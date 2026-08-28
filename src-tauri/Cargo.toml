@@ -21,6 +21,7 @@ tauri                = { version = "2", features = [] }
 tauri-plugin-dialog  = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-notification = "2"  # UX-012: нативные OS-уведомления
 # SEC-001: bundled-sqlcipher-vendored-openssl собирает SQLCipher+OpenSSL из
 # исходников (нужны perl и nasm в PATH). На CI-раннерах они предустановлены;
 # локально на Windows — C:\Program Files\Git\usr\bin (perl) + portable NASM.

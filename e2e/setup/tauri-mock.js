@@ -546,6 +546,15 @@ export function getTauriMockScript() {
     // ── справочники (создание заказа тянет их allSettled) ──
     get_emails: function () { return { items: [], total: 0 } },
     get_proxies: function () { return { items: [], total: 0 } },
+
+    // ── UX-012: @tauri-apps/plugin-notification — разрешение выдано,
+    // уведомления пишутся в window.__e2e.notifications для ассертов ──
+    'plugin:notification|is_permission_granted': function () { return true },
+    'plugin:notification|request_permission': function () { return 'granted' },
+    'plugin:notification|notify': function (a) {
+      window.__e2e.notifications.push({ title: a && a.title, body: a && a.body })
+      return null
+    },
   }
 
   window.__e2e = {
@@ -553,6 +562,7 @@ export function getTauriMockScript() {
     state: state,
     handlers: handlers,
     commands: [],
+    notifications: [],
   }
 
   var cbSeq = 0
