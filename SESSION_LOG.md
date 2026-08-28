@@ -673,3 +673,15 @@
 - Открытый стык не закрыт: запрос B→A в PARALLEL_WORK.md —
   `dragDropEnabled: false` в tauri.conf.json, иначе OS-дроп файлов в десктопе
   не доходит до webview (UX-010 в браузере работает, в Tauri — нет).
+
+## 2026-08-28 — FEAT-003 ✅ @a (backend stream, worktree agent-feat3)
+
+- Smart-подсказки: cron `smart_hints` в background.rs (раз в сутки), `Database::smart_hints()`
+  в _misc.rs (card_burning: in_use карта с 3+ declines ниже порога авто-архива;
+  order_fail_streak: 3+ declined/failed подряд по всем заказам). Тосты в App.jsx, i18n en/ru.
+- Подобрано после обрыва сессии: работа была незакоммичена в worktree (rebase прерван на
+  конфликтах с UX-012/FEAT-002). Конфликты разрешены (keep both), main подтянут (FEAT-002, UX-012).
+- Тесты: +3 в database::tests (card_burning — с фиксом created_at-шага и success_rate ≥30%
+  у магазина, order_fail_streak, empty). Случайно в тесте карта не попадала в hints из-за
+  фильтра «плохой магазин» (success_rate < 30%) — учтено в фикстуре.
+- Проверки: ESLint 0 err, audit_frontend 0 критичных, vitest 337/337, cargo test 182/182.
