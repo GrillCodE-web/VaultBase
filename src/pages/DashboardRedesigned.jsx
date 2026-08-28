@@ -31,7 +31,6 @@ import {
   CountryTable,
   SourceTable,
   DomainTable,
-  OperatorsTable,
   BinPerfTable,
   ExpiringTable,
 } from './Dashboard/tables'
@@ -61,7 +60,6 @@ export default function DashboardRedesigned({ onNavigate }) {
   const [expiring, setExpiring] = useState([])
   const [recentOrders, setRecentOrders] = useState([])
   const [binPerf, setBinPerf] = useState([])
-  const [operators, setOperators] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -92,7 +90,7 @@ export default function DashboardRedesigned({ onNavigate }) {
       if (isRefresh) setRefreshing(true)
       const p = { period, from: from || undefined, to: to || undefined }
       try {
-        const [s, c, hm, b, co, so, dm, ex, ro, bp, ops] = await Promise.allSettled([
+        const [s, c, hm, b, co, so, dm, ex, ro, bp] = await Promise.allSettled([
           invoke('get_dashboard_stats', p),
           invoke('get_revenue_chart', p),
           invoke('get_heatmap_data', p),
@@ -103,9 +101,6 @@ export default function DashboardRedesigned({ onNavigate }) {
           invoke('get_expiring_cards_dashboard', { days: 30 }),
           invoke('get_orders', { filter: {}, page: 1, perPage: 10 }),
           invoke('get_bin_performance'),
-          // Только для админа: get_users_stats закрыт require_admin().
-          // У оператора отказ просто оставит панель пустой (allSettled).
-          invoke('get_users_stats'),
         ])
 
         if (s.status === 'fulfilled') {
@@ -132,7 +127,6 @@ export default function DashboardRedesigned({ onNavigate }) {
         if (ex.status === 'fulfilled') setExpiring(ex.value)
         if (ro.status === 'fulfilled') setRecentOrders(ro.value?.items ?? [])
         if (bp.status === 'fulfilled') setBinPerf(bp.value)
-        if (ops.status === 'fulfilled') setOperators(ops.value)
         ;[s, c, hm, b, co, so, dm, ex, ro, bp].forEach((r, i) => {
           if (r.status === 'rejected') console.warn('Dashboard load error [' + i + ']:', r.reason)
         })
@@ -620,22 +614,6 @@ export default function DashboardRedesigned({ onNavigate }) {
                 onToggle={toggleSection}
               >
                 <ExpiringTable data={expiring} onNavigate={onNavigate} />
-              </CollapsePanel>
-            ),
-          },
-          // Панель видна только когда есть данные: get_users_stats закрыт
-          // require_admin(), у оператора массив останется пустым.
-          operators.length > 0 && {
-            id: 'operators',
-            defaultH: 7,
-            node: (
-              <CollapsePanel
-                title="Операторы · кто сколько сделал"
-                id="operators"
-                collapsed={collapsed.operators ?? false}
-                onToggle={toggleSection}
-              >
-                <OperatorsTable data={operators} onNavigate={onNavigate} />
               </CollapsePanel>
             ),
           },

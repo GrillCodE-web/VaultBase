@@ -46,15 +46,11 @@ const ActivityLog = lazy(() => import('./pages/ActivityLog'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Updates = lazy(() => import('./pages/Updates'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
-const UsersPage = lazy(() => import('./pages/UsersPage'))
-const MyStats = lazy(() => import('./pages/MyStats'))
 
 import {
   LayoutDashboard,
   CreditCard,
   Users,
-  UserCog,
-  BarChart2,
   ShoppingCart,
   Store,
   Shield,
@@ -119,8 +115,6 @@ const PAGE_MAP = {
   updates: Updates,
   settings: Settings,
   onboarding: Onboarding,
-  users: UsersPage,
-  my_stats: MyStats,
 }
 
 // ─── Global Search ────────────────────────────────────────────
@@ -1114,33 +1108,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       label: t('nav_activity_log'),
       badgeKey: null,
     },
-    ...(isAdmin
-      ? [
-          {
-            key: 'users',
-            icon: UserCog,
-            page: 'users',
-            label: t('nav_users'),
-            badgeKey: null,
-          },
-        ]
-      : []),
-    // «Моя статистика» построена на трёх командах под require_admin()
-    // (get_users_stats, get_user_period_stats, get_user_activity_log), поэтому
-    // у оператора страница всегда была пустой и молча. Показываем только тем,
-    // кто реально получит данные; полноценная статистика оператора требует
-    // отдельных команд — см. docs/PERMISSIONS.md.
-    ...(isAdmin
-      ? [
-          {
-            key: 'my_stats',
-            icon: BarChart2,
-            page: 'my_stats',
-            label: t('nav_my_stats'),
-            badgeKey: null,
-          },
-        ]
-      : []),
+    // Управление пользователями и командная статистика живут в менеджер-приложении —
+    // в воркере страниц Users / Team Statistics нет ни у одной роли.
   ]
 
   return (

@@ -1,8 +1,8 @@
-import { useLang } from '../../hooks/useLang'
+﻿import { useLang } from '../../hooks/useLang'
 import { formatCurrency, formatNumber } from '../../utils/formatting'
 import { getDeliveryRateColor, getExpiryColor } from '../../constants/colors'
 
-// ─── Analytics tables ─────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Analytics tables в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 export function RateBadge({ rate }) {
   return (
@@ -85,7 +85,7 @@ export function CountryHeatBar({ data }) {
                 color: 'var(--text-2)',
               }}
             >
-              {c.country || '—'}
+              {c.country || 'вЂ”'}
             </span>
             <div
               style={{
@@ -128,7 +128,7 @@ export function CountryHeatBar({ data }) {
                 color: 'var(--text-2)',
               }}
             >
-              {rate >= 0 ? `${rate}%` : '—'}
+              {rate >= 0 ? `${rate}%` : 'вЂ”'}
             </span>
           </div>
         )
@@ -203,7 +203,7 @@ export function SourceTable({ data }) {
         <tbody>
           {data.map(s => (
             <tr key={s.source}>
-              <td>{s.source || '—'}</td>
+              <td>{s.source || 'вЂ”'}</td>
               <td className="text-right">{formatNumber(s.total_cards)}</td>
               <td className="text-right text-green-t">{formatNumber(s.free_cards)}</td>
               <td className="text-right text-red-t">{formatNumber(s.dead_cards)}</td>
@@ -254,9 +254,9 @@ export function DomainTable({ data }) {
               <td className="text-right text-red-t">{formatNumber(d.dead_cards)}</td>
               <td className="text-right">
                 {d.quarantined_cards > 0 ? (
-                  <span className="quarantine-badge">⏳ {d.quarantined_cards}</span>
+                  <span className="quarantine-badge">вЏі {d.quarantined_cards}</span>
                 ) : (
-                  '—'
+                  'вЂ”'
                 )}
               </td>
               <td className="text-right">{formatNumber(d.total_orders)}</td>
@@ -267,132 +267,6 @@ export function DomainTable({ data }) {
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
-  )
-}
-
-/**
- * Сводка по операторам на дашборде.
- *
- * Сырые поля UserStats показывают «сколько сделано», но не «насколько хорошо».
- * Здесь считаются производные метрики, которых в модели нет:
- *   • конверсия  = delivered / orders — главный показатель качества работы;
- *   • средний чек = total_spent / orders;
- *   • доля отказов — сигнал проблем с подбором карт или магазинов.
- * Сортировка по доставленным: сверху те, кто реально приносит результат,
- * а не те, кто просто создал больше всех заказов.
- */
-export function OperatorsTable({ data, onNavigate }) {
-  if (!data?.length) return <p className="text-[11px] text-muted py-2">Нет данных по операторам</p>
-
-  const rows = data
-    .filter(u => u.is_active)
-    .map(u => {
-      const delivered = u.orders_delivered || 0
-      const declined = u.orders_declined || 0
-      // Знаменатель — завершённые заказы: те, что ещё в пути, качество не
-      // характеризуют и занижали бы конверсию у активных операторов.
-      const finished = delivered + declined
-      return {
-        ...u,
-        conversion: finished > 0 ? (delivered / finished) * 100 : null,
-        avgCheck: delivered > 0 ? (u.total_spent || 0) / delivered : 0,
-        declineRate: finished > 0 ? (declined / finished) * 100 : null,
-      }
-    })
-    .sort((a, b) => b.orders_delivered - a.orders_delivered)
-
-  const total = rows.reduce(
-    (acc, r) => ({
-      cards: acc.cards + (r.cards_taken || 0),
-      orders: acc.orders + (r.orders_created || 0),
-      delivered: acc.delivered + (r.orders_delivered || 0),
-      declined: acc.declined + (r.orders_declined || 0),
-      spent: acc.spent + (r.total_spent || 0),
-    }),
-    { cards: 0, orders: 0, delivered: 0, declined: 0, spent: 0 }
-  )
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="tbl w-full">
-        <thead>
-          <tr>
-            <th>Оператор</th>
-            <th className="text-right">Карт взято</th>
-            <th className="text-right">Заказов</th>
-            <th className="text-right">Доставлено</th>
-            <th className="text-right">Отказов</th>
-            <th className="text-right">Конверсия</th>
-            <th className="text-right">Средний чек</th>
-            <th className="text-right">Оборот</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(u => (
-            <tr
-              key={u.user_id}
-              onClick={() => onNavigate?.('my_stats')}
-              style={{ cursor: onNavigate ? 'pointer' : 'default' }}
-            >
-              <td>
-                <div className="text-text-1">{u.display_name || u.username}</div>
-                <div className="text-[10px] text-muted">
-                  {u.role === 'admin' ? 'админ' : 'оператор'}
-                  {u.active_sessions > 0 && ' · в сети'}
-                </div>
-              </td>
-              <td className="text-right">{u.cards_taken || 0}</td>
-              <td className="text-right">{u.orders_created || 0}</td>
-              <td className="text-right text-green-t">{u.orders_delivered || 0}</td>
-              <td className="text-right text-red-t">{u.orders_declined || 0}</td>
-              <td className="text-right">
-                {u.conversion === null ? (
-                  <span className="text-muted">—</span>
-                ) : (
-                  <span
-                    className="font-semibold"
-                    style={{ color: getDeliveryRateColor(u.conversion) }}
-                  >
-                    {u.conversion.toFixed(1)}%
-                  </span>
-                )}
-              </td>
-              <td className="text-right mono">${u.avgCheck.toFixed(2)}</td>
-              <td className="text-right mono">${(u.total_spent || 0).toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr style={{ borderTop: '1px solid var(--border)' }}>
-            <td className="text-text-2">Итого · {rows.length}</td>
-            <td className="text-right">{total.cards}</td>
-            <td className="text-right">{total.orders}</td>
-            <td className="text-right text-green-t">{total.delivered}</td>
-            <td className="text-right text-red-t">{total.declined}</td>
-            <td className="text-right">
-              {total.delivered + total.declined > 0 ? (
-                <span
-                  className="font-semibold"
-                  style={{
-                    color: getDeliveryRateColor(
-                      (total.delivered / (total.delivered + total.declined)) * 100
-                    ),
-                  }}
-                >
-                  {((total.delivered / (total.delivered + total.declined)) * 100).toFixed(1)}%
-                </span>
-              ) : (
-                <span className="text-muted">—</span>
-              )}
-            </td>
-            <td className="text-right mono">
-              ${total.delivered > 0 ? (total.spent / total.delivered).toFixed(2) : '0.00'}
-            </td>
-            <td className="text-right mono">${total.spent.toFixed(2)}</td>
-          </tr>
-        </tfoot>
       </table>
     </div>
   )
@@ -420,7 +294,7 @@ export function BinPerfTable({ data }) {
           {data.map(b => (
             <tr key={b.bin}>
               <td className="mono text-[12px]">{b.bin}</td>
-              <td className="text-text-2">{b.bank_name || '—'}</td>
+              <td className="text-text-2">{b.bank_name || 'вЂ”'}</td>
               <td className="text-right">{b.total_orders}</td>
               <td className="text-right text-green-t">{b.delivered}</td>
               <td className="text-right text-red-t">{b.declined}</td>
@@ -490,7 +364,7 @@ export function ExpiringTable({ data, onNavigate }) {
                       Yes
                     </span>
                   ) : (
-                    <span className="text-muted">—</span>
+                    <span className="text-muted">вЂ”</span>
                   )}
                 </td>
               </tr>
@@ -500,7 +374,7 @@ export function ExpiringTable({ data, onNavigate }) {
       </div>
       <div className="text-right mt-2">
         <button onClick={() => onNavigate && onNavigate('cards')} className="btn btn-ghost btn-sm">
-          View all expiring →
+          View all expiring в†’
         </button>
       </div>
     </div>

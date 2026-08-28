@@ -49,26 +49,6 @@ async function mockRoles(page) {
         return orig(cmd, args)
       }
     }, 5)
-    // Стабы для UsersPage (admin-ветка): рендерится только при данных.
-    const stubs = setInterval(() => {
-      if (!w.__e2e || !w.__e2e.handlers) return
-      clearInterval(stubs)
-      w.__e2e.handlers.get_users_stats = function () {
-        return [
-          {
-            user_id: 1,
-            username: 'admin',
-            role: 'admin',
-            orders_total: 2,
-            revenue: 179.98,
-            success_rate: 50,
-          },
-        ]
-      }
-      w.__e2e.handlers.get_admin_overview = function () {
-        return { users_total: 1, orders_today: 1, revenue_today: 59.98 }
-      }
-    }, 5)
   })
 }
 
@@ -95,10 +75,12 @@ async function bootAs(page, role) {
 }
 
 test.describe('TEST-006: роли (admin vs operator)', () => {
-  test('admin: видны пункты Users и Team Statistics', async ({ page }) => {
+  // Управление пользователями и командная статистика живут в менеджер-приложении:
+  // в воркере пунктов Users / Team Statistics нет ни у одной роли.
+  test('admin: пунктов Users и Team Statistics нет в сайдбаре', async ({ page }) => {
     await bootAs(page, 'admin')
-    await expect(page.locator('button.sbi', { hasText: 'Users' })).toBeVisible()
-    await expect(page.locator('button.sbi', { hasText: 'Team Statistics' })).toBeVisible()
+    await expect(page.locator('button.sbi', { hasText: 'Users' })).toHaveCount(0)
+    await expect(page.locator('button.sbi', { hasText: 'Team Statistics' })).toHaveCount(0)
   })
 
   test('operator: пунктов Users и Team Statistics нет в сайдбаре', async ({ page }) => {
@@ -112,19 +94,5 @@ test.describe('TEST-006: роли (admin vs operator)', () => {
   test('operator без manage_proxies: пункта Proxies нет', async ({ page }) => {
     await bootAs(page, 'operator')
     await expect(page.locator('button.sbi', { hasText: 'Proxies' })).toHaveCount(0)
-  })
-
-  test('admin: страница Users рендерится и зовёт admin-команды', async ({ page }) => {
-    await bootAs(page, 'admin')
-    await page.locator('button.sbi', { hasText: 'Users' }).click()
-    await expect(page.getByText('Пользователи')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText('admin').first()).toBeVisible({ timeout: 15000 })
-    const called = await page.evaluate(() => {
-      const cmds = /** @type {any} */ (window).__e2e.commands
-      return cmds.filter(/** @param {string} c */ c =>
-        ['get_users_stats', 'get_admin_overview'].includes(c)
-      )
-    })
-    expect(called).toEqual(expect.arrayContaining(['get_users_stats', 'get_admin_overview']))
   })
 })

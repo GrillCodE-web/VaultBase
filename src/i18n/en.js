@@ -12,8 +12,6 @@ export const en = {
   nav_activity: 'Activity Log',
   nav_activity_log: 'Activity Log',
   nav_settings: 'Settings',
-  nav_users: 'Users',
-  nav_my_stats: 'Team Statistics',
   nav_catalog: 'Catalog',
 
   // Common
