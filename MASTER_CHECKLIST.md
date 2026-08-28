@@ -144,8 +144,8 @@
 | UX-010 | Drag & Drop: импорт файлов (бросить CSV на окно)                        | 🟢        | ImportModal                           | ✅       |
 | UX-011 | Drag & Drop: переупорядочивание карт/профилей                           | 🟢        | Cards, Profiles                       | ✅       |
 | UX-012 | OS-уведомления (нативные) для: новая почта, статус посылки, ошибка sync | 🟡        | Tauri notifications plugin            | ✅ @main |
-| UX-013 | Onboarding-тур для новых пользователей (react-joyride)                  | 🟢        | `Onboarding.jsx`                      | 🔄 @b    |
-| UX-014 | Кастомизируемый дашборд: drag & drop виджеты (react-grid-layout)        | 🟡        | `DashboardRedesigned.jsx`             | 🔄 @b    |
+| UX-013 | Onboarding-тур для новых пользователей (react-joyride)                  | 🟢        | `Onboarding.jsx`                      | ✅       |
+| UX-014 | Кастомизируемый дашборд: drag & drop виджеты (react-grid-layout)        | 🟡        | `DashboardRedesigned.jsx`             | ✅       |
 | UX-015 | Progress bar для batch import (вместо только спиннера)                  | 🟠        | `BatchImportModal.jsx`                | ✅       |
 | UX-016 | Offline индикатор в header (badge когда sync server недоступен)         | 🟡        | `App.jsx`, UI header                  | ✅       |
 | UX-017 | Column picker: persist в localStorage + кнопка reset                    | 🟡        | `Cards.jsx:37-48`, `ColumnPicker.jsx` | ✅       |
@@ -441,9 +441,9 @@
 | -------------- | ------- | ------- |
 | 🔴 Критичный   | 25      | 0       |
 | 🟠 Важный      | 47      | 0       |
-| 🟡 Средний     | 101     | 17      |
-| 🟢 Желательный | 19      | 7       |
-| **ИТОГО**      | **192** | **24**  |
+| 🟡 Средний     | 101     | 14      |
+| 🟢 Желательный | 19      | 6       |
+| **ИТОГО**      | **192** | **21**  |
 
 > Подсчитано по фактическим строкам таблиц (2026-08-28). Открытых 🟠 нет —
 > MGR-013 (panic-пароль воркера + удалённый wipe) закрыт 2026-08-28.
