@@ -11,10 +11,12 @@
 #
 # Скрипт делает то же, что сработало в прошлых сессиях:
 #   1. ставит cargo-таргет/хост x86_64-pc-windows-gnu (rustup default-host);
-#   2. префиксует PATH каталогом C:\msys64\mingw64\bin — там gcc 16, ar,
-#      windres и полноценный perl 5.38 (с Locale::Maketext::Simple), и он
-#      ВАЖНО должен стоять РАНЬШЕ C:\Program Files\Git\usr\bin (иначе cargo
-#      возьмёт обрезанный git-perl);
+#   2. префиксует PATH каталогами C:\msys64\usr\bin (perl flavor cygwin —
+#      ЕДИНСТВЕННЫЙ, который переваривает OpenSSL Configure: mingw64- и
+#      git-perl собраны как MSWin32 и падают с "doesn't produce Unix like
+#      paths", exit 255) и C:\msys64\mingw64\bin (gcc 16, ar, windres;
+#      gcc в usr\bin нет — конфликта тулчейнов нет). Оба РАНЬШЕ
+#      C:\Program Files\Git\usr\bin (обрезанный git-perl);
 #   3. гоняет npm run lint → vitest → audit_frontend.py → cargo test.
 #
 # Запускать из КОРНЯ нужного worktree:
@@ -27,7 +29,8 @@
 
 param(
     [switch]$SkipCargo,
-    [switch]$CargoOnly
+    [switch]$CargoOnly,
+    [switch]$CargoCheckOnly  # cargo check вместо cargo test (быстрая проверка компиляции)
 )
 
 $ErrorActionPreference = 'Continue'
@@ -41,12 +44,13 @@ function Fail($msg) { Write-Host "  [FAIL] $msg" -ForegroundColor Red; $script:f
 
 $script:failed = @()
 
-# --- 1. MSYS2 mingw64 тулчейн (gcc + полный perl) -----------------------------
+# --- 1. MSYS2: usr\bin (cygwin-perl для OpenSSL Configure) + mingw64\bin (gcc) -
+$msysUsr = "C:\msys64\usr\bin"
 $msysBin = "C:\msys64\mingw64\bin"
 if (-not (Test-Path "$msysBin\gcc.exe")) { Write-Host "ОШИБКА: нет $msysBin\gcc.exe" -ForegroundColor Red; exit 1 }
-if (-not (Test-Path "$msysBin\perl.exe")) { Write-Host "ОШИБКА: нет $msysBin\perl.exe" -ForegroundColor Red; exit 1 }
-$env:PATH = "$msysBin;$env:PATH"
-Write-Host "toolchain: $msysBin (gcc $((& "$msysBin\gcc.exe" -dumpfullversion 2>$null)), perl $((& "$msysBin\perl.exe" -e 'print $^V' 2>$null)))" -ForegroundColor Cyan
+if (-not (Test-Path "$msysUsr\perl.exe")) { Write-Host "ОШИБКА: нет $msysUsr\perl.exe" -ForegroundColor Red; exit 1 }
+$env:PATH = "$msysUsr;$msysBin;$env:PATH"
+Write-Host "toolchain: $msysUsr + $msysBin (gcc $((& "$msysBin\gcc.exe" -dumpfullversion 2>$null)), perl $((& "$msysUsr\perl.exe" -e 'print "$^V/$^O"' 2>$null)))" -ForegroundColor Cyan
 
 # --- 2. cargo: хост x86_64-pc-windows-gnu (как в остальных worktree) ----------
 $installed = rustup target list --installed 2>$null
@@ -97,7 +101,11 @@ if (-not $CargoOnly) {
     Step "audit_frontend" { python scripts\audit_frontend.py }
 }
 if (-not $SkipCargo) {
-    Step "cargo test" { Push-Location "$root\src-tauri"; try { cargo test } finally { Pop-Location } }
+    if ($CargoCheckOnly) {
+        Step "cargo check" { Push-Location "$root\src-tauri"; try { cargo check } finally { Pop-Location } }
+    } else {
+        Step "cargo test" { Push-Location "$root\src-tauri"; try { cargo test } finally { Pop-Location } }
+    }
 }
 
 Write-Host "`n=== СВОДКА ===" -ForegroundColor Green
