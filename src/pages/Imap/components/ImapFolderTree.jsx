@@ -108,7 +108,7 @@ export function ImapFolderTree({
             {expanded && (
               <div className="pl-2">
                 {loadingFolders[acc.id] ? (
-                  <div className="p-[6px_12px] text-[11px] text-muted">Loading…</div>
+                  <div className="p-[6px_12px] text-[11px] text-muted">{t('msg_loading')}</div>
                 ) : folders.length === 0 ? (
                   ['INBOX'].map(f => (
                     <ImapFolderRow

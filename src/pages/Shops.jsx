@@ -501,7 +501,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
   }
 
   if (loading) {
-    return <div className="p-5 text-center text-muted text-[12px]">Loading…</div>
+    return <div className="p-5 text-center text-muted text-[12px]">{t('msg_loading')}</div>
   }
   if (!detail) return null
 

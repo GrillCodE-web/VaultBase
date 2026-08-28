@@ -48,6 +48,9 @@ export const en = {
   // Messages
   msg_loading: 'Loading…',
   msg_no_data: 'No data',
+  settings_seed_title: 'Test data',
+  settings_seed_desc: 'Fill the database with demo records to explore the interface',
+  settings_seed_btn: 'Load demo',
   msg_not_implemented: 'Not implemented yet',
   msg_confirm_delete: 'Are you sure you want to delete this item?',
   msg_saved: 'Saved successfully',
@@ -504,7 +507,6 @@ export const en = {
   upd_ignore: 'Ignore',
   upd_auto_updated: 'Status updated automatically',
   upd_cancel_note: 'Shop cancelled the order. Card is alive — cancel ≠ dead.',
-  upd_loading: 'Loading…',
   upd_no_events: 'No events to display',
   upd_new_version: 'New version',
   upd_download_failed: 'Download failed',

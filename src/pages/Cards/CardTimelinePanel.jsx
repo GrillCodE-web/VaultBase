@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X } from 'lucide-react'
+import { useLang } from '../../hooks/useLang.jsx'
 
 export function CardTimelinePanel({ cardId, onClose }) {
+  const { t } = useLang()
   const [events, setEvents] = useState(null)
   useEffect(() => {
     let cancelled = false
@@ -38,7 +40,7 @@ export function CardTimelinePanel({ cardId, onClose }) {
         </button>
       </div>
       {events === null ? (
-        <div className="text-muted text-[12px]">Loading...</div>
+        <div className="text-muted text-[12px]">{t('msg_loading')}</div>
       ) : events.length === 0 ? (
         <div className="text-muted text-[12px]">No history for this card yet.</div>
       ) : (

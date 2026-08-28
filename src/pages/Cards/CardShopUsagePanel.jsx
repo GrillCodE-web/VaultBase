@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { X } from 'lucide-react'
+import { useLang } from '../../hooks/useLang.jsx'
 
 export function CardShopUsagePanel({ cardId, onClose }) {
+  const { t } = useLang()
   const [shops, setShops] = useState(null)
   useEffect(() => {
     let cancelled = false
@@ -26,7 +28,7 @@ export function CardShopUsagePanel({ cardId, onClose }) {
         </button>
       </div>
       {shops === null ? (
-        <div className="text-muted text-[12px]">Loading...</div>
+        <div className="text-muted text-[12px]">{t('msg_loading')}</div>
       ) : shops.length === 0 ? (
         <div className="text-muted text-[12px]">No orders for this card yet.</div>
       ) : (

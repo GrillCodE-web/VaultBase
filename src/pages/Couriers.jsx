@@ -16,7 +16,7 @@ import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useAuth } from '../hooks/useAuth'
 import { Modal } from '../components/Modal.jsx'
-import { SkeletonRows } from '../components/SkeletonRow.jsx'
+import { SkeletonBlock } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
@@ -233,7 +233,7 @@ export default function Couriers({ activeTab, onNavigate }) {
     if (loading)
       return (
         <div className="content">
-          <SkeletonRows count={6} />
+          <SkeletonBlock rows={6} />
         </div>
       )
     if (!couriers.length)
@@ -273,7 +273,7 @@ export default function Couriers({ activeTab, onNavigate }) {
     if (loading)
       return (
         <div className="content">
-          <SkeletonRows count={6} />
+          <SkeletonBlock rows={6} />
         </div>
       )
     if (!available.length)
@@ -348,7 +348,7 @@ export default function Couriers({ activeTab, onNavigate }) {
   if (stufferReady === null) {
     return (
       <div className="content">
-        <SkeletonRows count={5} />
+        <SkeletonBlock rows={5} />
       </div>
     )
   }
@@ -368,7 +368,7 @@ export default function Couriers({ activeTab, onNavigate }) {
       </div>
 
       {loading ? (
-        <SkeletonRows count={6} />
+        <SkeletonBlock rows={6} />
       ) : !packages.length ? (
         <EmptyState icon={<PackageIcon size={40} />} title={t('couriers_packages_empty')} />
       ) : (
@@ -421,7 +421,7 @@ export default function Couriers({ activeTab, onNavigate }) {
         size="md"
       >
         {labelsLoading ? (
-          <SkeletonRows count={3} />
+          <SkeletonBlock rows={3} />
         ) : !labels.length ? (
           <EmptyState icon={<PackageIcon size={40} />} title={t('pkg_labels_empty')} />
         ) : (

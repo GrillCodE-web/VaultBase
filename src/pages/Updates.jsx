@@ -5,6 +5,7 @@ import { relaunch } from '@tauri-apps/plugin-process'
 import { RefreshCw, Package, CheckCircle, Receipt, XCircle, AlertTriangle, Pin } from 'lucide-react'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useLang } from '../hooks/useLang.jsx'
+import DataLoader from '../components/DataLoader.jsx'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -445,32 +446,22 @@ export default function Updates() {
       </div>
 
       {/* ── Content ────────────────────────────────────────── */}
-      {loading ? (
-        <div className="text-center py-12 text-muted text-[13px]">{t('upd_loading')}</div>
-      ) : error ? (
-        <div className="text-center py-12 text-[13px] text-red-t">
-          {error}
-          <br />
-          <button
-            className="btn btn-ghost btn-sm btn-icon mt-3"
-            onClick={handleRefresh}
-            aria-label={t('upd_refresh')}
-          >
-            <RefreshCw size={13} /> {t('upd_refresh')}
-          </button>
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="text-center py-12 text-muted text-[13px]">{t('upd_no_events')}</div>
-      ) : (
-        filteredItems.map(item => (
+      <DataLoader
+        loading={loading}
+        error={error}
+        empty={filteredItems.length === 0}
+        emptyTitle={t('upd_no_events')}
+        onRetry={handleRefresh}
+      >
+        {filteredItems.map(item => (
           <UpdateCard
             key={item.id}
             item={item}
             onApplyTrack={handleApplyTrack}
             onIgnore={handleIgnore}
           />
-        ))
-      )}
+        ))}
+      </DataLoader>
     </div>
   )
 }

@@ -4,6 +4,8 @@ import { listen } from '@tauri-apps/api/event'
 import { BookOpen } from 'lucide-react'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
+import { SkeletonRows } from '../components/SkeletonRow.jsx'
+import { EmptyState } from '../components/EmptyState.jsx'
 import { DEFAULT_PAGE_SIZE } from '../utils/pagination.js'
 import { STATUS_COLORS, RISK_COLORS } from '../constants/colors'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
@@ -213,17 +215,9 @@ function ItemsTab() {
           </thead>
           <tbody>
             {loading && items.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted p-6">
-                  Loading…
-                </td>
-              </tr>
+              <SkeletonRows count={6} cols={7} />
             ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted p-6">
-                  No items found
-                </td>
-              </tr>
+              <EmptyState colSpan={7} icon={<BookOpen size={38} />} title="No items found" />
             ) : (
               items.map(item => (
                 <tr key={item.id} style={{ opacity: item.stop ? 0.5 : 1 }}>
@@ -440,23 +434,9 @@ function ShopsTab() {
           </thead>
           <tbody>
             {loading && shops.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted p-6">
-                  Loading...
-                </td>
-              </tr>
+              <SkeletonRows count={6} cols={7} />
             ) : shops.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center text-muted p-6">
-                  No shops found
-                </td>
-              </tr>
-            ) : shops.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-muted p-6">
-                  No shops found
-                </td>
-              </tr>
+              <EmptyState colSpan={7} icon={<BookOpen size={38} />} title="No shops found" />
             ) : (
               shops.map(shop => (
                 <tr key={shop.id} style={{ opacity: shop.excluded ? 0.5 : 1 }}>

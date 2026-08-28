@@ -973,10 +973,8 @@ export default function Settings() {
           </div>
           <div className="setting-row">
             <div className="setting-info">
-              <div className="setting-title">Тестовые данные</div>
-              <div className="setting-desc">
-                Заполнить базу демо-записями, чтобы посмотреть интерфейс
-              </div>
+              <div className="setting-title">{t('settings_seed_title')}</div>
+              <div className="setting-desc">{t('settings_seed_desc')}</div>
             </div>
             <button
               onClick={handleSeedTestData}
@@ -988,7 +986,7 @@ export default function Settings() {
               ) : (
                 <Database size={13} />
               )}
-              {seeding ? 'Загрузка…' : 'Загрузить демо'}
+              {seeding ? t('msg_loading') : t('settings_seed_btn')}
             </button>
           </div>
         </div>
@@ -1115,7 +1113,8 @@ export default function Settings() {
           </div>
           {syncGroup === null ? (
             <div className="text-muted text-[12px] flex items-center gap-1.5">
-              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading...
+              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />{' '}
+              {t('msg_loading')}
             </div>
           ) : syncGroup === false ? (
             <div>

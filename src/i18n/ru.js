@@ -48,6 +48,9 @@ export const ru = {
   // Messages
   msg_loading: 'Загрузка…',
   msg_no_data: 'Нет данных',
+  settings_seed_title: 'Тестовые данные',
+  settings_seed_desc: 'Заполнить базу демо-записями, чтобы посмотреть интерфейс',
+  settings_seed_btn: 'Загрузить демо',
   msg_not_implemented: 'Ещё не реализовано',
   msg_confirm_delete: 'Вы уверены, что хотите удалить этот элемент?',
   msg_saved: 'Успешно сохранено',
@@ -505,7 +508,6 @@ export const ru = {
   upd_ignore: 'Игнор',
   upd_auto_updated: 'статус обновлён автоматически',
   upd_cancel_note: 'Магазин отменил заказ. Карта жива — отмена ≠ недействительна.',
-  upd_loading: 'Загрузка…',
   upd_no_events: 'Нет событий для отображения',
   upd_new_version: 'Новая версия',
   upd_download_failed: 'Ошибка загрузки',

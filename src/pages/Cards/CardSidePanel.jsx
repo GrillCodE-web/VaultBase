@@ -278,7 +278,7 @@ export function CardSidePanel({
               )}
             </div>
             {ordersLoading ? (
-              <div className="text-[11px] text-muted py-1">Loading...</div>
+              <div className="text-[11px] text-muted py-1">{t('msg_loading')}</div>
             ) : recentOrders.length === 0 ? (
               <div className="text-[11px] text-muted py-1">
                 {t('no_orders_for_card') || 'No orders yet'}
