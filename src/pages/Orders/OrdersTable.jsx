@@ -7,6 +7,7 @@ import { SkeletonRows } from '../../components/SkeletonRow.jsx'
 import { OrderRow } from './OrderRow.jsx'
 import { OrderTimeline } from './OrderTimeline.jsx'
 import { StatusMenu } from './StatusMenu.jsx'
+import { ORDERS_OVERSCAN } from '../../constants/virtualization.js'
 
 /**
  * OrdersTable — выделенный компонент таблицы заказов
@@ -35,13 +36,13 @@ export function OrdersTable({
 
   // Virtual scrolling setup
   const parentRef = useRef(null)
-  // ★ Insight: overscan увеличен до 20 для плавной прокрутки без белых полос
+  // ★ Insight: overscan — ORDERS_OVERSCAN (constants/virtualization.js), CLEAN-010
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
   const rowVirtualizer = useVirtualizer({
     count: orders.length,
     getScrollElement: () => parentRef.current,
     estimateSize: index => (expandedId === orders[index]?.id ? 180 : 60),
-    overscan: 20, // Увеличено с 10 до 20
+    overscan: ORDERS_OVERSCAN,
   })
 
   // Recalculate sizes when expandedId changes

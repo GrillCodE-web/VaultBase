@@ -11,6 +11,7 @@ import { EmptyState } from '../components/EmptyState.jsx'
 import { getDeliveryRateColor, getRiskColor, STATUS_COLORS } from '../constants/colors.js'
 import { ORDER_STATUS_COLORS } from '../constants/status.js'
 import { SHOP_FLAGS, getActiveShopFlags } from '../constants/shops.js'
+import { SHOPS_OVERSCAN } from '../constants/virtualization.js'
 import { exportToCSV } from '../utils/csv.js'
 import { DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
@@ -751,7 +752,7 @@ export default function ShopList({ onNavigate }) {
     count: useVirtual ? shops.length : 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 60,
-    overscan: 5,
+    overscan: SHOPS_OVERSCAN,
   })
 
   const load = useCallback(

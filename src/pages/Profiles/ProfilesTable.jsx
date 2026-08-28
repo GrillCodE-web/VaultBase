@@ -8,6 +8,7 @@ import { SkeletonRows } from '../../components/SkeletonRow.jsx'
 import { ProfileRow } from './ProfileRow.jsx'
 import { ProfileDetailPanel } from './ProfileDetailPanel.jsx'
 import { ProfileHoverCard } from './ProfileHoverCard.jsx'
+import { PROFILES_OVERSCAN } from '../../constants/virtualization.js'
 
 /**
  * ProfilesTable — выделенный компонент таблицы профилей
@@ -44,7 +45,7 @@ export function ProfilesTable({
   const tableContainerRef = useRef(null)
 
   // Virtual scrolling setup
-  // ★ Insight: overscan увеличен до 20, estimateSize вынесен из useCallback
+  // ★ Insight: overscan — PROFILES_OVERSCAN (constants/virtualization.js, CLEAN-010); estimateSize вынесен из useCallback
   // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
   const rowVirtualizer = useVirtualizer({
     count: profiles.length,
@@ -54,7 +55,7 @@ export function ProfilesTable({
       const profile = profiles[index]
       return expanded === profile?.id ? 450 : 50
     },
-    overscan: 20, // Увеличено с 5 до 20
+    overscan: PROFILES_OVERSCAN,
   })
 
   // H4: Keyboard navigation with virtual scrolling

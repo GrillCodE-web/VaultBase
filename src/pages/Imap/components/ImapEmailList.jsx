@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { RefreshCw, Search, Mail } from 'lucide-react'
 import { ImapEmailRow } from './ImapEmailRow.jsx'
 import { ActionBadge } from './ImapActionBadge.jsx'
+import { IMAP_OVERSCAN } from '../../../constants/virtualization.js'
 
 const MSG_PAGE_SIZE = 30
 
@@ -37,7 +38,7 @@ export function ImapEmailList({
     count: messages.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 65,
-    overscan: 5,
+    overscan: IMAP_OVERSCAN,
   })
 
   const handleSearchChange = e => {

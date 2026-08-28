@@ -25,6 +25,7 @@ import { EmptyState } from '../components/EmptyState.jsx'
 import { timeAgo } from '../utils/formatting'
 import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination'
 import { STATUS_COLORS, getDeliveryRateColor } from '../constants/colors'
+import { PROXIES_OVERSCAN } from '../constants/virtualization.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { useEscapeKey } from '../hooks/useEscapeKey.js'
 
@@ -599,7 +600,7 @@ export default function ProxyList() {
     count: useVirtual ? proxies.length : 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 50,
-    overscan: 5,
+    overscan: PROXIES_OVERSCAN,
   })
 
   const load = useCallback(

@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/EmptyState.jsx'
 import { SkeletonRows } from '../../components/SkeletonRow.jsx'
 import { CardRow } from './CardRow.jsx'
 import { CARDS_VIRTUAL_THRESHOLD } from '../../constants/cards.js'
+import { CARDS_OVERSCAN } from '../../constants/virtualization.js'
 
 /**
  * CardTable — выделённый компонент таблицы карт
@@ -140,7 +141,7 @@ export function CardTable({
 
   // Virtual scrolling setup - only for non-grouped view
   // ★ Insight: Порог CARDS_VIRTUAL_THRESHOLD (50) карт вместо 200 — виртуализация включается раньше
-  // overscan 10 — баланс между производительностью и UX (меньше белых полос)
+  // overscan — CARDS_OVERSCAN (constants/virtualization.js), CLEAN-010
   const useVirtualCards = !groupByBank && cards.length > CARDS_VIRTUAL_THRESHOLD
 
   // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
@@ -148,7 +149,7 @@ export function CardTable({
     count: useVirtualCards ? cards.length : 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 38,
-    overscan: 10, // Оптимизировано: 10 строк вместо 20 для лучшей производительности
+    overscan: CARDS_OVERSCAN,
     enabled: useVirtualCards,
   })
 
