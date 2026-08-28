@@ -81,6 +81,8 @@ export function getTauriMockScript() {
         proxy_label: null, notes: null, created_at: '2026-08-15 08:00:00',
         updated_at: '2026-08-22 08:00:00' },
     ],
+    // app-config: get_config/set_config (контракт commands/config.rs + state.rs).
+    config: {},
   }
 
   var session = {
@@ -91,12 +93,32 @@ export function getTauriMockScript() {
 
   function freeCardList() { return state.cards.filter(function (c) { return c.status === 'free' }) }
 
+  // Контракт state.rs CONFIG_SECRET: ключ-секрет читается только как ключ с
+  // суффиксом _set и получает "1"/"0" вместо значения.
+  var CONFIG_SECRET = ['bin_api_key', 'tracking_api_key', 'stuffer_api_key']
+  function secret_flag_target(key) {
+    for (var i = 0; i < CONFIG_SECRET.length; i++) {
+      if (key === CONFIG_SECRET[i] + '_set') return CONFIG_SECRET[i]
+    }
+    return null
+  }
+
   var handlers = {
     // ── boot / auth ──
     get_app_version: function () { return '99.9.9-e2e' },
     get_license_status: function () { return 'active' },
-    get_config: function () { return { theme: 'dark', language: 'en' } },
-    set_config: function () { return true },
+    get_config: function (a) {
+      var key = (a && a.key) || ''
+      // Секрет напрямую не читается (state.rs: не в CONFIG_READABLE) — только флаг _set.
+      if (CONFIG_SECRET.indexOf(key) !== -1) throw 'config_key_not_allowed: ' + key
+      var secret = secret_flag_target(key)
+      if (secret) return (state.config[secret] || '') !== '' ? '1' : '0'
+      return Object.prototype.hasOwnProperty.call(state.config, key) ? state.config[key] : null
+    },
+    set_config: function (a) {
+      state.config[(a && a.key) || ''] = a && a.value != null ? String(a.value) : ''
+      return null
+    },
     is_password_set: function () { return true },
     is_locked: function () { return false },
     unlock: function () { return true },
@@ -121,6 +143,28 @@ export function getTauriMockScript() {
                shops_total: state.shops.length, revenue_total: 0 }
     },
     seed_catalog: function () { return { seeded: 0 } },
+
+    // ── settings (маунт страницы Settings — TEST-005) ──
+    stuffer_get_config: function () {
+      // Контракт commands/stuffer.rs: StufferConfigView { api_key_set, base_url },
+      // сам ключ не отдаётся; дефолт URL — constants::STUFFER_BASE_URL.
+      return {
+        api_key_set: (state.config.stuffer_api_key || '') !== '',
+        base_url: state.config.stuffer_base_url || 'https://dash.stockhubdeal.com/api/stuffer/',
+      }
+    },
+    get_catalog_stats: function () {
+      // Контракт commands/catalog.rs: CatalogStats { items, shops } (сид-каталог пуст).
+      return { items: 0, shops: 0 }
+    },
+    sync_get_group_status: function () {
+      // Контракт commands/sync.rs: SyncGroupStatus (группа не создана).
+      return { in_group: false, group_id: null, group_name: null, connected: false, last_sync: null }
+    },
+    // MGR-013: panic-пароль (sidecar v3) — в e2e-окружении не задан.
+    has_panic_password: function () { return false },
+    set_panic_password: function () { return null },
+    remove_panic_password: function () { return null },
 
     // ── cards ──
     get_cards: function (a) {
