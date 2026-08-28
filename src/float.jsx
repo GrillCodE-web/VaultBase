@@ -1,4 +1,4 @@
-﻿/* global AbortController */
+/* global AbortController */
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom/client'
 import { invoke } from '@tauri-apps/api/core'
@@ -14,13 +14,13 @@ import { copySensitive } from './utils/clipboard.js'
 import { purgeCacheOnVersionChange } from './utils/cacheBuster.js'
 import './index.css'
 
-// в”Ђв”Ђв”Ђ Copy button в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Copy button ──────────────────────────────────────────────
 
 // SEC-013: Use copySensitive for auto-clear after 30s
 const CopyBtn = React.memo(function CopyBtn({ value }) {
   const [state, setState] = useState('idle')
-  // BUG-021: РѕРґРёРЅ С‚Р°Р№РјРµСЂ РЅР° РєРЅРѕРїРєСѓ вЂ” Р±С‹СЃС‚СЂС‹Рµ РїРѕРІС‚РѕСЂРЅС‹Рµ РєР»РёРєРё РЅРµ РґРѕР»Р¶РЅС‹
-  // СЃР±СЂР°СЃС‹РІР°С‚СЊ СЃРѕСЃС‚РѕСЏРЅРёРµ СЂР°РЅСЊС€Рµ РІСЂРµРјРµРЅРё С‡СѓР¶РёРј РїСЂРѕС‚СѓС…С€РёРј setTimeout
+  // BUG-021: один таймер на кнопку — быстрые повторные клики не должны
+  // сбрасывать состояние раньше времени чужим протухшим setTimeout
   const timerRef = useRef(null)
   useEffect(
     () => () => {
@@ -42,31 +42,31 @@ const CopyBtn = React.memo(function CopyBtn({ value }) {
       onClick={handleCopy}
       title={state === 'error' ? 'Copy failed' : 'Copy'}
     >
-      {state === 'copied' ? 'вњ“' : state === 'error' ? 'вњ—' : 'вЋ'}
+      {state === 'copied' ? '✓' : state === 'error' ? '✗' : '⎘'}
     </button>
   )
 })
 
-// в”Ђв”Ђв”Ђ Field row вЂ” PERF-001: memoized в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Field row — PERF-001: memoized ─────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components -- Helper component
 const Field = React.memo(function Field({ label, value }) {
   return (
     <div className="float-field">
       <span className="float-lbl">{label}</span>
-      <span className="float-val flex-1 text-right mr-6">{value ?? 'вЂ”'}</span>
+      <span className="float-val flex-1 text-right mr-6">{value ?? '—'}</span>
       <CopyBtn value={value} />
     </div>
   )
 })
 
-// в”Ђв”Ђв”Ђ Risk badge вЂ” PERF-001: memoized в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Risk badge — PERF-001: memoized ─────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components -- Helper component
 const RiskBadge = React.memo(function RiskBadge({ level }) {
   if (!level) return null
   const map = {
-    safe: { className: 'risk-safe', label: 'Safe', icon: 'рџџў' },
-    warning: { className: 'risk-warning', label: 'Warning', icon: 'рџџЎ' },
-    high: { className: 'risk-high', label: 'High Risk', icon: 'рџ”ґ' },
+    safe: { className: 'risk-safe', label: 'Safe', icon: '🟢' },
+    warning: { className: 'risk-warning', label: 'Warning', icon: '🟡' },
+    high: { className: 'risk-high', label: 'High Risk', icon: '🔴' },
   }
   const cfg = map[level] ?? map.warning
   return (
@@ -76,7 +76,7 @@ const RiskBadge = React.memo(function RiskBadge({ level }) {
   )
 })
 
-// в”Ђв”Ђв”Ђ Card Health Indicator в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Card Health Indicator ────────────────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components -- Helper component
 function CardHealth({ card, orderCount }) {
   if (!card) return null
@@ -86,15 +86,15 @@ function CardHealth({ card, orderCount }) {
   if (card.status === 'dead' || card.status === 'blocked') {
     label = 'Burned'
     className = 'health-burned'
-    icon = 'рџ”ґ'
+    icon = '🔴'
   } else if (orderCount >= 3 || card.status === 'in_use') {
     label = 'Used'
     className = 'health-used'
-    icon = 'рџџЎ'
+    icon = '🟡'
   } else {
     label = 'Fresh'
     className = 'health-fresh'
-    icon = 'рџџў'
+    icon = '🟢'
   }
 
   return (
@@ -103,7 +103,7 @@ function CardHealth({ card, orderCount }) {
       <span className={className}>{label}</span>
       {orderCount > 0 && (
         <span className="text-muted">
-          В· {orderCount} order{orderCount !== 1 ? 's' : ''}
+          · {orderCount} order{orderCount !== 1 ? 's' : ''}
         </span>
       )}
     </div>
@@ -111,11 +111,11 @@ function CardHealth({ card, orderCount }) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return 'вЂ”'
+  if (!iso) return '—'
   return iso.slice(0, 10)
 }
 
-// в”Ђв”Ђв”Ђ Main float component в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Main float component ─────────────────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components -- Float window entry point
 function ProfileFloat() {
   const { t } = useLang()
@@ -135,7 +135,7 @@ function ProfileFloat() {
   const [quickUrl, setQuickUrl] = useState('')
   const autoCopiedRef = useRef(false)
 
-  // в”Ђв”Ђ Load profile data в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+  // ── Load profile data ──────────────────────────────────────
   // FIX FE-01: Added AbortController to prevent race conditions and state updates after unmount
   const load = useCallback(async (id, abortSignal) => {
     if (!id) return
@@ -185,7 +185,7 @@ function ProfileFloat() {
     }
   }, [])
 
-  // в”Ђв”Ђ Listen for float:load event в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+  // ── Listen for float:load event ────────────────────────────
   useEffect(() => {
     let unlisten
     listen('float:load', event => {
@@ -201,18 +201,18 @@ function ProfileFloat() {
     }
   }, [])
 
-  // в”Ђв”Ђ Reload whenever profileId changes в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+  // ── Reload whenever profileId changes ──────────────────────
   // FIX FE-01: Added AbortController to cancel pending requests on unmount or id change
   useEffect(() => {
     const abortController = new AbortController()
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Р°СЃРёРЅС…СЂРѕРЅРЅР°СЏ Р·Р°РіСЂСѓР·РєР° РїСЂРѕС„РёР»СЏ
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка профиля
     if (profileId) load(profileId, abortController.signal)
     return () => {
       abortController.abort() // Cancel pending requests on cleanup
     }
   }, [profileId, load])
 
-  // в”Ђв”Ђ App lock listener вЂ” SEC-011: clear all data on lock в”Ђв”Ђ
+  // ── App lock listener — SEC-011: clear all data on lock ──
   useEffect(() => {
     let unlisten
     listen('app_locked', () => {
@@ -232,7 +232,7 @@ function ProfileFloat() {
     }
   }, [])
 
-  // в”Ђв”Ђ F4: Auto-copy billing address on tab switch в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+  // ── F4: Auto-copy billing address on tab switch ────────────
   useEffect(() => {
     if (tab === 'billing' && card && !autoCopiedRef.current) {
       const addr = [card.billing_address, card.city, card.state, card.zip, card.country]
@@ -253,7 +253,7 @@ function ProfileFloat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- toastOk is stable
   }, [tab, card])
 
-  // в”Ђв”Ђ States в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+  // ── States ─────────────────────────────────────────────────
   if (appLocked) {
     return (
       <div className="float-state float-locked">
@@ -292,9 +292,9 @@ function ProfileFloat() {
 
   return (
     <div className="float-window">
-      {/* РЁР°РїРєР° С‚СЏРЅРµС‚ РѕРєРЅРѕ; РёРЅС‚РµСЂР°РєС‚РёРІРЅС‹Рµ СЌР»РµРјРµРЅС‚С‹ РІРЅСѓС‚СЂРё
-          РїРѕРјРµС‡РµРЅС‹ data-tauri-drag-region="false", РёРЅР°С‡Рµ
-          РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёРµ СЃСЉРµРґР°РµС‚ РїРѕ РЅРёРј РєР»РёРєРё. */}
+      {/* Шапка тянет окно; интерактивные элементы внутри
+          помечены data-tauri-drag-region="false", иначе
+          перетаскивание съедает по ним клики. */}
       <div className="float-header" data-tauri-drag-region>
         <div className="flex items-center justify-between" data-tauri-drag-region>
           <div data-tauri-drag-region className="min-w-0 overflow-hidden">
@@ -304,7 +304,7 @@ function ProfileFloat() {
             >
               {profile.holder_name || t('section_card')}
             </span>
-            {card && <span className="text-muted ml-2 text-[11px]">вЂўвЂў{card.last4}</span>}
+            {card && <span className="text-muted ml-2 text-[11px]">••{card.last4}</span>}
           </div>
           <div className="flex items-center gap-6" data-tauri-drag-region="false">
             <RiskBadge level={profile.risk_level} />
@@ -318,7 +318,7 @@ function ProfileFloat() {
               className="float-close-btn"
               title={t('btn_close')}
             >
-              Г—
+              ×
             </button>
           </div>
         </div>
@@ -326,7 +326,7 @@ function ProfileFloat() {
         <CardHealth card={card} orderCount={recentOrders.length} />
       </div>
 
-      {/* в”Ђв”Ђ Tabs в”Ђв”Ђ */}
+      {/* ── Tabs ── */}
       <div className="float-tabs-bar">
         <div className="float-tabs">
           {[
@@ -346,7 +346,7 @@ function ProfileFloat() {
         </div>
       </div>
 
-      {/* в”Ђв”Ђ Content в”Ђв”Ђ */}
+      {/* ── Content ── */}
       <div className="flex-1 overflow-auto min-h-0 p-[10px_12px]">
         {tab === 'card' && card && (
           <>
@@ -565,7 +565,7 @@ function ProfileFloat() {
                     })
                   }
                 >
-                  View all orders в†’
+                  View all orders →
                 </button>
               </div>
             )}
@@ -573,7 +573,7 @@ function ProfileFloat() {
         )}
       </div>
 
-      {/* в”Ђв”Ђ Footer actions в”Ђв”Ђ */}
+      {/* ── Footer actions ── */}
       <div className="float-footer">
         <button
           className="btn btn-ghost btn-sm text-[10px] p-[4px_8px]"
@@ -604,7 +604,7 @@ function ProfileFloat() {
             }
           }}
         >
-          вњ“ Delivered
+          ✓ Delivered
         </button>
         <button
           className={`btn btn-r flex-1 justify-center${!latestOrderId ? ' btn-disabled' : ''}`}
@@ -625,7 +625,7 @@ function ProfileFloat() {
             }
           }}
         >
-          вњ— Declined
+          ✗ Declined
         </button>
       </div>
     </div>
@@ -667,8 +667,8 @@ purgeCacheOnVersionChange().then(reloading => {
     <FloatErrorBoundary>
       <LangProvider>
         {/* Р‘РµР· SmartToastProvider usePremiumToast РІ ProfileFloat РїР°РґР°РµС‚
-            (useSmartToast РІРЅРµ РєРѕРЅС‚РµРєСЃС‚Р°) вЂ” float-РѕРєРЅРѕ РїРѕРєР°Р·С‹РІР°Р»Рѕ
-            "Unexpected error" РІРјРµСЃС‚Рѕ РєР°СЂС‚РѕС‡РєРё РїСЂРѕС„РёР»СЏ. */}
+            (useSmartToast вне контекста) — float-окно показывало
+            "Unexpected error" вместо карточки профиля. */}
         <SmartToastProvider>
           <ProfileFloat />
         </SmartToastProvider>
