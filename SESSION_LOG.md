@@ -20,9 +20,9 @@
 ## Открыто сейчас (обновлять последней записью)
 
 - MGR-013 закрыт 2026-08-28 (запись ниже) — открытых 🟠 в чеклисте не
-  осталось. От @b влиты UX-018/019, PERF-009 и UX-003 (origin/main → main,
-  записи ниже). FEAT-006/007 закрыты 2026-08-28. PERF-014 закрыт 2026-08-28
-  второй сессией @main (запись ниже).
+  осталось. От @b влиты UX-018/019, PERF-009, UX-003 и CLEAN-010
+  (origin/main → main, записи ниже). FEAT-006/007 закрыты 2026-08-28.
+  PERF-014 закрыт 2026-08-28 второй сессией @main (запись ниже).
 - В manager-work параллельно идут ДВЕ сессии @main (владелец дал обеим
   одинаковую ночную задачу). Разделение: вахта-1 делает FEAT-002 🔄 и добор
   хвостов worktree (ниже), вахта-2 сделала PERF-014 ✅. WIP-файлы друг друга
@@ -340,6 +340,7 @@
   Updates (loading/error/empty), Catalog (обе таблицы).
 
 ### 2026-08-28 — TEST-006 ✅ @main (e2e роли admin vs operator)
+
 - Свободных 🟠 не было; взял 🟡 TEST-006 (e2e, backend-стрим). Коллизий с live-вахтами
   нет: FEAT-002 (agent-night), UX-003 (agent-frontend, влита @b), TEST-005 (agent-backend)
   живут в своих worktree.
@@ -355,3 +356,23 @@
   весь suite chromium — 45/46 (1 фейл в `crud.spec.js` — воспроизводится и на чистом
   HEAD без моих изменений, не моя регрессия); lint 0 err (3 warn — старые);
   vitest 330/330; audit 0 orphans/0 phantom.
+
+### 2026-08-28 — CLEAN-010 ✅ @b (worktree agent-frontend)
+
+- Overscan виртуализаторов больше не хардкод: создан
+  `src/constants/virtualization.js` с именованными значениями и пояснениями
+  (что такое overscan и почему значения различаются). 6 списков переведены на
+  константы, значения сохранены как были: CardTable `CARDS_OVERSCAN=10`,
+  OrdersTable `ORDERS_OVERSCAN=20`, ProfilesTable `PROFILES_OVERSCAN=20`,
+  ImapEmailList `IMAP_OVERSCAN=5`, Proxies `PROXIES_OVERSCAN=5`,
+  Shops `SHOPS_OVERSCAN=5`.
+- ★-комментарии у virtualizer'ов, ссылавшиеся на старые числа, обновлены
+  (указывают на constants/virtualization.js).
+- Поведение не менялось — чистый рефакторинг, новых тестов не требуется.
+- Коммиты: `e8bc436` (клейм), `2aed421` (код, 7 файлов +41/−9).
+- Проверки: `npm run lint` — 0 ошибок (3 pre-existing warnings);
+  `npx vitest run` — 330/330; `python scripts/audit_frontend.py` —
+  критичных проблем нет; residual-проверка `overscan: <число>` в src — 0
+  совпадений.
+- Слияние: пуш `agent/frontend:main` (ff). Ручной прогон в Tauri не делался —
+  скролл-настройки не менялись, визуальная проверка не нужна.
