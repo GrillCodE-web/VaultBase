@@ -148,8 +148,8 @@
 | UX-015 | Progress bar для batch import (вместо только спиннера)                  | 🟠        | `BatchImportModal.jsx`                | ✅     |
 | UX-016 | Offline индикатор в header (badge когда sync server недоступен)         | 🟡        | `App.jsx`, UI header                  | ✅     |
 | UX-017 | Column picker: persist в localStorage + кнопка reset                    | 🟡        | `Cards.jsx:37-48`, `ColumnPicker.jsx` | ✅     |
-| UX-018 | Email assignment feedback — показывать какой email выбран               | 🟡        | `ProfileModal.jsx:312-336`            | 🔄 @b  |
-| UX-019 | autoCreateDrop: убрать auto=true по умолчанию, добавить подтверждение   | 🟡        | `ProfileModal.jsx:22`                 | 🔄 @b  |
+| UX-018 | Email assignment feedback — показывать какой email выбран               | 🟡        | `ProfileModal.jsx:312-336`            | ✅     |
+| UX-019 | autoCreateDrop: убрать auto=true по умолчанию, добавить подтверждение   | 🟡        | `ProfileModal.jsx:22`                 | ✅     |
 
 ### 3.4 Горячие клавиши
 
