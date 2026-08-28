@@ -745,3 +745,17 @@ found`); с msys-perl + env PERL — та же поломка в обратну�
   одновременно собирали vendored OpenSSL и массовым `Stop-Process
 cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без ошибок в логе —
   признак внешнего kill). Чужие процессы не трогать.
+
+### 2026-08-28 — DEVOPS-003 @a: ребейз на main, статус слияния
+
+- Ветка agent/backend отребейзена на main `dfde093` (3/3 без конфликтов;
+  чужие `main.rs` +7 и чеклист легли чисто). Проверки на отребейженном
+  дереве: `cargo test` — **169/169 ok, 0 failed, 210.61s**, exit=0
+  (169 = 157 + 12 upanel-тестов из FEAT-018, пришедших с main).
+- Слияние НЕ выполнено: manager-work (checkout main) занят большим WIP
+  двух сессий @main (FEAT-001/FEAT-011: `Cargo.toml`, `Cargo.lock`,
+  `main.rs`, `capabilities/default.json` и др.) — fast-forward в их дереве
+  пересёкся бы с WIP. Ветка готова к ff-мерджу: base = актуальный main,
+  проверки зелёные. Мердж — за сессией @main по очереди (как с TEST-004).
+- Хеши после ребейза: см. `git log main..agent/backend` (3 коммита:
+  клейм, код, чеклист+лог).
