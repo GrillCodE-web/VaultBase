@@ -534,3 +534,40 @@
   (race `mv: cannot stat *.d.tmp` в MSYS2) — лечилось ретраями
   (`scripts/openssl-retry.cmd`, untracked).
 - Коммиты: `dfde093` (клейм), `018b570` (код, 14 файлов +862/-36).
+
+## 2026-08-28, @main — FEAT-002 ✅
+
+- **FEAT-002** (Risk V2): статистические факторы в `run_risk_check` (`_orders.rs`):
+  `shop_fail_rate` (≥50% неудач в магазине при выборке ≥5, +15), `bin_fail_rate`
+  (то же по BIN карты, +15), `hour_fail_rate` (≥50% неудач в текущий час UTC
+  при выборке ≥3, +10), `amount_above_typical` (>3x среднего успешного чека
+  магазина, +15). Команда `run_risk_check` принимает `amount: Option<f64>`
+  (`commands/orders.rs`); `CreateOrderModal` считает total по items и передаёт
+  в проверку (debounce-эффект); `RiskBlock`: фикс ключа уровня
+  `high_risk`→`high` (бэк отдаёт `high`, иначе блок рендерился как warning).
+  6 тестов `database::tests::test_risk_v2_*`.
+- **Root cause падений тестов**: триггер v12 `trg_order_status_check` не знал
+  статусы `declined`/`failed` (реальный словарь приложения, `VALID_STATUSES`
+  в `_orders.rs`) — `update_order_status` на них отклонялся БД, та же болезнь,
+  что TEST-007 у карт (v14). **Миграция v20**: триггер пересоздан с объединением
+  словарей (аддитивно: `processing`/`returned`/`refunded`/`chargeback`
+  сохранены). Перед правкой `_migrations.rs` сверился с HEAD (урок инцидента
+  с затёртой v18) — v18/v19 на месте, LATEST_VERSION=20.
+- **Проверки**: cargo test **179/179** (полный прогон, ~210s; до фикса было
+  175/4 — падали только risk_v2). Vitest 330/330, ESLint 0 err (4 warning —
+  pre-existing: App.jsx, float.jsx, Couriers.jsx, charts.jsx), audit_frontend
+  0/0. e2e-мок для FEAT-002 не менялся (игнорирует лишний аргумент `amount`).
+- **Инфра**: `check-env.ps1` — perl для OpenSSL Configure теперь cygwin-flavor
+  (`C:\msys64\usr\bin`), mingw64/git-perl собраны как MSWin32 и падают
+  ("doesn't produce Unix like paths", exit 255); добавлен флаг `-CargoCheckOnly`.
+- **НЕ закоммичено — осиротевший WIP UX-012** (OS-уведомления, клейм @main
+  от `1df7884`): `package.json`+lock (plugin-notification), `Cargo.toml`+lock,
+  `capabilities/default.json`, `background.rs` (события sync_failed/tracking),
+  `src/utils/osNotify.js` (untracked), e2e-мок notifications. ВАЖНО: HEAD
+  несогласован — `App.jsx`/`Settings.jsx` уже импортируют `./utils/osNotify.js`,
+  которого нет в HEAD (частичный коммит умершей сессии). Вся связка проверок
+  выше прогонялась С этим WIP в дереве — он компилируется и зелёный. Решение
+  за владельцем: докоммитить UX-012 отдельным коммитом либо откатить вызовы
+  из App.jsx/Settings.jsx.
+- Коммиты: `8953f73` (код FEAT-002, 5 файлов +221/-18), `42d4a10`
+  (build: check-env.ps1).
