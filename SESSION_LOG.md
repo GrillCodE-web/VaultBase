@@ -594,3 +594,23 @@
   проверялось (headless-среда, нет запуска `tauri dev`).
 - Также закоммичены хелперы: `openssl-retry.cmd`, `run-cargo-test.cmd`.
 - Коммиты: `8cc984a` (UX-012), `770e651` (хелперы). Дерево чистое.
+
+## 2026-08-28 — UX-010 + UX-011 ✅ @b (frontend stream, worktree agent-frontend)
+
+- **UX-010**: DnD-импорт CSV/TXT — дропзона в `ImportModal` (HTML5 drop + скрытый
+  file input, валидация `.csv/.txt/.tsv`), бросок файла на любую точку страницы Cards
+  открывает импорт с предзаполненным `raw` (проп `initialRaw`). i18n en+ru
+  (5 ключей `cc_import_drop_*`/`cc_import_file_*`), `.dropzone` в components.css.
+- **UX-011**: ручной порядок строк карт/профилей — новый хук
+  `src/hooks/useRowOrder.js` (localStorage `vb_ui_*_row_order`; ранг -1 у новых
+  записей — остаются вверху). Грип `⠿` в первой ячейке (виден при hover),
+  подсветка цели `.row-drop-target`; хэндлеры стабильны (ref + useCallback) —
+  React.memo строк не ломается. На Cards отключается при groupByBank.
+- Проверки: eslint 0 err (3 pre-existing warnings), vitest 330/330,
+  audit_frontend 0 критичных.
+- Стык: запрос B→A в PARALLEL_WORK.md — `dragDropEnabled: false` в tauri.conf.json,
+  иначе в десктопе OS-дроп файлов не доходит до webview (Tauri перехватывает).
+- Депы `react-joyride@3.2.0` + `react-grid-layout@2.2.4` поставлены в worktree
+  под UX-013/014; package.json/lock уйдут коммитом вместе с их кодом.
+- Побочка: pre-commit lint-staged один раз упал с «Failed to clean up temporary
+  files!» на md-файле — повторный коммит прошёл, транзиент.
