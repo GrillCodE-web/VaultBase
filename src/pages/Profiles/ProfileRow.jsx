@@ -29,6 +29,12 @@ export const ProfileRow = React.memo(
     onQuickOrder,
     isChecked,
     onToggleSelect,
+    rowReorder,
+    rowDragStart,
+    rowDragOver,
+    rowDragLeave,
+    rowDragEnd,
+    rowDrop,
   }) {
     const { t } = useLang()
     const p = profile
@@ -57,8 +63,23 @@ export const ProfileRow = React.memo(
         }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
+        onDragOver={rowReorder ? rowDragOver : undefined}
+        onDragLeave={rowReorder ? rowDragLeave : undefined}
+        onDrop={rowReorder ? e => rowDrop(e, p.id) : undefined}
       >
         <td className="w-8" onClick={e => e.stopPropagation()}>
+          {rowReorder && (
+            <span
+              className="row-grip"
+              draggable
+              onDragStart={e => rowDragStart(e, p.id)}
+              onDragEnd={rowDragEnd}
+              title={t('row_drag_title')}
+              aria-label={t('row_drag_title')}
+            >
+              ⠿
+            </span>
+          )}
           <input
             type="checkbox"
             checked={!!isChecked}
@@ -153,7 +174,8 @@ export const ProfileRow = React.memo(
       prev.profile.last4 === next.profile.last4 &&
       prev.isSelected === next.isSelected &&
       prev.isDeleting === next.isDeleting &&
-      prev.isExpanded === next.isExpanded
+      prev.isExpanded === next.isExpanded &&
+      prev.rowReorder === next.rowReorder
     )
   }
 )

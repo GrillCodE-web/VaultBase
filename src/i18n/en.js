@@ -153,6 +153,12 @@ export const en = {
   cc_import_mapping: 'Confirm Mapping',
   cc_import_do: 'Import',
   cc_import_done: 'Import complete',
+  cc_import_drop_hint: 'or drag & drop a .csv / .txt file here',
+  cc_import_drop_active: 'Release to load the file',
+  cc_import_file_loaded: 'File loaded: {name}',
+  cc_import_file_bad_type: 'Unsupported file type — use .csv, .txt or .tsv',
+  cc_import_file_read_error: 'Failed to read the file',
+  row_drag_title: 'Drag to reorder',
 
   // Profiles
   profiles: 'Profiles',

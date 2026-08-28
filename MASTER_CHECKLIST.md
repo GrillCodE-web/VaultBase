@@ -141,11 +141,11 @@
 
 | #      | Задача                                                                  | Приоритет | Файл(ы)                               | Статус   |
 | ------ | ----------------------------------------------------------------------- | --------- | ------------------------------------- | -------- |
-| UX-010 | Drag & Drop: импорт файлов (бросить CSV на окно)                        | 🟢        | ImportModal                           | ⬜       |
-| UX-011 | Drag & Drop: переупорядочивание карт/профилей                           | 🟢        | Cards, Profiles                       | ⬜       |
+| UX-010 | Drag & Drop: импорт файлов (бросить CSV на окно)                        | 🟢        | ImportModal                           | 🔄 @b    |
+| UX-011 | Drag & Drop: переупорядочивание карт/профилей                           | 🟢        | Cards, Profiles                       | 🔄 @b    |
 | UX-012 | OS-уведомления (нативные) для: новая почта, статус посылки, ошибка sync | 🟡        | Tauri notifications plugin            | ✅ @main |
-| UX-013 | Onboarding-тур для новых пользователей (react-joyride)                  | 🟢        | `Onboarding.jsx`                      | ⬜       |
-| UX-014 | Кастомизируемый дашборд: drag & drop виджеты (react-grid-layout)        | 🟡        | `DashboardRedesigned.jsx`             | ⬜       |
+| UX-013 | Onboarding-тур для новых пользователей (react-joyride)                  | 🟢        | `Onboarding.jsx`                      | 🔄 @b    |
+| UX-014 | Кастомизируемый дашборд: drag & drop виджеты (react-grid-layout)        | 🟡        | `DashboardRedesigned.jsx`             | 🔄 @b    |
 | UX-015 | Progress bar для batch import (вместо только спиннера)                  | 🟠        | `BatchImportModal.jsx`                | ✅       |
 | UX-016 | Offline индикатор в header (badge когда sync server недоступен)         | 🟡        | `App.jsx`, UI header                  | ✅       |
 | UX-017 | Column picker: persist в localStorage + кнопка reset                    | 🟡        | `Cards.jsx:37-48`, `ColumnPicker.jsx` | ✅       |
@@ -182,7 +182,7 @@
 | PERF-007 | Dashboard: Promise.allSettled() — показывать частичные данные при ошибке одного запроса   | 🟡        | `DashboardRedesigned.jsx:887`      | ✅ (уже было) |
 | PERF-008 | Исправить debounce: перенести в onChange handler вместо useEffect                         | 🟡        | `src/hooks/useDebounceCallback.js` | ✅            |
 | PERF-009 | Card reveal: использовать cache перед fetch (уже в store, но не используется)             | 🟡        | `store/cards.js:revealCard`        | ✅            |
-| PERF-010 | React Query / TanStack Query — рассмотреть для v3 (кэш, дедупликация, background refetch) | 🟢        | Архитектурное решение              | ⬜            |
+| PERF-010 | React Query / TanStack Query — рассмотреть для v3 (кэш, дедупликация, background refetch) | 🟢        | Архитектурное решение              | 🔄 @b         |
 
 ### 4.3 БД производительность
 
@@ -347,7 +347,7 @@
 | --------- | ------------------------------------------------------------------------------ | --------- | ------------------------------------------------------- | ------ |
 | CLEAN-001 | console.log → error: заменить на logger.js или убрать                          | 🟡        | ESLint config, все файлы                                | ✅     |
 | CLEAN-002 | React Compiler: исправить 17 мест setState в useEffect + 7 ref в render        | 🟡        | ESLint warnings                                         | ✅     |
-| CLEAN-003 | Удалить дубликаты документации (оставить 1 язык или настроить автоперевод)     | 🟢        | `AGENTS.md`, `README.md`, `PROJECT_STATUS.md`           | ⬜     |
+| CLEAN-003 | Удалить дубликаты документации (оставить 1 язык или настроить автоперевод)     | 🟢        | `AGENTS.md`, `README.md`, `PROJECT_STATUS.md`           | 🔄 @b  |
 | CLEAN-004 | Magic numbers → constants с комментариями                                      | 🟡        | `Cards.jsx:500`, `ws_sync.rs:20,60`, `background.rs:45` | ✅     |
 | CLEAN-005 | `.env.example`: добавить USPS_API_USER_ID и другие undocumented vars           | 🟢        | `.env.example`                                          | ✅     |
 | CLEAN-006 | PostCSS: добавить autoprefixer                                                 | 🟢        | `postcss.config.js`                                     | ✅     |

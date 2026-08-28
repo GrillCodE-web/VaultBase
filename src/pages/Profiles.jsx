@@ -16,6 +16,7 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ProfileModal } from './Profiles/ProfileModal.jsx'
 import { ProfileFilters } from './Profiles/ProfileFilters.jsx'
 import { ProfilesTable } from './Profiles/ProfilesTable.jsx'
+import { useRowOrder } from '../hooks/useRowOrder.js'
 import { QuickOrderModal } from './Profiles/QuickOrderModal.jsx'
 import { DuplicateProfilesModal } from './Profiles/DuplicateProfilesModal.jsx'
 
@@ -39,6 +40,11 @@ export default function ProfileList({
   const fetchAbortRef = useRef(null) // FIX P2-3: AbortController for fetch cancellation
   const { toast } = usePremiumToast()
   const { t } = useLang()
+  // UX-011: ручной порядок строк профилей (localStorage)
+  const { orderedItems: orderedProfiles, moveRow: moveProfileRow } = useRowOrder(
+    'profiles_row_order',
+    profiles
+  )
 
   const load = useCallback(
     async (p = page, f = filter) => {
@@ -411,8 +417,9 @@ export default function ProfileList({
 
       {/* Table (ARCH-008: вынесена в Profiles/ProfilesTable.jsx) */}
       <ProfilesTable
-        profiles={profiles}
+        profiles={orderedProfiles}
         loading={loading}
+        onRowMove={moveProfileRow}
         selectedSet={selectedSet}
         toggleSelect={toggleSelect}
         allSelected={allSelected}

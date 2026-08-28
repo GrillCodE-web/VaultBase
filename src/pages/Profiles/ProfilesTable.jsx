@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { invoke } from '@tauri-apps/api/core'
 import { User } from 'lucide-react'
@@ -21,6 +21,7 @@ import { PROFILES_OVERSCAN } from '../../constants/virtualization.js'
 export function ProfilesTable({
   profiles,
   loading,
+  onRowMove,
   selectedSet,
   toggleSelect,
   allSelected,
@@ -37,6 +38,42 @@ export function ProfilesTable({
   onCreate,
 }) {
   const { t } = useLang()
+  // UX-011: drag & drop строк — хэндлеры стабильны (ref + useCallback),
+  // чтобы не ломать React.memo у ProfileRow
+  const dragRowRef = useRef(null)
+  const rowReorder = typeof onRowMove === 'function'
+  const rowDragStart = useCallback((e, id) => {
+    dragRowRef.current = id
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(id))
+  }, [])
+  const rowDragOver = useCallback(e => {
+    if (dragRowRef.current == null) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const tr = e.currentTarget
+    if (!tr.classList.contains('row-drop-target')) tr.classList.add('row-drop-target')
+  }, [])
+  const rowDragLeave = useCallback(e => {
+    e.currentTarget.classList.remove('row-drop-target')
+  }, [])
+  const rowDragEnd = useCallback(() => {
+    dragRowRef.current = null
+    tableContainerRef.current
+      ?.querySelectorAll('.row-drop-target')
+      .forEach(el => el.classList.remove('row-drop-target'))
+  }, [])
+  const rowDrop = useCallback(
+    (e, targetId) => {
+      e.preventDefault()
+      e.currentTarget.classList.remove('row-drop-target')
+      const srcId = dragRowRef.current
+      dragRowRef.current = null
+      if (srcId == null) return
+      onRowMove?.(srcId, targetId)
+    },
+    [onRowMove]
+  )
   const [expanded, setExpanded] = useState(null)
   const [hoveredProfile, setHoveredProfile] = useState(null)
   const [selectedIdx, setSelectedIdx] = useState(null)
@@ -234,6 +271,12 @@ export function ProfilesTable({
                           onCopyBilling={() => onCopyBilling(p)}
                           onCopyShipping={() => onCopyShipping(p)}
                           onQuickOrder={() => onQuickOrder(p)}
+                          rowReorder={rowReorder}
+                          rowDragStart={rowDragStart}
+                          rowDragOver={rowDragOver}
+                          rowDragLeave={rowDragLeave}
+                          rowDragEnd={rowDragEnd}
+                          rowDrop={rowDrop}
                         />
                         {isExpanded && (
                           <tr key={`${p.id}-detail`}>

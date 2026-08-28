@@ -7,6 +7,7 @@ import { useConfirm } from '../hooks/useConfirm.jsx'
 import { useTableFilters } from '../hooks/useTableFilters.js'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js'
 import { usePersistedState } from '../hooks/usePersistedState.js'
+import { useRowOrder } from '../hooks/useRowOrder.js'
 import { copyToClipboard, copySensitive } from '../utils/clipboard.js'
 import { buildPageNumbers, getTotalPages, getPageRange } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
@@ -147,9 +148,13 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const deleteTimers = useRef({})
   // ★ Insight: Sync error state для fallback UI при ошибке WebSocket
   const [syncError, setSyncError] = useState(null)
+  // UX-010: содержимое файла, брошенного на страницу (предзаполняет ImportModal)
+  const [droppedRaw, setDroppedRaw] = useState('')
 
   const [visibleCols, setVisibleCols] = usePersistedState('cards_visible_cols', DEFAULT_COLS)
   const [columnOrder, setColumnOrder] = usePersistedState('cards_column_order', null)
+  // UX-011: ручной порядок строк (localStorage), поверх серверной сортировки
+  const { orderedItems: orderedCards, moveRow: moveCardRow } = useRowOrder('cards_row_order', cards)
 
   // ARCH-013: debounced search через общий хук (searchInput + 300ms debounce → store filters)
   const applySearchToStore = useCallback(
@@ -577,8 +582,25 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   const { from, to } = getPageRange(page, total)
 
+  // UX-010: бросок .csv/.txt/.tsv в любую точку страницы открывает импорт с содержимым
+  const handlePageDrop = async e => {
+    e.preventDefault()
+    const file = e.dataTransfer?.files?.[0]
+    if (!file || !/\.(csv|txt|tsv)$/i.test(file.name)) return
+    try {
+      const text = await file.text()
+      if (text.trim()) {
+        setDroppedRaw(text)
+        setShowImport(true)
+      }
+    } catch (err) {
+      handleError(err, 'Cards.handlePageDrop')
+      toast(t('cc_import_file_read_error'), 'error')
+    }
+  }
+
   return (
-    <div className="content">
+    <div className="content" onDragOver={e => e.preventDefault()} onDrop={handlePageDrop}>
       {/* Sync error banner */}
       {syncError && (
         <div className="alert alert-error">
@@ -805,8 +827,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
         </div>
       ) : (
         <CardTable
-          cards={cards}
+          cards={orderedCards}
           loading={loading}
+          onRowMove={moveCardRow}
           visibleCols={visibleCols}
           ALL_COLUMNS={ALL_COLUMNS}
           columnOrder={columnOrder}
@@ -883,7 +906,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       {/* Modals */}
       {showImport && (
         <ImportModal
-          onClose={() => setShowImport(false)}
+          initialRaw={droppedRaw}
+          onClose={() => {
+            setShowImport(false)
+            setDroppedRaw('')
+          }}
           onImported={() => {
             fetchCards(true)
           }}

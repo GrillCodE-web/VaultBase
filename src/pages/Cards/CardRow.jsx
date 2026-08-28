@@ -65,6 +65,12 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
     revealCard,
     t,
     toast,
+    rowReorder,
+    rowDragStart,
+    rowDragOver,
+    rowDragLeave,
+    rowDragEnd,
+    rowDrop,
   } = useCardRowCtx()
   const { hasPerm } = useAuth()
   const canTake = hasPerm('take_cards')
@@ -116,9 +122,24 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
         e.stopPropagation()
         setSideCard(card, index)
       }}
+      onDragOver={rowReorder ? rowDragOver : undefined}
+      onDragLeave={rowReorder ? rowDragLeave : undefined}
+      onDrop={rowReorder ? e => rowDrop(e, card.id) : undefined}
     >
-      {/* Checkbox */}
+      {/* Checkbox + UX-011 grip для ручного порядка строк */}
       <td onClick={e => e.stopPropagation()}>
+        {rowReorder && (
+          <span
+            className="row-grip"
+            draggable
+            onDragStart={e => rowDragStart(e, card.id)}
+            onDragEnd={rowDragEnd}
+            title={t('row_drag_title')}
+            aria-label={t('row_drag_title')}
+          >
+            ⠿
+          </span>
+        )}
         <label className="sr-only">
           Select card {displayNum}
           <input

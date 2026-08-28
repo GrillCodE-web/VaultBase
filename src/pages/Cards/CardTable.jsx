@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CreditCard } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState.jsx'
@@ -20,6 +20,7 @@ import { CARDS_OVERSCAN } from '../../constants/virtualization.js'
 export function CardTable({
   cards,
   loading,
+  onRowMove,
   visibleCols,
   ALL_COLUMNS,
   columnOrder,
@@ -51,7 +52,44 @@ export function CardTable({
   setSideCard,
 }) {
   const dragColRef = useRef(null)
+  const dragRowRef = useRef(null)
   const parentRef = useRef(null)
+
+  // ── UX-011: drag & drop строк (группировка по банку отключает ручной порядок) ──
+  const rowReorder = !groupByBank && typeof onRowMove === 'function'
+  // Хэндлеры стабильны (useCallback + ref) — не ломают React.memo строк
+  const rowDragStart = useCallback((e, id) => {
+    dragRowRef.current = id
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(id))
+  }, [])
+  const rowDragOver = useCallback(e => {
+    if (dragRowRef.current == null) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const tr = e.currentTarget
+    if (!tr.classList.contains('row-drop-target')) tr.classList.add('row-drop-target')
+  }, [])
+  const rowDragLeave = useCallback(e => {
+    e.currentTarget.classList.remove('row-drop-target')
+  }, [])
+  const rowDrop = useCallback(
+    (e, targetId) => {
+      e.preventDefault()
+      e.currentTarget.classList.remove('row-drop-target')
+      const srcId = dragRowRef.current
+      dragRowRef.current = null
+      if (srcId == null) return
+      onRowMove?.(srcId, targetId)
+    },
+    [onRowMove]
+  )
+  const rowDragEnd = useCallback(() => {
+    dragRowRef.current = null
+    parentRef.current
+      ?.querySelectorAll('.row-drop-target')
+      .forEach(el => el.classList.remove('row-drop-target'))
+  }, [])
 
   // ── CLEAN-009: окружение строки — один мемоизированный объект контекста ──
   // index вычисляется внутри CardRow по его prop index (двойной клик → сайд-панель)
@@ -78,6 +116,12 @@ export function CardTable({
       revealCard,
       t,
       toast,
+      rowReorder,
+      rowDragStart,
+      rowDragOver,
+      rowDragLeave,
+      rowDragEnd,
+      rowDrop,
     }),
     [
       revealed,
@@ -101,6 +145,12 @@ export function CardTable({
       revealCard,
       t,
       toast,
+      rowReorder,
+      rowDragStart,
+      rowDragOver,
+      rowDragLeave,
+      rowDragEnd,
+      rowDrop,
     ]
   )
 

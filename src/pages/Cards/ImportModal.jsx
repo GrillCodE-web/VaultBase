@@ -34,14 +34,16 @@ function Spinner() {
   )
 }
 
-export function ImportModal({ onClose, onImported }) {
+export function ImportModal({ onClose, onImported, initialRaw = '' }) {
   useEscapeKey(onClose)
   const { t } = useLang()
   const { toast } = usePremiumToast()
   const modalRef = useRef(null)
   const importTimerRef = useRef(null)
+  const fileInputRef = useRef(null)
   const [step, setStep] = useState(1)
-  const [raw, setRaw] = useState('')
+  const [raw, setRaw] = useState(initialRaw)
+  const [dragActive, setDragActive] = useState(false)
   const [source, setSource] = useState('')
   const [loading, setLoading] = useState(false)
   const [preview, setPreview] = useState(null)
@@ -75,6 +77,33 @@ export function ImportModal({ onClose, onImported }) {
   }
 
   const handleToMapping = () => setStep(3)
+
+  // UX-010: drag & drop / выбор файла — читаем .csv/.txt/.tsv в textarea шага 1
+  const handleFile = async file => {
+    if (!file) return
+    if (!/\.(csv|txt|tsv)$/i.test(file.name)) {
+      toast(t('cc_import_file_bad_type'), 'warn')
+      return
+    }
+    try {
+      const text = await file.text()
+      if (!text.trim()) {
+        toast(t('cc_import_no_data'), 'warn')
+        return
+      }
+      setRaw(text)
+      toast(t('cc_import_file_loaded', { name: file.name }), 'success')
+    } catch (e) {
+      const error = handleError(e, 'ImportModal.handleFile')
+      toast(getErrorMessage(error), 'error')
+    }
+  }
+
+  const handleDrop = e => {
+    e.preventDefault()
+    setDragActive(false)
+    handleFile(e.dataTransfer?.files?.[0])
+  }
 
   const handleImport = async () => {
     setLoading(true)
@@ -178,6 +207,37 @@ export function ImportModal({ onClose, onImported }) {
                   onChange={e => setSource(e.target.value)}
                   placeholder="nike-dump-jan"
                   className="form-input"
+                />
+              </div>
+              <div
+                className={`dropzone${dragActive ? ' dropzone-active' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={t('cc_import_drop_hint')}
+                onDragOver={e => {
+                  e.preventDefault()
+                  setDragActive(true)
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    fileInputRef.current?.click()
+                  }
+                }}
+              >
+                {t(dragActive ? 'cc_import_drop_active' : 'cc_import_drop_hint')}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.txt,.tsv"
+                  style={{ display: 'none' }}
+                  onChange={e => {
+                    handleFile(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
                 />
               </div>
             </div>

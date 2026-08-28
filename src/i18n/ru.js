@@ -155,6 +155,12 @@ export const ru = {
   cc_import_mapping: 'Подтвердить сопоставление',
   cc_import_do: 'Импортировать',
   cc_import_done: 'Импорт завершён',
+  cc_import_drop_hint: 'или перетащите сюда файл .csv / .txt',
+  cc_import_drop_active: 'Отпустите файл для загрузки',
+  cc_import_file_loaded: 'Файл загружен: {name}',
+  cc_import_file_bad_type: 'Неподдерживаемый тип файла — используйте .csv, .txt или .tsv',
+  cc_import_file_read_error: 'Не удалось прочитать файл',
+  row_drag_title: 'Перетащите, чтобы изменить порядок',
 
   // Profiles
   profiles: 'Профили',
