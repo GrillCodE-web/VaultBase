@@ -338,3 +338,20 @@
 - Слияние: пуш `agent/frontend:main` (ff). Ручной прогон в Tauri не
   делался; визуально проверить: Couriers (все 3 вкладки + модалка лейблов),
   Updates (loading/error/empty), Catalog (обе таблицы).
+
+### 2026-08-28 — TEST-006 ✅ @main (e2e роли admin vs operator)
+- Свободных 🟠 не было; взял 🟡 TEST-006 (e2e, backend-стрим). Коллизий с live-вахтами
+  нет: FEAT-002 (agent-night), UX-003 (agent-frontend, влита @b), TEST-005 (agent-backend)
+  живут в своих worktree.
+- `e2e/roles.spec.js` (5 кейсов): admin видит Users/Team Statistics; operator — нет;
+  operator без `manage_proxies` — нет Proxies; ручной вход оператора; UsersPage админа
+  зовёт `get_users_stats`/`get_admin_overview`.
+- Мок расширен через `window.__e2e` + обёртку `__TAURI_INTERNALS__.invoke` (init-скрипт
+  раньше мока). Базовый `tauri-mock.js` не тронут — WIP TEST-005 @a. Роль берётся из
+  `?e2e-role=` в location.search (один context безопасно для параллельных воркеров).
+- Подвох: MainShell сначала `resumeSession()` по `cc_session_token` из localStorage, а
+  потом `try_auto_login` — поэтому перехвачены все auth-команды, не только user_login.
+- Проверки: `npx playwright test e2e/roles.spec.js --project=chromium` — 4/4;
+  весь suite chromium — 45/46 (1 фейл в `crud.spec.js` — воспроизводится и на чистом
+  HEAD без моих изменений, не моя регрессия); lint 0 err (3 warn — старые);
+  vitest 330/330; audit 0 orphans/0 phantom.
