@@ -510,6 +510,7 @@
 - Проверки на момент закрытия (из сообщения `8fb96e5`): 84/84 e2e
   chromium+firefox green.
 
+<<<<<<< HEAD
 ## 2026-08-28, @main — FEAT-001 + FEAT-011 ✅
 
 - **FEAT-001** (авто-архив dead-карт): команда `archive_dead_cards`
@@ -701,3 +702,46 @@
 - Чужие worktree (agent/night с отставанием от main, agent/upanel с клеймами
   FEAT-001/011) не трогал — зоны других сессий по PARALLEL_WORK.md.
 - Коммиты: `d41db1f` (конфиг), далее эта запись + ответ в PARALLEL_WORK.md.
+
+### 2026-08-28 — DEVOPS-003 ✅ @a (worktree agent-backend) — crash-reporting Sentry
+
+- Стек: `sentry 0.49` + `tauri-plugin-sentry 0.6` (feature minidump).
+  Плагин верифицирован по исходникам: `init()` инжектит встроенный
+  `inject.min.js` (Sentry browser SDK) во все webview через `js_init_script`
+  и шлёт JS-ивенты конвертами через Rust-команды `breadcrumb`/`envelope` —
+  npm-пакет на фронтенде не нужен, e2e (Tauri-mock) не тронуты.
+- Опт-ин: DSN из env `SENTRY_DSN`, иначе `[sentry] dsn` в TOML; без DSN SDK не
+  поднимается, приложение ничего не отправляет. Невалидный DSN → warning +
+  выключено. `send_default_pii = false` (app хранит чувствительные данные).
+  `release = sentry::release_name!()` (crate version), `environment` = профиль
+  конфига (dev/staging/production). Session tracking: feature `release-health`
+  (в дереве features активен транзитивно из sentry default — проверено
+  `cargo tree -e features`).
+- Нативные краши: `tauri_plugin_sentry::minidump::init(&client)` →
+  `Result<Handle, _>`; Handle живёт в `_minidump_guard` до конца main
+  (при Drop minidump-хендлер снимается).
+- Грабли API (sentry 0.49): `ClientOptions` — non-exhaustive (только
+  `default()` + мутация полей); `minidump` — это `pub use sentry_rust_minidump`,
+  тип `tauri_plugin_sentry::minidump::Handle`.
+- Файлы: `src-tauri/Cargo.toml`(+5)/`Cargo.lock`, `src/config.rs`(+15:
+  `SentryConfig`, `#[serde(default)]` — старые TOML без секции парсятся),
+  `src/main.rs`(+~50), `capabilities/default.json`+`float.json`
+  (`sentry:default`), `VaultBase.{dev,staging,production}.toml` (`[sentry] dsn = ""`).
+- Проверки: `cargo check` — 0 err (полный прогон 32.6s); `cargo test` —
+  **157/157 ok, 0 failed, 193.66s**, exit=0. Frontend-проверки не гонялись —
+  src/ не тронут (backend-поток).
+- Хвост (не блокер): DSN реального проекта никто не выдавал — вписать в
+  прод-конфиг/env при внедрении; живой прогон краш-репорта не выполнялся.
+- ВАЖНО всем сессиям (openssl на этой машине): vendored-сборка
+  `openssl-sys` (из `bundled-sqlcipher-vendored-openssl`) на свежем target
+  НЕ идёт: нативный mingw64-perl ($^O=MSWin32) пишет Windows-пути в Makefile,
+  а msys-make гоняет их через /bin/sh (`C:msys64usrbinperl.exe: command not
+found`); с msys-perl + env PERL — та же поломка в обратную сторону.
+  Рабочий обход без perl/make вообще:
+  `OPENSSL_DIR=C:\msys64\mingw64` + `OPENSSL_NO_VENDOR=1` +
+  `PATH=C:\msys64\mingw64\bin;...` (там libssl.a/libcrypto.a/headers).
+  Тогда openssl-sys линкует prebuilt MSYS2 OpenSSL — `cargo check` 32s,
+  тесты линкуются и проходят. Побочка: 3-4 параллельные сессии сегодня
+  одновременно собирали vendored OpenSSL и массовым `Stop-Process
+cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без ошибок в логе —
+  признак внешнего kill). Чужие процессы не трогать.
