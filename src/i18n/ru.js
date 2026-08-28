@@ -820,6 +820,8 @@ export const ru = {
 
   // Orders extras
   orders_shop_search_placeholder: 'Поиск магазина… или введите домен',
+  orders_select_profile_first: 'Сначала выберите профиль - адреса загрузятся из него',
+  orders_profile_no_drops: 'У этого профиля нет сохранённых адресов',
   orders_confirm_delete_one: 'Удалить этот заказ?',
   orders_confirm_delete_many: 'Удалить выбранные заказы?',
 

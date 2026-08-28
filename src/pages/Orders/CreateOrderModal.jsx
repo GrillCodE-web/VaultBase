@@ -552,9 +552,13 @@ export function CreateOrderModal({ onCreated, onClose }) {
           </div>
 
           {/* ── 3. Drop ── */}
-          {drops.length > 0 && (
-            <div>
-              <label className="form-label">3. Shipping Address</label>
+          <div>
+            <label className="form-label">3. Shipping Address</label>
+            {!profileId ? (
+              <div className="text-muted text-[12px] italic">{t('orders_select_profile_first')}</div>
+            ) : drops.length === 0 ? (
+              <div className="text-muted text-[12px] italic">{t('orders_profile_no_drops')}</div>
+            ) : (
               <div className="flex flex-col gap-1.5">
                 {drops.map(d => (
                   <label
@@ -578,8 +582,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
                   </label>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* ── 4+5. Email + Proxy ── */}
           <div className="grid grid-cols-2 gap-4">

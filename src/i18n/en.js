@@ -818,6 +818,8 @@ export const en = {
 
   // Orders extras
   orders_shop_search_placeholder: 'Search shops… or type new domain',
+  orders_select_profile_first: 'Select a profile first - shipping addresses load from it',
+  orders_profile_no_drops: 'This profile has no saved addresses',
   orders_confirm_delete_one: 'Delete this order?',
   orders_confirm_delete_many: 'Delete selected orders?',
 
