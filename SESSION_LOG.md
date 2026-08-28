@@ -685,3 +685,19 @@
   у магазина, order_fail_streak, empty). Случайно в тесте карта не попадала в hints из-за
   фильтра «плохой магазин» (success_rate < 30%) — учтено в фикстуре.
 - Проверки: ESLint 0 err, audit_frontend 0 критичных, vitest 337/337, cargo test 182/182.
+
+## 2026-08-28, @main — UX-010 стык закрыт: dragDropEnabled: false (запрос B→A)
+
+- Запрос B→A из PARALLEL_WORK.md выполнен: `"dragDropEnabled": false` для окна
+  `main` в `src-tauri/tauri.conf.json` (окно `float` без изменений). OS-дроп файлов
+  теперь приходит в webview как HTML5-событие — DnD-импорт UX-010 работает в
+  десктопе, а не только в браузере. Запасной вариант (fs:allow-read-text-file +
+  onFileDropEvent) не понадобился.
+- Коммит конфига (`d41db1f`) успел сделать прошлый оборвавшийся сеанс — в этой
+  сессии он проверен и принят: `cargo check` зелёный (33.7с; tauri-build
+  валидирует конфиг при сборке). Полный cargo test/vitest не гонял — правка
+  декларативная, код не затронут. Live-проверка дропа в десктопе НЕ выполнялась
+  (headless, без `tauri dev`) — фронту проверить при ближайшем запуске.
+- Чужие worktree (agent/night с отставанием от main, agent/upanel с клеймами
+  FEAT-001/011) не трогал — зоны других сессий по PARALLEL_WORK.md.
+- Коммиты: `d41db1f` (конфиг), далее эта запись + ответ в PARALLEL_WORK.md.

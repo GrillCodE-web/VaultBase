@@ -167,6 +167,9 @@ Push отклонили (кто-то уже влился) → снова `fetch`
   true) и до webview не доходит. Просьба: в `src-tauri/tauri.conf.json` для окна `main`
   выставить `"dragDropEnabled": false` — тогда drop придёт как HTML5-событие. Либо дать
   `fs:allow-read-text-file` в capabilities — тогда дочитаю путь из `onFileDropEvent`.
+  → **выполнено** (2026-08-28, `d41db1f`, @main): `dragDropEnabled: false` для окна
+  `main`, окно `float` не тронуто; capabilities-вариант не потребовался. Осталось
+  фронту: live-проверка дропа при ближайшем `tauri dev`.
 
 ## Стартовые промпты для сессий
 
