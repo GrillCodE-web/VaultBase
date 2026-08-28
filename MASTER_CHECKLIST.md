@@ -346,7 +346,7 @@
 | CLEAN-007 | ESLint: убрать generic `eslint-disable-next-line` (указать конкретное правило) | 🟢        | Все файлы                                               | ✅     |
 | CLEAN-008 | Deeply nested ternaries → object lookup для status colors                      | 🟢        | `DashboardRedesigned.jsx:650+`                          | ✅     |
 | CLEAN-009 | Prop drilling в Cards: compound components pattern или Context для CardRow     | 🟡        | `Cards.jsx:950+`                                        | ⬜     |
-| CLEAN-010 | virtualizer overscan: сделать конфигурируемым (не hardcoded 20)                | 🟢        | `Profiles.jsx:47`                                       | 🔄 @b  |
+| CLEAN-010 | virtualizer overscan: сделать конфигурируемым (не hardcoded 20)                | 🟢        | `constants/virtualization.js`                           | ✅     |
 
 ---
 
