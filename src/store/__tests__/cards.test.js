@@ -123,5 +123,44 @@ describe('useCardsStore', () => {
       })
       expect(useCardsStore.getState().revealed['card-1']).toBeDefined()
     })
+
+    // PERF-009: cache-first + дедупликация in-flight запросов reveal_card
+    it('returns cached reveal without a second invoke (PERF-009)', async () => {
+      const { invoke } = await import('@tauri-apps/api/core')
+      invoke.mockReset()
+      const cached = { card_number: '4111111111111111', cvv: '123' }
+      useCardsStore.setState({ revealed: { c1: cached } })
+      const result = await useCardsStore.getState().revealCard('c1')
+      expect(result).toBe(cached)
+      expect(invoke).not.toHaveBeenCalled()
+    })
+
+    it('deduplicates concurrent reveal calls into one invoke (PERF-009)', async () => {
+      const { invoke } = await import('@tauri-apps/api/core')
+      invoke.mockReset()
+      invoke.mockImplementation(
+        () => new Promise(res => setTimeout(() => res({ card_number: '4111', cvv: '1' }), 10))
+      )
+      const [a, b] = await Promise.all([
+        useCardsStore.getState().revealCard('c2'),
+        useCardsStore.getState().revealCard('c2'),
+      ])
+      expect(invoke).toHaveBeenCalledTimes(1)
+      expect(a.card_number).toBe('4111')
+      expect(b.card_number).toBe('4111')
+      expect(useCardsStore.getState().revealed['c2'].card_number).toBe('4111')
+    })
+
+    it('drops in-flight reveal result after clearSensitiveData (PERF-009)', async () => {
+      const { invoke } = await import('@tauri-apps/api/core')
+      invoke.mockReset()
+      invoke.mockImplementation(
+        () => new Promise(res => setTimeout(() => res({ card_number: '5555', cvv: '9' }), 10))
+      )
+      const p = useCardsStore.getState().revealCard('c3')
+      useCardsStore.getState().clearSensitiveData()
+      await p
+      expect(useCardsStore.getState().revealed['c3']).toBeUndefined()
+    })
   })
 })

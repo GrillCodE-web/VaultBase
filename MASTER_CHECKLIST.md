@@ -148,8 +148,8 @@
 | UX-015 | Progress bar для batch import (вместо только спиннера)                  | 🟠        | `BatchImportModal.jsx`                | ✅     |
 | UX-016 | Offline индикатор в header (badge когда sync server недоступен)         | 🟡        | `App.jsx`, UI header                  | ✅     |
 | UX-017 | Column picker: persist в localStorage + кнопка reset                    | 🟡        | `Cards.jsx:37-48`, `ColumnPicker.jsx` | ✅     |
-| UX-018 | Email assignment feedback — показывать какой email выбран               | 🟡        | `ProfileModal.jsx:312-336`            | ⬜     |
-| UX-019 | autoCreateDrop: убрать auto=true по умолчанию, добавить подтверждение   | 🟡        | `ProfileModal.jsx:22`                 | ⬜     |
+| UX-018 | Email assignment feedback — показывать какой email выбран               | 🟡        | `ProfileModal.jsx:312-336`            | ✅     |
+| UX-019 | autoCreateDrop: убрать auto=true по умолчанию, добавить подтверждение   | 🟡        | `ProfileModal.jsx:22`                 | ✅     |
 
 ### 3.4 Горячие клавиши
 
@@ -180,7 +180,7 @@
 | PERF-006 | Lazy loading страниц: React.lazy() + Suspense для всех 18 страниц                         | 🟡        | `App.jsx`                          | ✅ (уже было) |
 | PERF-007 | Dashboard: Promise.allSettled() — показывать частичные данные при ошибке одного запроса   | 🟡        | `DashboardRedesigned.jsx:887`      | ✅ (уже было) |
 | PERF-008 | Исправить debounce: перенести в onChange handler вместо useEffect                         | 🟡        | `src/hooks/useDebounceCallback.js` | ✅            |
-| PERF-009 | Card reveal: использовать cache перед fetch (уже в store, но не используется)             | 🟡        | `Cards.jsx:500+`                   | ⬜            |
+| PERF-009 | Card reveal: использовать cache перед fetch (уже в store, но не используется)             | 🟡        | `store/cards.js:revealCard`        | ✅            |
 | PERF-010 | React Query / TanStack Query — рассмотреть для v3 (кэш, дедупликация, background refetch) | 🟢        | Архитектурное решение              | ⬜            |
 
 ### 4.3 БД производительность

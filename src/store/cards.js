@@ -7,6 +7,9 @@ const CACHE_MAX_ENTRIES = 50 // FINAL-004: Prevent unbounded cache growth
 // ARCH-018: revealed PAN/CVV не должны жить в памяти вечно — авто-скрытие через TTL
 const REVEAL_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const revealTimers = new Map() // cardId -> timeoutId (module-level, не в state)
+// PERF-009: in-flight запросы reveal_card — дедуп параллельных вызовов (двойной клик,
+// строка + сайд-панель) и защита от set() после clearSensitiveData (lock/logout)
+const revealPending = new Map() // cardId -> Promise
 
 function scheduleRevealClear(id, set) {
   const existing = revealTimers.get(id)
@@ -123,7 +126,11 @@ export const useCardsStore = create((set, get) => ({
       // ★ Insight: AbortSignal позволяет отменить предыдущий запрос при быстром переключении фильтров
       // Tauri invoke не поддерживает abortSignal напрямую, но мы можем проверить сигнал после ответа
       // ERR-006: 1 ретрай на транзиентный SQLite busy ("database is locked")
-      const res = await invokeWithRetry('get_cards', { filter: filters, page, perPage }, { retries: 1, baseDelay: 300 })
+      const res = await invokeWithRetry(
+        'get_cards',
+        { filter: filters, page, perPage },
+        { retries: 1, baseDelay: 300 }
+      )
 
       // Проверка на отмену после получения ответа (предотвращает race conditions)
       if (abortSignal?.aborted) {
@@ -193,15 +200,28 @@ export const useCardsStore = create((set, get) => ({
   },
 
   revealCard: async id => {
-    if (get().revealed[id]) return
-    try {
-      const data = await invoke('reveal_card', { id })
-      set(s => ({ revealed: { ...s.revealed, [id]: data } }))
-      scheduleRevealClear(id, set)
-    } catch (error) {
-      console.error(`Failed to reveal card ${id}:`, error)
-      throw error
-    }
+    // PERF-009: cache-first — повторный reveal в пределах TTL возвращает кэш
+    // без повторного invoke (и без лишней записи в audit-log бэкенда)
+    const cached = get().revealed[id]
+    if (cached) return cached
+    const pending = revealPending.get(id)
+    if (pending) return pending
+    const p = invoke('reveal_card', { id })
+      .then(data => {
+        // За время запроса могли залочить сессию (clearSensitiveData) — не воскрешаем кэш
+        if (revealPending.has(id)) {
+          set(s => ({ revealed: { ...s.revealed, [id]: data } }))
+          scheduleRevealClear(id, set)
+        }
+        return data
+      })
+      .catch(error => {
+        console.error(`Failed to reveal card ${id}:`, error)
+        throw error
+      })
+      .finally(() => revealPending.delete(id))
+    revealPending.set(id, p)
+    return p
   },
 
   updateCard: async (id, updates) => {
@@ -401,6 +421,8 @@ export const useCardsStore = create((set, get) => ({
     // ARCH-018: гасим все TTL-таймеры, чтобы не было set() после очистки
     for (const timerId of revealTimers.values()) clearTimeout(timerId)
     revealTimers.clear()
+    // PERF-009: in-flight reveal'ы тоже гасим — их результаты будут выброшены
+    revealPending.clear()
     set({
       revealed: {},
       cache: {},

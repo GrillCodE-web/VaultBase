@@ -20,11 +20,14 @@
 ## Открыто сейчас (обновлять последней записью)
 
 - Активных клеймов нет. MGR-013 закрыт 2026-08-28 (запись ниже) — открытых
-  🟠 в чеклисте не осталось (24 открытых: 17 🟡 + 7 🟢).
+  🟠 в чеклисте не осталось. От @b влиты UX-018/019 и PERF-009
+  (origin/main → main, записи ниже). FEAT-006/007 закрыты 2026-08-28.
+- В manager-work параллельно идёт вторая живая сессия (claim FEAT-002,
+  PERF-014): её WIP-файлы не трогать, коммиты только с явными путями.
 - Ночная вахта @main (владелец недоступен, работа автономная): дальше —
   добор хвостов соседних worktree: agent/upanel (FEAT-018 готов на ветке,
-  влить в main), agent/frontend (PERF-009 закоммичен + незакоммиченный
-  snapshot), agent/backend (TEST-005 🔄 @a, WIP: e2e/settings.spec.js).
+  влить в main), agent/frontend (незакоммиченный snapshot после PERF-009),
+  agent/backend (TEST-005 🔄 @a, WIP: e2e/settings.spec.js).
 - Далее (🟡/🟢): свободные пункты по чеклисту после разбора хвостов.
 - Флаг `ws_require_nonce` на сервере ВЫКЛ (legacy-совместимость): включить в
   админке после того, как флот воркеров обновится на версию с эхом nonce.
@@ -214,3 +217,52 @@
 - Урок для сессий на этой машине: НЕ редактировать файлы с кириллицей через
   PowerShell Set-Content/Add-Content без `-Encoding utf8` — получается
   mojibake. Править только file-инструментами агента.
+
+### 2026-08-28 — UX-018 + UX-019 ✅ @b (worktree agent-frontend)
+
+- UX-018: в ProfileModal под полем email добавлен фидбек привязки — зелёная
+  строка «Will be linked: {email}» при совпадении с пулом (get_available_emails
+  отдаёт только {id, email}) и серая «Not in email pool — won't be linked»,
+  если введённый адрес в пуле не найден.
+- UX-019: `autoCreateDrop` теперь по умолчанию `false` (был `true`); включение
+  чекбокса идёт через `useConfirm` — диалог предупреждает, что биллинг-адрес
+  карты будет расшифрован (reveal_card) для создания дропа. Отказ → чекбокс
+  остаётся выключенным.
+- Заодно переведены на i18n трогаемые строки модалки (label/placeholder email,
+  title кнопки 🎲, тосты авто-назначения, подпись чекбокса). Новые ключи
+  (en+ru, 11 шт.): email_label_optional, email_placeholder,
+  email_auto_assign_title, email_auto_assigned, no_free_emails,
+  email_will_be_linked, email_not_in_pool, auto_create_drop,
+  auto_create_drop_helper, auto_create_drop_confirm_title,
+  auto_create_drop_confirm_msg.
+- Коммиты: `98103e6` (клейм), `3b954c5` (код), `2ae1ac8` (чеклист ✅).
+- Проверки: `python scripts/audit_frontend.py` — критичных проблем нет;
+  `npm run lint` — 0 ошибок (4 pre-existing warnings в Dashboard/charts.jsx);
+  `npx vitest run` — 327/327.
+- Слияние: main был занят сессией MGR-013 (checkout в manager-work), поэтому
+  влито пушем `agent/frontend:main` (ff 6273b16→2ae1ac8). Сессии MGR-013 при
+  своём слиянии нужен rebase локального main на origin/main.
+- Побочка: vitest-тронутый snapshot-файл (только CRLF/LF) — откачен
+  `git restore`, в коммит не попал.
+
+### 2026-08-28 — PERF-009 ✅ @b (worktree agent-frontend)
+
+- `revealCard` в `src/store/cards.js` — cache-first: повторный reveal в
+  пределах TTL (ARCH-018, 5 мин) возвращает кэшированный PAN/CVV без
+  повторного `invoke('reveal_card')` (и без лишней записи в audit-log
+  бэкенда). Метод теперь возвращает данные (Promise), раньше — undefined.
+- Дедупликация in-flight: `revealPending` (Map cardId→Promise) — двойной
+  клик / параллельные вызовы (строка таблицы + сайд-панель) схлопываются в
+  один invoke.
+- Связка с ARCH-018: если за время запроса сработал `clearSensitiveData`
+  (лок/логаут), результат in-flight reveal'а выбрасывается — кэш не
+  воскрешается после очистки.
+- Тесты +3 в `src/store/__tests__/cards.test.js`: cache-hit без invoke,
+  дедуп параллельных вызовов, отброс результата после clearSensitiveData.
+- Коммиты: `a75e52b` (клейм), `7aad3fa` (код+тесты), `b3d25b8` (чеклист ✅).
+- Проверки: `npm run lint` — 0 ошибок (4 pre-existing warnings в
+  Dashboard/charts.jsx); `npx vitest run` — 330/330;
+  `python scripts/audit_frontend.py` — критичных проблем нет.
+- Слияние: как и в прошлый раз, пуш `agent/frontend:main` (ff) — main в
+  manager-work занят сессией MGR-013. Ручной прогон в Tauri не делался:
+  поведение покрыто unit-тестами, e2e-мок reveal не гоняет.
