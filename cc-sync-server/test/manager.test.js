@@ -528,3 +528,58 @@ test('manager updater: channels, deterministic rollout, PATCH rollout', async ()
   ).get().n;
   assert.ok(audited >= 2, `expected >= 2 audited rollout actions, got ${audited}`);
 });
+
+
+// ── MGR-013: удалённый wipe воркера через heartbeat-политику ────────────────
+
+test('remote wipe: manager sets flag, worker sees it in policy, ack clears it', async () => {
+  const db = getDb();
+
+  // Без confirm — отказ.
+  const noConfirm = await req('POST', `/manager/api/workers/${WRK_IID}/wipe`, MGR_TOKEN, {});
+  assert.equal(noConfirm.status, 400);
+  assert.equal(noConfirm.json.error, 'confirm_required');
+
+  // Воркер не может вызвать wipe-endpoint.
+  const asWorker = await req('POST', `/manager/api/workers/${WRK_IID}/wipe`, WRK_TOKEN, { confirm: true });
+  assert.equal(asWorker.status, 403);
+
+  // Неизвестная инсталляция и manager-лицензия — отказ.
+  const unknown = await req('POST', '/manager/api/workers/no-such-iid/wipe', MGR_TOKEN, { confirm: true });
+  assert.equal(unknown.status, 404);
+  const onManager = await req('POST', `/manager/api/workers/${MGR_IID}/wipe`, MGR_TOKEN, { confirm: true });
+  assert.equal(onManager.status, 400);
+  assert.equal(onManager.json.error, 'manager_not_policied');
+
+  // Менеджер ставит флаг.
+  const set = await req('POST', `/manager/api/workers/${WRK_IID}/wipe`, MGR_TOKEN, { confirm: true });
+  assert.equal(set.status, 200);
+  assert.equal(set.json.policy.wipe, 1);
+
+  // Флаг виден в GET /workers.
+  const list = await req('GET', '/manager/api/workers', MGR_TOKEN);
+  const w = list.json.workers.find((x) => x.installation_id === WRK_IID);
+  assert.equal(w.wipe, 1);
+
+  // Воркер получает wipe в политике на heartbeat.
+  const keyId = await activeKey();
+  const hb = await req('POST', '/api/telemetry/heartbeat', WRK_TOKEN, { envelopes: [envelope(keyId)] });
+  assert.equal(hb.status, 200);
+  assert.equal(hb.json.policy.wipe, 1);
+
+  // Ack: воркер подтверждает — сервер сбрасывает флаг, wipe больше не отдаётся.
+  const ack = await req('POST', '/api/telemetry/heartbeat', WRK_TOKEN, {
+    envelopes: [envelope(keyId)],
+    wipe_ack: true,
+  });
+  assert.equal(ack.status, 200);
+  assert.equal(ack.json.policy.wipe, 0);
+  const after = db.prepare('SELECT wipe FROM worker_policies WHERE installation_id = ?').get(WRK_IID);
+  assert.equal(after.wipe, 0);
+
+  // Аудит записан.
+  const audited = db.prepare(
+    "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'manager_remote_wipe'"
+  ).get().n;
+  assert.ok(audited >= 1, `expected audited remote wipe, got ${audited}`);
+});

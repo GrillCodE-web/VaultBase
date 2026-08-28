@@ -377,6 +377,14 @@ function migrate(db) {
     `);
     db.pragma('user_version = 14');
   }
+
+  // MGR-013: удалённый wipe воркера — менеджер ставит флаг, воркер получает
+  // его в политике на heartbeat, стирает локальную БД и подтверждает
+  // (wipe_ack) — сервер сбрасывает флаг.
+  if (ver < 15) {
+    db.exec(`ALTER TABLE worker_policies ADD COLUMN wipe INTEGER NOT NULL DEFAULT 0;`);
+    db.pragma('user_version = 15');
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

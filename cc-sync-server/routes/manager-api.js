@@ -54,6 +54,7 @@ function getPolicy(db, iid) {
     min_version: null,
     version_exempt: 0,
     force_logout: 0,
+    wipe: 0,
     updated_by: null,
     updated_at: null,
   };
@@ -112,7 +113,7 @@ router.get('/workers', (req, res) => {
            hb.last_seen AS hb_last_seen, hb.envelope AS hb_envelope, hb.key_id AS hb_key_id,
            hb.received_at AS hb_received_at,
            p.banned, p.banned_reason, p.ban_until, p.permissions_override,
-           p.quota_cards_day, p.quota_orders_day, p.min_version, p.version_exempt, p.force_logout
+           p.quota_cards_day, p.quota_orders_day, p.min_version, p.version_exempt, p.force_logout, p.wipe
     FROM licenses l
     LEFT JOIN worker_heartbeats hb ON hb.installation_id = l.installation_id
     LEFT JOIN worker_policies p ON p.installation_id = l.installation_id
@@ -240,6 +241,26 @@ router.post('/workers/:iid/force-logout', (req, res) => {
   audit(req.installationId, 'manager_force_logout', { installation_id: req.params.iid });
   notifyWorker(req, req.params.iid, { type: 'policy_update' });
   res.json({ ok: true });
+});
+
+// MGR-013: удалённый wipe воркера. Флаг уезжает в политику на следующем
+// heartbeat; воркер подтверждает (wipe_ack) и стирает локальную БД.
+// Отменить после ack нельзя — wipe уже выполнен. Требует confirm:true.
+router.post('/workers/:iid/wipe', (req, res) => {
+  if (req.body?.confirm !== true) return res.status(400).json({ error: 'confirm_required' });
+  const db = getDb();
+  const lic = db.prepare('SELECT installation_id, role FROM licenses WHERE installation_id = ?').get(req.params.iid);
+  if (!lic) return res.status(404).json({ error: 'unknown_installation' });
+  if (lic.role === 'manager') return res.status(400).json({ error: 'manager_not_policied' });
+  db.prepare(`
+    INSERT INTO worker_policies (installation_id, wipe, updated_by)
+    VALUES (?, 1, ?)
+    ON CONFLICT(installation_id) DO UPDATE SET
+      wipe = 1, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP
+  `).run(req.params.iid, req.installationId);
+  audit(req.installationId, 'manager_remote_wipe', { installation_id: req.params.iid });
+  notifyWorker(req, req.params.iid, { type: 'policy_update' });
+  res.json({ ok: true, policy: getPolicy(db, req.params.iid) });
 });
 
 // ── News ──────────────────────────────────────────────────────────────────────

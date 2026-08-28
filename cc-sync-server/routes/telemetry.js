@@ -34,7 +34,7 @@ function getPolicy(db, iid) {
   const row = db.prepare(`
     SELECT banned, banned_reason, ban_until, permissions_override,
            quota_cards_day, quota_orders_day, min_version, version_exempt,
-           force_logout, updated_by, updated_at
+           force_logout, wipe, updated_by, updated_at
     FROM worker_policies WHERE installation_id = ?
   `).get(iid);
   return row || {
@@ -47,6 +47,7 @@ function getPolicy(db, iid) {
     min_version: null,
     version_exempt: 0,
     force_logout: 0,
+    wipe: 0,
     updated_by: null,
     updated_at: null,
   };
@@ -63,10 +64,16 @@ function compareSemver(a, b) {
 }
 
 router.post('/heartbeat', (req, res) => {
-  const { envelopes, ack_force_logout } = req.body || {};
+  const { envelopes, ack_force_logout, wipe_ack } = req.body || {};
   if (!validateEnvelopes(envelopes)) return res.status(400).json({ error: 'invalid_envelopes' });
   const db = getDb();
   if (!activeManagerKeysExist(db, envelopes)) return res.status(409).json({ error: 'no_active_manager_keys' });
+  // MGR-013: воркер подтверждает wipe ПЕРЕД стиранием БД — флаг сбрасываем
+  // сразу, окно между ack и удалением файлов минимально.
+  if (wipe_ack === true) {
+    db.prepare('UPDATE worker_policies SET wipe = 0 WHERE installation_id = ?').run(req.installationId);
+    return res.json({ ok: true, policy: getPolicy(db, req.installationId), update_required: false });
+  }
 
   db.transaction(() => {
     db.prepare(`
