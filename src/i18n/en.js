@@ -80,6 +80,18 @@ export const en = {
   auth_err_mismatch: 'Passwords do not match',
   auth_err_too_weak: 'Password does not meet requirements',
   auth_err_wrong: 'Wrong password. Please try again.',
+  // MGR-013: panic password (duress)
+  panic_title: 'Panic password',
+  panic_desc:
+    'A separate emergency password: entering it on the login screen irreversibly wipes all local data. From the outside it looks like a wrong password. Must differ from the master password.',
+  panic_placeholder: 'Panic password',
+  panic_set_btn: 'Set',
+  panic_set_ok: 'Panic password set',
+  panic_status_set: 'Set',
+  panic_remove: 'Remove',
+  panic_removed: 'Panic password removed',
+  panic_remove_confirm: 'Remove the panic password? Emergency wipe will stop working.',
+  panic_err_same: 'Panic password must differ from the master password',
   auth_err_locked: 'Database is locked',
   auth_err_generic: 'Authentication error. Please try again.',
   auth_err_already_set: 'Password already set. Please restart the app.',

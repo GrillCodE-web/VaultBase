@@ -107,6 +107,10 @@ export default function Settings() {
   // FEAT-006/007: пороги ежедневных напоминаний (cron в background.rs)
   const [reminderCardDays, setReminderCardDays] = useState('14')
   const [reminderTrackingDays, setReminderTrackingDays] = useState('5')
+  // MGR-013: panic-пароль (duress) — sidecar v3, проверка на unlock до открытия БД
+  const [panicSet, setPanicSet] = useState(false)
+  const [panicInput, setPanicInput] = useState('')
+  const [panicSaving, setPanicSaving] = useState(false)
   const [catalogStats, setCatalogStats] = useState(null)
 
   useEffect(() => {
@@ -153,6 +157,9 @@ export default function Settings() {
           if (!cancelled) setCatalogStats(s)
         })
         .catch(e => console.error('[Settings] Failed to get catalog stats:', e)),
+      invoke('has_panic_password').then(v => {
+        if (!cancelled) setPanicSet(!!v)
+      }),
     ])
     // Network call deferred — doesn't block initial render
     invoke('sync_get_group_status')
@@ -522,6 +529,37 @@ export default function Settings() {
     }
   }
 
+  // MGR-013: установка/снятие panic-пароля
+  const handleSetPanic = async () => {
+    if (!panicInput || panicSaving) return
+    setPanicSaving(true)
+    try {
+      await invoke('set_panic_password', { password: panicInput })
+      setPanicSet(true)
+      setPanicInput('')
+      toastOk(t('panic_set_ok'))
+    } catch (e) {
+      const msg = String(e)
+      if (msg.includes('panic_equals_master')) toastErr(t('panic_err_same'))
+      else if (msg.includes('password_too_weak')) toastErr(t('auth_err_too_weak'))
+      else toastErr(getErrorMessage(handleError(e, 'Settings.setPanicPassword')))
+    } finally {
+      setPanicSaving(false)
+    }
+  }
+
+  const handleRemovePanic = async () => {
+    const ok = await confirm(t('panic_remove_confirm'), { title: t('panic_title') })
+    if (!ok) return
+    try {
+      await invoke('remove_panic_password')
+      setPanicSet(false)
+      toastOk(t('panic_removed'))
+    } catch (e) {
+      toastErr(getErrorMessage(handleError(e, 'Settings.removePanicPassword')))
+    }
+  }
+
   const loadAuditLog = async () => {
     setAuditLoading(true)
     try {
@@ -704,6 +742,38 @@ export default function Settings() {
             <button onClick={handleLockNow} className="btn btn-r btn-sm">
               <Lock size={13} /> Lock Now
             </button>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">{t('panic_title')}</div>
+              <div className="setting-desc">{t('panic_desc')}</div>
+            </div>
+            {panicSet ? (
+              <div className="flex gap-1 items-center">
+                <span className="st st-active">{t('panic_status_set')}</span>
+                <button onClick={handleRemovePanic} className="btn btn-r btn-sm">
+                  {t('panic_remove')}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-1 items-center">
+                <input
+                  type="password"
+                  className="field-input"
+                  value={panicInput}
+                  onChange={e => setPanicInput(e.target.value)}
+                  placeholder={t('panic_placeholder')}
+                  autoComplete="new-password"
+                />
+                <button
+                  onClick={handleSetPanic}
+                  disabled={!panicInput || panicSaving}
+                  className="btn btn-sm"
+                >
+                  {panicSaving ? t('loading') : t('panic_set_btn')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

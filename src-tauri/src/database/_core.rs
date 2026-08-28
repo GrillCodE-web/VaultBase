@@ -3,6 +3,8 @@
 pub struct DbSidecar {
     pub salt_b64: String,
     pub wrapped_dek: Option<String>,
+    /// MGR-013: bcrypt-хеш panic-пароля (только в формате v3).
+    pub panic_hash: Option<String>,
 }
 
 impl Database {
@@ -220,21 +222,45 @@ impl Database {
         Self::parse_sidecar(&raw)
     }
 
+    /// MGR-013: v3 sidecar: "v3:<salt_b64>:<wrapped_dek_b64>:<panic_bcrypt>".
+    /// bcrypt-хеш не содержит ':', split безопасен.
+    pub fn save_sidecar_v3(
+        db_path: &str,
+        salt_b64: &str,
+        wrapped_dek_b64: &str,
+        panic_hash: &str,
+    ) -> Result<(), String> {
+        std::fs::write(
+            Self::salt_file_path(db_path),
+            format!("v3:{}:{}:{}", salt_b64, wrapped_dek_b64, panic_hash),
+        )
+        .map_err(|e| format!("save sidecar v3: {e}"))
+    }
+
     fn parse_sidecar(raw: &str) -> Option<DbSidecar> {
         let raw = raw.trim();
         if raw.is_empty() {
             return None;
         }
-        if let Some(rest) = raw.strip_prefix("v2:") {
+        if let Some(rest) = raw.strip_prefix("v3:") {
+            let mut it = rest.split(':');
+            let salt = it.next()?.to_string();
+            let dek = it.next()?.to_string();
+            let panic = it.next()?.to_string();
+            if salt.is_empty() || dek.is_empty() || panic.is_empty() {
+                return None;
+            }
+            Some(DbSidecar { salt_b64: salt, wrapped_dek: Some(dek), panic_hash: Some(panic) })
+        } else if let Some(rest) = raw.strip_prefix("v2:") {
             let mut it = rest.split(':');
             let salt = it.next()?.to_string();
             let dek = it.next()?.to_string();
             if salt.is_empty() || dek.is_empty() {
                 return None;
             }
-            Some(DbSidecar { salt_b64: salt, wrapped_dek: Some(dek) })
+            Some(DbSidecar { salt_b64: salt, wrapped_dek: Some(dek), panic_hash: None })
         } else {
-            Some(DbSidecar { salt_b64: raw.to_string(), wrapped_dek: None })
+            Some(DbSidecar { salt_b64: raw.to_string(), wrapped_dek: None, panic_hash: None })
         }
     }
 
@@ -340,5 +366,41 @@ impl Database {
         }
         let key = self.hmac_key();
         Some(hash_value_with_key(&installation_id, &key))
+    }
+}
+
+#[cfg(test)]
+mod sidecar_tests {
+    use super::*;
+
+    #[test]
+    fn sidecar_v3_roundtrip_with_panic_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let dbp = dir.path().join("t.db").to_str().unwrap().to_string();
+        let hash = bcrypt::hash("panic-pw-123", 4).unwrap(); // низкий cost для теста
+        Database::save_sidecar_v3(&dbp, "c2FsdA==", "d3JhcHBlZA==", &hash).unwrap();
+
+        let sc = Database::read_sidecar(&dbp).expect("v3 sidecar parses");
+        assert_eq!(sc.salt_b64, "c2FsdA==");
+        assert_eq!(sc.wrapped_dek.as_deref(), Some("d3JhcHBlZA=="));
+        let ph = sc.panic_hash.expect("panic hash present");
+        // bcrypt-хеш с ':' внутри не ломает split-формат
+        assert!(bcrypt::verify("panic-pw-123", &ph).unwrap());
+        assert!(!bcrypt::verify("wrong-pw", &ph).unwrap());
+    }
+
+    #[test]
+    fn sidecar_v2_and_v1_have_no_panic_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let dbp = dir.path().join("t.db").to_str().unwrap().to_string();
+        Database::save_sidecar(&dbp, "c2FsdA==", "d3JhcHBlZA==").unwrap();
+        let sc = Database::read_sidecar(&dbp).expect("v2 sidecar parses");
+        assert!(sc.panic_hash.is_none());
+
+        std::fs::write(Database::salt_file_path(&dbp), "bGVnYWN5LXNhbHQ=").unwrap();
+        let sc1 = Database::read_sidecar(&dbp).expect("v1 sidecar parses");
+        assert_eq!(sc1.salt_b64, "bGVnYWN5LXNhbHQ=");
+        assert!(sc1.wrapped_dek.is_none());
+        assert!(sc1.panic_hash.is_none());
     }
 }

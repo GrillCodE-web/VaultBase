@@ -19,6 +19,7 @@ mod state;
 mod stuffer;
 mod sync;
 mod tracking;
+mod wipe; // MGR-013: локальное криптостирание (panic-пароль / remote wipe)
 mod ws_sync;
 
 use background::*;
@@ -229,6 +230,7 @@ fn main() {
             commands::auth::get_users_stats, commands::auth::get_user_period_stats, commands::auth::get_user_activity_log,
             commands::auth::get_admin_overview, commands::auth::take_card, commands::auth::transfer_card_cmd, commands::auth::get_my_card_assignments,
             commands::auth::setup_password, commands::auth::is_password_set, commands::auth::unlock, commands::auth::lock, commands::auth::change_password, commands::auth::change_own_password, commands::auth::is_locked,
+            commands::auth::set_panic_password, commands::auth::remove_panic_password, commands::auth::has_panic_password,
             commands::auth::get_full_audit_log, commands::auth::get_online_sessions, commands::auth::revoke_session,
             commands::cards::detect_mapping_preview,
             commands::cards::import_cards, commands::cards::get_cards, commands::cards::get_card, commands::cards::get_card_filter_meta, commands::cards::reveal_card,

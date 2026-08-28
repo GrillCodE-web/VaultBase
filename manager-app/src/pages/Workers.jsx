@@ -301,6 +301,15 @@ export default function Workers() {
     }
   }
 
+  const handleWipe = async (iid) => {
+    if (!window.confirm(t('wipe_worker_confirm'))) return
+    const r = await api('POST', `/manager/api/workers/${iid}/wipe`, { confirm: true })
+    if (r.status === 200) {
+      setToast(t('wipe_requested'))
+      load()
+    }
+  }
+
   if (workers === null) return <div className="empty">{t('loading')}</div>
 
   return (
@@ -367,7 +376,16 @@ export default function Workers() {
                       <button className="btn small" onClick={() => setModal(w)}>{t('policy_title')}</button>{' '}
                       <button className="btn small danger" onClick={() => forceLogout(w.installation_id)}>
                         {t('policy_force_logout')}
-                      </button>
+                      </button>{' '}
+                      {w.role !== 'manager' && (
+                        w.wipe === 1
+                          ? <span className="tag red">{t('wipe_pending')}</span>
+                          : (
+                            <button className="btn small danger" onClick={() => handleWipe(w.installation_id)}>
+                              {t('wipe_worker')}
+                            </button>
+                          )
+                      )}
                     </td>
                   </tr>
                 )

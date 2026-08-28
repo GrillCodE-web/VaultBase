@@ -429,6 +429,11 @@ pub struct PolicyEffects {
     pub banned: bool,
     pub force_logout: bool,
     pub update_required: bool,
+    /// MGR-013: сервер потребовал криптостирание локальной БД.
+    /// Одноразовый эффект heartbeat — в PolicyState и в персистящийся
+    /// config НЕ переносится (иначе restore_policy_from_config повторил бы wipe).
+    #[serde(default)]
+    pub wipe: bool,
 }
 
 /// SQLite-хранимые флаги приходят как 0/1, из JSON — как bool.
@@ -483,8 +488,13 @@ fn parse_policy_state(policy: &serde_json::Value, update_required: bool) -> Poli
 /// heartbeat уйдёт с `ack_force_logout:true`, и сервер сбросит флаг.
 pub(crate) fn apply_policy(db: &mut Database, policy: &serde_json::Value, update_required: bool) -> PolicyEffects {
     let next = parse_policy_state(policy, update_required);
+    // MGR-013: wipe — одноразовый эффект; в персистящуюся политику не пишем,
+    // чтобы restore_policy_from_config после рестарта не повторил стирание
+    // (сервер сбрасывает флаг по wipe_ack).
+    let wipe = policy_flag(policy, "wipe");
     let mut stored = policy.clone();
     stored["update_required"] = serde_json::json!(update_required);
+    if let Some(obj) = stored.as_object_mut() { obj.remove("wipe"); }
     let _ = db.set_config("worker_policy", &stored.to_string());
 
     let force_logout = next.force_logout;
@@ -498,7 +508,7 @@ pub(crate) fn apply_policy(db: &mut Database, policy: &serde_json::Value, update
         let _ = db.logout_all_sessions();
         let _ = db.set_config("telemetry_ack_force_logout", "1");
     }
-    PolicyEffects { banned: next.banned, force_logout, update_required }
+    PolicyEffects { banned: next.banned, force_logout, update_required, wipe }
 }
 
 /// Восстановить политику из config при логине — после рестарта приложения
@@ -570,15 +580,32 @@ pub struct TelemetryHeartbeatResult {
     /// MGR-005: политика потребовала разлогин — фронт должен выкинуть на логин.
     #[serde(default)]
     pub force_logout: bool,
+    /// MGR-013: сервер потребовал wipe — вызывающая команда обязана стереть
+    /// локальные данные и перезапустить приложение (ack уже отправлен).
+    #[serde(default)]
+    pub wipe: bool,
 }
 
 impl TelemetryHeartbeatResult {
     fn fail(reason: String) -> Self {
         TelemetryHeartbeatResult {
             sent: false, reason, update_required: false, banned: false,
-            policy: None, force_logout: false,
+            policy: None, force_logout: false, wipe: false,
         }
     }
+}
+
+/// MGR-013: подтверждение wipe до стирания (после него токен и БД мертвы —
+/// ack больше не уйдёт). Best-effort: при сбое флаг останется на сервере и
+/// wipe повторится на следующем heartbeat.
+fn send_wipe_ack(token: &str, envelopes: &serde_json::Value) {
+    let body = serde_json::json!({ "envelopes": envelopes, "wipe_ack": true });
+    let _ = ureq::post(&crate::endpoints::endpoint("/api/telemetry/heartbeat"))
+        .set("Authorization", &format!("Bearer {}", token))
+        .set("Content-Type", "application/json")
+        .set("X-App-Version", env!("CARGO_PKG_VERSION"))
+        .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
+        .send_string(&body.to_string());
 }
 
 pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
@@ -622,12 +649,16 @@ pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
                     Some(p) => apply_policy(db, p, update_required),
                     None => PolicyEffects::default(),
                 };
+                if effects.wipe {
+                    send_wipe_ack(&token, &serde_json::json!(envelopes));
+                }
                 TelemetryHeartbeatResult {
                     sent: true, reason: "ok".into(),
                     update_required,
                     banned: effects.banned,
                     policy,
                     force_logout: effects.force_logout,
+                    wipe: effects.wipe,
                 }
             } else {
                 TelemetryHeartbeatResult::fail("bad_response".into())
@@ -640,6 +671,11 @@ pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
                 Some(p) => apply_policy(db, p, false),
                 None => PolicyEffects::default(),
             };
+            // MGR-013: wipe приходит и в 403-политике (бан+wipe) — ack с тем
+            // же конвертом, токен ещё жив до стирания.
+            if effects.wipe {
+                send_wipe_ack(&token, &serde_json::json!(envelopes));
+            }
             TelemetryHeartbeatResult {
                 sent: false,
                 reason: v.get("error").and_then(|x| x.as_str()).unwrap_or("banned").to_string(),
@@ -647,11 +683,12 @@ pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
                 banned: true,
                 policy,
                 force_logout: effects.force_logout,
+                wipe: effects.wipe,
             }
         }
         Err(e) => TelemetryHeartbeatResult {
             sent: false, reason: http_err(e), update_required: false, banned: false,
-            policy: None, force_logout: false,
+            policy: None, force_logout: false, wipe: false,
         },
     }
 }
@@ -740,9 +777,25 @@ pub(crate) fn telemetry_tick_impl(db: &mut Database, force: bool) -> serde_json:
     serde_json::json!({ "heartbeat": heartbeat, "daily_stats": daily, "feeds": feeds })
 }
 
+/// MGR-013: криптостирание по команде сервера и перезапуск. Ack уже ушёл из
+/// send_heartbeat; здесь БД закрывается, файлы перезаписываются и удаляются.
+/// restart() не возвращается — дальше чистое состояние fresh-install.
+fn perform_wipe_and_restart(db: &mut Database, app: &tauri::AppHandle) -> ! {
+    db.close_connections();
+    let path = crate::state::db_path();
+    crate::wipe::wipe_local_data(path.to_str().unwrap_or("vaultbase.db"));
+    app.restart()
+}
+
 #[tauri::command]
-pub(crate) fn telemetry_send_heartbeat() -> Result<TelemetryHeartbeatResult, String> {
-    with_db!(db, { Ok(send_heartbeat(db)) })
+pub(crate) fn telemetry_send_heartbeat(app: tauri::AppHandle) -> Result<TelemetryHeartbeatResult, String> {
+    with_db!(db, {
+        let r = send_heartbeat(db);
+        if r.wipe {
+            perform_wipe_and_restart(db, &app);
+        }
+        Ok(r)
+    })
 }
 
 #[tauri::command]
@@ -759,8 +812,14 @@ pub(crate) fn telemetry_send_daily_stats(date: Option<String>) -> Result<Telemet
 }
 
 #[tauri::command]
-pub(crate) fn telemetry_tick(force: Option<bool>) -> Result<serde_json::Value, String> {
-    with_db!(db, { Ok(telemetry_tick_impl(db, force.unwrap_or(false))) })
+pub(crate) fn telemetry_tick(app: tauri::AppHandle, force: Option<bool>) -> Result<serde_json::Value, String> {
+    with_db!(db, {
+        let r = telemetry_tick_impl(db, force.unwrap_or(false));
+        if r["heartbeat"]["wipe"].as_bool().unwrap_or(false) {
+            perform_wipe_and_restart(db, &app);
+        }
+        Ok(r)
+    })
 }
 
 // ── MGR-006: новости и приоритеты шопов от менеджера ─────────────
@@ -1222,6 +1281,25 @@ mod telemetry_tests {
         assert_eq!(scalar_i64(&db, "SELECT COUNT(*) FROM user_sessions", &[]), 0);
         // ack уйдёт следующим heartbeat — сервер по нему сбросит флаг
         assert_eq!(db.get_config("telemetry_ack_force_logout").unwrap().as_deref(), Some("1"));
+    }
+
+    #[test]
+    fn test_apply_policy_wipe_is_one_shot_effect() {
+        let (_dir, mut db) = test_db();
+        let mut p = policy_json();
+        p["wipe"] = serde_json::json!(1);
+        let fx = apply_policy(&mut db, &p, false);
+        // Эффект доезжает до вызывающей команды (там wipe + restart)...
+        assert!(fx.wipe);
+        // ...но НЕ персистится: иначе restore_policy_from_config после
+        // рестарта повторил бы стирание (сервер уже сбросил флаг по ack).
+        let stored = db.get_config("worker_policy").unwrap().unwrap();
+        let v: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert!(v.get("wipe").is_none(), "wipe must not be persisted to worker_policy");
+        assert!(parse_policy_state(&v, false).force_logout == false);
+        // Без флага — эффекта нет.
+        let fx2 = apply_policy(&mut db, &policy_json(), false);
+        assert!(!fx2.wipe);
     }
 
     #[test]

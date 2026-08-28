@@ -426,6 +426,67 @@ pub(crate) fn is_password_set() -> Result<bool, String> {
     })
 }
 
+// ── MGR-013: panic-пароль (duress) ─────────────────────────────────────────
+// Хеш живёт в sidecar v3 рядом с обёрнутым DEK (bcrypt-хеш не секрет).
+// Установка возможна только на уже зашифрованной БД и только из
+// разблокированной сессии (Settings). При вводе panic-пароля на unlock БД
+// стирается, а ответ неотличим от «неверный пароль».
+
+#[tauri::command]
+pub(crate) fn set_panic_password(password: String) -> Result<(), String> {
+    rate_limiter::check_rate_limit(
+        rate_limiter::RateLimitCategory::Strict,
+        rate_limiter::get_rate_limit_key("set_panic_password"),
+    )?;
+    let v = PasswordValidation::check(&password);
+    if let Some(msg) = v.error_message() { return Err(format!("password_too_weak: {msg}")); }
+    with_db!(db, {
+        // Panic-пароль не должен совпадать с мастер-паролем — иначе
+        // срабатывало бы при каждом входе.
+        let master_hash = db.get_config("master_password_hash").map_err(|e| e.to_string())?
+            .ok_or("setup_required")?;
+        if bcrypt::verify(&password, &master_hash).unwrap_or(false) {
+            return Err("panic_equals_master".into());
+        }
+        let db_path = crate::state::db_path();
+        let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
+        if !Database::is_encrypted(db_path_str) {
+            return Err("encrypt_db_first".into());
+        }
+        let sc = Database::read_sidecar(db_path_str)
+            .ok_or("salt_file_missing: cannot set panic password")?;
+        let dek = sc.wrapped_dek.ok_or("sidecar_v1_upgrade_required")?;
+        // FIX CRY-H02: тот же bcrypt cost 14, что и у мастер-пароля.
+        let hash = bcrypt::hash(&password, 14).map_err(|e| e.to_string())?;
+        Database::save_sidecar_v3(db_path_str, &sc.salt_b64, &dek, &hash)?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub(crate) fn remove_panic_password() -> Result<(), String> {
+    with_db!(db, {
+        let db_path = crate::state::db_path();
+        let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
+        if let Some(sc) = Database::read_sidecar(db_path_str) {
+            if sc.panic_hash.is_some() {
+                let dek = sc.wrapped_dek.ok_or("sidecar_v1_upgrade_required")?;
+                Database::save_sidecar(db_path_str, &sc.salt_b64, &dek)?;
+            }
+        }
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub(crate) fn has_panic_password() -> Result<bool, String> {
+    let db_path = crate::state::db_path();
+    let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
+    Ok(Database::read_sidecar(db_path_str)
+        .map(|sc| sc.panic_hash.is_some())
+        .unwrap_or(false))
+}
+
 #[tauri::command]
 pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("unlock"))?;
@@ -433,6 +494,25 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
         let db_path = crate::state::db_path();
         let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
         let is_encrypted_db = Database::is_encrypted(db_path_str);
+
+        // MGR-013: panic-пароль проверяется ДО любой попытки открытия БД.
+        // Совпадение → криптостирание (sidecar с DEK + файлы БД) и та же
+        // ошибка, что дал бы неверный пароль в этом состоянии: снаружи
+        // срабатывание неотличимо от опечатки. Без логов и audit.
+        if let Some(panic_hash) = Database::read_sidecar(db_path_str)
+            .or_else(|| Database::read_sidecar_bak(db_path_str))
+            .and_then(|sc| sc.panic_hash)
+        {
+            if bcrypt::verify(&password, &panic_hash).unwrap_or(false) {
+                db.close_connections();
+                crate::wipe::wipe_local_data(db_path_str);
+                return Err(if db.pool.is_none() {
+                    "salt_file_missing: cannot unlock encrypted database".into()
+                } else {
+                    "wrong_password".into()
+                });
+            }
+        }
 
         if is_encrypted_db && db.pool.is_none() {
             // SEC-005: envelope-sidecar. Пробуем основной, потом .bak —
