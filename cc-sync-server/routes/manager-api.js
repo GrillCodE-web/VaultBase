@@ -1,6 +1,7 @@
 const express = require('express');
 const { getDb } = require('../database');
 const { requireManagerToken } = require('../middleware');
+const { deriveActivationKey } = require('./activate');
 
 const router = express.Router();
 router.use(requireManagerToken);
@@ -574,6 +575,94 @@ router.get('/releases', (req, res) => {
     LIMIT 200
   `).all();
   res.json({ releases: rows });
+});
+
+// ── Licenses (MGR-010: CRUD лицензий из manager-app) ──────────────────────────
+// Открытых токенов здесь нет и не будет (MGR-008): выдача — только один раз на
+// /activate, список показывает лишь факт выдачи и маскированный префикс хеша.
+// Создание админ-лицензий и rotate-token намеренно остаются только в админке.
+
+const LICENSE_ROLES = ['operator', 'manager'];
+
+router.get('/licenses', (req, res) => {
+  const rows = getDb().prepare(`
+    SELECT l.installation_id, l.label, l.role, l.is_active, l.created_at, l.last_seen,
+           (l.token_hash IS NOT NULL) AS token_issued,
+           substr(l.token_hash, 1, 8) AS token_prefix,
+           p.banned, p.banned_reason
+    FROM licenses l
+    LEFT JOIN worker_policies p ON p.installation_id = l.installation_id
+    ORDER BY l.created_at DESC
+  `).all();
+  res.json({ licenses: rows });
+});
+
+router.post('/licenses', (req, res) => {
+  const { installation_id, challenge, label, role } = req.body || {};
+  if (typeof installation_id !== 'string' || typeof challenge !== 'string') {
+    return res.status(400).json({ error: 'installation_id_and_challenge_required' });
+  }
+  const iid = installation_id.trim();
+  const ch = challenge.trim().toUpperCase();
+  if (iid.length < 4 || iid.length > 128 || !/^[\w-]+$/.test(iid)) {
+    return res.status(400).json({ error: 'installation_id_invalid' });
+  }
+  if (ch.length < 4 || ch.length > 128 || !/^[0-9A-F]+$/.test(ch)) {
+    return res.status(400).json({ error: 'challenge_invalid' });
+  }
+  const licRole = role === undefined ? 'operator' : role;
+  if (!LICENSE_ROLES.includes(licRole)) {
+    return res.status(400).json({ error: 'role_must_be_operator_or_manager' });
+  }
+  const lbl = typeof label === 'string' ? label.slice(0, 200) : '';
+  const db = getDb();
+  try {
+    db.prepare('INSERT INTO licenses (installation_id, challenge, label, role) VALUES (?,?,?,?)')
+      .run(iid, ch, lbl, licRole);
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'installation_id_already_exists' });
+    throw e;
+  }
+  const activation_key = deriveActivationKey(iid, ch);
+  audit(req.installationId, 'manager_license_create', { installation_id: iid, role: licRole, label: lbl });
+  res.status(201).json({ ok: true, installation_id: iid, role: licRole, activation_key });
+});
+
+router.patch('/licenses/:iid', (req, res) => {
+  const { label, role } = req.body || {};
+  if (label === undefined && role === undefined) return res.status(400).json({ error: 'label_or_role_required' });
+  const db = getDb();
+  const lic = db.prepare('SELECT installation_id, role FROM licenses WHERE installation_id = ?').get(req.params.iid);
+  if (!lic) return res.status(404).json({ error: 'unknown_installation' });
+  if (role !== undefined) {
+    if (req.params.iid === req.installationId) return res.status(400).json({ error: 'cannot_change_own_role' });
+    if (!LICENSE_ROLES.includes(role)) return res.status(400).json({ error: 'role_must_be_operator_or_manager' });
+    if (lic.role === 'admin') return res.status(400).json({ error: 'admin_role_managed_in_admin_panel' });
+    db.prepare('UPDATE licenses SET role = ? WHERE installation_id = ?').run(role, req.params.iid);
+  }
+  if (label !== undefined) {
+    if (typeof label !== 'string' || label.length > 200) return res.status(400).json({ error: 'label_invalid' });
+    db.prepare('UPDATE licenses SET label = ? WHERE installation_id = ?').run(label.trim(), req.params.iid);
+  }
+  audit(req.installationId, 'manager_license_update', { installation_id: req.params.iid, label, role });
+  res.json({ ok: true });
+});
+
+router.post('/licenses/:iid/revoke', (req, res) => {
+  if (req.params.iid === req.installationId) return res.status(400).json({ error: 'cannot_revoke_self' });
+  const db = getDb();
+  const r = db.prepare('UPDATE licenses SET is_active = 0 WHERE installation_id = ?').run(req.params.iid);
+  if (r.changes === 0) return res.status(404).json({ error: 'unknown_installation' });
+  audit(req.installationId, 'manager_license_revoke', { installation_id: req.params.iid });
+  res.json({ ok: true });
+});
+
+router.post('/licenses/:iid/restore', (req, res) => {
+  const db = getDb();
+  const r = db.prepare('UPDATE licenses SET is_active = 1 WHERE installation_id = ?').run(req.params.iid);
+  if (r.changes === 0) return res.status(404).json({ error: 'unknown_installation' });
+  audit(req.installationId, 'manager_license_restore', { installation_id: req.params.iid });
+  res.json({ ok: true });
 });
 
 module.exports = router;

@@ -362,3 +362,87 @@ test('manager mutating actions are audited', async () => {
   const parsed = JSON.parse(sample.details);
   assert.equal(parsed.manager, MGR_IID);
 });
+
+
+// ── MGR-010: CRUD лицензий через manager-api ─────────────────────────────────
+
+test('licenses: create/list/patch/revoke/restore + self-guards', async () => {
+  process.env.SERVER_SECRET = process.env.SERVER_SECRET || 'mgr010-test-secret';
+  const { deriveActivationKey } = require('../routes/activate');
+
+  const NEW_IID = '11111111-2222-4333-8444-555555555555';
+  const NEW_CH = 'ABCDEF0123456789ABCDEF0123456789';
+
+  // Создание воркер-лицензии: ключ активации совпадает с деривацией админки.
+  const created = await req('POST', '/manager/api/licenses', MGR_TOKEN, {
+    installation_id: NEW_IID, challenge: NEW_CH.toLowerCase(), label: 'New Worker', role: 'operator',
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.json.activation_key, deriveActivationKey(NEW_IID, NEW_CH));
+
+  const dup = await req('POST', '/manager/api/licenses', MGR_TOKEN, {
+    installation_id: NEW_IID, challenge: NEW_CH,
+  });
+  assert.equal(dup.status, 409);
+
+  const badRole = await req('POST', '/manager/api/licenses', MGR_TOKEN, {
+    installation_id: '22222222-2222-4333-8444-555555555555', challenge: NEW_CH, role: 'admin',
+  });
+  assert.equal(badRole.status, 400);
+  const badCh = await req('POST', '/manager/api/licenses', MGR_TOKEN, {
+    installation_id: '33333333-2222-4333-8444-555555555555', challenge: 'not-hex!!',
+  });
+  assert.equal(badCh.status, 400);
+
+  // Воркер не может пользоваться менеджерским CRUD.
+  const asWorker = await req('GET', '/manager/api/licenses', WRK_TOKEN);
+  assert.equal(asWorker.status, 403);
+
+  // Список: токен не выдан, открытых токенов нет, только префикс хеша.
+  const list = await req('GET', '/manager/api/licenses', MGR_TOKEN);
+  assert.equal(list.status, 200);
+  const row = list.json.licenses.find((l) => l.installation_id === NEW_IID);
+  assert.ok(row, 'created license listed');
+  assert.equal(row.token_issued, 0);
+  assert.equal(row.token_prefix, null);
+  assert.ok(!('token' in row) && !('token_hash' in row), 'no token material in list');
+  const mgrRow = list.json.licenses.find((l) => l.installation_id === MGR_IID);
+  assert.equal(mgrRow.token_issued, 1);
+  assert.match(mgrRow.token_prefix, /^[0-9a-f]{8}$/);
+
+  // Patch: метка и роль; свою роль менять нельзя.
+  const patchLabel = await req('PATCH', `/manager/api/licenses/${NEW_IID}`, MGR_TOKEN, { label: 'Renamed' });
+  assert.equal(patchLabel.status, 200);
+  const ownRole = await req('PATCH', `/manager/api/licenses/${MGR_IID}`, MGR_TOKEN, { role: 'operator' });
+  assert.equal(ownRole.status, 400);
+  assert.equal(ownRole.json.error, 'cannot_change_own_role');
+  const toMgr = await req('PATCH', `/manager/api/licenses/${NEW_IID}`, MGR_TOKEN, { role: 'manager' });
+  assert.equal(toMgr.status, 200);
+
+  // Revoke: себя отозвать нельзя; после revoke токен лицензии мёртв.
+  const selfRevoke = await req('POST', `/manager/api/licenses/${MGR_IID}/revoke`, MGR_TOKEN);
+  assert.equal(selfRevoke.status, 400);
+  assert.equal(selfRevoke.json.error, 'cannot_revoke_self');
+
+  const db = getDb();
+  db.prepare('UPDATE licenses SET token_hash = ? WHERE installation_id = ?')
+    .run(hashToken('new-lic-token-abcdefghij'), NEW_IID);
+  const revoked = await req('POST', `/manager/api/licenses/${NEW_IID}/revoke`, MGR_TOKEN);
+  assert.equal(revoked.status, 200);
+  const deadAuth = await req('GET', '/manager/api/overview', 'new-lic-token-abcdefghij');
+  assert.equal(deadAuth.status, 401);
+  assert.equal(deadAuth.json.error, 'revoked');
+
+  const restored = await req('POST', `/manager/api/licenses/${NEW_IID}/restore`, MGR_TOKEN);
+  assert.equal(restored.status, 200);
+  const liveAuth = await req('GET', '/manager/api/overview', 'new-lic-token-abcdefghij');
+  assert.equal(liveAuth.status, 200);
+
+  const noLic = await req('POST', '/manager/api/licenses/no-such-iid/revoke', MGR_TOKEN);
+  assert.equal(noLic.status, 404);
+
+  const audited = db.prepare(
+    "SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'manager_license_%'"
+  ).get().n;
+  assert.ok(audited >= 4, `expected >= 4 audited license actions, got ${audited}`);
+});

@@ -9,6 +9,7 @@ import News from './News.jsx'
 import Alerts from './Alerts.jsx'
 import Priorities from './Priorities.jsx'
 import Updates from './Updates.jsx'
+import Licenses from './Licenses.jsx'
 import Settings from './Settings.jsx'
 
 const PAGES = {
@@ -19,6 +20,7 @@ const PAGES = {
   alerts: Alerts,
   priorities: Priorities,
   updates: Updates,
+  licenses: Licenses,
   settings: Settings,
 }
 
@@ -121,6 +123,7 @@ export default function Shell({ appState, onLock }) {
       ['alerts', 'nav_alerts'],
       ['priorities', 'nav_priorities'],
       ['updates', 'nav_updates'],
+      ['licenses', 'nav_licenses'],
       ['settings', 'nav_settings'],
     ],
     []
