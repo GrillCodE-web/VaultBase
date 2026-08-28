@@ -38,7 +38,7 @@ export function ConfirmProvider({ children }) {
           aria-modal="true"
           aria-labelledby="confirm-title"
           aria-describedby="confirm-message"
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="confirm-overlay"
           style={{ background: 'var(--overlay-modal)' }}
         >
           <div

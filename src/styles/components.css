@@ -3069,6 +3069,16 @@
     }
   }
 
+  /* Confirm-диалог (useConfirm) — поверх открытых модалок */
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-modal) + 10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   /* ── Окно ───────────────────────────────────────────────── */
   .modal,
   .modal-box {
