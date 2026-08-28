@@ -845,6 +845,8 @@ export const en = {
   float_no_orders: 'No orders yet',
   float_no_drop: 'No drop address configured',
   float_copy_billing_btn: 'Copy Billing Address',
+  float_tab_billing: 'Billing',
+  float_tab_shipping: 'Shipping',
   float_copy_shipping_btn: 'Copy Shipping Address',
   float_orders_tab: 'Orders',
   float_quick_order: '+ Order',

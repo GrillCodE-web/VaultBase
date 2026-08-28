@@ -179,7 +179,11 @@ const data = {
   get_order_templates: [],
 
   get_profiles: { items: profiles, total: profiles.length },
-  get_profile: profiles[0],
+  get_profile: {
+    profile: { id: 'p1', holder_name: 'JOHN DOE', last4: '8834', risk_level: 'low', card_id: 1 },
+    card: { id: 1, last4: '8834', card_number: '4147201234568834', expiry_date: '12/27', cvv: '123', holder_name: 'JOHN DOE', bank_name: 'Chase', card_type: 'debit', card_level: 'Classic', status: 'free', billing_address: '123 Main St', city: 'New York', state: 'NY', zip: '10001', country: 'US', email: 'john@example.com', phone: '+1 555-123-4567' },
+    drops: [{ id: 1, is_primary: true, recipient_name: 'John Doe', address: '123 Main St', city: 'New York', state: 'NY', zip: '10001', country: 'US', phone: '+1 555-123-4567' }],
+  },
   get_profile_detail: { profile: profiles[0], orders: orders.slice(0, 2), drops: [], stats: { orders: 15, spent: 2340.5 } },
   get_profile_ltv: { ltv: 2340.5, orders: 15 },
   get_profile_templates: [],
@@ -315,8 +319,18 @@ function buildMock(data) {
     callbacks.set(id, cb);
     return id;
   };
+  const eventListeners = new Map(); // event name -> Set<handler callback id>
   window.__TAURI_INTERNALS__.invoke = function (cmd, args) {
-    if (cmd.startsWith('plugin:event|listen')) return Promise.resolve(++evtId);
+    if (cmd === 'plugin:event|listen') {
+      const evt = args && args.event;
+      const handler = args && args.handler;
+      if (evt && handler != null) {
+        if (!eventListeners.has(evt)) eventListeners.set(evt, new Set());
+        eventListeners.get(evt).add(handler);
+      }
+      return Promise.resolve(++evtId);
+    }
+    if (cmd === 'plugin:event|unlisten') return Promise.resolve(null);
     if (cmd.startsWith('plugin:')) return Promise.resolve(null);
     if (Object.prototype.hasOwnProperty.call(DATA, cmd)) {
       const v = DATA[cmd];
@@ -324,6 +338,15 @@ function buildMock(data) {
     }
     console.warn('[visual-audit mock] unhandled invoke: ' + cmd);
     return Promise.resolve(null);
+  };
+  // Эмит события подписчикам listen() — нужен float-окну (событие float:load)
+  window.__auditEmit = function (event, payload) {
+    const subs = eventListeners.get(event);
+    if (!subs) return;
+    subs.forEach(id => {
+      const cb = callbacks.get(id);
+      if (cb) cb({ event, payload, id: 0, windowLabel: 'main' });
+    });
   };
   window.__TAURI_INTERNALS__.metadata = { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: function () {} };
@@ -514,6 +537,47 @@ if (await navTo(/settings|настройки/i)) {
   } catch (e) {
     console.log('[fail] settings scroll', e.message.split('\n')[0])
   }
+}
+
+// 8. Float-окно (float.html) — отдельное окно 380×460: состояние ожидания,
+// все 4 вкладки с загруженным профилем (событие float:load через __auditEmit)
+try {
+  const floatPage = await browser.newPage({ viewport: { width: 380, height: 460 } })
+  floatPage.on('console', msg => {
+    if (msg.type() === 'error') report.consoleErrors.push('[float] ' + msg.text())
+  })
+  floatPage.on('pageerror', err => report.pageErrors.push('[float] ' + String(err)))
+  await floatPage.addInitScript(buildMock(data))
+  await floatPage.goto(BASE + '/float.html', { waitUntil: 'networkidle' })
+  await floatPage.waitForTimeout(1500)
+  const fshot = async name => {
+    await floatPage.waitForTimeout(700)
+    await floatPage.screenshot({ path: path.join(OUT, name + '.png') })
+    report.pages[name] = 'ok'
+    console.log('[shot]', name)
+  }
+  await fshot('float-00-waiting')
+  // Загружаем профиль как это делает Tauri: событие float:load с id профиля
+  await floatPage.evaluate(() => window.__auditEmit('float:load', 'p1'))
+  await floatPage.waitForTimeout(1200)
+  await fshot('float-01-card')
+  for (const [i, label] of ['billing', 'shipping', 'orders'].entries()) {
+    const tabBtn = floatPage.locator('.ftab', { hasText: new RegExp(label, 'i') }).first()
+    if (await tabBtn.count()) {
+      await tabBtn.click({ timeout: 3000 }).catch(() => {})
+      await fshot(`float-0${i + 2}-${label}`)
+    }
+  }
+  // Orders-вкладка: открытая quick-order форма
+  const quickBtn = floatPage.locator('.float-window button', { hasText: /\+\s*Order/i }).first()
+  if (await quickBtn.isVisible().catch(() => false)) {
+    await quickBtn.click({ timeout: 2000 }).catch(() => {})
+    await fshot('float-05-quick-order')
+  }
+  await floatPage.close()
+} catch (e) {
+  report.pages['float'] = 'FAILED: ' + e.message.split('\n')[0]
+  console.log('[fail] float', e.message.split('\n')[0])
 }
 
 fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2), 'utf8')

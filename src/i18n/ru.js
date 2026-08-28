@@ -847,6 +847,8 @@ export const ru = {
   float_no_orders: 'Заказов пока нет',
   float_no_drop: 'Адрес доставки не настроен',
   float_copy_billing_btn: 'Скопировать биллинг адрес',
+  float_tab_billing: 'Биллинг',
+  float_tab_shipping: 'Доставка',
   float_copy_shipping_btn: 'Скопировать адрес доставки',
   float_orders_tab: 'Заказы',
   float_quick_order: '+ Заказ',
