@@ -48,6 +48,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
   const [emailMode, setEmailMode] = useState('pool') // "pool" | "custom"
   const [profileSearch, setProfileSearch] = useState('')
   const [profileResults, setProfileResults] = useState([])
+  const [profileFocused, setProfileFocused] = useState(false)
 
   const { toast } = usePremiumToast()
   const { suggestions: smartSuggs } = useSmartSuggestions(shopId, profileDetail?.card?.id)
@@ -68,9 +69,13 @@ export function CreateOrderModal({ onCreated, onClose }) {
   }, [])
 
   useEffect(() => {
+    // Ищем только когда поле профиля в фокусе: без этого поиск с пустым запросом
+    // стрелял при открытии модалки и дропдаун был развёрнут по умолчанию,
+    // перекрывая шаги 2–5.
+    if (!profileFocused) return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронный поиск профилей
     searchProfiles(profileSearch)
-  }, [profileSearch, searchProfiles])
+  }, [profileSearch, profileFocused, searchProfiles])
 
   const selectProfile = async p => {
     setProfileId(p.id)
@@ -422,10 +427,14 @@ export function CreateOrderModal({ onCreated, onClose }) {
                   setProfileId('')
                   setProfileDetail(null)
                 }}
+                onFocus={() => setProfileFocused(true)}
+                // blur с задержкой: клик по кнопке дропдауна должен успеть
+                // сработать до того, как список скроется
+                onBlur={() => setTimeout(() => setProfileFocused(false), 150)}
                 placeholder={t('orders_holder_search_placeholder')}
                 className="form-input"
               />
-              {profileResults.length > 0 && (
+              {profileFocused && profileResults.length > 0 && (
                 <div className="dropdown-results">
                   {profileResults.map(p => (
                     <button key={p.id} onClick={() => selectProfile(p)} className="dropdown-btn">
