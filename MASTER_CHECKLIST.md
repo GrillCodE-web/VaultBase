@@ -303,21 +303,21 @@
 
 ## 7. ТЕСТИРОВАНИЕ
 
-| #        | Задача                                                                      | Приоритет | Файл(ы)                 | Статус |
-| -------- | --------------------------------------------------------------------------- | --------- | ----------------------- | ------ |
-| TEST-001 | E2E: полный flow карта → заказ → отслеживание                               | 🟠        | `e2e/`                  | ✅     |
-| TEST-002 | E2E: CRUD всех сущностей (Cards, Profiles, Orders, Shops)                   | 🟠        | `e2e/`                  | ✅     |
-| TEST-003 | E2E: фильтрация и поиск                                                     | 🟡        | `e2e/`                  | ✅     |
-| TEST-004 | E2E: импорт/экспорт                                                         | 🟡        | `e2e/`                  | ✅     |
-| TEST-005 | E2E: Settings (язык, тема)                                                  | 🟡        | `e2e/`                  | ⬜     |
-| TEST-006 | E2E: роли (admin vs operator)                                               | 🟡        | `e2e/`                  | ⬜     |
-| TEST-007 | Rust: тесты для sync.rs и ws_sync.rs (0 тестов сейчас!)                     | 🟠        | `sync.rs`, `ws_sync.rs` | ✅     |
-| TEST-008 | Rust: edge cases для encryption.rs (пустые данные, повреждённый шифротекст) | 🟡        | `encryption.rs`         | ✅     |
-| TEST-009 | Rust: тесты parser.rs (разные форматы email)                                | 🟡        | `parser.rs`             | ✅     |
-| TEST-010 | Rust: concurrent access rate_limiter.rs                                     | 🟡        | `rate_limiter.rs`       | ✅     |
-| TEST-011 | Frontend: snapshot тесты для компонентов (Vitest)                           | 🟡        | `src/`                  | ✅     |
-| TEST-012 | Frontend: тесты для clipboard.js, pagination.js, formatting.js, csv.js      | 🟡        | `src/utils/__tests__/`  | ✅     |
-| TEST-013 | Performance: benchmark для БД с 100k карт (criterion)                       | 🟢        | `src-tauri/`            | ✅     |
+| #        | Задача                                                                      | Приоритет | Файл(ы)                 | Статус   |
+| -------- | --------------------------------------------------------------------------- | --------- | ----------------------- | -------- |
+| TEST-001 | E2E: полный flow карта → заказ → отслеживание                               | 🟠        | `e2e/`                  | ✅       |
+| TEST-002 | E2E: CRUD всех сущностей (Cards, Profiles, Orders, Shops)                   | 🟠        | `e2e/`                  | ✅       |
+| TEST-003 | E2E: фильтрация и поиск                                                     | 🟡        | `e2e/`                  | ✅       |
+| TEST-004 | E2E: импорт/экспорт                                                         | 🟡        | `e2e/`                  | ✅       |
+| TEST-005 | E2E: Settings (язык, тема)                                                  | 🟡        | `e2e/`                  | ⬜       |
+| TEST-006 | E2E: роли (admin vs operator)                                               | 🟡        | `e2e/`                  | 🔄 @main |
+| TEST-007 | Rust: тесты для sync.rs и ws_sync.rs (0 тестов сейчас!)                     | 🟠        | `sync.rs`, `ws_sync.rs` | ✅       |
+| TEST-008 | Rust: edge cases для encryption.rs (пустые данные, повреждённый шифротекст) | 🟡        | `encryption.rs`         | ✅       |
+| TEST-009 | Rust: тесты parser.rs (разные форматы email)                                | 🟡        | `parser.rs`             | ✅       |
+| TEST-010 | Rust: concurrent access rate_limiter.rs                                     | 🟡        | `rate_limiter.rs`       | ✅       |
+| TEST-011 | Frontend: snapshot тесты для компонентов (Vitest)                           | 🟡        | `src/`                  | ✅       |
+| TEST-012 | Frontend: тесты для clipboard.js, pagination.js, formatting.js, csv.js      | 🟡        | `src/utils/__tests__/`  | ✅       |
+| TEST-013 | Performance: benchmark для БД с 100k карт (criterion)                       | 🟢        | `src-tauri/`            | ✅       |
 
 ---
 
