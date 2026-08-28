@@ -401,3 +401,27 @@
 - Слияние: пуш `agent/frontend:main` (ff). Ручной прогон в Tauri не делался;
   визуально проверить: Cards — список, сайд-панель (открытие даблкликом,
   prev/next), выделение строк.
+
+### 2026-08-28 — TEST-005 ✅ @a (worktree agent-backend)
+
+- E2E Settings (язык и тема), 11 спеков `e2e/settings.spec.js`: дефолт EN/dark,
+  переключение EN↔RU и тем через Settings и сайдбар (состояние общее), персист
+  выбора в localStorage и переживание reload, System следует
+  prefers-color-scheme, язык и тема независимы (RU + Light одновременно).
+- Мок `e2e/setup/tauri-mock.js`: stateful `get_config`/`set_config` с контрактом
+  CONFIG_SECRET (`_set`-флаги); добавлены `stuffer_get_config` /
+  `get_catalog_stats` / `sync_get_group_status` / `has_panic_password` для
+  маунта Settings. Базовые команды мока не тронуты — коллизий с вахтами нет.
+- Сессия оборвалась сразу после коммита кода; хвост (чеклист ✅ + этот лог)
+  закрыт при рестарте — проверки перегнаны на актуальном HEAD ветки (0eccadd).
+- Коммиты: `b0f2e47` (клейм), `0eccadd` (код, 2 файла +238/−2),
+  `4320937` (чеклист ✅).
+- Проверки: `npm run lint` — 0 ошибок (3 pre-existing warnings);
+  `npx playwright test e2e/settings.spec.js` — 22/22 (chromium+firefox);
+  полный `npx playwright test` — 106/106 (chromium+firefox, 5.3 мин).
+- Слияние: не выполнялось — agent/backend = merge-base `8fb96e5` + 3 коммита
+  (клейм, код, чеклист); мердж в main — ребейзом на актуальный main, по очереди.
+- Находка при рестарте: вся линия @a (с `1d61b2d`, fork ночью) не содержит
+  SESSION_LOG.md — файл появился на main-линии позже; записи @a вносятся в
+  main-копию. Запись по TEST-004 (закрыт в `8fb96e5`) в лог так и не была
+  добавлена — висит долгом.
