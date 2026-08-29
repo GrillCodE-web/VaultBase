@@ -1051,7 +1051,7 @@ mod telemetry_tests {
             items: vec![crate::models::OrderItemInput {
                 name: "Item".into(), sku: "S".into(), qty: 1, price: 10.0,
             }],
-        }).unwrap().id
+        }, None).unwrap().id
     }
 
     fn today_local() -> String {

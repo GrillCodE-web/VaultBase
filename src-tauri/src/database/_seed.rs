@@ -311,7 +311,7 @@ impl Database {
                     notes: Some("Тестовый заказ".into()),
                     items,
                 };
-                if let Ok(order) = self.create_order(&input) {
+                if let Ok(order) = self.create_order(&input, None) {
                     // Проставляем статус и трек после создания (create_order ставит 'pending').
                     if status != "pending" {
                         let _ = self.conn.execute(

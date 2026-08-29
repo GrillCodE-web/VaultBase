@@ -355,7 +355,7 @@ mod opl_tests {
             items: vec![OrderItemInput {
                 name: "Item".into(), sku: "SKU-1".into(), qty: 1, price: 10.0,
             }],
-        }).unwrap().id
+        }, None).unwrap().id
     }
 
     #[test]

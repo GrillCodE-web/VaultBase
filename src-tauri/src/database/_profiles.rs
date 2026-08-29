@@ -11,7 +11,11 @@ impl Database {
             params![id, card_id, notes, now],
         ).map_err(|e| e.to_string())?;
         // Update card status to in_use
-        let _ = self.conn.execute("UPDATE credit_cards SET status='in_use' WHERE id=?1 AND status='free'", params![card_id]);
+        let linked = self.conn.execute("UPDATE credit_cards SET status='in_use' WHERE id=?1 AND status='free'", params![card_id])
+            .unwrap_or(0);
+        if linked > 0 {
+            self.record_status_event(card_id, Some("free"), "in_use", None, Some("profile_linked"));
+        }
         self.build_profile(&id)
     }
 
@@ -281,10 +285,13 @@ impl Database {
                 params![cid], |r| r.get(0),
             ).unwrap_or(0);
             if remaining == 0 {
-                let _ = self.conn.execute(
+                let freed = self.conn.execute(
                     "UPDATE credit_cards SET status='free' WHERE id=?1 AND status='in_use'",
                     params![cid],
-                );
+                ).unwrap_or(0);
+                if freed > 0 {
+                    self.record_status_event(cid, Some("in_use"), "free", None, Some("profile_removed"));
+                }
             }
         }
         Ok(())

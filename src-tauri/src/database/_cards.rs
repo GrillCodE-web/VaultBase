@@ -366,29 +366,36 @@ impl Database {
     //  CC Mutations
     // ─────────────────────────────────────────
 
-    pub fn update_card_status(&self, id: i64, status: &str) -> Result<(), String> {
+    pub fn update_card_status(&self, id: i64, status: &str, changed_by: Option<i64>, reason: Option<&str>) -> Result<(), String> {
         // FIX B68: нельзя установить статус отличный от in_use если карта in_use
         // (это обходит защиту delete_card). Статус in_use управляется только через профили.
-        if status != "in_use" {
-            let current: String = self.conn.query_row(
-                "SELECT status FROM credit_cards WHERE id=?1",
+        let current: String = self.conn.query_row(
+            "SELECT status FROM credit_cards WHERE id=?1",
+            params![id], |r| r.get(0),
+        ).unwrap_or_default();
+        if status != "in_use" && current == "in_use" {
+            // Проверяем не остались ли активные профили
+            let profile_count: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM profiles WHERE card_id=?1",
                 params![id], |r| r.get(0),
-            ).unwrap_or_default();
-            if current == "in_use" {
-                // Проверяем не остались ли активные профили
-                let profile_count: i64 = self.conn.query_row(
-                    "SELECT COUNT(*) FROM profiles WHERE card_id=?1",
-                    params![id], |r| r.get(0),
-                ).unwrap_or(0);
-                if profile_count > 0 {
-                    return Err("card_in_use: cannot change status while card is linked to a profile".into());
-                }
+            ).unwrap_or(0);
+            if profile_count > 0 {
+                return Err("card_in_use: cannot change status while card is linked to a profile".into());
             }
         }
         self.conn.execute(
             "UPDATE credit_cards SET status=?1 WHERE id=?2",
             params![status, id],
         ).map_err(|e| e.to_string())?;
+        // MGR-014: структурное событие смены статуса (daily_stats по картам
+        // больше не зависит от формата строк activity_log); причина деклайна —
+        // необязательный ручной ввод оператора.
+        if current != status {
+            let _ = self.conn.execute(
+                "INSERT INTO card_status_events(card_id,from_status,to_status,changed_by,reason) VALUES(?1,?2,?3,?4,?5)",
+                params![id, current, status, changed_by, reason],
+            );
+        }
         Ok(())
     }
 
@@ -418,8 +425,25 @@ impl Database {
     }
 
     // FIX B06: bulk операции обёрнуты в транзакцию
-    pub fn bulk_update_status(&self, ids: &[i64], status: &str) -> Result<(), String> {
+    pub fn bulk_update_status(&self, ids: &[i64], status: &str, changed_by: Option<i64>) -> Result<(), String> {
         if ids.is_empty() { return Ok(()); }
+        // MGR-014: прошлые статусы до апдейта — для card_status_events
+        let sel_placeholders = ids.iter().enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sel_sql = format!("SELECT id, status FROM credit_cards WHERE id IN ({})", sel_placeholders);
+        let sel_params: Vec<Box<dyn rusqlite::ToSql>> = ids.iter().map(|&id| Box::new(id) as Box<dyn rusqlite::ToSql>).collect();
+        let mut prev: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+        if let Ok(mut stmt) = self.conn.prepare(&sel_sql) {
+            if let Ok(rows) = stmt.query_map(rusqlite::params_from_iter(sel_params.iter().map(|p| p.as_ref())), |r| {
+                Ok((r.get::<_,i64>(0)?, r.get::<_,String>(1)?))
+            }) {
+                for row in rows.flatten() {
+                    prev.insert(row.0, row.1);
+                }
+            }
+        }
         self.conn.execute_batch("BEGIN").map_err(|e| e.to_string())?;
         let result = (|| -> Result<(), String> {
             for &id in ids {
@@ -431,16 +455,33 @@ impl Database {
             Ok(())
         })();
         match result {
-            Ok(()) => { self.conn.execute_batch("COMMIT").map_err(|e| e.to_string())?; Ok(()) }
+            Ok(()) => {
+                self.conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+                for (&id, old) in prev.iter() {
+                    if old != status {
+                        self.record_status_event(id, Some(old), status, changed_by, None);
+                    }
+                }
+                Ok(())
+            }
             Err(e) => { let _ = self.conn.execute_batch("ROLLBACK"); Err(e) }
         }
+    }
+
+    /// MGR-014: структурное событие смены статуса карты. Внутренний хелпер,
+    /// ошибки не всплывают (аналитика не должна ломать бизнес-поток).
+    pub fn record_status_event(&self, card_id: i64, from_status: Option<&str>, to_status: &str, changed_by: Option<i64>, reason: Option<&str>) {
+        let _ = self.conn.execute(
+            "INSERT INTO card_status_events(card_id,from_status,to_status,changed_by,reason) VALUES(?1,?2,?3,?4,?5)",
+            params![card_id, from_status, to_status, changed_by, reason],
+        );
     }
 
     /// FEAT-001: авто-архив dead-карт по нажатию пользователя — переводит
     /// ВЕСЬ пул dead → archive одной операцией (раньше UI архивировал только
     /// текущую страницу через bulk_update_status). Возвращает число
     /// архивированных карт и sync-обновления (по картам с непустым hash).
-    pub fn archive_dead_cards(&self) -> Result<(u32, Vec<crate::models::CardSyncUpdate>), String> {
+    pub fn archive_dead_cards(&self, changed_by: Option<i64>) -> Result<(u32, Vec<crate::models::CardSyncUpdate>), String> {
         let mut stmt = self.conn.prepare(
             "SELECT card_hash, notes FROM credit_cards \
              WHERE status='dead' AND card_hash IS NOT NULL AND card_hash != ''",
@@ -457,10 +498,19 @@ impl Database {
             })
             .collect();
         drop(stmt);
+        // MGR-014: id dead-карт до апдейта — для card_status_events
+        let dead_ids: Vec<i64> = {
+            let mut stmt = self.conn.prepare("SELECT id FROM credit_cards WHERE status='dead'").map_err(|e| e.to_string())?;
+            let rows = stmt.query_map([], |r| r.get::<_, i64>(0)).map_err(|e| e.to_string())?;
+            rows.filter_map(|r| r.ok()).collect()
+        };
         let n = self.conn.execute(
             "UPDATE credit_cards SET status='archive' WHERE status='dead'",
             [],
         ).map_err(|e| e.to_string())?;
+        for cid in &dead_ids {
+            self.record_status_event(*cid, Some("dead"), "archive", changed_by, Some("auto_archive"));
+        }
         Ok((n as u32, updates))
     }
 
@@ -869,7 +919,7 @@ mod perf_tests {
         ).unwrap();
         db.conn.execute("UPDATE credit_cards SET status='archive' WHERE id=3", []).unwrap();
 
-        let (count, updates) = db.archive_dead_cards().unwrap();
+        let (count, updates) = db.archive_dead_cards(None).unwrap();
         assert_eq!(count, 2, "архивируются только dead");
         assert_eq!(updates.len(), 2, "sync-обновления по обеим картам (hash есть всегда)");
         assert!(updates.iter().all(|u| u.status == "archive"));
@@ -885,9 +935,54 @@ mod perf_tests {
         assert_eq!(archived, 3, "2 свежих + 1 уже была в архиве");
 
         // Повторный прогон — no-op
-        let (count2, updates2) = db.archive_dead_cards().unwrap();
+        let (count2, updates2) = db.archive_dead_cards(None).unwrap();
         assert_eq!(count2, 0);
         assert!(updates2.is_empty());
+    }
+
+    // MGR-014: структурные события статусов карт (вместо парсинга activity_log)
+    #[test]
+    fn test_card_status_events() {
+        let (_dir, db) = test_db();
+        db.insert_cards(vec![make_card(1), make_card(2)]).unwrap();
+        db.conn.execute(
+            "INSERT INTO users(username,password_hash,display_name,role) VALUES('op1','hash','Оператор','operator')", [],
+        ).unwrap();
+        db.conn.execute(
+            "INSERT INTO users(username,password_hash,display_name,role) VALUES('op2','hash','Оператор 2','operator')", [],
+        ).unwrap();
+        let u1: i64 = db.conn.query_row("SELECT id FROM users WHERE username='op1'", [], |r| r.get(0)).unwrap();
+        let u2: i64 = db.conn.query_row("SELECT id FROM users WHERE username='op2'", [], |r| r.get(0)).unwrap();
+
+        // free → dead с автором и причиной
+        db.update_card_status(1, "dead", Some(u1), Some("fraud-check")).unwrap();
+        // дубль статуса — событие не пишется
+        db.update_card_status(1, "dead", Some(u1), None).unwrap();
+
+        let events: Vec<(Option<String>, String, Option<i64>, Option<String>)> = {
+            let mut stmt = db.conn.prepare(
+                "SELECT from_status,to_status,changed_by,reason FROM card_status_events WHERE card_id=1 ORDER BY id"
+            ).unwrap();
+            let m = stmt.query_map([], |r| {
+                Ok((r.get::<_,Option<String>>(0)?, r.get::<_,String>(1)?, r.get::<_,Option<i64>>(2)?, r.get::<_,Option<String>>(3)?))
+            }).unwrap();
+            m.filter_map(|r| r.ok()).collect()
+        };
+        assert_eq!(events.len(), 1, "дубликат статуса не пишется");
+        assert_eq!(events[0], (Some("free".into()), "dead".into(), Some(u1), Some("fraud-check".into())));
+
+        // bulk: 1 (dead) → archive, 2 (free) → archive — обе карты меняются
+        db.bulk_update_status(&[1, 2], "archive", Some(u2)).unwrap();
+        let bulk_events: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM card_status_events WHERE to_status='archive' AND changed_by=?1", [u2],
+            |r| r.get(0),
+        ).unwrap();
+        assert_eq!(bulk_events, 2, "bulk пишет событие на каждую реально сменившую статус карту");
+        let card2_from: Option<String> = db.conn.query_row(
+            "SELECT from_status FROM card_status_events WHERE card_id=2 AND to_status='archive'", [],
+            |r| r.get(0),
+        ).unwrap();
+        assert_eq!(card2_from, Some("free".into()));
     }
 
     // TEST-013: вставка 10k карт — замер времени (не ассерт, а регрессионный ориентир).

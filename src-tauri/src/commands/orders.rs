@@ -29,10 +29,10 @@ use std::collections::HashMap;
 
 #[tauri::command]
 pub(crate) fn create_order(input: OrderInput) -> Result<Order, String> {
-    require_perm(models::perms::CREATE_ORDERS)?;
+    let user = require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, {
         crate::commands::telemetry::enforce_daily_quota(db, crate::commands::telemetry::DailyQuota::Orders)?;
-        db.create_order(&input)
+        db.create_order(&input, Some(user.user_id))
     })
 }
 
@@ -68,8 +68,8 @@ pub(crate) fn get_recent_orders_by_card(card_id: i64, limit: u32) -> Result<Vec<
 
 #[tauri::command]
 pub(crate) fn update_order_status(id: i64, status: String, meta: Option<StatusMeta>) -> Result<(), String> {
-    require_perm(models::perms::CREATE_ORDERS)?;
-    with_db!(db, { db.update_order_status(id, &status, meta.as_ref()) })
+    let user = require_perm(models::perms::CREATE_ORDERS)?;
+    with_db!(db, { db.update_order_status(id, &status, meta.as_ref(), Some(user.user_id)) })
 }
 
 #[tauri::command]
@@ -82,10 +82,10 @@ pub(crate) fn delete_order(id: i64) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) fn bulk_update_orders(ids: Vec<i64>, status: String) -> Result<(), String> {
-    require_perm(models::perms::CREATE_ORDERS)?;
+    let user = require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
-        db.bulk_update_orders_status(&ids, &status)
+        db.bulk_update_orders_status(&ids, &status, Some(user.user_id))
     })
 }
 

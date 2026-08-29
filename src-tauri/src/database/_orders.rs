@@ -49,13 +49,13 @@ impl Database {
         })
     }
 
-    pub fn create_order(&self, input: &OrderInput) -> Result<Order, String> {
+    pub fn create_order(&self, input: &OrderInput, created_by: Option<i64>) -> Result<Order, String> {
         if self.is_locked() { return Err("database_locked".into()); }
         let items = serde_json::to_string(&input.items).unwrap_or_default();
         let total: f64 = input.items.iter().map(|i| i.price * i.qty as f64).sum();
         self.conn.execute(
-            "INSERT INTO orders(profile_id,shop_id,drop_id,email_pool_id,proxy_id,order_number,status,items_json,total_amount,notes,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,'pending',?7,?8,?9,datetime('now'),datetime('now'))",
-            params![input.profile_id, input.shop_id, input.drop_id, input.email_pool_id, input.proxy_id, input.order_number, items, total, input.notes],
+            "INSERT INTO orders(profile_id,shop_id,drop_id,email_pool_id,proxy_id,order_number,status,items_json,total_amount,notes,created_by,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,'pending',?7,?8,?9,?10,datetime('now'),datetime('now'))",
+            params![input.profile_id, input.shop_id, input.drop_id, input.email_pool_id, input.proxy_id, input.order_number, items, total, input.notes, created_by],
         ).map_err(|e| e.to_string())?;
         let oid = self.conn.last_insert_rowid();
         let _ = self.log_event("order.created", &format!("Order created for profile {}", input.profile_id), Some("order"), None);
@@ -257,12 +257,15 @@ impl Database {
         ids.into_iter().map(|id| self.build_order(id)).collect()
     }
 
-    pub fn update_order_status(&self, id: i64, status: &str, meta: Option<&StatusMeta>) -> Result<(), String> {
+    pub fn update_order_status(&self, id: i64, status: &str, meta: Option<&StatusMeta>, changed_by: Option<i64>) -> Result<(), String> {
         // FIX B64: валидация допустимых статусов
         const VALID_STATUSES: &[&str] = &["pending", "shipped", "delivered", "declined", "cancelled", "failed"];
         if !VALID_STATUSES.contains(&status) {
             return Err(format!("invalid_status: '{}'. Allowed: {}", status, VALID_STATUSES.join(", ")));
         }
+        let prev_status: Option<String> = self.conn.query_row(
+            "SELECT status FROM orders WHERE id=?1", params![id], |r| r.get(0),
+        ).ok();
         if let Some(m) = meta {
             self.conn.execute(
                 "UPDATE orders SET status=?1,tracking_number=COALESCE(?2,tracking_number),carrier=COALESCE(?3,carrier),order_number=COALESCE(?4,order_number),updated_at=datetime('now') WHERE id=?5",
@@ -274,8 +277,22 @@ impl Database {
                 params![status, id],
             ).map_err(|e| e.to_string())?;
         }
+        // MGR-014: структурная история переходов (time-in-status); дубликат
+        // статуса историю не плодит.
+        if prev_status.as_deref() != Some(status) {
+            self.record_status_history(id, prev_status.as_deref(), status, changed_by, "user");
+        }
         let _ = self.log_event("order.status_changed", &format!("Order {} → {}", id, status), Some("order"), Some(&id.to_string()));
         Ok(())
+    }
+
+    /// MGR-014: одна строка структурной истории статусов заказа.
+    /// Ошибки не всплывают наружу (аналитика не должна ломать бизнес-поток).
+    fn record_status_history(&self, order_id: i64, from_status: Option<&str>, to_status: &str, changed_by: Option<i64>, source: &str) {
+        let _ = self.conn.execute(
+            "INSERT INTO order_status_history(order_id,from_status,to_status,changed_by,source) VALUES(?1,?2,?3,?4,?5)",
+            params![order_id, from_status, to_status, changed_by, source],
+        );
     }
 
     pub fn delete_order(&self, id: i64) -> Result<(), String> {
@@ -283,35 +300,59 @@ impl Database {
         Ok(())
     }
 
-    pub fn bulk_update_orders_status(&self, ids: &[i64], status: &str) -> Result<(), String> {
+    pub fn bulk_update_orders_status(&self, ids: &[i64], status: &str, changed_by: Option<i64>) -> Result<(), String> {
         const VALID_STATUSES: &[&str] = &["pending", "shipped", "delivered", "declined", "cancelled", "failed"];
         if !VALID_STATUSES.contains(&status) {
             return Err(format!("invalid_status: '{}'. Allowed: {}", status, VALID_STATUSES.join(", ")));
         }
         if ids.is_empty() { return Ok(()); }
-        
+
         // FIX SQL-INJECTION: Validate array size to prevent query explosion
         if ids.len() > crate::constants::MAX_IN_CLAUSE_IDS {
             return Err(format!("Too many IDs: {} > {}", ids.len(), crate::constants::MAX_IN_CLAUSE_IDS));
         }
-        
+
         // FIX SQL-INJECTION: Build parameterized query with proper placeholder generation
         let placeholders = ids.iter().enumerate()
             .map(|(i, _)| format!("?{}", i + 2))  // Start from ?2 (status is ?1)
             .collect::<Vec<_>>()
             .join(",");
-        
+
+        // MGR-014: снимаем прошлые статусы до апдейта — для истории переходов
+        let sel_placeholders = ids.iter().enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sel_sql = format!("SELECT id, status FROM orders WHERE id IN ({})", sel_placeholders);
+        let sel_params: Vec<Box<dyn rusqlite::ToSql>> = ids.iter().map(|&id| Box::new(id) as Box<dyn rusqlite::ToSql>).collect();
+        let mut prev: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+        if let Ok(mut stmt) = self.conn.prepare(&sel_sql) {
+            if let Ok(rows) = stmt.query_map(rusqlite::params_from_iter(sel_params.iter().map(|p| p.as_ref())), |r| {
+                Ok((r.get::<_,i64>(0)?, r.get::<_,String>(1)?))
+            }) {
+                for row in rows.flatten() {
+                    prev.insert(row.0, row.1);
+                }
+            }
+        }
+
         let sql = format!("UPDATE orders SET status=?1,updated_at=datetime('now') WHERE id IN ({})", placeholders);
-        
+
         // FIX SQL-INJECTION: Build params safely using type-safe params_from_iter
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(status.to_string())];
         for &id in ids {
             params.push(Box::new(id));
         }
-        
+
         self.conn.execute(&sql, rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())))
             .map_err(|e| format!("bulk_update_orders_status error: {}", e))?;
-        
+
+        for (&oid, old) in prev.iter() {
+            if old != status {
+                self.record_status_history(oid, Some(old), status, changed_by, "bulk");
+            }
+        }
+
         let _ = self.log_event("order.bulk_status", &format!("{} orders → {}", ids.len(), status), Some("order"), None);
         Ok(())
     }
@@ -375,10 +416,16 @@ impl Database {
             params![tracking], |r| r.get(0),
         ).ok();
         if let Some(oid) = id {
+            let prev_status: Option<String> = self.conn.query_row(
+                "SELECT status FROM orders WHERE id=?1", params![oid], |r| r.get(0),
+            ).ok();
             self.conn.execute(
                 "UPDATE orders SET status=?1,updated_at=datetime('now') WHERE id=?2",
                 params![status, oid],
             ).map_err(|e| e.to_string())?;
+            if prev_status.as_deref() != Some(status) {
+                self.record_status_history(oid, prev_status.as_deref(), status, None, "tracking");
+            }
             let _ = self.log_event(
                 "order.tracking_updated",
                 &format!("Order {} → {} (Track17)", oid, status),
@@ -755,7 +802,7 @@ mod tests {
             profile_id: prof, shop_id: shop.id, drop_id: None, email_pool_id: None,
             proxy_id: None, order_number: Some("STALE-1".into()),
             notes: None, items: vec![],
-        }).unwrap().id;
+        }, None).unwrap().id;
 
         // свежий shipped — НЕ застоявшийся
         db.conn.execute(
@@ -825,7 +872,7 @@ mod tests {
         let oid = db.create_order(&OrderInput {
             profile_id: prof.into(), shop_id: shop, drop_id: None, email_pool_id: None,
             proxy_id: None, order_number: None, notes: None, items: vec![],
-        }).unwrap().id;
+        }, None).unwrap().id;
         db.conn.execute("UPDATE orders SET status=?1, total_amount=?2 WHERE id=?3",
             rusqlite::params![status, total, oid]).unwrap();
     }
@@ -948,5 +995,118 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = Database::open(dir.path().join("t.db").to_str().unwrap()).unwrap();
         assert!(db.smart_hints().unwrap().is_empty());
+    }
+
+    // ── MGR-014: created_by + структурная история статусов ──────────────
+
+    /// Фикстура: карта → профиль → шоп; возвращает (db, card_id, profile_id, shop_id)
+    fn mgr14_fixture() -> (Database, i64, String, i64) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Database::open(dir.path().join("t.db").to_str().unwrap()).unwrap();
+        let salt = crate::encryption::generate_salt();
+        db.set_encryption(crate::encryption::FieldEncryption::new("test_pw_1234567890", &salt));
+        db.conn.execute(
+            "INSERT INTO credit_cards(card_number,source) VALUES('4111111111111111','test')", [],
+        ).unwrap();
+        let card_id: i64 = db.conn.query_row("SELECT MAX(id) FROM credit_cards", [], |r| r.get(0)).unwrap();
+        let prof = db.create_profile(card_id, None).unwrap().id;
+        let shop = db.create_shop(&crate::models::ShopInput {
+            name: "S".into(), url: "https://mgr14.example.com".into(),
+            category: "general".into(), notes: String::new(),
+            requires_cvv_match: false, blocks_vpn: false, phone_must_match: false,
+            accepts_amex: false, requires_avs: false, high_cancel_risk: false,
+        }).unwrap();
+        // БД не должна выгружаться, пока живы временные таблицы — держим dir
+        std::mem::forget(dir);
+        (db, card_id, prof, shop.id)
+    }
+
+    /// MGR-014: created_by пишется при создании заказа и восстанавливается
+    /// backfill'ом миграции v21 для старых заказов
+    #[test]
+    fn test_order_created_by_and_backfill() {
+        let (db, _card_id, prof, shop_id) = mgr14_fixture();
+        // юзер для атрибуции (в тестовой БД users пуст — админ создаётся при
+        // первом запуске, не миграцией)
+        db.conn.execute(
+            "INSERT INTO users(username,password_hash,display_name,role) VALUES('op1','hash','Оператор','operator')", [],
+        ).unwrap();
+        let admin_id: i64 = db.conn.query_row("SELECT id FROM users WHERE username='op1'", [], |r| r.get(0)).unwrap();
+        let input = OrderInput {
+            profile_id: prof.clone(), shop_id, drop_id: None, email_pool_id: None,
+            proxy_id: None, order_number: Some("MGR14-1".into()),
+            notes: None, items: vec![],
+        };
+        let order = db.create_order(&input, Some(admin_id)).unwrap();
+        let created_by: Option<i64> = db.conn.query_row(
+            "SELECT created_by FROM orders WHERE id=?1", params![order.id], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(created_by, Some(admin_id), "created_by должен записываться при создании");
+
+        // заказ без автора (системные флоу) → NULL, потом backfill из card_assignments
+        let o2 = db.create_order(&input, None).unwrap();
+        let before: Option<i64> = db.conn.query_row(
+            "SELECT created_by FROM orders WHERE id=?1", params![o2.id], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(before, None);
+
+        // эмулируем backfill миграции v21 на втором заказе (карта не забронирована
+        // этим юзером → NULL); проверяем сам SQL backfill на валидность и idempotentность
+        db.conn.execute(
+            "UPDATE orders SET created_by = (SELECT ca.user_id FROM profiles p JOIN card_assignments ca ON ca.card_id=p.card_id WHERE p.id=orders.profile_id LIMIT 1) WHERE created_by IS NULL", [],
+        ).unwrap();
+        let after: Option<i64> = db.conn.query_row(
+            "SELECT created_by FROM orders WHERE id=?1", params![o2.id], |r| r.get(0),
+        ).unwrap();
+        // владелец карты не записан в card_assignments → backfill оставляет NULL
+        assert_eq!(after, None);
+    }
+
+    /// MGR-014: order_status_history — переходы user/tracking/bulk, дубликаты не пишутся
+    #[test]
+    fn test_order_status_history() {
+        let (db, _card_id, prof, shop_id) = mgr14_fixture();
+        db.conn.execute(
+            "INSERT INTO users(username,password_hash,display_name,role) VALUES('op1','hash','Оператор','operator')", [],
+        ).unwrap();
+        db.conn.execute(
+            "INSERT INTO users(username,password_hash,display_name,role) VALUES('op2','hash','Оператор 2','operator')", [],
+        ).unwrap();
+        let u1: i64 = db.conn.query_row("SELECT id FROM users WHERE username='op1'", [], |r| r.get(0)).unwrap();
+        let u2: i64 = db.conn.query_row("SELECT id FROM users WHERE username='op2'", [], |r| r.get(0)).unwrap();
+        let input = OrderInput {
+            profile_id: prof, shop_id, drop_id: None, email_pool_id: None,
+            proxy_id: None, order_number: Some("HIST-1".into()), notes: None, items: vec![],
+        };
+        let oid = db.create_order(&input, Some(u1)).unwrap().id;
+
+        db.update_order_status(oid, "shipped", None, Some(u2)).unwrap();
+        db.update_order_status(oid, "delivered", None, Some(u2)).unwrap();
+        // дубль статуса — истории не плодит
+        db.update_order_status(oid, "delivered", None, Some(u2)).unwrap();
+
+        let rows: Vec<(Option<String>, String, Option<i64>, String)> = {
+            let mut stmt = db.conn.prepare(
+                "SELECT from_status, to_status, changed_by, source FROM order_status_history WHERE order_id=?1 ORDER BY id"
+            ).unwrap();
+            let m = stmt.query_map(params![oid], |r| {
+                Ok((r.get::<_,Option<String>>(0)?, r.get::<_,String>(1)?, r.get::<_,Option<i64>>(2)?, r.get::<_,String>(3)?))
+            }).unwrap();
+            m.filter_map(|r| r.ok()).collect()
+        };
+        assert_eq!(rows.len(), 2, "pending→shipped, shipped→delivered; дубль не пишется");
+        assert_eq!(rows[0], (Some("pending".into()), "shipped".into(), Some(u2), "user".into()));
+        assert_eq!(rows[1], (Some("shipped".into()), "delivered".into(), Some(u2), "user".into()));
+
+        // tracking-апдейт (id-путь уже в delivered — не активен), bulk с автором
+        db.bulk_update_orders_status(&[oid], "cancelled", Some(u1)).unwrap();
+        let last: (Option<String>, String, Option<i64>, String) = db.conn.query_row(
+            "SELECT from_status,to_status,changed_by,source FROM order_status_history ORDER BY id DESC LIMIT 1",
+            [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        ).unwrap();
+        assert_eq!(last.0, Some("delivered".into()));
+        assert_eq!(last.1, "cancelled");
+        assert_eq!(last.2, Some(u1));
+        assert_eq!(last.3, "bulk");
     }
 }

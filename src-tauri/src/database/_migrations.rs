@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 20;
+    const LATEST_VERSION: u32 = 21;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -76,7 +76,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
-        (19, migration_v19), (20, migration_v20),
+        (19, migration_v19), (20, migration_v20), (21, migration_v21),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -758,5 +758,58 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 END;
             END;
         "#)?;
+        Ok(())
+    }
+
+    // MGR-014: фундамент данных под пул-модель и командную стату менеджера.
+    // 1) orders.created_by — кто оформил заказ (backfill: владелец карты профиля
+    //    из card_assignments — единственная доступная ретроатрибуция, документируем
+    //    как приближение для истории до v21).
+    // 2) order_status_history — структурная история переходов статусов заказа
+    //    (time-in-status у менеджера вместо парсинга activity_log).
+    // 3) card_status_events — структурные переходы статусов карт
+    //    (used/dead в daily_stats больше не зависят от формата текстовых строк).
+    // Причина деклайна — необязательный ручной ввод (reason, NULL по умолчанию).
+    fn migration_v21(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            ALTER TABLE orders ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+            CREATE INDEX IF NOT EXISTS idx_orders_created_by ON orders(created_by);
+
+            CREATE TABLE IF NOT EXISTS order_status_history (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                from_status TEXT,
+                to_status   TEXT NOT NULL,
+                changed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                source      TEXT NOT NULL DEFAULT 'user',
+                created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_osh_order  ON order_status_history(order_id);
+            CREATE INDEX IF NOT EXISTS idx_osh_status ON order_status_history(to_status);
+            CREATE INDEX IF NOT EXISTS idx_osh_time   ON order_status_history(created_at);
+
+            CREATE TABLE IF NOT EXISTS card_status_events (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id     INTEGER NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
+                from_status TEXT,
+                to_status   TEXT NOT NULL,
+                changed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                reason      TEXT,
+                created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_cse_card ON card_status_events(card_id);
+            CREATE INDEX IF NOT EXISTS idx_cse_to   ON card_status_events(to_status);
+            CREATE INDEX IF NOT EXISTS idx_cse_time ON card_status_events(created_at);
+        "#)?;
+        // Backfill: автор заказа ≈ владелец карты профиля (card_assignments
+        // уникальны по card_id — на момент заказа карта была у одного юзера).
+        conn.execute_batch(
+            "UPDATE orders SET created_by = (
+                SELECT ca.user_id FROM profiles p
+                JOIN card_assignments ca ON ca.card_id = p.card_id
+                WHERE p.id = orders.profile_id
+                LIMIT 1
+            ) WHERE created_by IS NULL;",
+        )?;
         Ok(())
     }

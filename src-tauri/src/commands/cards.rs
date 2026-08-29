@@ -169,11 +169,11 @@ pub(crate) fn reveal_card(id: i64, master_password: Option<String>) -> Result<Ca
 }
 
 #[tauri::command]
-pub(crate) fn update_card_status(id: i64, status: String, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) fn update_card_status(id: i64, status: String, reason: Option<String>, app: tauri::AppHandle) -> Result<(), String> {
     // Изменение статуса — часть рабочего цикла оператора (карта отработала,
     // сгорела и т.п.), поэтому вход, а не отдельное право. Правка уезжает в
     // sync-группу, так что анонимный вызов испортил бы данные всем участникам.
-    require_user()?;
+    let user = require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
@@ -185,7 +185,9 @@ pub(crate) fn update_card_status(id: i64, status: String, app: tauri::AppHandle)
             |row| Ok((row.get(0)?, row.get(1)?))
         ).map_err(|e| format!("card_not_found: {}", e))?;
 
-        db.update_card_status(id, &status)?;
+        // MGR-014: причина деклайна — необязательный ручной ввод оператора,
+        // структурно пишется в card_status_events (пул №2 менеджера).
+        db.update_card_status(id, &status, Some(user.user_id), reason.as_deref())?;
         let _ = db.log_event("card.status_changed",
             &format!("Card {} status → {}", id, status), Some("card"), Some(&id.to_string()));
 
@@ -247,7 +249,7 @@ pub(crate) fn delete_card(id: i64) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), String> {
-    require_user()?;
+    let user = require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
@@ -272,7 +274,7 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
             }
         }
 
-        db.bulk_update_status(&ids, &status)?;
+        db.bulk_update_status(&ids, &status, Some(user.user_id))?;
         let _ = db.log_event("card.bulk_status",
             &format!("{} cards → {}", ids.len(), status), Some("card"), None);
 
@@ -290,10 +292,10 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
 /// dead → archive. Возвращает число архивированных карт.
 #[tauri::command]
 pub(crate) fn archive_dead_cards() -> Result<u32, String> {
-    require_user()?;
+    let user = require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
-        let (count, updates) = db.archive_dead_cards()?;
+        let (count, updates) = db.archive_dead_cards(Some(user.user_id))?;
         if count > 0 {
             let _ = db.log_event(
                 "card.dead_archived",
