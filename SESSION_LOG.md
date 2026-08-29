@@ -804,3 +804,9 @@ cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без о
 - Proxies: вкладка PPTP (uPanel) — дефолтная и первая, список прокси вторым.
 - Проверки: ESLint 0 err, audit 0 критичных, vitest 337/337, e2e roles 6/6.
 - Коммиты 4137781 (вынос страниц), a929f3c (PPTP дефолтом) → main, push.
+
+## 2026-08-29 � @main � MGR-014: ��������� ������ ���-������
+
+- ����������� ���-������ ��������� � ����, ������ � ���� (������� ��������� 2026-08-29): MGR-014..021, FLOAT-001..006, FEAT-019 � ��. 5.5.1/5.9 MASTER_CHECKLIST (������ 5a09ca1).
+- MGR-014 ? (9d1d1bb): �������� v21 � orders.created_by (+backfill �� card_assignments), order_status_history (from/to/changed_by/source), card_status_events (from/to/changed_by/reason). ������� �������� � ���. ������ ���� (update_card_status reason). ��������� ������ � create/update/bulk �������; ������� ��� bulk_update_status/archive_dead_cards/create-delete profile. �����: 185 passed / 0 failed (3 �����).
+- ������: MGR-015 (telemetry v2: payload_version, tz_offset, errors �� ����������, �������� smtp/proxy health, by_user, ������� ���������) > MGR-016 (������ worker_keys) > MGR-017/018 (manager vault, ������� �������).
