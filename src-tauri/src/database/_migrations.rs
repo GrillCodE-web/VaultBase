@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 21;
+    const LATEST_VERSION: u32 = 22;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -76,7 +76,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (10, migration_v10), (11, migration_v11), (12, migration_v12),
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
-        (19, migration_v19), (20, migration_v20), (21, migration_v21),
+        (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -811,5 +811,26 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 LIMIT 1
             ) WHERE created_by IS NULL;",
         )?;
+        Ok(())
+    }
+
+    // MGR-015: локальная очередь неотправленных телеметрических конвертов.
+    // Воркер неделями офлайн — отчёты не теряются: неудачная отправка кладёт
+    // запечатанный конверт в outbox, успешная отправка вымывает очередь (FIFO,
+    // кап по числу строк в коде). Хранится уже запечатанный JSON-тело —
+    // сервер/БД не видят plaintext и при ретрае.
+    fn migration_v22(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS telemetry_outbox (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind       TEXT NOT NULL,
+                ref_date   TEXT,
+                body_json  TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_toutbox_kind_date
+                ON telemetry_outbox(kind, COALESCE(ref_date, ''));
+            CREATE INDEX IF NOT EXISTS idx_toutbox_time ON telemetry_outbox(created_at);
+        "#)?;
         Ok(())
     }

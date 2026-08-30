@@ -177,18 +177,83 @@ fn count_recent_errors(db: &Database) -> i64 {
     ).unwrap_or(0)
 }
 
+/// MGR-015: тот же счётчик ошибок, но по категориям — менеджер видит, ЧТО
+/// у воркера болит (imap/sync/proxy/order/smtp), а не только факт боли.
+/// Классификация по префиксу event_type; неизвестное — в `other`.
+fn errors_by_category(db: &Database) -> serde_json::Map<String, serde_json::Value> {
+    let mut out = serde_json::Map::new();
+    for k in ["imap", "smtp", "proxy", "sync", "order", "other"] {
+        out.insert(k.to_string(), serde_json::json!(0));
+    }
+    if let Ok(mut stmt) = db.conn.prepare(
+        "SELECT event_type FROM activity_log WHERE created_at > datetime('now', '-1 day') \
+         AND (event_type LIKE '%error%' OR event_type LIKE '%fail%' OR event_type LIKE '%reject%')",
+    ) {
+        if let Ok(rows) = stmt.query_map([], |r| r.get::<_, String>(0)) {
+            for et in rows.flatten() {
+                let bucket = if et.starts_with("imap.") { "imap" }
+                    else if et.starts_with("smtp.") { "smtp" }
+                    else if et.starts_with("proxy.") { "proxy" }
+                    else if et.starts_with("sync.") || et.starts_with("ws_sync.") { "sync" }
+                    else if et.starts_with("order.") || et.starts_with("shop.") { "order" }
+                    else { "other" };
+                let n = out.get(bucket).and_then(|v| v.as_i64()).unwrap_or(0);
+                out.insert(bucket.to_string(), serde_json::json!(n + 1));
+            }
+        }
+    }
+    out
+}
+
+/// MGR-015: реальный smtp-сигнал вместо null-заглушки.
+/// Нет активных конфигов → null (нет данных). Успешная отправка за 24 ч
+/// (sent_emails) → true; иначе TCP-проба SMTP-хоста (2 с, без аутентификации).
+fn smtp_health(db: &Database) -> Option<bool> {
+    let total: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM smtp_configs WHERE is_active = 1", [], |r| r.get(0),
+    ).unwrap_or(0);
+    if total == 0 { return None; }
+    let recent_ok: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM sent_emails WHERE sent_at > datetime('now', '-1 day')",
+        [], |r| r.get(0),
+    ).unwrap_or(0);
+    if recent_ok > 0 { return Some(true); }
+    let (host, port): (String, u16) = db.conn.query_row(
+        "SELECT host, port FROM smtp_configs WHERE is_active = 1 ORDER BY id LIMIT 1",
+        [], |r| Ok((r.get(0)?, r.get(1)?)),
+    ).ok()?;
+    Some(smtp_tcp_ok(&host, port))
+}
+
+/// TCP-проба SMTP-хоста: коннект без авторизации, 2 секунды.
+fn smtp_tcp_ok(host: &str, port: u16) -> bool {
+    use std::net::ToSocketAddrs;
+    match format!("{}:{}", host, port).to_socket_addrs() {
+        Ok(mut addrs) => addrs.any(|addr| {
+            std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(2)).is_ok()
+        }),
+        Err(_) => false,
+    }
+}
+
 /// Payload heartbeat из §2.2 (в конверте; plaintext указан в MANAGER_APP.md).
+/// MGR-015: payload_version + worker_sent_at — защита от молчаливой порчи
+/// статики при эволюции схемы и от расхождений часов (сервер допишет received).
 pub(crate) fn build_heartbeat_payload(db: &Database) -> serde_json::Value {
     serde_json::json!({
+        "payload_version": 2,
+        "worker_sent_at": chrono::Utc::now().to_rfc3339(),
+        "tz_offset_min": chrono::Local::now().offset().local_minus_utc() / 60,
         "ts": chrono::Utc::now().to_rfc3339(),
         "app_version": env!("CARGO_PKG_VERSION"),
         "platform": std::env::consts::OS,
         "sync_ws": sync_ws_state(db),
         "db_ok": !db.is_locked(),
         "imap_ok": imap_health(db),
-        "smtp_ok": serde_json::Value::Null,
+        "smtp_ok": smtp_health(db),
         "proxy_ok": proxy_health(db),
         "errors_24h": count_recent_errors(db),
+        "errors_by": errors_by_category(db),
     })
 }
 
@@ -198,10 +263,113 @@ fn scalar_i64(db: &Database, sql: &str, params: &[&dyn rusqlite::ToSql]) -> i64 
     db.conn.query_row(sql, params, |r| r.get(0)).unwrap_or(0)
 }
 
+/// MGR-015: снимок состава пула карт на текущий момент (не за дату):
+/// статусы, топ-10 BIN, страны, возрастные корзины по COALESCE(acquired_at,
+/// created_at). Даёт менеджеру прогноз выгорания пула, а не только общий итог.
+fn build_pool_snapshot(db: &Database) -> serde_json::Value {
+    let mut counts = |sql: &str| -> serde_json::Map<String, serde_json::Value> {
+        let mut m = serde_json::Map::new();
+        if let Ok(mut stmt) = db.conn.prepare(sql) {
+            if let Ok(rows) = stmt.query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+            }) {
+                for (k, n) in rows.flatten() {
+                    m.insert(k, serde_json::json!(n));
+                }
+            }
+        }
+        m
+    };
+    let by_status = counts("SELECT status, COUNT(*) FROM credit_cards GROUP BY status ORDER BY 2 DESC");
+    let by_bin_top = counts(
+        "SELECT COALESCE(bin, '?') AS b, COUNT(*) FROM credit_cards GROUP BY 1 ORDER BY 2 DESC LIMIT 10");
+    let by_country = counts(
+        "SELECT COALESCE(country, '?') AS c, COUNT(*) FROM credit_cards GROUP BY 1 ORDER BY 2 DESC LIMIT 15");
+
+    let age_count = |cond: &str| -> i64 {
+        let sql = format!(
+            "SELECT COUNT(*) FROM credit_cards \
+             WHERE COALESCE(acquired_at, created_at) IS NOT NULL \
+             AND julianday('now') - julianday(COALESCE(acquired_at, created_at)) {}",
+            cond);
+        db.conn.query_row(&sql, [], |r| r.get(0)).unwrap_or(0)
+    };
+    let age_lt30 = age_count("BETWEEN 0 AND 30");
+    let age_mid = age_count("BETWEEN 30 AND 60");
+    let age_gt60 = age_count("> 60");
+    let age_unknown = scalar_i64(db,
+        "SELECT COUNT(*) FROM credit_cards WHERE COALESCE(acquired_at, created_at) IS NULL", &[]);
+
+    let proxy_total: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM proxies", [], |r| r.get(0)).unwrap_or(0);
+    let proxy_blocked: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM proxies WHERE is_blocked = 1", [], |r| r.get(0)).unwrap_or(0);
+
+    serde_json::json!({
+        "taken_at": chrono::Utc::now().to_rfc3339(),
+        "by_status": by_status,
+        "by_bin_top": by_bin_top,
+        "by_country": by_country,
+        "age": { "lt30": age_lt30, "d30_60": age_mid, "gt60": age_gt60, "unknown": age_unknown },
+        "proxy_blocked": proxy_blocked,
+        "proxy_total": proxy_total,
+    })
+}
+
+/// MGR-015: per-оператор сплит дня — кто оформил (orders.created_by, миграция
+/// v21) и сколько карт взял (card_assignments). Ключ — username; заказы без
+/// автора (системные флоу) уходят в "unknown".
+fn build_by_user(db: &Database, date: &str) -> serde_json::Map<String, serde_json::Value> {
+    let mut by_user: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+    let mut ensure = |map: &mut serde_json::Map<String, serde_json::Value>, name: &str| {
+        map.entry(name.to_string()).or_insert_with(|| serde_json::json!({
+            "orders": 0, "delivered": 0, "declined": 0, "revenue": 0.0, "cards_taken": 0
+        }));
+    };
+    // заказы по авторам (created_by — миграция v21)
+    if let Ok(mut stmt) = db.conn.prepare(
+        "SELECT COALESCE(u.username, 'unknown'), COUNT(*), \
+                COALESCE(SUM(CASE WHEN o.status='delivered' THEN 1 END), 0), \
+                COALESCE(SUM(CASE WHEN o.status='declined' THEN 1 END), 0), \
+                COALESCE(SUM(CASE WHEN o.status='delivered' THEN o.total_amount END), 0.0) \
+         FROM orders o LEFT JOIN users u ON u.id = o.created_by \
+         WHERE DATE(o.created_at, 'localtime') = ?1 GROUP BY 1",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![date], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?,
+                r.get::<_, i64>(3)?, r.get::<_, f64>(4)?))
+        }) {
+            for (name, orders, delivered, declined, revenue) in rows.flatten() {
+                ensure(&mut by_user, &name);
+                let obj = by_user.get_mut(&name).unwrap().as_object_mut().unwrap();
+                obj.insert("orders".into(), serde_json::json!(orders));
+                obj.insert("delivered".into(), serde_json::json!(delivered));
+                obj.insert("declined".into(), serde_json::json!(declined));
+                obj.insert("revenue".into(), serde_json::json!(revenue));
+            }
+        }
+    }
+    // взятые карты по юзерам
+    if let Ok(mut stmt) = db.conn.prepare(
+        "SELECT COALESCE(u.username, 'unknown'), COUNT(*) \
+         FROM card_assignments ca LEFT JOIN users u ON u.id = ca.user_id \
+         WHERE DATE(ca.assigned_at, 'localtime') = ?1 GROUP BY 1",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![date], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+        }) {
+            for (name, taken) in rows.flatten() {
+                ensure(&mut by_user, &name);
+                let obj = by_user.get_mut(&name).unwrap().as_object_mut().unwrap();
+                obj.insert("cards_taken".into(), serde_json::json!(taken));
+            }
+        }
+    }
+    by_user
+}
+
 /// Собрать daily_stats за `date` ("YYYY-MM-DD", локальная дата).
 /// created_at в БД — UTC, поэтому сравнение через `'localtime'`.
-/// Карточные переходы (used/dead) восстанавливаются из activity_log
-/// (в credit_cards нет updated_at) — событие `card.status_changed`.
 pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value {
     let mut orders_by_status = serde_json::Map::new();
     let mut total_orders = 0i64;
@@ -220,12 +388,40 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
     }
 
     let cards_taken = scalar_i64(db,
-        "SELECT COUNT(*) FROM credit_cards WHERE DATE(created_at, 'localtime') = ?1",
+        "SELECT COUNT(*) FROM card_assignments WHERE DATE(assigned_at, 'localtime') = ?1",
         &[&date]);
     let mut cards_used = 0i64;
     let mut cards_dead = 0i64;
     let mut by_bin: std::collections::BTreeMap<String, (i64, i64)> =
         std::collections::BTreeMap::new();
+    // MGR-014/015: статусы карт берём из структурной таблицы card_status_events;
+    // для дней ДО миграции v21 — старый парсинг activity_log (формат
+    // "Card {id} status → {status}", commands/cards.rs). Источники
+    // объединяются с дедупом по (card_id, status): с v21 каждая смена пишется
+    // в ОБА источника — без дедупа счётчики задваивались бы.
+    let mut seen: std::collections::HashSet<(i64, String)> = std::collections::HashSet::new();
+    if let Ok(mut stmt) = db.conn.prepare(
+        "SELECT e.card_id, e.to_status FROM card_status_events e \
+         WHERE DATE(e.created_at, 'localtime') = ?1",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![date], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        }) {
+            for (card_id, status) in rows.flatten() {
+                let bin: Option<String> = db.conn.query_row(
+                    "SELECT bin FROM credit_cards WHERE id = ?1", params![card_id],
+                    |r| r.get(0),
+                ).ok().flatten();
+                let entry = by_bin.entry(bin.unwrap_or_else(|| "?".into())).or_insert((0, 0));
+                match status.as_str() {
+                    "in_use" => { cards_used += 1; entry.0 += 1; }
+                    "dead"   => { cards_dead += 1; entry.1 += 1; }
+                    _ => {}
+                }
+                seen.insert((card_id, status));
+            }
+        }
+    }
     if let Ok(mut stmt) = db.conn.prepare(
         "SELECT l.description, l.entity_id FROM activity_log l \
          WHERE l.event_type = 'card.status_changed' AND DATE(l.created_at, 'localtime') = ?1",
@@ -240,6 +436,12 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
                     .and_then(|d| d.rsplit('→').next())
                     .map(|s| s.trim().to_string())
                     .unwrap_or_default();
+                let card_id: Option<i64> = entity_id
+                    .as_deref()
+                    .and_then(|id| id.parse::<i64>().ok());
+                if card_id.map(|c| seen.contains(&(c, status.clone()))).unwrap_or(false) {
+                    continue; // уже посчитано из card_status_events
+                }
                 let bin: Option<String> = entity_id
                     .as_deref()
                     .and_then(|id| id.parse::<i64>().ok())
@@ -319,13 +521,33 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
         "SELECT COUNT(*) FROM activity_log WHERE event_type = 'sync.push_rejected' \
          AND DATE(created_at, 'localtime') = ?1", &[&date]);
 
+    // MGR-015: реальные daily-сигналы smtp/proxy вместо нулей-заглушек.
+    // smtp_ok = успешные отправки за дату (sent_emails); smtp_fail/proxy_fail =
+    // ошибки из activity_log по префиксам; proxy_ok-событий воркер пока не
+    // пишет, состояние прокси уходит снимком пула (pool.proxy_blocked/total).
+    let smtp_ok_n = scalar_i64(db,
+        "SELECT COUNT(*) FROM sent_emails WHERE DATE(sent_at, 'localtime') = ?1",
+        &[&date]);
+    let smtp_fail_n = scalar_i64(db,
+        "SELECT COUNT(*) FROM activity_log WHERE event_type LIKE 'smtp.%' \
+         AND (event_type LIKE '%error%' OR event_type LIKE '%fail%' OR event_type LIKE '%reject%') \
+         AND DATE(created_at, 'localtime') = ?1", &[&date]);
+    let proxy_fail_n = scalar_i64(db,
+        "SELECT COUNT(*) FROM activity_log WHERE event_type LIKE 'proxy.%' \
+         AND (event_type LIKE '%error%' OR event_type LIKE '%fail%' OR event_type LIKE '%reject%') \
+         AND DATE(created_at, 'localtime') = ?1", &[&date]);
+
     serde_json::json!({
+        "payload_version": 2,
+        "worker_sent_at": chrono::Utc::now().to_rfc3339(),
+        "tz_offset_min": chrono::Local::now().offset().local_minus_utc() / 60,
         "date": date,
         "app_version": env!("CARGO_PKG_VERSION"),
         "orders": {
             "total": total_orders,
             "by_status": orders_by_status,
         },
+        "by_user": build_by_user(db, date),
         "cards": {
             "taken": cards_taken,
             "used": cards_used,
@@ -334,6 +556,7 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
                 k.clone(), serde_json::json!({ "used": used, "dead": dead })
             )).collect::<serde_json::Map<String, serde_json::Value>>(),
         },
+        "pool": build_pool_snapshot(db),
         "drops": {
             "taken": drops_taken,
             "by_destination": drops_by_destination,
@@ -341,8 +564,8 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
         "shops": shops,
         "health": {
             "imap_ok": imap_ok, "imap_fail": imap_fail,
-            "smtp_ok": 0, "smtp_fail": 0,
-            "proxy_ok": 0, "proxy_fail": 0,
+            "smtp_ok": smtp_ok_n, "smtp_fail": smtp_fail_n,
+            "proxy_ok": 0, "proxy_fail": proxy_fail_n,
         },
         "sync": { "ws_ok": ws_ok, "push_ok": 0, "push_fail": push_fail },
     })
@@ -652,6 +875,8 @@ pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
                 if effects.wipe {
                     send_wipe_ack(&token, &serde_json::json!(envelopes));
                 }
+                // MGR-015: сервер жив — попутно вымываем очередь дневных отчётов
+                let _ = outbox_flush(db, &token, 5);
                 TelemetryHeartbeatResult {
                     sent: true, reason: "ok".into(),
                     update_required,
@@ -700,6 +925,75 @@ pub struct TelemetryReportResult {
     pub date: String,
 }
 
+// ── MGR-015: локальная очередь неотправленных конвертов ───────────
+// Воркер неделями офлайн — дневные отчёты не теряются: неудачная отправка
+// (сеть/5xx) кладёт уже запечатанное тело в telemetry_outbox (миграция v22),
+// успешная отправка вымывает очередь FIFO. Кап — чтобы рост был ограничен.
+
+const OUTBOX_CAP: i64 = 60;
+
+/// Положить тело отчёта в очередь (та же (kind, date) перезаписывается —
+/// актуальный снапшот важнее истории ретраев), кап FIFO в OUTBOX_CAP.
+fn outbox_enqueue(db: &Database, kind: &str, ref_date: Option<&str>, body: &serde_json::Value) {
+    let _ = db.conn.execute(
+        "DELETE FROM telemetry_outbox WHERE kind = ?1 AND COALESCE(ref_date, '') = COALESCE(?2, '')",
+        params![kind, ref_date],
+    );
+    let _ = db.conn.execute(
+        "INSERT INTO telemetry_outbox(kind, ref_date, body_json) VALUES(?1, ?2, ?3)",
+        params![kind, ref_date, body.to_string()],
+    );
+    let _ = db.conn.execute(
+        "DELETE FROM telemetry_outbox WHERE id NOT IN \
+         (SELECT id FROM telemetry_outbox ORDER BY created_at DESC, id DESC LIMIT ?1)",
+        params![OUTBOX_CAP],
+    );
+}
+
+/// Вымыть очередь: до `max` старых конвертов на /api/telemetry/report.
+/// Успех → строка удаляется; 4xx (тело отвергнуто сервером) → удаляем тоже
+/// (ретрай бессмысленного не раздувает очередь); сеть/5xx → стоп до след. раза.
+fn outbox_flush(db: &Database, token: &str, max: usize) -> usize {
+    let rows: Vec<(i64, String)> = {
+        let mut stmt = match db.conn.prepare(
+            "SELECT id, body_json FROM telemetry_outbox WHERE kind = 'daily_stats' \
+             ORDER BY created_at ASC, id ASC LIMIT ?1",
+        ) {
+            Ok(s) => s,
+            Err(_) => return 0,
+        };
+        let mapped = stmt.query_map(params![max as i64], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        });
+        match mapped {
+            Ok(m) => m.filter_map(|r| r.ok()).collect(),
+            Err(_) => return 0,
+        }
+    };
+    let mut ok_n = 0;
+    for (id, body_json) in rows {
+        let resp = ureq::post(&crate::endpoints::endpoint("/api/telemetry/report"))
+            .set("Authorization", &format!("Bearer {}", token))
+            .set("Content-Type", "application/json")
+            .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
+            .send_string(&body_json);
+        match resp {
+            // 2xx = сервер принял конверт (валидация проходит до ok-ответа)
+            Ok(_) => {
+                let _ = db.conn.execute("DELETE FROM telemetry_outbox WHERE id = ?1", params![id]);
+                ok_n += 1;
+            }
+            // тело отвергнуто навсегда (битый/устаревший формат) — не раздуваем очередь
+            Err(ureq::Error::Status(c, _)) if (400..500).contains(&c) => {
+                let _ = db.conn.execute("DELETE FROM telemetry_outbox WHERE id = ?1", params![id]);
+            }
+            // сеть/5xx — попробуем при следующем успешном heartbeat/отчёте
+            Err(_) => break,
+        }
+    }
+    ok_n
+}
+
 pub(crate) fn send_daily_stats(db: &mut Database, date: &str) -> TelemetryReportResult {
     let fail = |reason: &str| TelemetryReportResult {
         sent: false, reason: reason.into(), date: date.into(),
@@ -709,7 +1003,7 @@ pub(crate) fn send_daily_stats(db: &mut Database, date: &str) -> TelemetryReport
     let payload = build_daily_stats(db, date);
     let envelopes = match seal_for_managers(&keys, &payload) { Ok(e) => e, Err(e) => return fail(&e) };
     let body = serde_json::json!({ "kind": "daily_stats", "date": date, "envelopes": envelopes });
-    match ureq::post(&crate::endpoints::endpoint("/api/telemetry/report"))
+    let result = match ureq::post(&crate::endpoints::endpoint("/api/telemetry/report"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
@@ -719,14 +1013,23 @@ pub(crate) fn send_daily_stats(db: &mut Database, date: &str) -> TelemetryReport
             let v: serde_json::Value = r.into_json().unwrap_or(serde_json::json!({}));
             if v.get("ok").and_then(|x| x.as_bool()).unwrap_or(false) {
                 let _ = db.set_config("telemetry_last_daily_stats", date);
+                // MGR-015: сервер жив — вымываем накопленную очередь
+                let _ = outbox_flush(db, &token, 10);
                 TelemetryReportResult { sent: true, reason: "ok".into(), date: date.into() }
             } else {
                 fail("bad_response")
             }
         }
-        Err(ureq::Error::Status(c, _)) => fail(&format!("http_{}", c)),
-        Err(_) => fail("network_error"),
-    }
+        Err(ureq::Error::Status(c, _)) => {
+            if c >= 500 { outbox_enqueue(db, "daily_stats", Some(date), &body); }
+            fail(&format!("http_{}", c))
+        }
+        Err(_) => {
+            outbox_enqueue(db, "daily_stats", Some(date), &body);
+            fail("network_error")
+        }
+    };
+    result
 }
 
 // ── Интеграционная точка: команды + идемпотентный tick ────────────
@@ -774,7 +1077,24 @@ pub(crate) fn telemetry_tick_impl(db: &mut Database, force: bool) -> serde_json:
     } else {
         send_daily_stats(db, &yesterday)
     };
-    serde_json::json!({ "heartbeat": heartbeat, "daily_stats": daily, "feeds": feeds })
+
+    // MGR-015: догоняем дни, пропущенные из-за офлайна (маркер = последний
+    // отправленный день; всё новее маркера и старше вчерашнего досылаем,
+    // максимум 6 за тик, старые вперёд; первая неудача останавливает).
+    let mut backfilled = 0usize;
+    if daily.sent {
+        let marker = db.get_config("telemetry_last_daily_stats").ok().flatten();
+        for back in (2..=7).rev() {
+            let d = (chrono::Local::now() - chrono::Duration::days(back as i64))
+                .format("%Y-%m-%d").to_string();
+            if marker.as_deref().map(|m| d.as_str() <= m).unwrap_or(false) { break; }
+            let r = send_daily_stats(db, &d);
+            if !r.sent { break; }
+            backfilled += 1;
+        }
+    }
+    serde_json::json!({ "heartbeat": heartbeat, "daily_stats": daily, "feeds": feeds,
+        "backfill": backfilled })
 }
 
 /// MGR-013: криптостирание по команде сервера и перезапуск. Ack уже ушёл из
@@ -1155,8 +1475,15 @@ mod telemetry_tests {
              VALUES(?1,'R','addr','Springfield','00000','US')",
             params![pid],
         ).unwrap();
-        let card_id: i64 = db.conn
-            .query_row("SELECT MAX(id) FROM credit_cards", [], |r| r.get(0)).unwrap();
+        // MGR-015: taken = кто забронировал карту (card_assignments, миграция v21)
+        db.conn.execute(
+            "INSERT INTO users(username,password_hash,display_name,role) VALUES('opA','h','Оп','operator')", [],
+        ).unwrap();
+        let uid: i64 = db.conn.query_row("SELECT id FROM users WHERE username='opA'", [], |r| r.get(0)).unwrap();
+        let card_id: i64 = db.conn.query_row("SELECT card_id FROM profiles WHERE id=?1", params![pid], |r| r.get(0)).unwrap();
+        db.conn.execute(
+            "INSERT INTO card_assignments(card_id, user_id) VALUES(?1, ?2)", params![card_id, uid],
+        ).unwrap();
         db.log_event("card.status_changed", &format!("Card {card_id} status → dead"),
             Some("card"), Some(&card_id.to_string())).unwrap();
 
@@ -1448,5 +1775,141 @@ mod telemetry_tests {
         let has_old: i64 = db.conn.query_row(
             "SELECT COUNT(*) FROM shop_priorities WHERE shop_domain = 'old.com'", [], |r| r.get(0)).unwrap();
         assert_eq!(has_old, 0);
+    }
+
+    // ── MGR-015: telemetry v2 ──
+
+    #[test]
+    fn test_payload_v2_envelope_fields() {
+        let (_dir, db) = test_db();
+        let hb = build_heartbeat_payload(&db);
+        assert_eq!(hb["payload_version"], serde_json::json!(2));
+        assert!(hb["worker_sent_at"].as_str().unwrap().contains("T"));
+        assert!(hb["tz_offset_min"].is_i64());
+        assert!(hb["errors_by"].is_object());
+        assert_eq!(hb["errors_by"]["imap"], serde_json::json!(0));
+        assert!(hb["smtp_ok"].is_null(), "нет smtp-конфигов → null");
+
+        let d = build_daily_stats(&db, &today_local());
+        assert_eq!(d["payload_version"], serde_json::json!(2));
+        assert!(d["worker_sent_at"].as_str().unwrap().contains("T"));
+        assert!(d["tz_offset_min"].is_i64());
+        assert!(d["by_user"].is_object());
+        assert!(d["pool"].is_object());
+        let pool = &d["pool"];
+        assert!(pool["by_status"].is_object());
+        assert!(pool["age"]["lt30"].is_i64());
+        assert!(pool["by_bin_top"].is_object());
+        assert!(d["health"]["smtp_ok"].is_i64(), "daily smtp_ok — реальное число, не заглушка");
+    }
+
+    #[test]
+    fn test_errors_by_category() {
+        let (_dir, db) = test_db();
+        for (et, n) in [("imap.poll_error", 2), ("sync.push_rejected", 3), ("proxy.check_fail", 1), ("order.sync_error", 4), ("misc.fail", 5)] {
+            for _ in 0..n {
+                db.conn.execute(
+                    "INSERT INTO activity_log(event_type, description) VALUES(?1, 'x')",
+                    params![et],
+                ).unwrap();
+            }
+        }
+        let e = errors_by_category(&db);
+        assert_eq!(e["imap"], serde_json::json!(2));
+        assert_eq!(e["sync"], serde_json::json!(3));
+        assert_eq!(e["proxy"], serde_json::json!(1));
+        assert_eq!(e["order"], serde_json::json!(4));
+        assert_eq!(e["other"], serde_json::json!(5));
+        assert_eq!(e["smtp"], serde_json::json!(0));
+        // сумма категорий = общий счётчик за 24ч
+        let total: i64 = e.values().filter_map(|v| v.as_i64()).sum();
+        assert_eq!(total, count_recent_errors(&db));
+    }
+
+    #[test]
+    fn test_smtp_health_sources() {
+        let (_dir, db) = test_db();
+        // нет конфигов → null (нет данных)
+        assert_eq!(build_heartbeat_payload(&db)["smtp_ok"], serde_json::Value::Null);
+
+        // активный конфиг + свежая успешная отправка → true (без сети)
+        db.conn.execute(
+            "INSERT INTO smtp_configs(label, host, port, login) VALUES('s','smtp.example.com',587,'u')", [],
+        ).unwrap();
+        db.conn.execute(
+            "INSERT INTO sent_emails(smtp_config_id, to_email, subject) VALUES(1,'a@b.c','hi')", [],
+        ).unwrap();
+        assert_eq!(build_heartbeat_payload(&db)["smtp_ok"], serde_json::json!(true));
+
+        // TCP-проба по заведомо закрытому порту → false (127.0.0.1:1, без ожидания)
+        assert!(!smtp_tcp_ok("127.0.0.1", 1));
+    }
+
+    #[test]
+    fn test_daily_by_user_split() {
+        let (_dir, db) = test_db();
+        db.conn.execute(
+            "INSERT INTO users(username,password_hash,display_name,role) VALUES('opA','h','Оп','operator')", [],
+        ).unwrap();
+        let uid: i64 = db.conn.query_row("SELECT id FROM users WHERE username='opA'", [], |r| r.get(0)).unwrap();
+        let prof = make_profile(&db, 1);
+        let shop = make_shop(&db, "byuser.example.com");
+        make_order(&db, &prof, shop, 1);
+        db.conn.execute(
+            "UPDATE orders SET created_by=?1 WHERE id=(SELECT MAX(id) FROM orders)", params![uid],
+        ).unwrap();
+        // карта на руки оператору
+        let card_id: i64 = db.conn.query_row("SELECT card_id FROM profiles WHERE id=?1",
+            params![prof], |r| r.get(0)).unwrap();
+        db.conn.execute(
+            "INSERT INTO card_assignments(card_id, user_id) VALUES(?1,?2)", params![card_id, uid],
+        ).unwrap();
+        let s = build_daily_stats(&db, &today_local());
+        let bu = s["by_user"].as_object().unwrap();
+        let e = bu.get("opA").expect("user entry");
+        assert_eq!(e["orders"], serde_json::json!(1));
+        assert_eq!(e["cards_taken"], serde_json::json!(1));
+    }
+
+    #[test]
+    fn test_outbox_enqueue_trim_and_replace() {
+        let (_dir, db) = test_db();
+        let body = serde_json::json!({ "kind": "daily_stats", "date": "2026-08-01", "envelopes": [] });
+        for i in 0..70 {
+            let date = format!("2026-{:02}-{:02}", 7 + i / 28, (i % 28) + 1);
+            outbox_enqueue(&db, "daily_stats", Some(&date), &body);
+        }
+        let n: i64 = db.conn.query_row("SELECT COUNT(*) FROM telemetry_outbox", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 60, "кап очереди");
+        // та же (kind, date) — одна строка (актуальный снапшот, не история ретраев)
+        outbox_enqueue(&db, "daily_stats", Some("2026-08-01"), &serde_json::json!({"v":2}));
+        outbox_enqueue(&db, "daily_stats", Some("2026-08-01"), &serde_json::json!({"v":3}));
+        let same_date: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM telemetry_outbox WHERE kind='daily_stats' AND ref_date='2026-08-01'", [],
+            |r| r.get(0)).unwrap();
+        assert_eq!(same_date, 1);
+        let v: String = db.conn.query_row(
+            "SELECT body_json FROM telemetry_outbox WHERE kind='daily_stats' AND ref_date='2026-08-01'", [],
+            |r| r.get(0)).unwrap();
+        assert!(v.contains("\"v\":3"), "перезаписан последним снапшотом");
+    }
+
+    #[test]
+    fn test_daily_card_events_preferred_over_log() {
+        let (_dir, db) = test_db();
+        db.conn.execute("INSERT INTO credit_cards(card_number, bin, source) VALUES('4111111111111111','411111','test')", []).unwrap();
+        let card_id: i64 = db.conn.query_row("SELECT MAX(id) FROM credit_cards", [], |r| r.get(0)).unwrap();
+        db.conn.execute(
+            "INSERT INTO card_status_events(card_id, from_status, to_status) VALUES(?1,'free','dead')",
+            params![card_id],
+        ).unwrap();
+        // и лог-строка за ту же дату — НЕ должна задвоить счётчик
+        db.conn.execute(
+            "INSERT INTO activity_log(event_type, description, entity_type, entity_id) \
+             VALUES('card.status_changed', 'Card ' || ?1 || ' status → dead', 'card', ?1)",
+            params![card_id],
+        ).unwrap();
+        let s = build_daily_stats(&db, &today_local());
+        assert_eq!(s["cards"]["dead"], serde_json::json!(1), "событие из card_status_events, лог не дублирует");
     }
 }
