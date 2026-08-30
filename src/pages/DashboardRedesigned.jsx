@@ -15,7 +15,6 @@ import { useLang } from '../hooks/useLang'
 import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { useSmartToast } from '../hooks/useSmartToast'
 import { formatCurrency, formatNumber } from '../utils/formatting'
-import { HEATMAP_COLORS } from '../constants/colors'
 
 // Import from Dashboard submodule
 import { PERIODS } from './Dashboard/periods.js'
@@ -463,17 +462,11 @@ export default function DashboardRedesigned({ onNavigate }) {
                     {t('chart_title')}
                     <div className="flex text-11 gap-4">
                       <span className="flex items-center gap-1">
-                        <span
-                          className="inline-block rounded-sm w-3 h-0.5"
-                          style={{ backgroundColor: 'var(--blue-t)' }}
-                        />
+                        <span className="inline-block rounded-sm w-3 h-0.5 bg-blue-t" />
                         <span className="text-muted">{t('chart_revenue')}</span>
                       </span>
                       <span className="flex items-center gap-1">
-                        <span
-                          className="inline-block rounded-sm w-3 h-0.5"
-                          style={{ backgroundColor: 'var(--green-t)' }}
-                        />
+                        <span className="inline-block rounded-sm w-3 h-0.5 bg-green-t" />
                         <span className="text-muted">{t('chart_profit')}</span>
                       </span>
                     </div>
@@ -489,16 +482,13 @@ export default function DashboardRedesigned({ onNavigate }) {
                     {t('heatmap_title')}
                     <div className="flex text-10 gap-2">
                       {[
-                        { color: HEATMAP_COLORS.high, label: '≥50%', colorVar: '--green-t' },
-                        { color: HEATMAP_COLORS.medium, label: '20–50%', colorVar: '--yellow-t' },
-                        { color: HEATMAP_COLORS.low, label: '<20%', colorVar: '--red-t' },
-                        { color: HEATMAP_COLORS.noData, label: '<3 orders', colorVar: '--border' },
-                      ].map(({ label, colorVar }) => (
+                        { label: '≥50%', cls: 'bg-green-t' },
+                        { label: '20–50%', cls: 'bg-yellow-t' },
+                        { label: '<20%', cls: 'bg-red-t' },
+                        { label: '<3 orders', cls: 'bg-border' },
+                      ].map(({ label, cls }) => (
                         <span key={label} className="flex items-center gap-1">
-                          <span
-                            className="inline-block rounded-sm w-2.5 h-2.5"
-                            style={{ backgroundColor: `var(${colorVar})` }}
-                          />
+                          <span className={`inline-block rounded-sm w-2.5 h-2.5 ${cls}`} />
                           <span className="text-muted">{label}</span>
                         </span>
                       ))}

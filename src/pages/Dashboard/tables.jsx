@@ -62,7 +62,7 @@ export function CountryHeatBar({ data }) {
   const maxCards = Math.max(...data.map(c => c.total_cards), 1)
   const sorted = [...data].sort((a, b) => b.total_cards - a.total_cards).slice(0, 15)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+    <div className="flex flex-col gap-1 mb-3">
       {sorted.map(c => {
         const pct = (c.total_cards / maxCards) * 100
         const rate = c.success_rate ?? 0
@@ -75,59 +75,16 @@ export function CountryHeatBar({ data }) {
                 ? 'var(--color-heatmap-low)'
                 : 'var(--color-heatmap-no-data)'
         return (
-          <div key={c.country} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span
-              style={{
-                width: 36,
-                fontSize: 10,
-                textAlign: 'right',
-                flexShrink: 0,
-                color: 'var(--text-2)',
-              }}
-            >
-              {c.country || '—'}
-            </span>
-            <div
-              style={{
-                flex: 1,
-                height: 16,
-                background: 'var(--separator)',
-                borderRadius: 3,
-                overflow: 'hidden',
-                position: 'relative',
-              }}
-            >
+          <div key={c.country} className="flex items-center gap-2">
+            <span className="w-9 text-10 text-right shrink-0 text-text-2">{c.country || '—'}</span>
+            <div className="flex-1 h-4 bg-separator rounded-sm overflow-hidden relative">
               <div
-                style={{
-                  width: `${pct}%`,
-                  height: '100%',
-                  background: barColor,
-                  borderRadius: 3,
-                  transition: 'width 0.3s',
-                  minWidth: 2,
-                }}
+                className="h-full rounded-sm transition-[width] duration-300 min-w-[2px]"
+                style={{ width: `${pct}%`, background: barColor }}
               />
             </div>
-            <span
-              style={{
-                width: 32,
-                fontSize: 10,
-                textAlign: 'right',
-                flexShrink: 0,
-                fontWeight: 600,
-              }}
-            >
-              {c.total_cards}
-            </span>
-            <span
-              style={{
-                width: 36,
-                fontSize: 9,
-                textAlign: 'right',
-                flexShrink: 0,
-                color: 'var(--text-2)',
-              }}
-            >
+            <span className="w-8 text-10 text-right shrink-0 font-semibold">{c.total_cards}</span>
+            <span className="w-9 text-9 text-right shrink-0 text-text-2">
               {rate >= 0 ? `${rate}%` : '—'}
             </span>
           </div>
