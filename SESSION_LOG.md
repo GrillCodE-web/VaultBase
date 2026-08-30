@@ -1440,3 +1440,12 @@ scripts/**pycache**/. ВАЖНО: `git grep` в этой сессии показ
 
 **Дальше по потоку @main:** REDESIGN-05-5B3 (трекинг-поллер) или 5B4
 (E2E-чат) — оба ⬜; либо добор MGR-018 (выпил pair-кодов/групп/NOSYNC).
+
+---
+
+## 2026-08-31, ~01:45 — @main-2 (вахта MGR-018 C/D): передача подтверждена, остаток передан дальше
+
+- Оборванный WIP этой вахты поднят и добран @main: 4 фикса компиляции (_profiles.rs log_event Some(&id.to_string()) x3, stuffer.rs `?` в Option-замыкании -> match), регистрация 3 команд в main.rs; всё в `e129790` (воркер+фронт C/D + 5B1/5B2 воркер), серверная часть — `4c1e40c`. Ветка запушена (main == origin/main).
+- Проверки: server 136/136 — собственный прогон @main-2 на закоммиченном 4c1e40c; eslint 0 errors / vitest 337/337 / audit 0 сирот 0 фантомов — собственные прогоны на том же коде до коммита; cargo test 228/228 — прогон @main на e129790 (запись выше), сам не перепрогонял: дерево занято WIP 5B3 (orders.rs/_imap.rs/_orders.rs/background.rs/_migrations.rs/main.rs/models.rs, +764).
+- MGR-018 остаток НЕ начат сознательно: выпил pair-кодов/групп/NOSYNC требует правок main.rs (invoke_handler) и models.rs, 17track share — тоже регистрации команд; эти файлы + _migrations.rs сейчас содержат незакоммиченный WIP 5B3 — коммит по явному пути застейджил бы чужой WIP. Передано следующей сессии промтом (tmp/prompt-mgr018-rest.txt).
+- Опорные точки для добора MGR-018: pair/группы — commands/sync.rs:84-100 (5 команд), sync.rs:357-533 (SyncGroupClient), encryption.rs:257-402 (generate_pair_code/pair_code_hash + тесты), auth.rs:599-600, state.rs:262, main.rs:360, Settings.jsx:194/528/545/561/578 (UI групп живой, 112 упоминаний sync/group в файле); NOSYNC — sync.rs:533-559 (SEC-009 фильтр) + cards.rs:135; сервер — cc-sync-server: sync_pair_codes (database.js:129/205-207), POST /sync/group/join|pair (docs/API.md:597-598), admin/index.html:1043-1438; 17track share — по образцу stuffer_shared_*: constants.rs:25-26, tracking.rs:606, background.rs:814-841, контракт в slices.rs:459.
