@@ -90,9 +90,9 @@ pub(crate) fn seal_envelope(
 }
 
 /// Распечатать конверт приватным ключом получателя `priv_hex` (32 байта, hex).
-/// Воркеру для отправки не нужен (только seal), но это обратная сторона
-/// того же контракта: roundtrip-тесты и отладка локальной расшифровкой.
-#[cfg(test)]
+/// Телеметрии воркеру не нужен (он только шлёт), но это обратная сторона того
+/// же контракта: MGR-018 принимает им запечатанные срезы карт от менеджера,
+/// плюс roundtrip-тесты и отладка.
 pub(crate) fn unseal_envelope(priv_hex: &str, env: &TelemetryEnvelope) -> Result<String, String> {
     let b_secret_bytes = hex::decode(priv_hex.trim())
         .map_err(|e| format!("bad_privkey_hex: {}", e))?;
@@ -722,6 +722,22 @@ fn parse_permissions_override(v: &serde_json::Value) -> Option<std::collections:
     })
 }
 
+/// shop_blacklist — TEXT-колонка с JSON-массивом доменов: может прийти
+/// строкой (из строки worker_policies) или уже массивом. Невалидное — пусто.
+fn parse_shop_blacklist(v: &serde_json::Value) -> Vec<String> {
+    let parsed: serde_json::Value = match v.get("shop_blacklist") {
+        Some(serde_json::Value::String(s)) => match serde_json::from_str(s) {
+            Ok(p) => p,
+            Err(_) => return Vec::new(),
+        },
+        Some(a @ serde_json::Value::Array(_)) => a.clone(),
+        _ => return Vec::new(),
+    };
+    parsed.as_array().map(|arr| {
+        arr.iter().filter_map(|d| d.as_str().map(|s| s.to_lowercase())).collect()
+    }).unwrap_or_default()
+}
+
 /// Разобрать строку политики в PolicyState (update_required живёт отдельно
 /// от строки worker_policies — его сервер вычисляет на heartbeat).
 fn parse_policy_state(policy: &serde_json::Value, update_required: bool) -> PolicyState {
@@ -735,6 +751,14 @@ fn parse_policy_state(policy: &serde_json::Value, update_required: bool) -> Poli
         quota_cards_day: policy_opt_i64(policy, "quota_cards_day"),
         quota_orders_day: policy_opt_i64(policy, "quota_orders_day"),
         force_logout: policy_flag(policy, "force_logout"),
+        // MGR-019: ключ есть только в серверной политике — в solo-режиме
+        // (политики нет вовсе) остаётся None и импорт не блокируется.
+        can_add_cards: policy.get("can_add_cards").map(|_| policy_flag(policy, "can_add_cards")),
+        paused: policy_flag(policy, "paused"),
+        decline_cooldown_minutes: policy_opt_i64(policy, "decline_cooldown_minutes"),
+        max_profiles: policy_opt_i64(policy, "max_profiles"),
+        max_drops: policy_opt_i64(policy, "max_drops"),
+        shop_blacklist: parse_shop_blacklist(policy),
     }
 }
 
@@ -821,6 +845,96 @@ pub(crate) fn enforce_daily_quota(db: &Database, kind: DailyQuota) -> Result<(),
         DailyQuota::Orders => p.quota_orders_day,
     };
     enforce_daily_quota_with(db, kind, limit)
+}
+
+// ── MGR-019: расширенные политики ────────────────────────────────
+
+/// Жёсткий запрет добавления карт. None (solo-режим, политики ещё не
+/// было) — пропускает; Some(false) — сервер запретил.
+pub(crate) fn enforce_can_add_cards_with(flag: Option<bool>) -> Result<(), String> {
+    if flag == Some(false) {
+        return Err("policy_can_add_cards".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn enforce_can_add_cards() -> Result<(), String> {
+    enforce_can_add_cards_with(crate::state::policy_snapshot().can_add_cards)
+}
+
+/// Кулдаун после деклайна: взятие карты блокируется, если с последнего
+/// declined/failed заказа прошло меньше N минут (окно тишины).
+pub(crate) fn enforce_decline_cooldown_with(db: &Database, minutes: Option<i64>) -> Result<(), String> {
+    let Some(minutes) = minutes else { return Ok(()) };
+    if minutes <= 0 { return Ok(()); }
+    let last: Option<String> = db.conn.query_row(
+        "SELECT MAX(created_at) FROM order_status_history WHERE to_status IN ('declined','failed')",
+        [], |r| r.get(0),
+    ).unwrap_or(None);
+    let Some(last) = last else { return Ok(()) };
+    let Ok(ts) = chrono::NaiveDateTime::parse_from_str(&last, "%Y-%m-%d %H:%M:%S") else { return Ok(()) };
+    let elapsed = chrono::Utc::now().naive_utc() - ts;
+    if elapsed < chrono::Duration::minutes(minutes) {
+        let left = (chrono::Duration::minutes(minutes) - elapsed).num_minutes().max(0) + 1;
+        return Err(format!("decline_cooldown_active:{left}"));
+    }
+    Ok(())
+}
+
+pub(crate) fn enforce_decline_cooldown(db: &Database) -> Result<(), String> {
+    enforce_decline_cooldown_with(db, crate::state::policy_snapshot().decline_cooldown_minutes)
+}
+
+/// Лимиты сущностей из политики.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EntityLimit { Profiles, Drops }
+
+/// Лимит профилей/дропов — суммарный счёт по БД. None или <=0 — без лимита.
+pub(crate) fn enforce_entity_limit_with(db: &Database, kind: EntityLimit, limit: Option<i64>) -> Result<(), String> {
+    let (sql, code) = match kind {
+        EntityLimit::Profiles => ("SELECT COUNT(*) FROM profiles", "limit_exceeded:profiles"),
+        EntityLimit::Drops => ("SELECT COUNT(*) FROM drops", "limit_exceeded:drops"),
+    };
+    let Some(limit) = limit else { return Ok(()) };
+    if limit <= 0 { return Ok(()); }
+    let count: i64 = db.conn.query_row(sql, [], |r| r.get(0)).unwrap_or(0);
+    if count >= limit { return Err(code.into()); }
+    Ok(())
+}
+
+pub(crate) fn enforce_entity_limit(db: &Database, kind: EntityLimit) -> Result<(), String> {
+    let p = crate::state::policy_snapshot();
+    match kind {
+        EntityLimit::Profiles => enforce_entity_limit_with(db, kind, p.max_profiles),
+        EntityLimit::Drops => enforce_entity_limit_with(db, kind, p.max_drops),
+    }
+}
+
+/// Хост из URL шопа (lowercase, без схемы и пути).
+fn shop_host(url: &str) -> String {
+    let no_scheme = url.split("://").nth(1).unwrap_or(url);
+    no_scheme.split('/').next().unwrap_or("").split(':').next().unwrap_or("").to_lowercase()
+}
+
+/// Шоп в чёрном списке воркера — заказы по нему запрещены. Точный хост
+/// или поддомен чёрного домена.
+pub(crate) fn enforce_shop_allowed_with(db: &Database, shop_id: i64, blacklist: &[String]) -> Result<(), String> {
+    if blacklist.is_empty() { return Ok(()); }
+    let url: String = match db.conn.query_row(
+        "SELECT url FROM shops WHERE id=?1", rusqlite::params![shop_id], |r| r.get(0),
+    ) {
+        Ok(u) => u,
+        Err(_) => return Ok(()), // несуществующий шоп отвалится позже своей ошибкой
+    };
+    let host = shop_host(&url);
+    if blacklist.iter().any(|d| host == *d || host.ends_with(&format!(".{d}"))) {
+        return Err("shop_blacklisted".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn enforce_shop_allowed(db: &Database, shop_id: i64) -> Result<(), String> {
+    enforce_shop_allowed_with(db, shop_id, &crate::state::policy_snapshot().shop_blacklist)
 }
 
 /// Ответ heartbeat: `{ok, policy, update_required}`; при бане middleware
@@ -1355,6 +1469,13 @@ pub(crate) fn telemetry_get_policy() -> serde_json::Value {
         "quota_cards_day": p.quota_cards_day,
         "quota_orders_day": p.quota_orders_day,
         "force_logout": p.force_logout,
+        // MGR-019
+        "can_add_cards": p.can_add_cards,
+        "paused": p.paused,
+        "decline_cooldown_minutes": p.decline_cooldown_minutes,
+        "max_profiles": p.max_profiles,
+        "max_drops": p.max_drops,
+        "shop_blacklist": p.shop_blacklist,
     })
 }
 
@@ -1725,6 +1846,112 @@ mod telemetry_tests {
         );
         assert!(enforce_daily_quota_with(&db, DailyQuota::Cards, Some(5)).is_ok());
         assert!(enforce_daily_quota_with(&db, DailyQuota::Cards, None).is_ok());
+    }
+
+    // MGR-019: расширенные политики
+
+    #[test]
+    fn test_policy_new_fields_parse() {
+        // серверная строка: SQLite-числа 0/1 + blacklist JSON-строкой
+        let p = serde_json::json!({
+            "banned": 0, "can_add_cards": 1, "paused": 1,
+            "decline_cooldown_minutes": 30, "max_profiles": 5, "max_drops": null,
+            "shop_blacklist": "[\"Evil.test\", \"bad.shop\"]",
+        });
+        let st = parse_policy_state(&p, false);
+        assert_eq!(st.can_add_cards, Some(true));
+        assert!(st.paused);
+        assert_eq!(st.decline_cooldown_minutes, Some(30));
+        assert_eq!(st.max_profiles, Some(5));
+        assert_eq!(st.max_drops, None);
+        assert_eq!(st.shop_blacklist, vec!["evil.test".to_string(), "bad.shop".to_string()]);
+
+        // без политики вовсе (solo) — can_add_cards None, импорт не блокируется
+        let st = parse_policy_state(&serde_json::json!({"banned": 0}), false);
+        assert_eq!(st.can_add_cards, None);
+        assert!(!st.paused);
+        assert!(st.shop_blacklist.is_empty());
+
+        // blacklist массивом и битый — не падаем
+        let st = parse_policy_state(&serde_json::json!({"shop_blacklist": ["A.com"]}), false);
+        assert_eq!(st.shop_blacklist, vec!["a.com".to_string()]);
+        let st = parse_policy_state(&serde_json::json!({"shop_blacklist": "{broken"}), false);
+        assert!(st.shop_blacklist.is_empty());
+    }
+
+    #[test]
+    fn test_can_add_cards_gate() {
+        assert!(enforce_can_add_cards_with(None).is_ok());
+        assert!(enforce_can_add_cards_with(Some(true)).is_ok());
+        assert_eq!(
+            enforce_can_add_cards_with(Some(false)).unwrap_err(),
+            "policy_can_add_cards"
+        );
+    }
+
+    #[test]
+    fn test_decline_cooldown() {
+        let (_dir, db) = test_db();
+        // пустая история — кулдаун не мешает
+        assert!(enforce_decline_cooldown_with(&db, Some(30)).is_ok());
+
+        let pid = make_profile(&db, 1);
+        let sid = make_shop(&db, "cooldown.test");
+        let oid = make_order(&db, &pid, sid, 1);
+        db.update_order_status(oid, "declined", None, None).unwrap();
+        // свежий деклайн: окно 30 минут блокирует, без окна — нет
+        let err = enforce_decline_cooldown_with(&db, Some(30)).unwrap_err();
+        assert!(err.starts_with("decline_cooldown_active:"), "unexpected: {err}");
+        assert!(enforce_decline_cooldown_with(&db, Some(0)).is_ok());
+        assert!(enforce_decline_cooldown_with(&db, None).is_ok());
+
+        // деклайн 2 часа назад — окно 30 минут уже истекло
+        db.conn.execute(
+            "UPDATE order_status_history SET created_at = strftime('%Y-%m-%d %H:%M:%S','now','-2 hours')",
+            [],
+        ).unwrap();
+        assert!(enforce_decline_cooldown_with(&db, Some(30)).is_ok());
+    }
+
+    #[test]
+    fn test_entity_limits() {
+        let (_dir, db) = test_db();
+        let pid = make_profile(&db, 1);
+        assert_eq!(
+            enforce_entity_limit_with(&db, EntityLimit::Profiles, Some(1)).unwrap_err(),
+            "limit_exceeded:profiles"
+        );
+        assert!(enforce_entity_limit_with(&db, EntityLimit::Profiles, Some(2)).is_ok());
+        assert!(enforce_entity_limit_with(&db, EntityLimit::Profiles, None).is_ok());
+        assert!(enforce_entity_limit_with(&db, EntityLimit::Profiles, Some(0)).is_ok());
+
+        db.add_drop(&pid, &crate::models::DropInput {
+            recipient_name: "R".into(), address: "A".into(), city: "C".into(),
+            state: None, zip: "12345".into(), country: "US".into(), phone: None,
+        }).unwrap();
+        assert_eq!(
+            enforce_entity_limit_with(&db, EntityLimit::Drops, Some(1)).unwrap_err(),
+            "limit_exceeded:drops"
+        );
+        assert!(enforce_entity_limit_with(&db, EntityLimit::Drops, Some(5)).is_ok());
+    }
+
+    #[test]
+    fn test_shop_blacklist() {
+        let (_dir, db) = test_db();
+        let sid = make_shop(&db, "evil.test");
+        let bl = vec!["evil.test".to_string()];
+        assert_eq!(
+            enforce_shop_allowed_with(&db, sid, &bl).unwrap_err(),
+            "shop_blacklisted"
+        );
+        assert!(enforce_shop_allowed_with(&db, sid, &[]).is_ok());
+        assert!(enforce_shop_allowed_with(&db, sid, &["other.test".to_string()]).is_ok());
+        // поддомен чёрного домена — тоже блок
+        let sub = make_shop(&db, "www.evil.test");
+        assert!(enforce_shop_allowed_with(&db, sub, &bl).is_err());
+        // несуществующий шоп — не наша ошибка, пропускаем
+        assert!(enforce_shop_allowed_with(&db, 99999, &bl).is_ok());
     }
 
     #[test]

@@ -287,6 +287,7 @@ fn main() {
             commands::auth::get_full_audit_log, commands::auth::get_online_sessions, commands::auth::revoke_session,
             commands::cards::detect_mapping_preview,
             commands::cards::import_cards, commands::cards::get_cards, commands::cards::get_card, commands::cards::get_card_filter_meta, commands::cards::reveal_card,
+    commands::slices::worker_key_register, commands::slices::slices_fetch,
             commands::cards::update_card_status, commands::cards::update_card_notes, commands::cards::delete_card,
             commands::cards::bulk_update_cards, commands::cards::bulk_delete_cards, commands::cards::export_cards, commands::cards::enrich_bin,
             commands::cards::archive_dead_cards,

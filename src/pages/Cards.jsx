@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { Archive, Upload, RefreshCw, Zap, FileText } from 'lucide-react'
+import { invoke } from '@tauri-apps/api/core'
+import { Archive, Upload, Download, RefreshCw, Zap, FileText } from 'lucide-react'
 import { useLang } from '../hooks/useLang.jsx'
 import { usePremiumToast } from '../hooks/usePremiumToast.js'
 import { useConfirm } from '../hooks/useConfirm.jsx'
@@ -141,6 +142,36 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     removeFlashedId,
     setEnrichProgress,
   } = useUIStore()
+
+  // MGR-018: приём запечатанных срезов менеджера (source='manager')
+  const [slicesBusy, setSlicesBusy] = useState(false)
+
+  const fetchSlices = useCallback(async () => {
+    if (slicesBusy) return
+    setSlicesBusy(true)
+    try {
+      const res = await invoke('slices_fetch')
+      if (res.imported > 0) {
+        fetchCards(true)
+        toast(
+          t('slices_fetched', {
+            received: res.received,
+            imported: res.imported,
+            duplicates: res.duplicates,
+          }),
+          'success'
+        )
+      } else if (res.failed > 0) {
+        toast(t('slices_failed'), 'error')
+      } else {
+        toast(t('slices_none'), 'info')
+      }
+    } catch (e) {
+      toast(getErrorMessage(e), 'error')
+    } finally {
+      setSlicesBusy(false)
+    }
+  }, [t, slicesBusy, fetchCards, toast])
 
   // Real-time sync flash animation timers
   const flashTimers = useRef({})
@@ -313,6 +344,34 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       deleteTimers.current = {}
     }
   }, [addFlashedId, removeFlashedId])
+
+  // MGR-018: slices_received — воркер принял срезы фоном (cards_issued),
+  // обновляем список и показываем сводку
+  useEffect(() => {
+    let unlisten = null
+    let disposed = false
+    listen('slices_received', event => {
+      const r = event.payload ?? {}
+      if (r.imported > 0) {
+        fetchCards(true)
+        toast(
+          t('slices_fetched', {
+            received: r.received,
+            imported: r.imported,
+            duplicates: r.duplicates,
+          }),
+          'success'
+        )
+      }
+    }).then(fn => {
+      if (disposed) fn()
+      else unlisten = fn
+    })
+    return () => {
+      disposed = true
+      if (unlisten) unlisten()
+    }
+  }, [fetchCards, t, toast])
 
   // ── Close status menu on outside click ────────────────────────────────
 
@@ -697,6 +756,15 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
               aria-label={t('cc_archive_dead') || 'Archive dead cards'}
             >
               <Archive size={12} aria-hidden="true" /> {t('cc_archive_dead')}
+            </button>
+            <button
+              onClick={fetchSlices}
+              disabled={slicesBusy}
+              className="btn btn-ghost btn-sm"
+              title={t('slices_fetch_hint')}
+            >
+              <Download size={12} className={slicesBusy ? 'animate-spin' : ''} />{' '}
+              {t('btn_fetch_slices')}
             </button>
             <button
               onClick={() => setShowImport(true)}

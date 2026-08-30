@@ -320,6 +320,11 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
         "auth_ok" => {
             // Соединение подтверждено. Ничего не делаем — статус уже "connected".
         }
+        // MGR-018: {"type":"cards_issued"} — менеджер выдал срезы этому воркеру.
+        // Тянем их фоном (HTTP fetch + unseal + insert), не блокируя ws-читателя.
+        "cards_issued" => {
+            crate::commands::slices::fetch_on_ws_notify();
+        }
         // {"type":"auth_error","error":"invalid_token"|"missing_token"}
         "auth_error" => {
             let err = msg["error"].as_str().unwrap_or("");
