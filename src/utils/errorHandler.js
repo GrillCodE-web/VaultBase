@@ -194,6 +194,53 @@ export function handleError(error, context = '') {
     }
   }
 
+  // MGR-019: политики менеджера. Коды приходят из telemetry::enforce_*.
+  // Ветка ДО общих `invalid`/`auth`-проверок: 'policy_can_add_cards' сам по
+  // себе классификаторам не подчиняется, но порядок страхует на будущее.
+  if (message === 'policy_can_add_cards') {
+    return {
+      type: 'PermissionError',
+      code: 'POLICY_CAN_ADD_CARDS',
+      message: 'Менеджер запретил добавление карт для вашей учётной записи.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+  if (message.startsWith('decline_cooldown_active')) {
+    const mins = message.split(':')[1] || ''
+    return {
+      type: 'PermissionError',
+      code: 'DECLINE_COOLDOWN',
+      message: `Окно тишины после деклайна: взятие карты будет доступно через ~${mins} мин.`,
+      details: { originalMessage: message },
+      context,
+    }
+  }
+  if (message.startsWith('limit_exceeded')) {
+    const what = message.split(':')[1]
+    return {
+      type: 'PermissionError',
+      code: 'POLICY_LIMIT',
+      message:
+        what === 'profiles'
+          ? 'Достигнут лимит профилей, установленный менеджером.'
+          : what === 'drops'
+            ? 'Достигнут лимит дропов, установленный менеджером.'
+            : 'Достигнут лимит, установленный менеджером.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+  if (message === 'shop_blacklisted') {
+    return {
+      type: 'PermissionError',
+      code: 'SHOP_BLACKLISTED',
+      message: 'Этот магазин заблокирован для вас менеджером.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+
   if (message.includes('card_owned_by_another_user')) {
     return {
       type: 'PermissionError',

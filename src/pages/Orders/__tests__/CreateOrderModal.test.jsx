@@ -22,6 +22,12 @@ vi.mock('../../../hooks/usePremiumToast', () => ({
   }),
 }))
 
+// MGR-019: модалка читает policy.shop_blacklist из useAuth — вне провайдера
+// даём пустую политику (чёрный список отсутствует, фильтр не активен).
+vi.mock('../../../hooks/useAuth', () => ({
+  useAuth: () => ({ policy: null }),
+}))
+
 function deferred() {
   let resolve
   const promise = new Promise(res => {

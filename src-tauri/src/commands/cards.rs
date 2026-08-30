@@ -35,6 +35,7 @@ pub(crate) fn detect_mapping_preview(raw: String) -> Result<MappingPreview, Stri
 #[tauri::command]
 pub(crate) fn import_cards(raw: String, mapping: Vec<String>, source: String) -> Result<ImportResult, String> {
     require_perm(models::perms::ADD_CARDS_MANUAL)?;
+    crate::commands::telemetry::enforce_can_add_cards()?;
     let parse_result = parser::parse_cards(&raw, mapping, &source);
     let total_parsed = parse_result.parsed.len();
 
@@ -362,7 +363,10 @@ pub(crate) fn enrich_bin(id: i64, force: Option<bool>) -> Result<BinInfo, String
 #[tauri::command]
 pub(crate) fn create_profile(card_id: i64, notes: Option<String>) -> Result<Profile, String> {
     require_user()?;
-    with_db!(db, { db.create_profile(card_id, notes) })
+    with_db!(db, {
+        crate::commands::telemetry::enforce_entity_limit(db, crate::commands::telemetry::EntityLimit::Profiles)?;
+        db.create_profile(card_id, notes)
+    })
 }
 
 #[tauri::command]
@@ -435,7 +439,10 @@ pub(crate) fn delete_profile_template(id: i64) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn add_drop(profile_id: String, drop: DropInput) -> Result<Drop, String> {
     require_user()?;
-    with_db!(db, { db.add_drop(&profile_id, &drop) })
+    with_db!(db, {
+        crate::commands::telemetry::enforce_entity_limit(db, crate::commands::telemetry::EntityLimit::Drops)?;
+        db.add_drop(&profile_id, &drop)
+    })
 }
 
 #[tauri::command]

@@ -2,6 +2,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { ShoppingCart, X, Sparkles, FolderOpen, Save, Trash2, Plus } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
+import { useAuth } from '../../hooks/useAuth'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { useSmartSuggestions, SuggestionBadge } from '../Shops'
@@ -51,7 +52,25 @@ export function CreateOrderModal({ onCreated, onClose }) {
   const [profileFocused, setProfileFocused] = useState(false)
 
   const { toast } = usePremiumToast()
+  const { policy } = useAuth()
   const { suggestions: smartSuggs } = useSmartSuggestions(shopId, profileDetail?.card?.id)
+
+  // MGR-019: чёрный список шопов воркера — домены скрываем из поиска,
+  // бэкенд (create_order) дополнительно отклоняет заказ по ним.
+  const isShopBlacklisted = useCallback(
+    s => {
+      const bl = policy?.shop_blacklist
+      if (!Array.isArray(bl) || bl.length === 0) return false
+      const host = String(s?.domain || s?.url || '')
+        .replace(/^[a-z]+:\/\//i, '')
+        .split('/')[0]
+        .split(':')[0]
+        .toLowerCase()
+      if (!host) return false
+      return bl.some(d => host === d || host.endsWith(`.${d}`))
+    },
+    [policy]
+  )
 
   // ── Profile search ──
   const searchProfiles = useCallback(async q => {
@@ -94,33 +113,36 @@ export function CreateOrderModal({ onCreated, onClose }) {
   }
 
   // ── Shop search ──
-  const searchShops = useCallback(async q => {
-    const seq = ++searchSeqRef.current.shop
-    if (!q.trim()) {
-      setShopResults([])
-      return
-    }
-    try {
-      const [local, catalog] = await Promise.all([
-        invoke('get_shops', { page: 1, perPage: 8, search: q })
-          .then(r => r.items || [])
-          .catch(() => []),
-        invoke('search_catalog_shops', { q, limit: 6 })
-          .then(r => r.map(s => ({ ...s, _fromCatalog: true })))
-          .catch(() => []),
-      ])
-      // BUG-016: устаревший ответ — уже ушёл более свежий запрос, его и ждём
-      if (seq !== searchSeqRef.current.shop) return
-      // Merge: local first, then catalog items not already in local
-      const localDomains = new Set(local.map(s => s.domain))
-      const merged = [...local, ...catalog.filter(s => !localDomains.has(s.domain))]
-      setShopResults(merged)
-    } catch (e) {
-      if (seq !== searchSeqRef.current.shop) return
-      handleError(e)
-      setShopResults([])
-    }
-  }, [])
+  const searchShops = useCallback(
+    async q => {
+      const seq = ++searchSeqRef.current.shop
+      if (!q.trim()) {
+        setShopResults([])
+        return
+      }
+      try {
+        const [local, catalog] = await Promise.all([
+          invoke('get_shops', { page: 1, perPage: 8, search: q })
+            .then(r => r.items || [])
+            .catch(() => []),
+          invoke('search_catalog_shops', { q, limit: 6 })
+            .then(r => r.map(s => ({ ...s, _fromCatalog: true })))
+            .catch(() => []),
+        ])
+        // BUG-016: устаревший ответ — уже ушёл более свежий запрос, его и ждём
+        if (seq !== searchSeqRef.current.shop) return
+        // Merge: local first, then catalog items not already in local
+        const localDomains = new Set(local.map(s => s.domain))
+        const merged = [...local, ...catalog.filter(s => !localDomains.has(s.domain))]
+        setShopResults(merged.filter(s => !isShopBlacklisted(s)))
+      } catch (e) {
+        if (seq !== searchSeqRef.current.shop) return
+        handleError(e)
+        setShopResults([])
+      }
+    },
+    [isShopBlacklisted]
+  )
 
   const searchCatalogItems = useCallback(async (q, idx) => {
     const prev = searchSeqRef.current.items[idx] || 0
@@ -344,7 +366,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
       onCreated()
       onClose()
     } catch (e) {
-      toast(String(e), 'error')
+      // MGR-019: getErrorMessage переводит коды политик (shop_blacklisted и др.)
+      toast(getErrorMessage(handleError(e, 'CreateOrderModal.create')), 'error')
     } finally {
       setLoading(false)
       submittingRef.current = false
@@ -555,7 +578,9 @@ export function CreateOrderModal({ onCreated, onClose }) {
           <div>
             <label className="form-label">3. Shipping Address</label>
             {!profileId ? (
-              <div className="text-muted text-[12px] italic">{t('orders_select_profile_first')}</div>
+              <div className="text-muted text-[12px] italic">
+                {t('orders_select_profile_first')}
+              </div>
             ) : drops.length === 0 ? (
               <div className="text-muted text-[12px] italic">{t('orders_profile_no_drops')}</div>
             ) : (

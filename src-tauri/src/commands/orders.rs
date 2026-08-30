@@ -32,6 +32,7 @@ pub(crate) fn create_order(input: OrderInput) -> Result<Order, String> {
     let user = require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, {
         crate::commands::telemetry::enforce_daily_quota(db, crate::commands::telemetry::DailyQuota::Orders)?;
+        crate::commands::telemetry::enforce_shop_allowed(db, input.shop_id)?;
         db.create_order(&input, Some(user.user_id))
     })
 }

@@ -348,6 +348,7 @@ pub(crate) fn take_card(card_id: i64) -> Result<(), String> {
     let user = require_perm(models::perms::TAKE_CARDS)?;
     with_db!(db, {
         crate::commands::telemetry::enforce_daily_quota(db, crate::commands::telemetry::DailyQuota::Cards)?;
+        crate::commands::telemetry::enforce_decline_cooldown(db)?;
         db.assign_card_to_user(card_id, user.user_id, Some(user.user_id))
     })
 }

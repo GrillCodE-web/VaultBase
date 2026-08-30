@@ -35,6 +35,18 @@ pub(crate) struct PolicyState {
     pub permissions_override: Option<std::collections::HashMap<String, bool>>,
     pub quota_cards_day: Option<i64>,
     pub quota_orders_day: Option<i64>,
+    /// MGR-019: жёсткий запрет добавления карт. None — политики ещё не было
+    /// (solo/офлайн), не блокируем; Some(false) — сервер запретил.
+    pub can_add_cards: Option<bool>,
+    /// Пауза: новые срезы не выдаются (блок на сервере), локально — индикатор.
+    pub paused: bool,
+    /// Окно тишины после деклайна, минуты. None — без окна.
+    pub decline_cooldown_minutes: Option<i64>,
+    /// Лимиты сущностей (суммарно по БД). None — без лимита.
+    pub max_profiles: Option<i64>,
+    pub max_drops: Option<i64>,
+    /// Домены шопов, выключенных для воркера (lowercase).
+    pub shop_blacklist: Vec<String>,
     pub force_logout: bool,
 }
 
