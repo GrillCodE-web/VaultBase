@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 22;
+    const LATEST_VERSION: u32 = 23;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -77,6 +77,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
         (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
+        (23, migration_v23),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -831,6 +832,46 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
             CREATE UNIQUE INDEX IF NOT EXISTS idx_toutbox_kind_date
                 ON telemetry_outbox(kind, COALESCE(ref_date, ''));
             CREATE INDEX IF NOT EXISTS idx_toutbox_time ON telemetry_outbox(created_at);
+        "#)?;
+        Ok(())
+    }
+
+    // FEAT-004: IF-THEN правила автоматизации. automation_rules — сами правила
+    // (условия/действия — валидируемые JSON-массивы, движок в _automation.rs);
+    // automation_rule_runs — аудит каждого срабатывания (какие действия
+    // применились либо с какой ошибкой упали). Ошибки правил не прерывают
+    // бизнес-поток смены статуса заказа — фиксируются здесь и в last_error.
+    fn migration_v23(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS automation_rules (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                name            TEXT NOT NULL UNIQUE,
+                description     TEXT,
+                trigger_type    TEXT NOT NULL DEFAULT 'order_status_changed',
+                conditions_json TEXT NOT NULL DEFAULT '[]',
+                actions_json    TEXT NOT NULL DEFAULT '[]',
+                enabled         BOOLEAN NOT NULL DEFAULT 1,
+                times_triggered INTEGER NOT NULL DEFAULT 0,
+                last_triggered  DATETIME,
+                last_error      TEXT,
+                created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_automation_rules_enabled ON automation_rules(enabled, trigger_type);
+
+            CREATE TABLE IF NOT EXISTS automation_rule_runs (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_id         INTEGER NOT NULL REFERENCES automation_rules(id) ON DELETE CASCADE,
+                order_id        INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+                card_id         INTEGER REFERENCES credit_cards(id) ON DELETE SET NULL,
+                trigger_value   TEXT,
+                actions_applied TEXT,
+                status          TEXT NOT NULL DEFAULT 'success',
+                error_message   TEXT,
+                created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_arr_rule ON automation_rule_runs(rule_id);
+            CREATE INDEX IF NOT EXISTS idx_arr_time ON automation_rule_runs(created_at);
         "#)?;
         Ok(())
     }

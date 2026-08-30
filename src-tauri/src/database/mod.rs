@@ -41,6 +41,7 @@ include!("_shops.rs");
 include!("_orders.rs");
 include!("_stuffer.rs");
 include!("_misc.rs");
+include!("_automation.rs");
 include!("_users.rs");
 include!("_helpers.rs");
 include!("_seed.rs");

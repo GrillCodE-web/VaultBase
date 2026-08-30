@@ -1329,6 +1329,42 @@ pub struct AutomationHealth {
     pub proxy_last_success: u64,
 }
 
+// ─────────────────────────────────────────
+//  FEAT-004: IF-THEN правила автоматизации
+// ─────────────────────────────────────────
+
+/// Правило вида «ЕСЛИ <условия> ТО <действия>». Условия и действия хранятся
+/// как JSON-массивы объектов (валидируются при создании/обновлении).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AutomationRule {
+    pub id: i64,
+    pub name: String,
+    pub description: Option<String>,
+    pub trigger_type: String,
+    pub conditions_json: String,
+    pub actions_json: String,
+    pub enabled: bool,
+    pub times_triggered: i64,
+    pub last_triggered: Option<String>,
+    pub last_error: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Запись об одном срабатывании правила (аудит).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AutomationRuleRun {
+    pub id: i64,
+    pub rule_id: i64,
+    pub order_id: Option<i64>,
+    pub card_id: Option<i64>,
+    pub trigger_value: Option<String>,
+    pub actions_applied: Option<String>,
+    pub status: String,
+    pub error_message: Option<String>,
+    pub created_at: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PaginatedCatalogShops {
     pub items: Vec<CatalogShop>,

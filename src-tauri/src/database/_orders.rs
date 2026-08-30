@@ -281,6 +281,10 @@ impl Database {
         // статуса историю не плодит.
         if prev_status.as_deref() != Some(status) {
             self.record_status_history(id, prev_status.as_deref(), status, changed_by, "user");
+            // FEAT-004: IF-THEN правила автоматизации (status=declined → пометить
+            // карту и т.п.). Ошибки правил не прерывают смену статуса —
+            // фиксируются в automation_rule_runs и last_error правила.
+            let _ = self.run_automation_rules_for_order(id, prev_status.as_deref(), status);
         }
         let _ = self.log_event("order.status_changed", &format!("Order {} → {}", id, status), Some("order"), Some(&id.to_string()));
         Ok(())

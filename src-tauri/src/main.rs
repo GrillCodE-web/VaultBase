@@ -376,6 +376,10 @@ fn main() {
             commands::automation::get_burned_cards, commands::automation::auto_archive_burned_cards_cmd,
             commands::automation::get_consecutive_declines_cmd, commands::automation::auto_archive_risky_cards_cmd,
             commands::automation::get_card_replacement_suggestions_cmd,
+            // FEAT-004: IF-THEN правила автоматизации
+            commands::automation::create_automation_rule, commands::automation::list_automation_rules,
+            commands::automation::update_automation_rule, commands::automation::delete_automation_rule,
+            commands::automation::get_automation_rule_runs,
             // PHASE 2: Shop Statistics Enhancement
             commands::automation::get_shop_stats_v2_cmd,
         ])

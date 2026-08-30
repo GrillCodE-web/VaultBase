@@ -121,3 +121,54 @@ pub(crate) fn get_shop_stats_v2_cmd(shop_id: i64) -> Result<models::ShopStatsV2,
     if guard.is_locked() { return Err("database_locked".into()); }
     guard.get_shop_stats_v2(shop_id)
 }
+
+// ─────────────────────────────────────────
+//  FEAT-004: IF-THEN правила автоматизации
+// ─────────────────────────────────────────
+
+#[tauri::command]
+pub(crate) fn create_automation_rule(
+    name: String,
+    description: Option<String>,
+    conditions_json: String,
+    actions_json: String,
+    enabled: Option<bool>,
+) -> Result<i64, String> {
+    require_user()?;
+    with_db!(db, {
+        db.create_automation_rule(&name, description.as_deref(), &conditions_json, &actions_json, enabled.unwrap_or(true))
+    })
+}
+
+#[tauri::command]
+pub(crate) fn list_automation_rules() -> Result<Vec<models::AutomationRule>, String> {
+    require_user()?;
+    with_db!(db, { db.list_automation_rules() })
+}
+
+#[tauri::command]
+pub(crate) fn update_automation_rule(
+    id: i64,
+    name: Option<String>,
+    description: Option<String>,
+    conditions_json: Option<String>,
+    actions_json: Option<String>,
+    enabled: Option<bool>,
+) -> Result<(), String> {
+    require_user()?;
+    with_db!(db, {
+        db.update_automation_rule(id, name.as_deref(), description.as_deref(), conditions_json.as_deref(), actions_json.as_deref(), enabled)
+    })
+}
+
+#[tauri::command]
+pub(crate) fn delete_automation_rule(id: i64) -> Result<(), String> {
+    require_user()?;
+    with_db!(db, { db.delete_automation_rule(id) })
+}
+
+#[tauri::command]
+pub(crate) fn get_automation_rule_runs(rule_id: Option<i64>, limit: Option<u32>) -> Result<Vec<models::AutomationRuleRun>, String> {
+    require_user()?;
+    with_db!(db, { db.get_automation_rule_runs(rule_id, limit.unwrap_or(50)) })
+}
