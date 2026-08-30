@@ -751,6 +751,8 @@ export default function ShopList({ onNavigate }) {
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? shops.length : 0,
     getScrollElement: () => parentRef.current,
+    // REDESIGN-05-2: --row-pad 11px/6px; замерено comfortable ≈ 58.5px
+    // (высота контентная, td-паддинг не влияет). Округление вверх.
     estimateSize: () => 60,
     overscan: SHOPS_OVERSCAN,
   })

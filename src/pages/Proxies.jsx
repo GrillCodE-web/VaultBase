@@ -603,7 +603,9 @@ export default function ProxyList() {
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? proxies.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 50,
+    // REDESIGN-05-2: --row-pad 11px/6px; высота строки выросла
+    // (паддинг 2×11 вместо фикс --h-row 28px).
+    estimateSize: () => 62,
     overscan: PROXIES_OVERSCAN,
   })
 

@@ -3789,29 +3789,24 @@
   }
 
   /* ── Шапка ──────────────────────────────────────────────────
-   Липкая. Микро-капс с разрядкой — сигнатура ops-терминала:
-   заголовки колонок читаются как «поля данных», а не текст. */
+   REDESIGN-05-2: по эталону 05 — 11px UI-шрифт (не mono),
+   паддинг 18px, липкая на фоне --surface; межколоночные
+   разделители убраны (в мокапе таблица чистая). */
   .tbl th {
     color: var(--text-3);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    height: 26px;
-    padding: 0 10px;
+    letter-spacing: 0.05em;
+    padding: 9px 18px;
     text-align: left;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     white-space: nowrap;
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
-  }
-
-  /* Разделители колонок — тонкие, как в списках Finder */
-  .tbl th + th {
-    border-left: 1px solid var(--separator);
   }
 
   /* Грип перетаскивания колонки: виден только при наведении на заголовок,
@@ -3826,10 +3821,13 @@
     opacity: 0.5;
   }
 
-  /* ── Тело ───────────────────────────────────────────────── */
+  /* ── Тело ─────────────────────────────────────────────────
+     REDESIGN-05-2: по эталону 05 — вертикальный паддинг
+     var(--row-pad) (11px / 6px compact) вместо фикс-высоты.
+     ВНИМАНИЕ: высоты строк связаны с estimateSize виртуализаторов
+     (CardTable/Proxies/Shops) — менять только вместе. */
   .tbl td {
-    height: var(--h-row);
-    padding: 0 10px;
+    padding: var(--row-pad) 18px;
     border-bottom: 1px solid var(--separator);
     vertical-align: middle;
     color: var(--text);
@@ -3839,19 +3837,16 @@
     border-bottom: none;
   }
 
-  /* ── Зебра ──────────────────────────────────────────────────
-   Стандарт macOS-списков: на широких строках глаз не
-   теряет строку при переводе взгляда вправо. */
-  .tbl tbody tr:nth-child(even) {
-    background: var(--card-hi);
-  }
+  /* Зебра убрана (REDESIGN-05-2): в мокапе 05 строки разделены
+     только линиями; плотность задаётся --row-pad. */
 
   .tbl tbody tr {
     transition: background-color var(--t-fast);
   }
 
+  /* Hover строки — акцентный тинт (--accent-soft), как в мокапе */
   .tbl tbody tr:hover {
-    background: var(--hover-row);
+    background: var(--accent-soft);
   }
 
   /* ── Выделенная строка ──────────────────────────────────────
@@ -4348,40 +4343,18 @@
    PANEL — CYBER-FINANCIAL TERMINAL
    ═══════════════════════════════════════════════════════════ */
 
-  /* ── Base Panel ─────────────────────────────────────────── */
+  /* ── Base Panel ───────────────────────────────────────────
+     REDESIGN-05-2: карточный язык 05 — радиус --r-card (14px),
+     мягкая --shadow-card вместо жёсткой тени+инсета; декоративная
+     градиентная полоска ::before и hover-реакция убраны. */
   .panel {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--r-lg);
+    border-radius: var(--r-card);
     padding: 20px;
     position: relative;
     overflow: hidden;
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.18),
-      0 0 0 1px rgba(255, 255, 255, 0.03) inset;
-    transition: border-color 200ms ease;
-  }
-
-  .panel:hover {
-    border-color: var(--border-hi);
-  }
-
-  .panel::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 5%,
-      var(--accent) 30%,
-      var(--accent) 70%,
-      transparent 95%
-    );
-    opacity: 0.18;
-    pointer-events: none;
+    box-shadow: var(--shadow-card);
   }
 
   /* ── Panel Header ───────────────────────────────────────── */

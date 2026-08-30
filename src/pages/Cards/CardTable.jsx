@@ -177,7 +177,10 @@ export function CardTable({
   const rowVirtualizer = useVirtualizer({
     count: useVirtualCards ? cards.length : 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 38,
+    // REDESIGN-05-2: --row-pad 11px/6px вместо фикс-высоты --h-row.
+    // Замерено Playwright'ом: comfortable ≈ 49px, compact ≈ 39px
+    // (e2e измерение при переводе таблиц на --row-pad).
+    estimateSize: () => 49,
     overscan: CARDS_OVERSCAN,
     enabled: useVirtualCards,
   })
