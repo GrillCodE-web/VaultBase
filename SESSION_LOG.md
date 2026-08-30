@@ -1135,3 +1135,33 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
 - **Кросс-проверка стыка (0fb9ceb ↔ bc400b1):** имена и аргументы команд совпадают (`get_fleet_comparison`/`get_fleet_bin_shop`, from/to; getWorkerSnapshots → get_worker_snapshots зарегистрирован); Analytics читает `fleet.operators`/`fleet.workers` с ВЕРХНЕГО уровня ответа fleet_comparison — совпадает с backend (не вложено в fleet-сводку).
 - **Combined-проверки:** audit_frontend.py — критичных проблем нет (0/0/0); eslint — 0 errors (3 старых warning react-refresh); vitest — 337/337 (25 файлов, 70.8s). Rust-прогоны без изменений (193/193, 34/34 — см. 0fb9ceb).
 - **MGR-022 закрыта полностью.** Осталось по смежным: MGR-021 (контракт-тесты телеметрии, серверная retention) — свободна.
+
+## 2026-08-30 — ✅ @main — MGR-021 закрыт: retention на сервере + контракт-тесты
+
+- **Worktree:** `manager-work`, ветка `main`. Коммит кода: 59d0445.
+- **cc-sync-server/retention-engine.js** (новый, паттерн alerts-engine):
+  hourly tick; `stats_reports` по `report_date` старше `TELEMETRY_RETENTION_DAYS`
+  (45), `worker_heartbeat_history` старше `HB_HISTORY_RETENTION_DAYS` (30);
+  `worker_heartbeats` (последний конверт на iid) не трогается. Подключён в
+  index.js (start после alerts-engine, shutdown рядом).
+- **Тесты сервера** test/retention.test.js (4 шт.): удаление старого/сохранение
+  свежего, идемпотентность, worker_heartbeats нетронут, start/shutdown. Весь
+  сьют сервера: **110/110** (node --test).
+- **Golden-контракт воркера** `test_contract_golden_payload_v2`: пинит полный
+  набор ключей heartbeat (13) и daily_stats (15) + вложенные orders/cards/
+  drops/health/sync/pool.age + типы. Дрейф схемы без бампа payload_version
+  роняет CI. Тест прошёл (1/1; остальные 193 не затронуты — прод.код не менялся).
+- **Матрица совместимости менеджера** (2 теста): «старый воркер v1 → новый
+  менеджер» (нет bin_shop/sla/by_user/pool — дефолты 0, avg_hours NULL,
+  app_version "", без паник во всех агрегатах) и «новый воркер v99 → старый
+  менеджер» (неизвестные поля игнорируются, известные парсятся). Сьют
+  менеджера: **36/36** (47s).
+- **Docs** MANAGER_APP.md: env-крутилки retention в §3 «Прочее» + новый §4.1
+  «Версионирование и контракт-тесты» (правило «изменение полей = бамп версии»).
+- **OpenSSL-обход снова подтверждён:** junction C:\vb-src + OPENSSL_DIR=
+  C:\msys64\mingw64 + OPENSSL_NO_VENDOR=1 — без vendored-сборки, быстро.
+- **MGR-021 → ✅** (staging-полигон — отдельный DEVOPS-002, ⬜). Чужой WIP
+  (design-mockups/, docs/CHAT_E2E.md и пр.) не тронут.
+- **Свободно дальше:** MGR-020 (умный слой: аномалии dual-baseline, прогноз
+  выгорания пула, действия дня), DEVOPS-002 (staging), SEC-014 (локальные alert'ы
+  воркера), BUG-010 (cleanup ghost-карточек).
