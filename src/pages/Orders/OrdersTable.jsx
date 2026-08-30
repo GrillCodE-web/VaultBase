@@ -8,6 +8,7 @@ import { OrderRow } from './OrderRow.jsx'
 import { OrderTimeline } from './OrderTimeline.jsx'
 import { StatusMenu } from './StatusMenu.jsx'
 import { ORDERS_OVERSCAN } from '../../constants/virtualization.js'
+import { recordRecentEntity } from '../../utils/recentEntities.js'
 
 /**
  * OrdersTable — выделенный компонент таблицы заказов
@@ -123,7 +124,17 @@ export function OrdersTable({
                     isDeleting={deletingIds.includes(o.id)}
                     isExpanded={expandedId === o.id}
                     onToggleExpand={() => {
-                      setExpandedId(expandedId === o.id ? null : o.id)
+                      const next = expandedId === o.id ? null : o.id
+                      setExpandedId(next)
+                      // REDESIGN-05-4: раскрытие ордера → «последние сущности» ⌘K
+                      if (next) {
+                        recordRecentEntity({
+                          type: 'order',
+                          id: o.id,
+                          label: o.order_number || `#${o.id}`,
+                          sub: o.shop_name,
+                        })
+                      }
                     }}
                     onToggleSelect={() => toggleSelect(o.id)}
                     onStatusMenuToggle={() => setStatusMenuId(statusMenuId === o.id ? null : o.id)}

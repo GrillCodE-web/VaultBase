@@ -9,6 +9,8 @@ import { ProfileRow } from './ProfileRow.jsx'
 import { ProfileDetailPanel } from './ProfileDetailPanel.jsx'
 import { ProfileHoverCard } from './ProfileHoverCard.jsx'
 import { PROFILES_OVERSCAN } from '../../constants/virtualization.js'
+import { recordRecentEntity } from '../../utils/recentEntities.js'
+import { shortId } from '../../utils/formatting.js'
 
 /**
  * ProfilesTable — выделенный компонент таблицы профилей
@@ -251,6 +253,15 @@ export function ProfilesTable({
                           onRowClick={() => {
                             setSelectedIdx(idx)
                             setExpanded(isExpanded ? null : p.id)
+                            // REDESIGN-05-4: раскрытие профиля → «последние сущности» ⌘K
+                            if (!isExpanded) {
+                              recordRecentEntity({
+                                type: 'profile',
+                                id: p.id,
+                                label: shortId(p.id),
+                                sub: [p.bank_name, p.country].filter(Boolean).join(' · '),
+                              })
+                            }
                             // Remeasure after state change
                             setTimeout(() => rowVirtualizer.measure(), 0)
                           }}

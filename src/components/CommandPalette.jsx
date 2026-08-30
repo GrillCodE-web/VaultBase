@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { Search, X } from 'lucide-react'
+import { Search, X, CreditCard, ShoppingCart, Users, Store, Mail, Shield } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { isUnauthorizedError } from '../utils/errorHandler.js'
 import { escapeHtml } from '../utils/escape.js'
+import { getRecentEntities, recordRecentEntity } from '../utils/recentEntities.js'
 
 const TYPE_PAGE = {
   card: 'cards',
@@ -12,6 +13,32 @@ const TYPE_PAGE = {
   shop: 'shops',
   email: 'imap',
   proxy: 'proxies',
+}
+
+const TYPE_ICON = {
+  card: CreditCard,
+  order: ShoppingCart,
+  profile: Users,
+  shop: Store,
+  email: Mail,
+  proxy: Shield,
+}
+
+// Подпись результата global_search — общая для строки результата и recent-записи
+function resultLabel(item) {
+  return (
+    (item.last4 ? `••••${item.last4}` : '') ||
+    item.order_number ||
+    item.name ||
+    item.label ||
+    item.host ||
+    item.domain ||
+    ''
+  )
+}
+
+function resultSub(item) {
+  return [item.city, item.country, item.status].filter(Boolean).join(' · ')
 }
 
 /**
@@ -32,6 +59,9 @@ export default function CommandPalette({ onClose, onNavigate, actions = [], navI
   const [query, setQuery] = useState('')
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
+  // REDESIGN-05-4: последние сущности (localStorage) — палитра монтируется
+  // при каждом открытии, ленивая инициализация всегда отдаёт свежий список
+  const [recent, setRecent] = useState(() => getRecentEntities())
   // activeIndexRaw: -1 = «не выбрано» → derived ниже даёт первый элемент
   const [activeIndexRaw, setActiveIndexRaw] = useState(-1)
   const inputRef = useRef(null)
@@ -87,10 +117,14 @@ export default function CommandPalette({ onClose, onNavigate, actions = [], navI
     [liveResults, t]
   )
 
-  // Плоский список для клавиатурной навигации: действия, переходы, результаты.
-  // Каждая запись знает свой flatIndex — рендер берёт его, без счётчиков.
+  // Плоский список для клавиатурной навигации: последние (пустой запрос),
+  // действия, переходы, результаты. Каждая запись знает свой flatIndex —
+  // рендер берёт его, без счётчиков.
   const flat = useMemo(() => {
     const out = []
+    if (!q) {
+      recent.forEach(rec => out.push({ kind: 'recent', key: `rec:${rec.type}-${rec.id}`, rec }))
+    }
     visibleActions.forEach(a => out.push({ kind: 'action', key: `a:${a.label}`, action: a }))
     visibleNav.forEach(n => out.push({ kind: 'nav', key: `n:${n.page}`, nav: n }))
     sections.forEach(sec =>
@@ -99,7 +133,7 @@ export default function CommandPalette({ onClose, onNavigate, actions = [], navI
       )
     )
     return out
-  }, [visibleActions, visibleNav, sections])
+  }, [q, recent, visibleActions, visibleNav, sections])
 
   // Derived active index: -1 → первый элемент; за границей → последний
   const activeIndex =
@@ -113,7 +147,20 @@ export default function CommandPalette({ onClose, onNavigate, actions = [], navI
     } else if (entry.kind === 'nav') {
       onNavigate(entry.nav.page)
       onClose()
+    } else if (entry.kind === 'recent') {
+      // Повторный выбор поднимает запись наверх списка
+      const bumped = entry.rec
+      recordRecentEntity(bumped)
+      setRecent(getRecentEntities())
+      onNavigate(TYPE_PAGE[bumped.type] ?? 'dashboard')
+      onClose()
     } else {
+      recordRecentEntity({
+        type: entry.item._type,
+        id: entry.item.id,
+        label: resultLabel(entry.item),
+        sub: resultSub(entry.item),
+      })
       onNavigate(TYPE_PAGE[entry.item._type] ?? entry.sec.key)
       onClose()
     }
@@ -195,6 +242,33 @@ export default function CommandPalette({ onClose, onNavigate, actions = [], navI
         </div>
 
         <div className="pal-list" ref={listRef} role="listbox">
+          {!q && recent.length > 0 && (
+            <>
+              <div className="pal-label">{t('palette_section_recent')}</div>
+              {recent.map(rec => {
+                const key = `rec:${rec.type}-${rec.id}`
+                const idx = indexByKey.get(key)
+                const RecIcon = TYPE_ICON[rec.type]
+                return (
+                  <button
+                    key={key}
+                    id={`pal-item-${idx}`}
+                    data-pal-index={idx}
+                    role="option"
+                    aria-selected={idx === activeIndex}
+                    className={`pal-item${idx === activeIndex ? ' active' : ''}`}
+                    onMouseEnter={() => setActiveIndexRaw(idx)}
+                    onClick={() => runEntry(flat[idx])}
+                  >
+                    {RecIcon && <RecIcon size={14} className="pal-ico" aria-hidden="true" />}
+                    <span className="pal-item-label">{rec.label || `#${rec.id}`}</span>
+                    {rec.sub && <span className="text-muted text-11 ml-auto">{rec.sub}</span>}
+                  </button>
+                )
+              })}
+            </>
+          )}
+
           {visibleActions.length > 0 && (
             <>
               <div className="pal-label">{t('palette_section_actions')}</div>

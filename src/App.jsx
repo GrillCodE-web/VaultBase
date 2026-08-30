@@ -21,6 +21,8 @@ import { HEX_COLORS } from './constants/colors.js'
 import { isUnauthorizedError } from './utils/errorHandler.js'
 // FIX CRITICAL: Use safe localStorage operations
 import { safeGetItem, safeSetItem } from './utils/localStorage'
+import { useOrdersStore } from './store/orders.js'
+import { useCardsStore } from './store/cards.js'
 // SPRINT3-DAY2: Structured logging
 import { createLogger } from './utils/logger'
 // UX-012: нативные OS-уведомления (новая почта, статус посылки, ошибки sync)
@@ -70,6 +72,8 @@ import {
   Moon,
   Monitor,
   LogOut,
+  RefreshCw,
+  Lock,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
@@ -1023,6 +1027,42 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     { label: t('create_profile'), icon: Users, onClick: () => goCreate('profiles') },
   ]
 
+  // REDESIGN-05-4: ⌘K получает действия шире меню «+» — sync и блокировка
+  const handleSyncNow = useCallback(async () => {
+    try {
+      await invoke('sync_now')
+      toast(t('sync_started'), 'success')
+    } catch (e) {
+      handleError(e)
+    }
+  }, [t, toast])
+
+  const paletteActions = [
+    ...createMenuItems,
+    { label: t('settings_sync_now'), icon: RefreshCw, onClick: handleSyncNow },
+    { label: t('sidebar_lock'), icon: Lock, onClick: handleLock },
+  ]
+
+  // REDESIGN-05-4: «выбрано N» в статус-баре — из сторов страниц с bulk-выделением
+  const selectedOrdersCount = useOrdersStore(s => s.selected.length)
+  const selectedCardsCount = useCardsStore(s => s.selected.length)
+  const clearOrdersSelection = useOrdersStore(s => s.clearSelection)
+  const clearCardsSelection = useCardsStore(s => s.clearSelection)
+  const selectedCount =
+    page === 'orders'
+      ? selectedOrdersCount
+      : page === 'cards'
+        ? selectedCardsCount
+        : selectedOrdersCount + selectedCardsCount
+  const clearSelected = useCallback(() => {
+    if (page === 'orders') clearOrdersSelection()
+    else if (page === 'cards') clearCardsSelection()
+    else {
+      clearOrdersSelection()
+      clearCardsSelection()
+    }
+  }, [page, clearOrdersSelection, clearCardsSelection])
+
   const userMenuItems = [
     {
       header: `${currentUser?.display_name || currentUser?.username || ''} · ${currentUser?.role || ''}`,
@@ -1151,7 +1191,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         <CommandPalette
           onClose={() => setSearchOpen(false)}
           onNavigate={p => handlePageChange(p)}
-          actions={createMenuItems}
+          actions={paletteActions}
           navItems={NAV_ITEMS.map(n => ({
             page: n.page,
             label: n.label,
@@ -1395,9 +1435,18 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         </main>
 
         {/* REDESIGN-05-1: статус-бар — sync/ws слева, часы UTC справа.
-            «Выбрано N» подключится на этапе 4 (bulk-выделение страниц). */}
+            REDESIGN-05-4: «выбрано N» (клик снимает выделение). */}
         <div className="statusbar" role="contentinfo">
           <div className="statusbar-left">
+            {selectedCount > 0 && (
+              <button
+                className="selected-pill"
+                onClick={clearSelected}
+                title={t('statusbar_selected_clear')}
+              >
+                {t('statusbar_selected').replace('{n}', selectedCount)}
+              </button>
+            )}
             {offlineMode && (
               <span className="offline-pill" title={t('offline_pill_title')}>
                 ⚠ {t('offline_pill_label')}

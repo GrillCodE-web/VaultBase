@@ -310,6 +310,28 @@
     font-weight: 500;
   }
 
+  /* ── «Выбрано N» (REDESIGN-05-4): клик снимает выделение ── */
+  .selected-pill {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    color: var(--accent-text);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--t-fast);
+  }
+
+  .selected-pill:hover {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
   /* ── источник: layout/topbar-redesign.css ── */
 
   /* ═══════════════════════════════════════════════════════════

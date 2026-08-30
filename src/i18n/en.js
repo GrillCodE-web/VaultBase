@@ -708,6 +708,7 @@ export const en = {
   settings_unknown_sync: 'Unknown — click Sync Now',
   settings_syncing: 'Syncing…',
   settings_sync_now: 'Sync Now',
+  sync_started: 'Sync started',
 
   // App global search
   app_search_placeholder: 'Search cards, orders, shops, emails...',
@@ -731,10 +732,12 @@ export const en = {
   create_shop: 'New Shop',
   create_courier: 'New Courier',
   statusbar_selected: '{n} selected',
+  statusbar_selected_clear: 'Clear selection',
   statusbar_utc: 'UTC',
   palette_placeholder: 'Command or search...',
   palette_section_actions: 'Actions',
   palette_section_nav: 'Go to',
+  palette_section_recent: 'Recent',
   palette_nav_hint: 'navigate',
   palette_run_hint: 'run',
   user_menu_theme: 'Theme',

@@ -706,6 +706,7 @@ export const ru = {
   settings_unknown_sync: 'Неизвестно — нажмите «Синхронизировать»',
   settings_syncing: 'Синхронизация…',
   settings_sync_now: 'Синхронизировать',
+  sync_started: 'Синхронизация запущена',
 
   // App global search
   app_search_placeholder: 'Поиск по картам, заказам, магазинам, email...',
@@ -729,10 +730,12 @@ export const ru = {
   create_shop: 'Новый магазин',
   create_courier: 'Новый курьер',
   statusbar_selected: 'Выбрано: {n}',
+  statusbar_selected_clear: 'Снять выделение',
   statusbar_utc: 'UTC',
   palette_placeholder: 'Команда или поиск...',
   palette_section_actions: 'Действия',
   palette_section_nav: 'Переходы',
+  palette_section_recent: 'Недавние',
   palette_nav_hint: 'перейти',
   palette_run_hint: 'выполнить',
   user_menu_theme: 'Тема',

@@ -21,6 +21,7 @@ import { CardSidePanel } from './Cards/CardSidePanel.jsx'
 import { CardShopUsagePanel } from './Cards/CardShopUsagePanel.jsx'
 import { CardTimelinePanel } from './Cards/CardTimelinePanel.jsx'
 import { useCardsStore } from '../store/cards.js'
+import { recordRecentEntity } from '../utils/recentEntities.js'
 import { exportCardsToPDF } from '../utils/pdfExport.js'
 import { useUIStore } from '../store/ui.js'
 
@@ -622,6 +623,15 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
   const handleSetSideCard = useCallback(
     (c, i) => {
       setSideCard(c, i)
+      // REDESIGN-05-4: открытие инспектора карты → «последние сущности» ⌘K
+      if (c) {
+        recordRecentEntity({
+          type: 'card',
+          id: c.id,
+          label: c.last4 ? `••••${c.last4}` : `#${c.id}`,
+          sub: c.bank_name,
+        })
+      }
     },
     [setSideCard]
   )
