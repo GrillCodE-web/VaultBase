@@ -14,11 +14,13 @@ import { AppTour } from './components/AppTour'
 import NewsAlert from './components/NewsAlert'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
+import { useDensity } from './hooks/useDensity'
+import { Menu } from './components/Menu'
+import CommandPalette from './components/CommandPalette'
 import { HEX_COLORS } from './constants/colors.js'
 import { isUnauthorizedError } from './utils/errorHandler.js'
 // FIX CRITICAL: Use safe localStorage operations
-import { safeGetItem, safeSetItem, safeSetJSON } from './utils/localStorage'
-import { escapeHtml } from './utils/escape.js'
+import { safeGetItem, safeSetItem } from './utils/localStorage'
 // SPRINT3-DAY2: Structured logging
 import { createLogger } from './utils/logger'
 // UX-012: нативные OS-уведомления (новая почта, статус посылки, ошибки sync)
@@ -62,34 +64,13 @@ import {
   AlertTriangle,
   BookOpen,
   Search,
-  X,
   Bell,
-  ChevronLeft,
-  ChevronRight,
+  Plus,
   Sun,
   Moon,
   Monitor,
   LogOut,
 } from 'lucide-react'
-
-// ─── Theme labels ─────────────────────────────────────────────
-const THEME_LABEL = {
-  system: 'Appearance: System',
-  light: 'Appearance: Light',
-  dark: 'Appearance: Dark',
-}
-
-const THEME_SHORT = { system: 'System', light: 'Light', dark: 'Dark' }
-
-// ─── Safe JSON parse ──────────────────────────────────────────
-const safeParseJSON = (str, fallback) => {
-  try {
-    return str ? JSON.parse(str) : fallback
-  } catch (e) {
-    handleError(e)
-    return fallback
-  }
-}
 
 // ─────────────────────────────────────────────────────────────
 // View states:
@@ -115,189 +96,6 @@ const PAGE_MAP = {
   updates: Updates,
   settings: Settings,
   onboarding: Onboarding,
-}
-
-// ─── Global Search ────────────────────────────────────────────
-
-const TYPE_PAGE = {
-  card: 'cards',
-  order: 'orders',
-  profile: 'profiles',
-  shop: 'shops',
-  email: 'imap',
-  proxy: 'proxies',
-}
-
-function GlobalSearch({ onClose, onNavigate }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const inputRef = useRef(null)
-  const timerRef = useRef(null)
-  const firstFocusRef = useRef(null)
-  const lastFocusRef = useRef(null)
-  const { t } = useLang()
-
-  // Focus trap for modal
-  useEffect(() => {
-    inputRef.current?.focus()
-
-    const handleTabKey = e => {
-      if (e.key !== 'Tab') return
-
-      if (e.shiftKey) {
-        // Shift + Tab
-        if (document.activeElement === firstFocusRef.current) {
-          e.preventDefault()
-          lastFocusRef.current?.focus()
-        }
-      } else {
-        // Tab
-        if (document.activeElement === lastFocusRef.current) {
-          e.preventDefault()
-          firstFocusRef.current?.focus()
-        }
-      }
-    }
-
-    document.addEventListener('keydown', handleTabKey)
-    return () => document.removeEventListener('keydown', handleTabKey)
-  }, [])
-
-  useEffect(() => {
-    if (!query.trim()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- очистка результатов поиска при пустом запросе
-      setResults(null)
-      return
-    }
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const r = await invoke('global_search', { query })
-        setResults(r)
-      } catch (e) {
-        if (isUnauthorizedError(e)) {
-          // Session expired - will be handled by parent component
-          onClose()
-        }
-        // Ignore other search errors - user can retry by typing
-      } finally {
-        setLoading(false)
-      }
-    }, 300)
-    return () => clearTimeout(timerRef.current)
-  }, [query, onClose])
-
-  const handleKey = e => {
-    if (e.key === 'Escape') onClose()
-  }
-
-  const sections = results
-    ? [
-        { key: 'cards', label: t('nav_cards'), items: results.cards ?? [] },
-        { key: 'orders', label: t('nav_orders'), items: results.orders ?? [] },
-        { key: 'profiles', label: t('nav_profiles'), items: results.profiles ?? [] },
-        { key: 'shops', label: t('nav_shops'), items: results.shops ?? [] },
-        { key: 'emails', label: t('nav_imap'), items: results.emails ?? [] },
-        { key: 'proxies', label: t('nav_proxies'), items: results.proxies ?? [] },
-      ].filter(s => s.items.length > 0)
-    : []
-
-  const total = sections.reduce((acc, s) => acc + s.items.length, 0)
-
-  return (
-    <div
-      className="search-overlay"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Global search"
-    >
-      <div className="search-box-wrap" onClick={e => e.stopPropagation()}>
-        {/* Input */}
-        <div className="search-input-row">
-          <Search size={16} className="text-muted icon-no-shrink" aria-hidden="true" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder={t('app_search_placeholder')}
-            className="search-main-input"
-            aria-label="Search"
-          />
-          {loading && <div className="spinner-sm" />}
-          <button
-            ref={firstFocusRef}
-            onClick={onClose}
-            className="bg-transparent border-none cursor-pointer p-0"
-            aria-label="Close search"
-          >
-            <X size={15} className="text-muted" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Results */}
-        {sections.length > 0 ? (
-          <div className="search-results">
-            {sections.map(sec => (
-              <div key={sec.key}>
-                <div className="search-section-label">{sec.label}</div>
-                {sec.items.map(item => (
-                  <button
-                    key={`${item._type}-${item.id}`}
-                    onClick={() => {
-                      onNavigate(TYPE_PAGE[item._type] ?? sec.key)
-                      onClose()
-                    }}
-                    className="search-result-row"
-                  >
-                    <span className="search-result-type">{item._type}</span>
-                    <span className="search-result-text">
-                      {item.last4 ? `••••${item.last4}` : ''}
-                      {item.order_number ?? ''}
-                      {item.name ?? ''}
-                      {item.city ? ` · ${item.city}` : ''}
-                      {item.country ? `, ${item.country}` : ''}
-                      {item.label ?? ''}
-                      {item.host ?? ''}
-                      {item.domain ?? ''}
-                    </span>
-                    {item.status && <span className="search-result-status">{item.status}</span>}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        ) : query.trim() && !loading ? (
-          <div className="search-empty">
-            {t('search_no_results').replace('{q}', escapeHtml(query))}
-          </div>
-        ) : !query.trim() ? (
-          <div className="search-empty text-[11px]">{t('app_type_to_search')}</div>
-        ) : null}
-
-        {/* Footer */}
-        <div className="search-footer">
-          <span className="search-footer-text">
-            {total > 0 ? t('search_result_count').replace('{n}', total) : ''}
-          </span>
-          <span
-            ref={lastFocusRef}
-            tabIndex={0}
-            role="button"
-            onClick={onClose}
-            onKeyDown={e => e.key === 'Enter' && onClose()}
-            className="search-footer-text ml-auto cursor-pointer"
-            aria-label="Close search"
-          >
-            {t('shortcut_close')}
-          </span>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ─── Spinner ─────────────────────────────────────────────────
@@ -440,26 +238,22 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     drops: [],
   }
   const { theme, cycleTheme } = useTheme()
+  const { density, setDensity } = useDensity()
   const [page, setPage] = useState('dashboard')
   const [pageProps, setPageProps] = useState({})
   const [activeTab, setActiveTab] = useState('list')
   const [badges, setBadges] = useState({})
   const [searchOpen, setSearchOpen] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
-    try {
-      return safeGetItem('cc_sidebar_expanded') === '1'
-    } catch (e) {
-      handleError(e)
-      return false
-    }
-  })
+  // REDESIGN-05-1: UTC-часы статус-бара (тик раз в секунду)
+  const [nowUtc, setNowUtc] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNowUtc(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
   const [showOnboarding, setShowOnboarding] = useState(false)
   // UX-013: интерактивный тур (react-joyride) — после онбординга или по кнопке в Settings
   const [tourRun, setTourRun] = useState(false)
-  // #27 — drag-to-reorder sidebar
-  const [navOrder, setNavOrder] = useState(() => safeParseJSON(safeGetItem('cc_nav_order'), null))
-  const dragNavRef = useRef(null)
   const prevImapRef = useRef(0)
 
   // Navigate from Dashboard quick actions / heatmap click
@@ -990,6 +784,21 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       handler: () => handlePageChange('orders'),
       requireNoInput: true,
     },
+    {
+      keys: ['g s'],
+      handler: () => handlePageChange('shops'),
+      requireNoInput: true,
+    },
+    {
+      keys: ['g m'],
+      handler: () => handlePageChange('imap'),
+      requireNoInput: true,
+    },
+    {
+      keys: ['g x'],
+      handler: () => handlePageChange('proxies'),
+      requireNoInput: true,
+    },
     // Settings shortcut
     {
       keys: ['Meta+,', 'Control+,'],
@@ -1039,76 +848,197 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
 
   const PageComponent = PAGE_MAP[page] || Dashboard
 
-  const NAV_DEFS = [
+  // REDESIGN-05-1: сайдбар 05 «Adaptive» — группы вместо плоского списка
+  // и drag-to-reorder (порядок больше не настраивается: группы фиксируют
+  // информационную архитектуру — Продажи / Пул / Инфраструктура / Система).
+  // Заглушка «Drops» из меню отсутствует (фича живёт в Profiles) — по контракту.
+  const NAV_GROUPS = [
     {
-      key: 'dashboard',
-      icon: LayoutDashboard,
-      page: 'dashboard',
-      label: t('nav_dashboard'),
-      badgeKey: null,
+      group: null,
+      items: [
+        {
+          key: 'dashboard',
+          icon: LayoutDashboard,
+          page: 'dashboard',
+          label: t('nav_dashboard'),
+          badgeKey: null,
+          hint: 'G D',
+        },
+      ],
     },
     {
-      key: 'updates',
-      icon: Bell,
-      page: 'updates',
-      label: t('nav_updates'),
-      badgeKey: null,
-      dot: updateReady,
+      group: t('nav_group_sales'),
+      items: [
+        {
+          key: 'orders',
+          icon: ShoppingCart,
+          page: 'orders',
+          label: t('nav_orders'),
+          badgeKey: 'pending_orders',
+          badgeColor: 'y',
+          hint: 'G O',
+        },
+        // shops остаётся видимым всем: get_shops требует лишь входа — справочник
+        // нужен при оформлении заказа. Правом закрыты только правки внутри.
+        {
+          key: 'shops',
+          icon: Store,
+          page: 'shops',
+          label: t('nav_shops'),
+          badgeKey: null,
+          hint: 'G S',
+        },
+        {
+          key: 'catalog',
+          icon: BookOpen,
+          page: 'catalog',
+          label: t('nav_catalog'),
+          badgeKey: null,
+        },
+      ],
     },
     {
-      key: 'cards',
-      icon: CreditCard,
-      page: 'cards',
-      label: t('nav_cards'),
-      badgeKey: 'expiring_cards',
-      badgeColor: 'y',
+      group: t('nav_group_pool'),
+      items: [
+        {
+          key: 'cards',
+          icon: CreditCard,
+          page: 'cards',
+          label: t('nav_cards'),
+          badgeKey: 'expiring_cards',
+          badgeColor: 'y',
+          hint: 'G C',
+        },
+        {
+          key: 'profiles',
+          icon: Users,
+          page: 'profiles',
+          label: t('nav_profiles'),
+          badgeKey: 'no_drop_profiles',
+          badgeColor: 'y',
+          hint: 'G P',
+        },
+      ],
     },
     {
-      key: 'profiles',
-      icon: Users,
-      page: 'profiles',
-      label: t('nav_profiles'),
-      badgeKey: 'no_drop_profiles',
-      badgeColor: 'y',
+      group: t('nav_group_infra'),
+      items: [
+        // proxies целиком под manage_proxies: без права даже список не грузится,
+        // страница была бы пустой с ошибкой при каждом заходе.
+        ...(hasPerm('manage_proxies')
+          ? [
+              {
+                key: 'proxies',
+                icon: Shield,
+                page: 'proxies',
+                label: t('nav_proxies'),
+                badgeKey: null,
+                hint: 'G X',
+              },
+            ]
+          : []),
+        ...(hasPerm('view_couriers') || hasPerm('view_packages')
+          ? [
+              {
+                key: 'couriers',
+                icon: Truck,
+                page: 'couriers',
+                label: t('nav_couriers'),
+                badgeKey: null,
+              },
+            ]
+          : []),
+        {
+          key: 'imap',
+          icon: Inbox,
+          page: 'imap',
+          label: t('nav_imap'),
+          badgeKey: 'unread_imap',
+          hint: 'G M',
+        },
+      ],
     },
     {
-      key: 'orders',
-      icon: ShoppingCart,
-      page: 'orders',
-      label: t('nav_orders'),
-      badgeKey: 'pending_orders',
-      badgeColor: 'y',
+      group: t('nav_group_system'),
+      items: [
+        {
+          key: 'updates',
+          icon: Bell,
+          page: 'updates',
+          label: t('nav_updates'),
+          badgeKey: null,
+          dot: updateReady,
+        },
+        {
+          key: 'activity_log',
+          icon: ClipboardList,
+          page: 'activity_log',
+          label: t('nav_activity_log'),
+          badgeKey: null,
+        },
+        {
+          key: 'settings',
+          icon: SettingsIcon,
+          page: 'settings',
+          label: t('nav_settings'),
+          badgeKey: null,
+          hint: '⌘,',
+        },
+      ],
     },
-    { key: 'catalog', icon: BookOpen, page: 'catalog', label: t('nav_catalog'), badgeKey: null },
-    // shops остаётся видимым всем: get_shops требует лишь входа — справочник
-    // нужен при оформлении заказа. Правом закрыты только правки внутри.
-    { key: 'shops', icon: Store, page: 'shops', label: t('nav_shops'), badgeKey: null },
-    // proxies целиком под manage_proxies: без права даже список не грузится,
-    // страница была бы пустой с ошибкой при каждом заходе.
-    ...(hasPerm('manage_proxies')
-      ? [{ key: 'proxies', icon: Shield, page: 'proxies', label: t('nav_proxies'), badgeKey: null }]
-      : []),
-    ...(hasPerm('view_couriers') || hasPerm('view_packages')
-      ? [
-          {
-            key: 'couriers',
-            icon: Truck,
-            page: 'couriers',
-            label: t('nav_couriers'),
-            badgeKey: null,
-          },
-        ]
-      : []),
-    { key: 'imap', icon: Inbox, page: 'imap', label: t('nav_imap'), badgeKey: 'unread_imap' },
+  ]
+  // Управление пользователями и командная статистика живут в менеджер-приложении —
+  // в воркере страниц Users / Team Statistics нет ни у одной роли.
+  const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items)
+
+  // «+ Создать» в топбаре: навигация на страницу и автоклик по её кнопке
+  // создания (data-shortcut="new" — та же механика, что у клавиши «n»).
+  // Страницы ленивые — ждём появления кнопки до 2с.
+  const goCreate = useCallback(
+    targetPage => {
+      handlePageChange(targetPage)
+      const started = Date.now()
+      const tryClick = () => {
+        const btn = document.querySelector('[data-shortcut="new"]')
+        if (btn) {
+          btn.click()
+        } else if (Date.now() - started < 2000) {
+          setTimeout(tryClick, 100)
+        }
+      }
+      setTimeout(tryClick, 150)
+    },
+    [handlePageChange]
+  )
+
+  const themeModeLabel = {
+    system: t('theme_mode_system'),
+    light: t('theme_mode_light'),
+    dark: t('theme_mode_dark'),
+  }
+
+  const createMenuItems = [
+    { label: t('new_order'), icon: ShoppingCart, onClick: () => goCreate('orders'), hint: 'N' },
+    { label: t('create_card'), icon: CreditCard, onClick: () => goCreate('cards') },
+    { label: t('create_profile'), icon: Users, onClick: () => goCreate('profiles') },
+  ]
+
+  const userMenuItems = [
     {
-      key: 'activity_log',
-      icon: ClipboardList,
-      page: 'activity_log',
-      label: t('nav_activity_log'),
-      badgeKey: null,
+      header: `${currentUser?.display_name || currentUser?.username || ''} · ${currentUser?.role || ''}`,
     },
-    // Управление пользователями и командная статистика живут в менеджер-приложении —
-    // в воркере страниц Users / Team Statistics нет ни у одной роли.
+    {
+      label: `${t('user_menu_language')}: ${lang.toUpperCase()}`,
+      icon: Globe,
+      onClick: () => setLang(lang === 'en' ? 'ru' : 'en'),
+    },
+    {
+      label: `${t('user_menu_theme')}: ${themeModeLabel[theme]}`,
+      icon: theme === 'system' ? Monitor : theme === 'dark' ? Moon : Sun,
+      onClick: cycleTheme,
+    },
+    { divider: true },
+    { label: t('sidebar_lock'), icon: LogOut, onClick: handleLock, danger: true },
   ]
 
   return (
@@ -1218,270 +1148,182 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         </div>
       )}
       {searchOpen && (
-        <GlobalSearch onClose={() => setSearchOpen(false)} onNavigate={p => handlePageChange(p)} />
+        <CommandPalette
+          onClose={() => setSearchOpen(false)}
+          onNavigate={p => handlePageChange(p)}
+          actions={createMenuItems}
+          navItems={NAV_ITEMS.map(n => ({
+            page: n.page,
+            label: n.label,
+            hint: n.hint,
+            icon: n.icon,
+          }))}
+        />
       )}
       {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
       {tourRun && <AppTour onFinish={handleTourFinish} />}
 
-      {/* ── Sidebar ── */}
-      <nav
-        id="sidebar-nav"
-        className={`sidebar${sidebarExpanded ? ' expanded' : ''}`}
-        aria-label="Main navigation"
-        data-tour="sidebar"
-      >
+      {/* ── Sidebar (05 «Adaptive»: 232px, группы) ── */}
+      <nav id="sidebar-nav" className="sidebar" aria-label="Main navigation" data-tour="sidebar">
         {/* macOS: drag region + traffic lights offset */}
         <div className="sidebar-drag-region" data-tauri-drag-region />
 
         <div className="sidebar-logo">
           VB
-          {sidebarExpanded && <span className="sidebar-logo-text">VaultBase</span>}
+          <span className="sidebar-logo-text">VaultBase</span>
         </div>
 
-        {/* #27 — sorted nav with drag-to-reorder */}
-        {(navOrder
-          ? [...NAV_DEFS].sort((a, b) => {
-              const ia = navOrder.indexOf(a.key)
-              const ib = navOrder.indexOf(b.key)
-              if (ia === -1 && ib === -1) return 0
-              if (ia === -1) return 1
-              if (ib === -1) return -1
-              return ia - ib
-            })
-          : NAV_DEFS
-        ).map(({ key, icon: Icon, page: p, label, badgeKey, badgeColor, dot }) => {
-          const active = page === p
-          const count = badgeKey ? (badges[badgeKey] ?? 0) : 0
-          const DIVIDERS_AFTER = new Set(['updates', 'orders', 'imap'])
-          return (
-            <React.Fragment key={key}>
-              <button
-                className={`sbi${active ? ' active' : ''}`}
-                data-tour={`nav-${p}`}
-                onClick={() => handlePageChange(p)}
-                draggable
-                onDragStart={() => {
-                  dragNavRef.current = key
-                }}
-                onDragOver={e => e.preventDefault()}
-                onDrop={() => {
-                  const src = dragNavRef.current
-                  dragNavRef.current = null
-                  if (!src || src === key) return
-                  const base = navOrder || NAV_DEFS.map(n => n.key)
-                  const order = [...base]
-                  const si = order.indexOf(src)
-                  const ti = order.indexOf(key)
-                  if (si === -1 || ti === -1) return
-                  order.splice(si, 1)
-                  order.splice(ti, 0, src)
-                  setNavOrder(order)
-                  try {
-                    safeSetJSON('cc_nav_order', JSON.stringify(order))
-                  } catch (e) {
-                    handleError(e)
-                    // localStorage may be unavailable - order will reset on reload
-                  }
-                }}
-              >
-                <Icon size={16} aria-hidden="true" />
-                <span className="sbi-tip">{label}</span>
-                <span className="sbi-label">{label}</span>
-                {badgeKey && count > 0 && (
-                  <span
-                    className={`sbi-badge${badgeColor ? ` ${badgeColor}` : ''}`}
-                    aria-live="polite"
-                    aria-label={`${count} ${label} updates`}
+        {NAV_GROUPS.map((grp, gi) => (
+          <div className="sidebar-group" key={grp.group ?? 'root'}>
+            {grp.group && <div className="sidebar-grp-label">{grp.group}</div>}
+            {grp.items.map(
+              ({ key, icon: Icon, page: p, label, badgeKey, badgeColor, dot, hint }) => {
+                const active = page === p
+                const count = badgeKey ? (badges[badgeKey] ?? 0) : 0
+                return (
+                  <button
+                    key={key}
+                    className={`sbi${active ? ' active' : ''}`}
+                    data-tour={`nav-${p}`}
+                    onClick={() => handlePageChange(p)}
                   >
-                    {count > 99 ? '99+' : count}
-                  </span>
-                )}
-                {!badgeKey && count > 0 && (
-                  <span className={`sbi-badge${badgeColor ? ` ${badgeColor}` : ''}`}>
-                    {count > 99 ? '99+' : count}
-                  </span>
-                )}
-                {/* Точка «доступно обновление» — без числа, зелёная. */}
-                {dot && !count && (
-                  <span
-                    className="sbi-badge g"
-                    aria-label={t('upd_available_toast') || 'Доступно обновление'}
-                    style={{ minWidth: 8, width: 8, height: 8, padding: 0, borderRadius: '50%' }}
-                  />
-                )}
-              </button>
-              {DIVIDERS_AFTER.has(key) && <div className="sidebar-divider" />}
-            </React.Fragment>
-          )
-        })}
+                    <Icon size={15} aria-hidden="true" />
+                    <span className="sbi-label">{label}</span>
+                    {hint && <kbd className="sbi-hint">{hint}</kbd>}
+                    {count > 0 && (
+                      <span
+                        className={`sbi-badge${badgeColor ? ` ${badgeColor}` : ''}`}
+                        aria-live="polite"
+                        aria-label={`${count} ${label} updates`}
+                      >
+                        {count > 99 ? '99+' : count}
+                      </span>
+                    )}
+                    {/* Точка «доступно обновление» — без числа, зелёная. */}
+                    {dot && !count && (
+                      <span
+                        className="sbi-badge g"
+                        aria-label={t('upd_available_toast') || 'Доступно обновление'}
+                        style={{
+                          minWidth: 8,
+                          width: 8,
+                          height: 8,
+                          padding: 0,
+                          borderRadius: '50%',
+                        }}
+                      />
+                    )}
+                  </button>
+                )
+              }
+            )}
+            {gi < NAV_GROUPS.length - 1 && <div className="sidebar-group-gap" />}
+          </div>
+        ))}
 
         <div className="sidebar-spacer" />
 
-        {/* Search */}
-        <button
-          id="search-button"
-          className="sbi"
-          onClick={() => setSearchOpen(true)}
-          aria-label={t('app_search_placeholder') || 'Search'}
+        {/* REDESIGN-05-1: переключатель плотности «Удобно/Компактно» (мокап .dens) */}
+        <div
+          className="dens"
+          role="group"
+          aria-label={t('density_label')}
+          title={t('density_label')}
         >
-          <Search size={16} aria-hidden="true" />
-          <span className="sbi-tip">{t('search_label')} ⌘K</span>
-          <span className="sbi-label">{t('search_label')}</span>
-        </button>
-
-        {/* Settings */}
-        <button
-          className={`sbi${page === 'settings' ? ' active' : ''}`}
-          onClick={() => handlePageChange('settings')}
-          aria-label={t('nav_settings') || 'Settings'}
-        >
-          <SettingsIcon size={16} aria-hidden="true" />
-          <span className="sbi-tip">{t('nav_settings')}</span>
-          <span className="sbi-label">{t('nav_settings')}</span>
-        </button>
-
-        {/* Current user badge */}
-        {currentUser && (
-          <div
-            className="sbi"
-            style={{ cursor: 'default', gap: sidebarExpanded ? 8 : 0 }}
-            title={`${currentUser.display_name || currentUser.username} (${currentUser.role})`}
+          <button
+            className={`dens-btn${density === 'comfortable' ? ' active' : ''}`}
+            onClick={() => setDensity('comfortable')}
           >
-            <div
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 4,
-                flexShrink: 0,
-                background:
-                  currentUser.role === 'admin' ? 'var(--role-admin-bg)' : 'var(--role-user-bg)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: 10,
-                color:
-                  currentUser.role === 'admin'
-                    ? 'var(--role-admin-color)'
-                    : 'var(--role-user-color)',
-              }}
-            >
-              {(currentUser.display_name || currentUser.username)[0].toUpperCase()}
-            </div>
-            {sidebarExpanded && (
-              <span
-                style={{
-                  fontSize: 12,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {currentUser.display_name || currentUser.username}
-              </span>
-            )}
-            <span className="sbi-tip">
-              {currentUser.display_name || currentUser.username} · {currentUser.role}
-            </span>
-          </div>
-        )}
-
-        {/* Lock / Logout */}
-        <button className="sbi" onClick={handleLock} aria-label={t('sidebar_lock') || 'Lock'}>
-          <LogOut size={16} aria-hidden="true" />
-          <span className="sbi-tip">Выйти и заблокировать</span>
-          <span className="sbi-label">Выйти</span>
-        </button>
-
-        {/* Lang */}
-        <button
-          className="sbi"
-          onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
-          aria-label={`Language: ${lang.toUpperCase()}`}
-        >
-          <Globe size={16} aria-hidden="true" />
-          <span className="sbi-tip">Language: {lang.toUpperCase()}</span>
-          <span className="sbi-label">Lang: {lang.toUpperCase()}</span>
-        </button>
-
-        {/* Theme toggle — цикл «Система → Светлая → Тёмная».
-            Иконка показывает текущий режим, а не следующий: так
-            кнопка читается как индикатор состояния. */}
-        <button
-          className="sbi"
-          onClick={cycleTheme}
-          title={THEME_LABEL[theme]}
-          aria-label={THEME_LABEL[theme]}
-        >
-          {theme === 'system' ? (
-            <Monitor size={16} aria-hidden="true" />
-          ) : theme === 'dark' ? (
-            <Moon size={16} aria-hidden="true" />
-          ) : (
-            <Sun size={16} aria-hidden="true" />
-          )}
-          <span className="sbi-tip">{THEME_LABEL[theme]}</span>
-          <span className="sbi-label">{THEME_SHORT[theme]}</span>
-        </button>
-
-        {/* Expand/Collapse toggle */}
-        <button
-          className="sbi"
-          onClick={() => {
-            const next = !sidebarExpanded
-            setSidebarExpanded(next)
-            try {
-              safeSetItem('cc_sidebar_expanded', next ? '1' : '0')
-            } catch (e) {
-              handleError(e)
-              // localStorage may be unavailable
-            }
-          }}
-          title={sidebarExpanded ? t('sidebar_collapse') : t('sidebar_expand')}
-          aria-label={sidebarExpanded ? t('sidebar_collapse') : t('sidebar_expand')}
-        >
-          {sidebarExpanded ? (
-            <ChevronLeft size={14} aria-hidden="true" />
-          ) : (
-            <ChevronRight size={14} aria-hidden="true" />
-          )}
-          <span className="sbi-tip">
-            {sidebarExpanded ? t('sidebar_collapse') : t('sidebar_expand')}
-          </span>
-          <span className="sbi-label">{sidebarExpanded ? t('sidebar_collapse') : ''}</span>
-        </button>
-
-        {/* Offline + SEC-024: лицензия не проверена */}
-        {offlineMode && (
-          <div className="offline-pill" title={t('offline_pill_title')}>
-            ⚠ {sidebarExpanded ? t('offline_pill_label') : 'Off'}
-          </div>
-        )}
-
-        {/* FIX P2-STATUS-02: WS Sync status badge */}
-        {wsStatus && (
-          <div
-            className={`sync-pill ${wsStatus.connected ? 'connected' : wsStatus.connecting ? 'connecting' : 'disconnected'}`}
-            title={
-              wsStatus.connected
-                ? `Sync connected (${wsStatus.group_id?.slice?.(0, 8) || 'group'})`
-                : wsStatus.connecting
-                  ? 'Connecting to sync...'
-                  : 'Sync disconnected'
-            }
+            {t('density_comfortable')}
+          </button>
+          <button
+            className={`dens-btn${density === 'compact' ? ' active' : ''}`}
+            onClick={() => setDensity('compact')}
           >
-            {wsStatus.connected ? '🟢' : wsStatus.connecting ? '🟡' : '🔴'}
-            {sidebarExpanded && (
-              <span className="sync-pill-label">
-                {wsStatus.connected ? 'Sync' : wsStatus.connecting ? 'Sync...' : 'Offline'}
-              </span>
-            )}
-          </div>
-        )}
+            {t('density_compact')}
+          </button>
+        </div>
       </nav>
 
       {/* ── Main ── */}
       <div className="main-content-wrapper">
+        {/* REDESIGN-05-1: топбар 56px — заголовок · ⌘K · тема · уведомления · «+ Создать» · аватар */}
+        <div className="app-topbar" data-tauri-drag-region>
+          <div className="app-topbar-title">
+            {NAV_ITEMS.find(n => n.page === page)?.label ?? ''}
+          </div>
+          <button
+            id="search-button"
+            className="topbar-search"
+            onClick={() => setSearchOpen(true)}
+            aria-label={t('app_search_placeholder') || 'Search'}
+          >
+            <Search size={14} aria-hidden="true" />
+            <span className="topbar-search-text">{t('topbar_search_placeholder')}</span>
+            <kbd className="topbar-kbd">⌘K</kbd>
+          </button>
+          <div className="topbar-right">
+            <button
+              className="topbar-ibtn"
+              onClick={cycleTheme}
+              title={`${t('user_menu_theme')}: ${themeModeLabel[theme]}`}
+              aria-label={`${t('user_menu_theme')}: ${themeModeLabel[theme]}`}
+            >
+              {theme === 'system' ? (
+                <Monitor size={16} aria-hidden="true" />
+              ) : theme === 'dark' ? (
+                <Moon size={16} aria-hidden="true" />
+              ) : (
+                <Sun size={16} aria-hidden="true" />
+              )}
+            </button>
+            <button
+              className="topbar-ibtn"
+              onClick={() => handlePageChange('updates')}
+              title={t('nav_updates')}
+              aria-label={t('nav_updates')}
+            >
+              <Bell size={16} aria-hidden="true" />
+              {updateReady && (
+                <span className="topbar-ibtn-dot" aria-label={t('upd_available_toast')} />
+              )}
+            </button>
+            <Menu items={createMenuItems} align="right" width={220}>
+              {({ open, toggle, btnRef }) => (
+                <button
+                  ref={btnRef}
+                  className={`topbar-create${open ? ' open' : ''}`}
+                  onClick={toggle}
+                  aria-haspopup="menu"
+                  aria-expanded={open}
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  {t('topbar_create')}
+                </button>
+              )}
+            </Menu>
+            {currentUser && (
+              <Menu items={userMenuItems} align="right" width={220}>
+                {({ open, toggle, btnRef }) => (
+                  <button
+                    ref={btnRef}
+                    className="topbar-avatar"
+                    onClick={toggle}
+                    aria-haspopup="menu"
+                    aria-expanded={open}
+                    title={`${currentUser.display_name || currentUser.username} (${currentUser.role})`}
+                  >
+                    <span
+                      className={`topbar-avatar-chip${currentUser.role === 'admin' ? ' admin' : ''}`}
+                    >
+                      {(currentUser.display_name || currentUser.username)[0].toUpperCase()}
+                    </span>
+                  </button>
+                )}
+              </Menu>
+            )}
+          </div>
+        </div>
         <NewsAlert />
         {warningActive && (
           <div className="session-warning-banner" role="alert">
@@ -1551,6 +1393,40 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             </Suspense>
           </ErrorBoundary>
         </main>
+
+        {/* REDESIGN-05-1: статус-бар — sync/ws слева, часы UTC справа.
+            «Выбрано N» подключится на этапе 4 (bulk-выделение страниц). */}
+        <div className="statusbar" role="contentinfo">
+          <div className="statusbar-left">
+            {offlineMode && (
+              <span className="offline-pill" title={t('offline_pill_title')}>
+                ⚠ {t('offline_pill_label')}
+              </span>
+            )}
+            {wsStatus && (
+              <span
+                className={`sync-pill ${wsStatus.connected ? 'connected' : wsStatus.connecting ? 'connecting' : 'disconnected'}`}
+                title={
+                  wsStatus.connected
+                    ? `Sync connected (${wsStatus.group_id?.slice?.(0, 8) || 'group'})`
+                    : wsStatus.connecting
+                      ? 'Connecting to sync...'
+                      : 'Sync disconnected'
+                }
+              >
+                <span className={`live-dot${wsStatus.connected ? ' on' : ''}`} aria-hidden="true" />
+                <span className="sync-pill-label">
+                  {wsStatus.connected ? 'Sync' : wsStatus.connecting ? 'Sync…' : 'Offline'}
+                </span>
+              </span>
+            )}
+          </div>
+          <div className="statusbar-right">
+            <span className="statusbar-clock" title={t('statusbar_utc')}>
+              {nowUtc.toISOString().slice(11, 19)} {t('statusbar_utc')}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   )

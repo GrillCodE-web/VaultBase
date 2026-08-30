@@ -34,6 +34,8 @@
   --fs-body: 13px;
   --fs-control: 13px;
   --fs-caption: 11px;
+  /* REDESIGN-05-1: заголовки групп/секций (был литерал 10px в search-section-label) */
+  --fs-micro: 10px;
   --fs-mono: 12px;
 
   --lh-title: 24px;
@@ -62,7 +64,7 @@
   --border: rgba(0, 0, 0, 0.1);
   --border-hi: rgba(0, 0, 0, 0.16);
   --separator: rgba(0, 0, 0, 0.06);
-  --border-accent: rgba(10, 132, 255, 0.35);
+  --border-accent: rgba(79, 70, 229, 0.35);
 
   /* ── Текст ──────────────────────────────────────────────── */
   --text: #1d1d1f;
@@ -71,14 +73,16 @@
   --muted: rgba(0, 0, 0, 0.42);
   --dim: rgba(0, 0, 0, 0.28);
 
-  /* ── Акцент (voltage cyan — подпись Obsidian Terminal,
-     намеренно НЕ systemBlue) ──────────────────────────────── */
-  --accent: #0093b8;
-  --accent-hover: #007a99;
+  /* ── Акцент: indigo 05 «Adaptive» (REDESIGN-05-1, мокап
+     design-mockups/05-adaptive-full.html). Был: voltage cyan. */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
   --accent-fg: #ffffff;
-  --accent-dim: rgba(0, 147, 184, 0.1);
-  --accent-border: rgba(0, 147, 184, 0.4);
-  --accent-text: #007a99;
+  --accent-dim: rgba(79, 70, 229, 0.1);
+  --accent-border: rgba(79, 70, 229, 0.4);
+  --accent-text: #4338ca;
+  /* Мягкая подложка активного пункта/ховера (accent-soft мокапа) */
+  --accent-soft: #eef0ff;
 
   /* Вторичный акцент */
   --purple: #af52de;
@@ -259,8 +263,13 @@
   --modal-lg: 720px;
   --modal-xl: 900px;
 
-  --sidebar-w: 200px;
-  --sidebar-w-collapsed: 48px;
+  /* REDESIGN-05-1: сайдбар 05 «Adaptive» — фиксированные 232px;
+     collapsed-режим 48px удалён вместе с вводом групп навигации */
+  --sidebar-w: 232px;
+
+  /* ── Каркас 05 (REDESIGN-05-1) ──────────────────────────── */
+  --topbar-h: 56px;
+  --statusbar-h: 28px;
 
   /* ── Статусные пилюли .st-* (REDESIGN-05-0) ───────────────
      Единственный источник цветов статусов: pages.css (.st-*)
@@ -317,7 +326,7 @@
   --border: rgba(255, 255, 255, 0.09);
   --border-hi: rgba(255, 255, 255, 0.16);
   --separator: rgba(255, 255, 255, 0.06);
-  --border-accent: rgba(0, 179, 230, 0.5);
+  --border-accent: rgba(124, 127, 242, 0.5);
 
   --text: #eceef2;
   --text-2: rgba(236, 238, 242, 0.64);
@@ -325,11 +334,12 @@
   --muted: rgba(236, 238, 242, 0.4);
   --dim: rgba(236, 238, 242, 0.26);
 
-  --accent: #00b3e6;
-  --accent-hover: #33c6f0;
-  --accent-dim: rgba(0, 179, 230, 0.16);
-  --accent-border: rgba(0, 179, 230, 0.5);
-  --accent-text: #4dd2f5;
+  --accent: #7c7ff2;
+  --accent-hover: #9294f5;
+  --accent-dim: rgba(124, 127, 242, 0.16);
+  --accent-border: rgba(124, 127, 242, 0.5);
+  --accent-text: #a5a7f7;
+  --accent-soft: rgba(124, 127, 242, 0.15);
 
   --purple: #bf5af2;
   --purple-bright: #d17ff5;
@@ -477,7 +487,7 @@
     --border: rgba(255, 255, 255, 0.09);
     --border-hi: rgba(255, 255, 255, 0.16);
     --separator: rgba(255, 255, 255, 0.06);
-    --border-accent: rgba(0, 179, 230, 0.5);
+    --border-accent: rgba(124, 127, 242, 0.5);
 
     --text: #eceef2;
     --text-2: rgba(236, 238, 242, 0.64);
@@ -485,11 +495,12 @@
     --muted: rgba(236, 238, 242, 0.4);
     --dim: rgba(236, 238, 242, 0.26);
 
-    --accent: #00b3e6;
-    --accent-hover: #33c6f0;
-    --accent-dim: rgba(0, 179, 230, 0.16);
-    --accent-border: rgba(0, 179, 230, 0.5);
-    --accent-text: #4dd2f5;
+    --accent: #7c7ff2;
+    --accent-hover: #9294f5;
+    --accent-dim: rgba(124, 127, 242, 0.16);
+    --accent-border: rgba(124, 127, 242, 0.5);
+    --accent-text: #a5a7f7;
+    --accent-soft: rgba(124, 127, 242, 0.15);
 
     --purple: #bf5af2;
     --purple-t: #d17ff5;
@@ -778,4 +789,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ПЛОТНОСТЬ (REDESIGN-05-1) — переключатель «Удобно/Компактно»
+   внизу сайдбара; ставит useDensity на <html data-density>.
+   Компактный режим: строки таблиц/навигации 24px, контролы 26px.
+   Вертикальные паддинги таблиц (--row-pad) — этап 2 (типографика),
+   чтобы не ломать estimateSize виртуализатора CardTable.
+   ═══════════════════════════════════════════════════════════ */
+[data-density='compact'] {
+  --h-row: 24px;
+  --h-control: 26px;
 }

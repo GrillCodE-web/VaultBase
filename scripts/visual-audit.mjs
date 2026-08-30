@@ -507,8 +507,12 @@ for (const p of modalPages) {
 }
 
 // 6. Глобальный поиск с результатами
+// REDESIGN-05-1: поиск переехал из сайдбара в топбар (#search-button);
+// button.sbi — fallback для старой разметки.
 try {
-  const searchBtn = page.locator('button.sbi', { hasText: /search|поиск/i }).first()
+  const searchBtn = page
+    .locator('#search-button, button.sbi:has-text("Search"), button.sbi:has-text("Поиск")')
+    .first()
   if (await searchBtn.count()) {
     await searchBtn.click({ timeout: 5000 })
     await page.waitForTimeout(600)
