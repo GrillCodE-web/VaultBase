@@ -423,7 +423,6 @@ export function ProfileModal({ onCreated, onClose }) {
           onClick={handleCreate}
           disabled={loading || !cardId}
           className="btn btn-b btn-full-width"
-          style={{ opacity: loading || !cardId ? 0.4 : 1 }}
         >
           {loading ? t('msg_loading') : t('new_profile')}
         </button>

@@ -46,8 +46,8 @@ export const ProfileRow = React.memo(
       <tr
         data-idx={idx}
         onClick={onRowClick}
+        className={`cursor-pointer ${isDeleting ? 'opacity-30 line-through pointer-events-none' : ''}`}
         style={{
-          cursor: 'pointer',
           background: isSelected
             ? 'var(--color-info-bg)'
             : rawStatus === 'dead'
@@ -56,10 +56,7 @@ export const ProfileRow = React.memo(
                 ? 'var(--color-warning-bg)'
                 : undefined,
           outline: isSelected ? '1px solid rgba(59, 130, 246, 0.3)' : undefined,
-          opacity: isDeleting ? 0.3 : 1,
-          textDecoration: isDeleting ? 'line-through' : 'none',
           transition: 'opacity 0.4s ease',
-          pointerEvents: isDeleting ? 'none' : undefined,
         }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
@@ -104,11 +101,8 @@ export const ProfileRow = React.memo(
           <span className={`st ${cardStatusCss}`}>{rawStatus}</span>
         </td>
         <td
-          style={{
-            fontSize: 12,
-            color: hasDrops ? 'var(--color-success)' : 'var(--color-warning)',
-            fontWeight: 500,
-          }}
+          className="text-12 font-medium"
+          style={{ color: hasDrops ? 'var(--color-success)' : 'var(--color-warning)' }}
         >
           {p.drop_count}
         </td>
@@ -135,14 +129,14 @@ export const ProfileRow = React.memo(
               {t('float_window')}
             </button>
             <button
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm flex items-center gap-1"
               title="New Order"
               aria-label="Create new order for this profile"
               onClick={onQuickOrder}
-              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
             >
               <ShoppingCart size={12} />
             </button>
+
             <ActionsMenu
               items={[
                 { label: t('btn_copy'), icon: Copy, onClick: onCopyProfile },

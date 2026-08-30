@@ -99,7 +99,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
 
         {shop && (
           <div className="p-[8px_12px] bg-[var(--surface)] rounded text-12 flex items-center gap-2">
-            <span style={{ color: shop.is_new ? 'var(--accent)' : 'var(--text)' }}>
+            <span className={shop.is_new ? 'text-accent' : 'text-text'}>
               {shop.is_new ? '✦ New shop:' : '✔ Found:'} <strong>{shop.domain}</strong>
             </span>
           </div>

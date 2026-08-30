@@ -12,7 +12,7 @@ export function ProfileHoverCard({ profile: p, rect }) {
   const left = Math.min(rect.right + 10, window.innerWidth - 240)
   return (
     <div
-      className="fixed z-200 pointer-events-none bg-card border rounded-[10px] p-\[12px_14px\] min-w-\[200px\] max-w-\[240px\] shadow-lg"
+      className="fixed z-200 pointer-events-none bg-card border rounded-[10px] p-[12px_14px] min-w-[200px] max-w-[240px] shadow-lg"
       style={{
         top,
         left,
@@ -21,7 +21,7 @@ export function ProfileHoverCard({ profile: p, rect }) {
       <div className="flex items-center gap-2 mb-1.5">
         <span className="font-mono text-text text-13 font-medium">••••-{p.last4 || '????'}</span>
         <span
-          className="text-10 py-\[1px\] px-1.5 rounded-sm"
+          className="text-10 py-[1px] px-1.5 rounded-sm"
           style={{
             background: p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)',
             border: `1px solid ${p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)'}`,
@@ -37,7 +37,7 @@ export function ProfileHoverCard({ profile: p, rect }) {
         {p.bank_name && <span className="text-11 text-muted">· {p.bank_name}</span>}
       </div>
       {p.drop_count !== undefined && (
-        <div className="mt-\[5px\] text-muted text-11">
+        <div className="mt-[5px] text-muted text-11">
           {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
         </div>
       )}

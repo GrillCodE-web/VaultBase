@@ -45,7 +45,6 @@ export function DropForm({ initial, onSave, onCancel }) {
           onClick={() => valid && onSave(form)}
           disabled={!valid}
           className="btn btn-b btn-sm"
-          style={!valid ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
         >
           Save Drop
         </button>

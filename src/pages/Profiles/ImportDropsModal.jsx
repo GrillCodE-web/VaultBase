@@ -97,13 +97,12 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
               onChange={e => setRaw(e.target.value)}
               rows={12}
               placeholder="John Doe | 123 Main St | New York | NY | 10001 | US | +1-555-0100"
-              className="w-full box-border bg-surface border rounded-md p-\[12px_16px\] text-13 text-text mono outline-none resize-none"
+              className="w-full box-border bg-surface border rounded-md p-[12px_16px] text-13 text-text mono outline-none resize-none"
             />
             <button
               onClick={handlePreview}
               disabled={!raw.trim() || loading}
               className="btn btn-b w-full"
-              style={{ opacity: !raw.trim() || loading ? 0.4 : 1 }}
             >
               {loading ? t('drops_detecting') : t('drops_detect_btn')}
             </button>
@@ -128,7 +127,7 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
                             m[i] = e.target.value
                             setMapping(m)
                           }}
-                          className="bg-surface border text-text rounded py-\[5px\] px-\[10px\] text-12 outline-none"
+                          className="bg-surface border text-text rounded py-[5px] px-[10px] text-12 outline-none"
                         >
                           {DROP_COLUMNS.map(c => (
                             <option key={c} value={c}>
@@ -160,12 +159,7 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
               <button onClick={() => setStep(1)} className="btn btn-ghost">
                 ← {t('btn_cancel')}
               </button>
-              <button
-                onClick={handleImport}
-                disabled={loading}
-                className="btn btn-b flex-1"
-                style={{ opacity: loading ? 0.4 : 1 }}
-              >
+              <button onClick={handleImport} disabled={loading} className="btn btn-b flex-1">
                 {loading
                   ? t('drops_importing')
                   : t('drops_import_rows').replace('{n}', preview.preview_rows.length)}

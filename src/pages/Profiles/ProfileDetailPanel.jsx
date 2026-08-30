@@ -229,7 +229,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full box-border bg-surface border rounded p-\[8px_12px\] text-12 text-text outline-none resize-none"
+                  className="w-full box-border bg-surface border rounded p-[8px_12px] text-12 text-text outline-none resize-none"
                 />
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setEditNotes(false)} className="btn btn-ghost btn-sm">
