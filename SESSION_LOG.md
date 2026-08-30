@@ -1500,3 +1500,15 @@ node --check e2e-мок OK. Frontend-часть 05-5 (карточка-сигн�
 docs/CHAT_E2E.md уже лежит untracked — вероятно, набросок @r). Либо добор
 MGR-018: выпил pair-кодов/групп/NOSYNC (sync.rs/auth.rs/state.rs),
 17track share-ключи.
+
+---
+
+## 2026-08-30 — 🔄 @r — REDESIGN-05-4 «Фичи frontend-only» — порции 1–2 закрыты, 3–5 в работе
+
+- **Worktree:** `agent-redesign`, ветка `agent/redesign`. Claim `58223de`.
+- **Порция 1 (коммит `417bf24`):** ⌘K — секция «Недавние» (новый `src/utils/recentEntities.js`, localStorage `vb_recent_entities_v1`, max 8, дедуп type+id; запись из палитры при выборе результата + раскрытие ордера/профиля + сайд-панель карты); действия палитры расширены Sync Now/Lock (G-секвенции g d/c/p/o/s/m/x были со Stage 1). Статус-бар — пилюля «выбрано N» из zustand-сторов orders/cards, клик снимает выделение (`.selected-pill`).
+- **Порция 2 (коммит `7083722`):** react-grid-layout выпилен (−60kb) — своя CSS-grid сетка дашборда 12 кол (`WidgetGrid.jsx`: порядок+ширина 12/8/6/4 в localStorage `dashboard_layout_v2`, DnD за грип, кнопка ширины; событие `vb:reset-dash-layout` сохранено); `react-grid-layout` удалён из deps. Общий `components/ColumnPicker.jsx` (Cards переведён на него, `Cards/ColumnPicker.jsx` удалён); выбор колонок Orders (`orders_visible_cols`) и Profiles (`profiles_visible_cols`) — colSpan'ы и memo-компараторы учитывают. Фильтры-пресеты Orders (localStorage `orders_filter_presets`, паттерн как у Cards). Центр уведомлений: `store/notifications.js` + `components/NotificationCenter.jsx` в топбаре (тосты из useSmartToast, новости из NewsAlert с дедупом по key, sync_failed и upd_available из App.jsx; бейдж непрочитанных). «Данные устарели»: `hooks/useSyncFreshness.js` (sync_get_group_status→last_sync, слушает sync:full_data/sync:card_update/sync:settings_update, >5 мин → `.stale-pill` с клик-синком; в solo-режиме молчит). Авто-лок: useIdleTimer отдаёт deadline+reset, статус-бар показывает отсчёт mm:ss (`.autolock-pill`, клик продлевает). Optimistic-статусы ордеров уже были (FEAT-012) — не дублировал.
+- **Проверки после каждой порции:** eslint 0 errors; audit_frontend 0 сирот/0 фантомов/0 дублей; vitest 337/337 (один флейк тайминга useToast под нагрузкой — соло и повторный полный прогон зелёные).
+- **Инцидент:** eslint поймал `Adjacent JSX elements` в App.jsx:1536 после моей правки статус-бара (задвоенный блок часов) — исправлено до коммита.
+- **Осталось по 05-4:** порции 3–5 + финальный блок (статистика шопов, теплокарта, рекомендатель) + долг визуального диффа (audit-shots-stage2-before, 74 скрина, untracked — НЕ коммитить).
+- **Чужое не тронуто:** backend (`src-tauri/**`, `cc-sync-server/**`), WIP @main в manager-work, CRLF-шум snapshots.test.jsx.snap в коммиты не включён.
