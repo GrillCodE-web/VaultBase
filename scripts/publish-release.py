@@ -60,12 +60,15 @@ const p = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const db = new Database(process.argv[3]);
 for (const it of p.items) {
   const url = `${p.base}/releases/${it.name}`;
-  const ex = db.prepare('SELECT id FROM release_files WHERE version=? AND file_type=?')
-               .get(p.version, it.ftype);
+  // Ключ — (version, file_type, platform): с миграции v17 release_files
+  // хранит по строке на ОС; поиск только по (version, file_type) находил бы
+  // чужую платформу и затирал её (баг «живёт одна ОС»).
+  const ex = db.prepare('SELECT id FROM release_files WHERE version=? AND file_type=? AND platform=?')
+               .get(p.version, it.ftype, it.plat);
   if (ex) {
     db.prepare(`UPDATE release_files SET notes=?,download_url=?,signature=?,file_size=?,
-      platform=?,is_published=1,published_at=CURRENT_TIMESTAMP WHERE id=?`)
-      .run(p.notes, url, it.sig || null, it.size, it.plat, ex.id);
+      is_published=1,published_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .run(p.notes, url, it.sig || null, it.size, ex.id);
   } else {
     db.prepare(`INSERT INTO release_files
       (version,file_type,notes,download_url,signature,file_size,platform,is_published)
@@ -137,9 +140,10 @@ def main():
     a = ap.parse_args()
 
     host, user = os.environ.get("VPS_HOST"), os.environ.get("VPS_USER", "root")
-    pw = os.environ.get("VPS_PASS")
-    if not host or not pw:
-        sys.exit("Задайте VPS_HOST и VPS_PASS в окружении")
+    pw = os.environ.get("VPS_PASS") or None
+    if not host:
+        sys.exit("Задайте VPS_HOST в окружении. VPS_PASS необязателен: без него "
+                 "используется ключ из ~/.ssh / ssh-agent.")
 
     src = a.dir if os.path.isabs(a.dir) else os.path.join(ROOT, a.dir)
     arts = collect(src)

@@ -15,6 +15,8 @@ nginx); если после перезапуска health-check не прохо�
 
     VPS_HOST=209.74.89.158 VPS_USER=root VPS_PASS=... python scripts/deploy-server.py
 
+VPS_PASS можно не задавать — тогда используется ключ из ~/.ssh / ssh-agent.
+
 Флаги:
     --dry-run     показать, что будет сделано, ничего не меняя
     --skip-nginx  не трогать конфиг nginx
@@ -41,10 +43,10 @@ PM2_APP = "cc-sync-server"
 BASE_URL = "https://sec201-www.otpmanager.pro"
 
 # Что заливаем. Пути относительно cc-sync-server/.
-PUSH_FILES = [
-    "index.js", "auth.js", "middleware.js", "database.js",
-    "socket.js", "ws-tauri.js", "cache.js", "package.json",
-]
+PUSH_FILES = ["package.json"]
+# Корневые *.js заливаются ВСЕ автоматически (см. collect): ручной список
+# протухал — 2026-08-30 деплой упал и ушёл в авто-откат, потому что в список
+# не попал card-push.js, который требует socket.js.
 PUSH_DIRS = ["routes", "admin", "public"]
 
 # Внутри PUSH_DIRS не заливаем:
@@ -103,6 +105,10 @@ def collect(local_root):
             items.append((p, name))
         else:
             log(f"  ! пропущен (нет локально): {name}")
+    # Все корневые *.js — runtime-модули приложения (тесты лежат в test/ и не пушатся).
+    for fn in sorted(os.listdir(local_root)):
+        if fn.endswith(".js") and os.path.isfile(os.path.join(local_root, fn)):
+            items.append((os.path.join(local_root, fn), fn))
     for d in PUSH_DIRS:
         base = os.path.join(local_root, d)
         if not os.path.isdir(base):
@@ -208,9 +214,10 @@ def main():
 
     host = os.environ.get("VPS_HOST")
     user = os.environ.get("VPS_USER", "root")
-    pw = os.environ.get("VPS_PASS")
-    if not host or not pw:
-        sys.exit("Задайте VPS_HOST и VPS_PASS в окружении.")
+    pw = os.environ.get("VPS_PASS") or None
+    if not host:
+        sys.exit("Задайте VPS_HOST в окружении. VPS_PASS необязателен: без него "
+                 "paramiko поднимет ключи из ~/.ssh и ssh-agent (allow_agent/look_for_keys).")
 
     local_root = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cc-sync-server"
