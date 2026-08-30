@@ -366,6 +366,19 @@ module.exports.sendToInstallation = sendToInstallation;
 module.exports.broadcastAll = broadcastAll;
 // FEAT-010: маршруту /sync/courier_tag нужен group-scoped broadcast.
 module.exports.broadcastToGroup = broadcastToGroup;
+
+// REDESIGN-05-5B2: presence для панели воркеров — снимок онлайн-подключений
+// (installation_id → group_id). Только метаданные подключений, без контента.
+function getOnlineInstallations() {
+  const out = [];
+  for (const [iid, ws] of clients) {
+    if (ws.readyState === ws.OPEN && ws.authenticated) {
+      out.push({ installation_id: iid, group_id: ws.groupId || null });
+    }
+  }
+  return out;
+}
+module.exports.getOnlineInstallations = getOnlineInstallations;
 // Test-only: reset per-IP backoff state.
 module.exports._clearViolationsForTest = _clearViolationsForTest;
 

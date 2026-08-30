@@ -93,6 +93,9 @@ app.use('/sync',        workerCards.workerRouter);
 const cardPool = require('./routes/card-pool');
 app.use('/manager/api', cardPool.managerRouter);
 app.use('/sync',        cardPool.workerRouter);
+// REDESIGN-05-5B2: панель воркеров (presence + групповая статистика)
+const groupPanel = require('./routes/group-panel');
+app.use('/sync',        groupPanel.workerRouter);
 // MGR-018 (C/D): срезы прокси/email + share-ключи конфигурации (stuffer)
 const workerAssets = require('./routes/worker-assets');
 app.use('/manager/api', workerAssets.managerRouter);

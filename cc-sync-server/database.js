@@ -582,6 +582,27 @@ function migrate(db) {
       PRAGMA user_version = 21;
     `);
   }
+
+  // REDESIGN-05-5B2: панель воркеров. Самопубликация оперативной статистики
+  // воркером для своей sync-группы (заказы/деклайны/карты — агрегаты без
+  // чувствительных данных). Presence берётся из WS-подключений, last_seen —
+  // из worker_heartbeats, счётчики карт — из issued_card_slices/card_pool_slices;
+  // эта таблица — только добровольные агрегаты, которые сервер иначе не видит
+  // (E2E-контент заказов ему недоступен). Номер 22: v21 занята срезами
+  // прокси/email (MGR-018 C/D) параллельной сессии.
+  if (ver < 22) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS worker_group_stats (
+        installation_id TEXT PRIMARY KEY,
+        group_id        TEXT NOT NULL,
+        stats_json      TEXT NOT NULL,
+        updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_group_stats_group ON worker_group_stats(group_id);
+
+      PRAGMA user_version = 22;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому
