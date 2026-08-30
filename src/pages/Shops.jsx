@@ -15,7 +15,7 @@ import { SHOPS_OVERSCAN } from '../constants/virtualization.js'
 import { exportToCSV } from '../utils/csv.js'
 import { DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
-import { useEscapeKey } from '../hooks/useEscapeKey.js'
+import { Modal } from '../components/Modal.jsx'
 
 // ─── ShopRiskBadge ────────────────────────────────────────────────────────
 
@@ -116,8 +116,8 @@ function SuggestionBadge({ s }) {
 
 const EMPTY_PRODUCT = { asin: '', name: '', amazon_price: '', shop_price: '', url: '', notes: '' }
 
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
 function ProductModal({ initial, onSave, onClose }) {
-  useEscapeKey(onClose)
   const [form, setForm] = useState(
     initial
       ? {
@@ -161,122 +161,103 @@ function ProductModal({ initial, onSave, onClose }) {
     }
   }
 
-  // Scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
   return (
-    <div className="modal-overlay">
-      <div
-        className="modal max-w-[480px] w-full"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="product-modal-title"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <span id="product-modal-title" className="modal-title">
-            {initial ? t('btn_edit') : t('product_save_btn')}
-          </span>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-          <div className="form-group">
-            <label className="form-label">ASIN</label>
-            <input
-              value={form.asin}
-              onChange={set('asin')}
-              placeholder="B08N5WRWNW"
-              className="form-input font-mono"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Name *</label>
-            <input
-              value={form.name}
-              onChange={set('name')}
-              placeholder="Product name"
-              className="form-input"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2.5 mb-2.5">
-          <div className="form-group">
-            <label className="form-label">Amazon $</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.amazon_price}
-              onChange={set('amazon_price')}
-              placeholder="0.00"
-              className="form-input font-mono"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Shop $</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.shop_price}
-              onChange={set('shop_price')}
-              placeholder="0.00"
-              className="form-input font-mono"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Margin</label>
-            <div
-              className="form-input flex items-center mono"
-              style={{
-                color:
-                  margin === null
-                    ? 'var(--muted)'
-                    : parseFloat(margin) >= 0
-                      ? STATUS_COLORS.success
-                      : STATUS_COLORS.error,
-              }}
-            >
-              {margin !== null ? `$${margin}` : '—'}
-            </div>
-          </div>
-        </div>
-
-        <div className="form-group mb-2">
-          <label className="form-label">URL</label>
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="480px"
+      title={initial ? t('btn_edit') : t('product_save_btn')}
+    >
+      <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+        <div className="form-group">
+          <label className="form-label">ASIN</label>
           <input
-            value={form.url}
-            onChange={set('url')}
-            placeholder="https://shop.com/product"
+            value={form.asin}
+            onChange={set('asin')}
+            placeholder="B08N5WRWNW"
+            className="form-input font-mono"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Name *</label>
+          <input
+            value={form.name}
+            onChange={set('name')}
+            placeholder="Product name"
             className="form-input"
           />
         </div>
+      </div>
 
-        <div className="form-group mb-4">
-          <label className="form-label">Notes</label>
-          <textarea
-            value={form.notes}
-            onChange={set('notes')}
-            rows={2}
-            className="form-input resize-none"
+      <div className="grid grid-cols-3 gap-2.5 mb-2.5">
+        <div className="form-group">
+          <label className="form-label">Amazon $</label>
+          <input
+            type="number"
+            step="0.01"
+            value={form.amazon_price}
+            onChange={set('amazon_price')}
+            placeholder="0.00"
+            className="form-input font-mono"
           />
         </div>
-
-        <button
-          onClick={handleSave}
-          disabled={!form.name.trim() || loading}
-          className="btn btn-b w-full"
-        >
-          {loading ? t('email_saving') : initial ? t('email_save_changes') : t('product_save_btn')}
-        </button>
+        <div className="form-group">
+          <label className="form-label">Shop $</label>
+          <input
+            type="number"
+            step="0.01"
+            value={form.shop_price}
+            onChange={set('shop_price')}
+            placeholder="0.00"
+            className="form-input font-mono"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Margin</label>
+          <div
+            className="form-input flex items-center mono"
+            style={{
+              color:
+                margin === null
+                  ? 'var(--muted)'
+                  : parseFloat(margin) >= 0
+                    ? STATUS_COLORS.success
+                    : STATUS_COLORS.error,
+            }}
+          >
+            {margin !== null ? `$${margin}` : '—'}
+          </div>
+        </div>
       </div>
-    </div>
+
+      <div className="form-group mb-2">
+        <label className="form-label">URL</label>
+        <input
+          value={form.url}
+          onChange={set('url')}
+          placeholder="https://shop.com/product"
+          className="form-input"
+        />
+      </div>
+
+      <div className="form-group mb-4">
+        <label className="form-label">Notes</label>
+        <textarea
+          value={form.notes}
+          onChange={set('notes')}
+          rows={2}
+          className="form-input resize-none"
+        />
+      </div>
+
+      <button
+        onClick={handleSave}
+        disabled={!form.name.trim() || loading}
+        className="btn btn-b w-full"
+      >
+        {loading ? t('email_saving') : initial ? t('email_save_changes') : t('product_save_btn')}
+      </button>
+    </Modal>
   )
 }
 
@@ -295,8 +276,8 @@ const EMPTY_SHOP = {
   high_cancel_risk: false,
 }
 
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
 function ShopModal({ initial, onSave, onClose }) {
-  useEscapeKey(onClose)
   const [form, setForm] = useState(
     initial
       ? {
@@ -339,111 +320,81 @@ function ShopModal({ initial, onSave, onClose }) {
     }
   }
 
-  // Scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
   return (
-    <div className="modal-overlay">
-      <div
-        className="modal max-w-[500px] w-full max-h-[90vh] overflow-y-auto"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="shop-modal-title"
-      >
-        <div className="flex items-center justify-between mb-[18px]">
-          <span id="shop-modal-title" className="modal-title">
-            {initial ? 'Edit Shop' : 'New Shop'}
-          </span>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </div>
+    <Modal isOpen onClose={onClose} size="500px" scroll title={initial ? 'Edit Shop' : 'New Shop'}>
+      <div className="form-group">
+        <label className="form-label">Shop Name *</label>
+        <input
+          value={form.name}
+          onChange={set('name')}
+          placeholder="Nike, Amazon, etc."
+          className="form-input"
+        />
+      </div>
 
-        <div className="form-group">
-          <label className="form-label">Shop Name *</label>
-          <input
-            value={form.name}
-            onChange={set('name')}
-            placeholder="Nike, Amazon, etc."
-            className="form-input"
-          />
-        </div>
+      <div className="form-group">
+        <label className="form-label">URL *</label>
+        <input
+          value={form.url}
+          onChange={set('url')}
+          placeholder="https://nike.com"
+          className="form-input font-mono"
+        />
+      </div>
 
-        <div className="form-group">
-          <label className="form-label">URL *</label>
-          <input
-            value={form.url}
-            onChange={set('url')}
-            placeholder="https://nike.com"
-            className="form-input font-mono"
-          />
-        </div>
+      <div className="form-group">
+        <label className="form-label">Category</label>
+        <input
+          value={form.category}
+          onChange={set('category')}
+          placeholder="Retail, Electronics, Fashion…"
+          className="form-input"
+        />
+      </div>
 
-        <div className="form-group">
-          <label className="form-label">Category</label>
-          <input
-            value={form.category}
-            onChange={set('category')}
-            placeholder="Retail, Electronics, Fashion…"
-            className="form-input"
-          />
-        </div>
+      <div className="form-group">
+        <label className="form-label">Notes</label>
+        <textarea
+          value={form.notes}
+          onChange={set('notes')}
+          rows={2}
+          className="form-input resize-none"
+        />
+      </div>
 
-        <div className="form-group">
-          <label className="form-label">Notes</label>
-          <textarea
-            value={form.notes}
-            onChange={set('notes')}
-            rows={2}
-            className="form-input resize-none"
-          />
-        </div>
-
-        {/* Flags */}
-        <div className="form-group">
-          <label className="form-label mb-2">Risk Flags</label>
-          <div className="grid grid-cols-2 gap-2">
-            {SHOP_FLAGS.map(f => (
-              <label
-                key={f.key}
-                onClick={toggle(f.key)}
-                className="flex items-center gap-2\.5 p-[9px_12px] rounded-md cursor-pointer transition-all"
+      {/* Flags */}
+      <div className="form-group">
+        <label className="form-label mb-2">Risk Flags</label>
+        <div className="grid grid-cols-2 gap-2">
+          {SHOP_FLAGS.map(f => (
+            <label
+              key={f.key}
+              onClick={toggle(f.key)}
+              className="flex items-center gap-2\.5 p-[9px_12px] rounded-md cursor-pointer transition-all"
+              style={{
+                border: form[f.key] ? `1px solid ${f.color}40` : '1px solid var(--border)',
+                background: form[f.key] ? f.bg : 'transparent',
+              }}
+            >
+              <div
+                className="w-4 h-4 rounded-sm shrink-0 flex items-center justify-center"
                 style={{
-                  border: form[f.key] ? `1px solid ${f.color}40` : '1px solid var(--border)',
-                  background: form[f.key] ? f.bg : 'transparent',
+                  background: form[f.key] ? 'var(--accent-hover)' : 'transparent',
+                  border: form[f.key] ? '1px solid var(--accent-hover)' : '1px solid var(--border)',
                 }}
               >
-                <div
-                  className="w-4 h-4 rounded-sm shrink-0 flex items-center justify-center"
-                  style={{
-                    background: form[f.key] ? 'var(--accent-hover)' : 'transparent',
-                    border: form[f.key]
-                      ? '1px solid var(--accent-hover)'
-                      : '1px solid var(--border)',
-                  }}
-                >
-                  {form[f.key] && <span className="text-white text-[10px] font-bold">✓</span>}
-                </div>
-                <span className="text-[12px] text-muted">{f.label}</span>
-              </label>
-            ))}
-          </div>
+                {form[f.key] && <span className="text-white text-[10px] font-bold">✓</span>}
+              </div>
+              <span className="text-[12px] text-muted">{f.label}</span>
+            </label>
+          ))}
         </div>
-
-        <button
-          onClick={handleSave}
-          disabled={!valid || loading}
-          className="btn btn-b w-full mt-1.5"
-        >
-          {loading ? t('email_saving') : initial ? t('email_save_changes') : t('shop_save_btn')}
-        </button>
       </div>
-    </div>
+
+      <button onClick={handleSave} disabled={!valid || loading} className="btn btn-b w-full mt-1.5">
+        {loading ? t('email_saving') : initial ? t('email_save_changes') : t('shop_save_btn')}
+      </button>
+    </Modal>
   )
 }
 

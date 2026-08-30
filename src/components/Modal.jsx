@@ -4,6 +4,10 @@ import { X } from 'lucide-react'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
 // Стили модалки — в общем styles/components.css (подключается из index.css).
 
+// REDESIGN-05-2: ref-counted body scroll-lock (как useScrollLock/BUG-012,
+// но с учётом isOpen — Modal при isOpen=false остаётся смонтирован).
+let modalLockCount = 0
+
 /**
  * Modal - Reusable modal component with animations
  */
@@ -33,6 +37,21 @@ export function Modal({
   }, [onClose])
 
   useFocusTrap(modalRef, isOpen)
+
+  // REDESIGN-05-2: блокировка скролла страницы под модалкой
+  // (раньше — ручной document.body.style.overflow в каждой модалке)
+  useEffect(() => {
+    if (!isOpen) return undefined
+    modalLockCount++
+    document.body.style.overflow = 'hidden'
+    return () => {
+      modalLockCount--
+      if (modalLockCount <= 0) {
+        modalLockCount = 0
+        document.body.style.overflow = ''
+      }
+    }
+  }, [isOpen])
 
   // Store focused element before modal opens and restore on close
   useEffect(() => {
