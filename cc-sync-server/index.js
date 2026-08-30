@@ -154,6 +154,9 @@ server.listen(PORT, () => console.log(`[vaultbase-sync] port ${PORT}`));
 // Background alert engine (worker-offline detection)
 require('./alerts-engine').start();
 
+// MGR-021: фоновая чистка старых телеметрийных конвертов (раз в час)
+require('./retention-engine').start();
+
 // ── Graceful shutdown ───────────────────────────────────────────────────────
 // Stop accepting new connections, close both WebSocket servers, then close the
 // SQLite handle so WAL data is checkpointed. Force-exits if clients hang.
@@ -175,6 +178,7 @@ function shutdown(signal) {
   // once every open connection has ended, and WS connections are long-lived.
   require('./ws-tauri').shutdown();
   require('./alerts-engine').shutdown();
+  require('./retention-engine').shutdown();
   wssTauri.close();
   io.close();
 

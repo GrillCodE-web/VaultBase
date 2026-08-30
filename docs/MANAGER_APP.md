@@ -109,6 +109,11 @@ plaintext-полем (единственная не-PII метка, нужна �
   `{"type":"news", "news":{id,severity,title,published_at}}` broadcast.
 - Alerts-engine (60 c): offline > `MANAGER_OFFLINE_MINUTES` (10 по умолчанию) → алерт
   `worker_offline` (dedupe по эпизоду `offline:<iid>:<last_seen>`), возврат онлайн закрывает.
+- Retention-engine (1 ч, MGR-021): чистит транзитные данные — `stats_reports` по
+  `report_date` старше `TELEMETRY_RETENTION_DAYS` (45 по умолчанию) и
+  `worker_heartbeat_history` старше `HB_HISTORY_RETENTION_DAYS` (30). Менеджер хранит
+  расшифрованные отчёты локально + месячные rollups, поэтому серверная копия нужна
+  только как буфер доставки. `worker_heartbeats` (последний конверт на воркера) не чистится.
 
 ## 4. Формат daily_stats (контракт воркер → менеджер)
 
@@ -152,6 +157,19 @@ Payload heartbeat (в конверте):
  "sync_ws": "ok|down", "db_ok": true,
  "imap_ok": true|null, "smtp_ok": true|null, "proxy_ok": true|null, "errors_24h": 0}
 ```
+
+### 4.1 Версионирование и контракт-тесты (MGR-021)
+
+Оба payload'а несут `payload_version` (текущая: **2**) и `worker_sent_at`.
+Правило: любое изменение набора полей = бамп версии. Это зафиксировано тестами:
+
+- **Golden** (`src-tauri/.../telemetry.rs::test_contract_golden_payload_v2`) —
+  пинит полный набор ключей heartbeat и daily_stats; дрейф схемы без бампа
+  версии роняет CI воркера.
+- **Матрица** (`manager-app/.../telemetry.rs::contract_*_payload_tolerated`) —
+  «старый воркер → новый менеджер» (v1 без `bin_shop`/`sla`/`by_user`/`pool`:
+  дефолты 0, без паник) и «новый воркер → старый менеджер» (v99 + неизвестные
+  поля: неизвестное игнорируется, известное парсится как обычно).
 
 ## 5. Интеграция воркер-приложения (фаза 2, поток backend/frontend)
 

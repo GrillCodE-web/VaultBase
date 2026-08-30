@@ -2020,4 +2020,57 @@ mod telemetry_tests {
         let shop_key = s["shops"].as_object().unwrap().keys().next().unwrap().clone();
         assert_eq!(pairs[0]["shop"].as_str().unwrap(), shop_key);
     }
+
+    // ── MGR-021: контракт-тесты (golden payload_version) ──
+
+    fn sorted_keys(v: &serde_json::Value) -> Vec<String> {
+        let mut ks: Vec<String> = v.as_object().unwrap().keys().cloned().collect();
+        ks.sort();
+        ks
+    }
+
+    /// Golden-контракт v2: полный набор ключей heartbeat и daily_stats.
+    /// Любое добавление/удаление/переименование поля без бампа
+    /// payload_version роняет этот тест — сигнал поднять версию протокола
+    /// и обновить матрицу совместимости на стороне менеджера.
+    #[test]
+    fn test_contract_golden_payload_v2() {
+        let (_dir, db) = test_db();
+
+        let hb = build_heartbeat_payload(&db);
+        assert_eq!(hb["payload_version"], serde_json::json!(2));
+        assert_eq!(sorted_keys(&hb), vec![
+            "app_version", "db_ok", "errors_24h", "errors_by", "imap_ok",
+            "payload_version", "platform", "proxy_ok", "smtp_ok", "sync_ws",
+            "ts", "tz_offset_min", "worker_sent_at",
+        ]);
+        assert!(hb["app_version"].is_string());
+        assert!(hb["db_ok"].is_boolean());
+        assert!(hb["errors_24h"].is_i64());
+
+        let d = build_daily_stats(&db, &today_local());
+        assert_eq!(d["payload_version"], serde_json::json!(2));
+        assert_eq!(sorted_keys(&d), vec![
+            "app_version", "bin_shop", "by_user", "cards", "date", "drops",
+            "health", "orders", "payload_version", "pool", "shops", "sla",
+            "sync", "tz_offset_min", "worker_sent_at",
+        ]);
+        assert_eq!(sorted_keys(&d["orders"]), vec!["by_status", "total"]);
+        assert_eq!(sorted_keys(&d["cards"]), vec!["by_bin", "dead", "taken", "used"]);
+        assert_eq!(sorted_keys(&d["drops"]), vec!["by_destination", "taken"]);
+        assert_eq!(sorted_keys(&d["health"]), vec![
+            "imap_fail", "imap_ok", "proxy_fail", "proxy_ok", "smtp_fail", "smtp_ok",
+        ]);
+        assert_eq!(sorted_keys(&d["sync"]), vec!["push_fail", "push_ok", "ws_ok"]);
+        assert_eq!(sorted_keys(&d["pool"]), vec![
+            "age", "by_bin_top", "by_country", "by_status", "proxy_blocked",
+            "proxy_total", "taken_at",
+        ]);
+        assert_eq!(sorted_keys(&d["pool"]["age"]), vec!["d30_60", "gt60", "lt30", "unknown"]);
+        assert_eq!(d["date"].as_str().unwrap().len(), 10, "date — YYYY-MM-DD");
+        assert!(d["by_user"].is_object());
+        assert!(d["shops"].is_object());
+        assert!(d["bin_shop"].is_array());
+        assert!(d["sla"].is_object() || d["sla"].is_null(), "sla — объект или null при ошибке");
+    }
 }

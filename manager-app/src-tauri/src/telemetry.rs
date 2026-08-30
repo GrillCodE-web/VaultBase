@@ -1589,4 +1589,92 @@ mod tests {
             vec!["2025-12".to_string(), "2026-01".to_string()]
         );
     }
+
+    // ── MGR-021: матрица совместимости телеметрии ──
+
+    /// «Старый воркер → новый менеджер»: payload v1 без полей MGR-015/022
+    /// (bin_shop, sla, by_user, pool, shops, sync, app_version). Все агрегаты
+    /// обязаны терпеть отсутствующие поля — дефолты 0, без паник.
+    #[test]
+    fn contract_old_worker_payload_tolerated() {
+        let (_dir, db) = temp_db();
+        let today = date_days_ago(0);
+        insert_report(
+            &db, "w-old", &today,
+            r#"{"payload_version":1,
+                "orders":{"total":4,"by_status":{"delivered":3,"declined":1}},
+                "cards":{"taken":5,"used":4,"dead":1},
+                "drops":{"taken":2},
+                "health":{"imap_ok":5,"imap_fail":0,"smtp_ok":5,"smtp_fail":0,
+                          "proxy_ok":4,"proxy_fail":1}}"#,
+        );
+        let from = date_days_ago(1);
+
+        let d = parse_day(&serde_json::json!({
+            "payload_version": 1,
+            "orders": {"total": 4, "by_status": {"delivered": 3}},
+        }));
+        assert_eq!(d.orders, 4);
+        assert_eq!(d.delivered, 3);
+        assert_eq!(d.cards_taken, 0);
+        assert_eq!(d.imap_ok, 0);
+
+        let a = analytics(&db, &from, &today).unwrap();
+        assert_eq!(a["orders_total"], 4);
+        assert_eq!(a["funnel"]["taken"], 5);
+        assert_eq!(a["funnel"]["used_rate"], 80.0);
+
+        let c = fleet_comparison(&db, &from, &today).unwrap();
+        let ws = c["workers"].as_array().unwrap();
+        assert_eq!(ws.len(), 1);
+        assert_eq!(ws[0]["orders"], 4);
+        assert_eq!(ws[0]["avg_hours_to_delivered"], serde_json::Value::Null);
+        assert_eq!(ws[0]["app_version"], "");
+        assert_eq!(ws[0]["version_outdated"], false);
+
+        let h = fleet_bin_shop(&db, &from, &today).unwrap();
+        assert_eq!(h["cells"].as_array().unwrap().len(), 0);
+
+        let s = worker_stats(&db, "w-old", 30).unwrap();
+        assert_eq!(s["totals"]["orders"], 4);
+    }
+
+    /// «Новый воркер → старый менеджер» (forward-tolerance текущего парсера):
+    /// payload с payload_version из будущего и неизвестными полями. Парсер
+    /// обязан игнорировать неизвестное и читать известные поля как обычно.
+    #[test]
+    fn contract_future_worker_payload_tolerated() {
+        let (_dir, db) = temp_db();
+        let today = date_days_ago(0);
+        insert_report(
+            &db, "w-new", &today,
+            r#"{"payload_version":99,
+                "future_block":{"nested":[1,2,3],"flag":true},
+                "orders":{"total":7,"by_status":{"delivered":6,"declined":1},"future_stat":42},
+                "cards":{"taken":9,"used":7,"dead":2,"future_counter":5},
+                "app_version":"9.9.9",
+                "sla":{"avg_hours_created_to_delivered":12.5,"orders_delivered":6,"future_sla":1}}"#,
+        );
+        let from = date_days_ago(1);
+
+        let a = analytics(&db, &from, &today).unwrap();
+        assert_eq!(a["orders_total"], 7);
+        assert_eq!(a["cards_taken"], 9);
+
+        let c = fleet_comparison(&db, &from, &today).unwrap();
+        let ws = c["workers"].as_array().unwrap();
+        assert_eq!(ws[0]["orders"], 7);
+        assert_eq!(ws[0]["avg_hours_to_delivered"], 12.5);
+        assert_eq!(ws[0]["app_version"], "9.9.9");
+        // 9.9.9 — единственная версия флота → не устаревшая
+        assert_eq!(ws[0]["version_outdated"], false);
+
+        let d = parse_day(&serde_json::json!({
+            "payload_version": 99,
+            "unknown_thing": {"x": 1},
+            "orders": {"total": 2, "by_status": {"delivered": 2}, "unknown_stat": 7},
+        }));
+        assert_eq!(d.orders, 2);
+        assert_eq!(d.delivered, 2);
+    }
 }
