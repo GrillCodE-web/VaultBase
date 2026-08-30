@@ -491,6 +491,97 @@ function migrate(db) {
       PRAGMA user_version = 19;
     `);
   }
+
+  // REDESIGN-05-5B1: пул карт с самообслуживанием. Менеджер заливает срезы,
+  // зашифрованные симметричным ключом пула (AES-256-GCM, менеджерская
+  // сторона), а сам ключ раздаёт воркерам запечатанным их X25519-пубключами
+  // (card_pool_key_shares). Воркер сам бронирует срезы из пула
+  // (pooled → reserved → ack); бронь без ack сгорает по TTL и возвращается
+  // в пул (см. sweepExpiredReservations в routes/card-pool.js). Сервер по-
+  // прежнему хранит только шифротекст.
+  if (ver < 20) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS card_pool_keys (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        label       TEXT DEFAULT '',
+        created_by  TEXT,
+        is_active   INTEGER NOT NULL DEFAULT 1,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        rotated_at  DATETIME
+      );
+
+      CREATE TABLE IF NOT EXISTS card_pool_key_shares (
+        key_id          INTEGER NOT NULL REFERENCES card_pool_keys(id),
+        installation_id TEXT NOT NULL,
+        sealed_key      TEXT NOT NULL,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (key_id, installation_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS card_pool_slices (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        card_hash    TEXT NOT NULL UNIQUE,
+        key_id       INTEGER NOT NULL REFERENCES card_pool_keys(id),
+        sealed_data  TEXT NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pooled'
+                     CHECK (status IN ('pooled','reserved','ack','revoked')),
+        reserved_by  TEXT,
+        reserved_at  DATETIME,
+        acked_at     DATETIME,
+        outcome      TEXT CHECK (outcome IS NULL OR outcome IN ('used','burned')),
+        outcome_at   DATETIME,
+        uploaded_by  TEXT,
+        created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_pool_slices_status ON card_pool_slices(status, reserved_by);
+
+      PRAGMA user_version = 20;
+    `);
+  }
+
+  // MGR-018 (этапы C/D): централизованные срезы прокси/email и share-ключи
+  // конфигурации (stuffer base_url + API key). Та же модель, что у карт
+  // (issued_card_slices): сервер — курьер шифротекста, менеджер запечатывает
+  // X25519-пубключом воркера, воркер ack-ает после импорта.
+  // asset_hash — непрозрачный дедуп-ключ от менеджера (email: хеш адреса,
+  // proxy: хеш host:port:user); сервер содержимое не видит.
+  // worker_config_shares — один актуальный конверт на (kind, target_iid):
+  // повторная выдача перезаписывает и возвращает в pending.
+  if (ver < 21) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS issued_asset_slices (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind         TEXT NOT NULL CHECK (kind IN ('proxy','email')),
+        asset_hash   TEXT NOT NULL,
+        target_iid   TEXT NOT NULL,
+        sealed_data  TEXT NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','ack','revoked')),
+        issued_by    TEXT,
+        created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        delivered_at DATETIME,
+        acked_at     DATETIME,
+        revoked_at   DATETIME,
+        UNIQUE(kind, asset_hash, target_iid)
+      );
+      CREATE INDEX IF NOT EXISTS idx_asset_slices_target ON issued_asset_slices(target_iid, kind, status);
+
+      CREATE TABLE IF NOT EXISTS worker_config_shares (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind         TEXT NOT NULL CHECK (kind IN ('stuffer')),
+        target_iid   TEXT NOT NULL,
+        sealed_data  TEXT NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','ack','revoked')),
+        issued_by    TEXT,
+        created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        delivered_at DATETIME,
+        acked_at     DATETIME,
+        revoked_at   DATETIME,
+        UNIQUE(kind, target_iid)
+      );
+
+      PRAGMA user_version = 21;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

@@ -89,6 +89,14 @@ app.use('/sync',      require('./routes/sync'));
 const workerCards = require('./routes/worker-cards');
 app.use('/manager/api', workerCards.managerRouter);
 app.use('/sync',        workerCards.workerRouter);
+// REDESIGN-05-5B1: пул карт с самообслуживанием (бронирование воркерами)
+const cardPool = require('./routes/card-pool');
+app.use('/manager/api', cardPool.managerRouter);
+app.use('/sync',        cardPool.workerRouter);
+// MGR-018 (C/D): срезы прокси/email + share-ключи конфигурации (stuffer)
+const workerAssets = require('./routes/worker-assets');
+app.use('/manager/api', workerAssets.managerRouter);
+app.use('/sync',        workerAssets.workerRouter);
 // SEC-019: CSP violation reports from Tauri clients (see tauri.conf.json report-uri)
 app.use('/csp-report', require('./routes/csp-report'));
 
