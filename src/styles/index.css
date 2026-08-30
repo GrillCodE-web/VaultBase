@@ -37,6 +37,7 @@
   --color-card: var(--card);
   --color-card-hi: var(--card-hi);
   --color-inset: var(--inset);
+  --color-inp: var(--inp);
   --color-border: var(--border);
   --color-border-hi: var(--border-hi);
   --color-separator: var(--separator);
@@ -72,4 +73,23 @@
   --radius-md: var(--r-md);
   --radius-lg: var(--r-lg);
   --radius-xl: var(--r-xl);
+  --radius-control: var(--r-control);
+  --radius-input: var(--r-input);
+  --radius-card: var(--r-card);
+
+  /* REDESIGN-05-2: утилиты text-N для замены инлайн text-[Npx].
+     Значения = px 1:1 (нулевой дрейф); базовые ступени маппятся
+     на существующие --fs-*, недостающие добавлены в tokens.css. */
+  --text-9: var(--fs-9);
+  --text-10: var(--fs-micro);
+  --text-11: var(--fs-caption);
+  --text-12: var(--fs-mono);
+  --text-13: var(--fs-body);
+  --text-14: var(--fs-14);
+  --text-15: var(--fs-heading);
+  --text-16: var(--fs-16);
+  --text-18: var(--fs-18);
+  --text-20: var(--fs-title);
+  --text-28: var(--fs-28);
+  --text-32: var(--fs-32);
 }

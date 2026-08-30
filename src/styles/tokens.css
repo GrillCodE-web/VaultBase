@@ -37,15 +37,28 @@
   /* REDESIGN-05-1: заголовки групп/секций (был литерал 10px в search-section-label) */
   --fs-micro: 10px;
   --fs-mono: 12px;
+  /* REDESIGN-05-2: ступени для перевода JSX-литералов text-[Npx]
+     на классы (text-9..text-32 в @theme index.css). px 1:1 —
+     без визуального дрейфа; семантическая укрупнённая шкала — этап 3. */
+  --fs-9: 9px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-28: 28px;
+  --fs-32: 32px;
 
   --lh-title: 24px;
   --lh-heading: 20px;
   --lh-body: 18px;
   --lh-caption: 14px;
 
-  /* ── Высоты контролов ───────────────────────────────────── */
-  --h-control: 28px;
-  --h-control-sm: 22px;
+  /* ── Высоты контролов ─────────────────────────────────────
+     REDESIGN-05-2: 28px → 32px по эталону 05 «Adaptive»
+     (.btn/.btn-pri/инпуты в мокапе h32). 32×32 — выше минимума
+     WCAG 2.2 AA (2.5.8 — 24×24). Компактный режим — 26px
+     ([data-density='compact'] в конце файла). */
+  --h-control: 32px;
+  --h-control-sm: 24px;
   --h-row: 28px;
   --h-toolbar: 52px;
   --h-titlebar: 38px;
@@ -180,9 +193,26 @@
   /* ── Оверлеи ────────────────────────────────────────────── */
   --overlay-dark: rgba(0, 0, 0, 0.28);
   --overlay-darker: rgba(0, 0, 0, 0.4);
-  --overlay-modal: rgba(0, 0, 0, 0.65);
+  /* REDESIGN-05-2: бэкдроп модалок/палитры по мокапу 05 —
+     rgba(10,12,20,.45), одинаково для обеих тем */
+  --overlay-modal: rgba(10, 12, 20, 0.45);
   --overlay-backdrop: rgba(0, 0, 0, 0.25);
   --overlay-loading: rgba(13, 17, 23, 0.8);
+
+  /* ── REDESIGN-05-2: компонентные токены языка 05 «Adaptive» ── */
+  /* Фон инпутов/селектов (мокап --inp) */
+  --inp: #f4f5f8;
+  /* Радиусы по мокапу: контролы/кнопки 9, инпуты 8, карточки 14 */
+  --r-control: 9px;
+  --r-input: 8px;
+  --r-card: 14px;
+  /* Мягкие тени карточек (мокап --sh) и всплывающих окон */
+  --shadow-card: 0 1px 2px rgba(24, 28, 38, 0.05), 0 4px 16px rgba(24, 28, 38, 0.05);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.25);
+  /* Вертикальный паддинг строк таблиц (мокап --row-pad).
+     Компактный режим — 6px. Держать в согласии с estimateSize
+     виртуализаторов (CardTable/Proxies/Shops). */
+  --row-pad: 11px;
 
   /* ── Роли пользователей ─────────────────────────────────── */
   --role-admin-bg: rgba(10, 132, 255, 0.15);
@@ -427,9 +457,14 @@
 
   --overlay-dark: rgba(0, 0, 0, 0.45);
   --overlay-darker: rgba(0, 0, 0, 0.6);
-  --overlay-modal: rgba(0, 0, 0, 0.75);
+  /* REDESIGN-05-2: бэкдроп по мокапу 05 — единый rgba(10,12,20,.45) */
+  --overlay-modal: rgba(10, 12, 20, 0.45);
   --overlay-backdrop: rgba(0, 0, 0, 0.35);
   --overlay-loading: rgba(9, 12, 17, 0.88);
+
+  /* REDESIGN-05-2: тёмные варианты компонентных токенов 05 */
+  --inp: #0b0d12;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.25);
 
   --role-admin-bg: rgba(10, 132, 255, 0.2);
   --role-user-bg: rgba(50, 215, 75, 0.15);
@@ -587,9 +622,12 @@
     --purple-bright: #d17ff5;
     --blue: #0a84ff;
     --color-chart-revenue: #00b3e6;
-    --overlay-modal: rgba(0, 0, 0, 0.75);
+    --overlay-modal: rgba(10, 12, 20, 0.45);
     --overlay-backdrop: rgba(0, 0, 0, 0.35);
     --overlay-loading: rgba(9, 12, 17, 0.88);
+    /* REDESIGN-05-2: компонентные токены 05 — тёмные значения */
+    --inp: #0b0d12;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.25);
     --role-admin-bg: rgba(10, 132, 255, 0.2);
     --role-user-bg: rgba(50, 215, 75, 0.15);
     --teal-dim: rgba(20, 184, 166, 0.15);
@@ -795,10 +833,12 @@
    ПЛОТНОСТЬ (REDESIGN-05-1) — переключатель «Удобно/Компактно»
    внизу сайдбара; ставит useDensity на <html data-density>.
    Компактный режим: строки таблиц/навигации 24px, контролы 26px.
-   Вертикальные паддинги таблиц (--row-pad) — этап 2 (типографика),
-   чтобы не ломать estimateSize виртуализатора CardTable.
+   Этап 2 добавил сюда --row-pad 6px (см. правило ниже) — estimateSize
+   виртуализаторов (CardTable/Proxies/Shops) пересчитан под 11px/6px.
    ═══════════════════════════════════════════════════════════ */
 [data-density='compact'] {
   --h-row: 24px;
   --h-control: 26px;
+  /* REDESIGN-05-2: компактные строки таблиц (мокап 6px) */
+  --row-pad: 6px;
 }
