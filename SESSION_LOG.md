@@ -810,3 +810,11 @@ cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без о
 - ����������� ���-������ ��������� � ����, ������ � ���� (������� ��������� 2026-08-29): MGR-014..021, FLOAT-001..006, FEAT-019 � ��. 5.5.1/5.9 MASTER_CHECKLIST (������ 5a09ca1).
 - MGR-014 ? (9d1d1bb): �������� v21 � orders.created_by (+backfill �� card_assignments), order_status_history (from/to/changed_by/source), card_status_events (from/to/changed_by/reason). ������� �������� � ���. ������ ���� (update_card_status reason). ��������� ������ � create/update/bulk �������; ������� ��� bulk_update_status/archive_dead_cards/create-delete profile. �����: 185 passed / 0 failed (3 �����).
 - ������: MGR-015 (telemetry v2: payload_version, tz_offset, errors �� ����������, �������� smtp/proxy health, by_user, ������� ���������) > MGR-016 (������ worker_keys) > MGR-017/018 (manager vault, ������� �������).
+
+## 2026-08-30 — @main — DOCS: полный аудит дизайн-системы и вёрстки
+
+- Создан `docs/DESIGN_SYSTEM.md` (~575 строк): 7 CSS-файлов, все 169 токенов в обеих темах, каскад/слои, шрифты (Geist/Geist Mono), иконки (lucide 1.31, recharts 3.10, react-grid-layout 2.2.4), геометрия, z-index, keyframes, карта страниц, правила «не трогать», плейбук редизайна.
+- Создан `docs/UI_PAGES.md` (~600 строк): шелл (сайдбар/топбар), анатомия страницы списка, `.tbl`, система бейджей `.st-*`, ДВЕ системы модалок (A: `<Modal>` ×4 использования; B: ручные ×14 файлов), все 15 страниц поэкранно, float-окно (678 строк), типографика (354 инлайн-размера: 11px×136, 12px×117), цветовые литералы, общие компоненты, матрица влияния редизайна.
+- `docs/README.md`: раздел «Design system» — ссылки на оба документа.
+- Найдены баги (зафиксированы в документах, код не тронут): 23 токена с dark-значениями отсутствуют в system-dark-блоке; `fadeIn` используется (layout.css:628), но keyframes не определён; `.filters::before` без `position: relative`; `.float-copy.copied` объявлен трижды (побеждает `#4ade80 !important`); захардкоженные rgba в float-окне и `.live-dot`; три источника правды для статусных цветов (токены / `.st-*` / status.js); кракозябры в комментариях float.jsx:669-671 и Settings.jsx:~1124.
+- Проверки: `python scripts/audit_frontend.py` → 0 критичных проблем. Backend (`src-tauri/**`) не затрагивался — там WIP другой сессии.

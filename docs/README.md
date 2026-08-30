@@ -26,6 +26,13 @@
 | [CSP_SECURITY_NOTE.md](CSP_SECURITY_NOTE.md) | Why `unsafe-inline` in style-src and mitigations   |
 | [ICON_AND_BRANDING.md](ICON_AND_BRANDING.md) | Icons, branding assets                             |
 
+## Design system
+
+| Document                             | Description                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Полный справочник дизайн-системы (RU): 7 CSS-файлов, все токены, темы, шрифты, иконки, геометрия, z-index, карта страниц, правила «не трогать», плейбук редизайна |
+| [UI_PAGES.md](UI_PAGES.md)           | Разметка и лейаут каждой страницы (RU): шапки, фильтры, таблицы, бейджи `.st-*`, модалки, float-окно, типографика, цветовые литералы, матрица влияния редизайна   |
+
 ## Configuration & operations
 
 | Document                                       | Description                                 |
