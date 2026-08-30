@@ -778,3 +778,39 @@ textarea.code {
   color: var(--text-3);
   font-size: 12px;
 }
+
+/* ── MGR-020: умный слой (действия дня) ───────────────────────── */
+
+.ins-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.ins-card {
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.12s ease;
+}
+.ins-card:hover {
+  background: var(--bg-hover);
+}
+.ins-card.critical {
+  border-left-color: var(--red);
+}
+.ins-card.warning {
+  border-left-color: var(--amber);
+}
+.ins-card.info {
+  border-left-color: var(--accent);
+}
+.ins-card-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
-import { api, getWorkerSnapshots, fmtRelative } from '../api/server.js'
+import { api, getWorkerSnapshots, getInsights, fmtRelative } from '../api/server.js'
 
 const semKey = (v) => String(v).split(/[-+]/)[0].split('.').map((x) => parseInt(x, 10) || 0)
 
@@ -14,10 +14,11 @@ function cmpVer(a, b) {
   return 0
 }
 
-export default function Dashboard({ onSync }) {
+export default function Dashboard({ onSync, onNavigate }) {
   const { t, lang } = useLang()
   const [overview, setOverview] = useState(null)
   const [snapshots, setSnapshots] = useState([])
+  const [insights, setInsights] = useState(null)
   const [error, setError] = useState('')
 
   const load = () => {
@@ -25,11 +26,13 @@ export default function Dashboard({ onSync }) {
     Promise.all([
       api('GET', '/manager/api/overview'),
       getWorkerSnapshots(),
+      getInsights().catch(() => null),
     ])
-      .then(([ov, sn]) => {
+      .then(([ov, sn, ins]) => {
         if (ov.status !== 200) throw new Error(`overview_${ov.status}`)
         setOverview(ov.body)
         setSnapshots(sn.snapshots || [])
+        setInsights(ins)
       })
       .catch((e) => setError(String(e)))
   }
@@ -106,6 +109,96 @@ export default function Dashboard({ onSync }) {
                 : t('version_drift_ok')}
             </span>
           </div>
+        </div>
+      )}
+
+      {insights && (insights.actions?.length > 0 || insights.anomalies?.length > 0 || insights.pool_forecast?.length > 0) && (
+        <div className="panel">
+          <h3>{t('insights_title')}</h3>
+
+          {insights.actions?.length > 0 && (
+            <>
+              <div className="meta" style={{ margin: '4px 0 8px' }}>{t('ins_actions')}</div>
+              <div className="ins-actions">
+                {insights.actions.map((a, i) => {
+                  const p = { name: a.label || String(a.installation_id || '').slice(0, 14), ...(a.params || {}) }
+                  return (
+                    <button
+                      key={`${a.code}-${a.installation_id}-${i}`}
+                      className={`ins-card ${a.severity}`}
+                      onClick={() => onNavigate && a.page && onNavigate(a.page)}
+                    >
+                      <div className="ins-card-title">{t(`ins_${a.code}`, p)}</div>
+                      <div className="hint">{t(`ins_${a.code}_hint`, p)}</div>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {insights.anomalies?.length > 0 && (
+            <>
+              <div className="meta" style={{ margin: '14px 0 8px' }}>{t('ins_anomalies')}</div>
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>{t('col_label')}</th>
+                    <th>{t('ins_metric_col')}</th>
+                    <th>{t('ins_value_col')}</th>
+                    <th>{t('ins_baseline_col')}</th>
+                    <th>{t('col_impact')}</th>
+                    <th>{t('col_date')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {insights.anomalies.slice(0, 12).map((a, i) => (
+                    <tr key={`${a.installation_id}-${a.code}-${i}`}>
+                      <td>
+                        {a.label || String(a.installation_id).slice(0, 14)}{' '}
+                        <span className={`tag ${a.severity === 'critical' ? 'red' : 'amber'}`}>{a.severity}</span>
+                      </td>
+                      <td>{t(`ins_metric_${a.metric}`)}</td>
+                      <td className="mono">{a.metric === 'orders' ? a.value : `${a.value}%`}</td>
+                      <td className="mono">{a.metric === 'orders' ? a.baseline : `${a.baseline}%`}</td>
+                      <td className="mono">{a.impact}</td>
+                      <td className="mono">{a.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          {insights.pool_forecast?.length > 0 && (
+            <>
+              <div className="meta" style={{ margin: '14px 0 8px' }}>{t('ins_pool')}</div>
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>{t('col_label')}</th>
+                    <th>{t('ins_free_col')}</th>
+                    <th>{t('ins_burn_col')}</th>
+                    <th>{t('ins_days_left_col')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {insights.pool_forecast.map((f) => (
+                    <tr key={f.installation_id}>
+                      <td>{f.label || String(f.installation_id).slice(0, 14)}</td>
+                      <td className="mono">{f.free}</td>
+                      <td className="mono">{f.burn_per_day}</td>
+                      <td>
+                        {f.days_left == null
+                          ? <span className="tag gray">—</span>
+                          : <span className={`tag mono ${f.severity === 'critical' ? 'red' : f.severity === 'warning' ? 'amber' : 'green'}`}>{f.days_left}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </div>
       )}
 

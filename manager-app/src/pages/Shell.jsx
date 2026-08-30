@@ -174,7 +174,7 @@ export default function Shell({ appState, onLock }) {
           <div className="meta mono">{appState.role || 'manager'}</div>
         </div>
         <div className="content">
-          <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} />
+          <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={setPage} />
         </div>
       </div>
     </div>

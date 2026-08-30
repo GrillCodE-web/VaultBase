@@ -2,6 +2,7 @@ use crate::alerts;
 use crate::crypto::{self, FieldEncryption, PasswordValidation};
 use crate::db::{self, Database, Sidecar};
 use crate::http;
+use crate::insights;
 use crate::license;
 use crate::state::{with_open, AppState, DbState};
 use crate::telemetry;
@@ -296,6 +297,12 @@ pub fn get_fleet_bin_shop(state: State<'_, AppState>, from: String, to: String) 
         return Err("invalid_date".into());
     }
     with_open(&state, |database, _| telemetry::fleet_bin_shop(database, &from, &to))
+}
+
+// MGR-020: умный слой — dual-baseline аномалии, прогноз пула, действия дня
+#[tauri::command]
+pub fn get_insights(state: State<'_, AppState>) -> Result<Value, String> {
+    with_open(&state, |database, _| insights::insights(database))
 }
 
 #[tauri::command]
