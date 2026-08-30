@@ -962,3 +962,43 @@ cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без о
 - Коммит: 2811b13 (только cc-sync-server/_; чужие src-tauri/_ и design-mockups/ в дереве не тронуты).
 - **Следующий шаг:** клиентская сторона — воркер (Rust) должен получать срезы через /sync/cards/issued и
   бронить/деклайнить по ним; менеджер-app — UI выдачи (MGR-017+). Легаси-группы в UI воркера скрыть.
+
+### 2026-08-30 — DEVOPS-006 ✅ @main
+
+- **Автоматика релизов обоих приложений.** Воркерский CI уже существовал
+  (`build-release.yml`, теги `v*`). Добавлен менеджерский:
+  `.github/workflows/build-manager-release.yml` — теги `mgr-v*` (версии
+  менеджера независимы), матрица win/linux/macos-arm64, `projectPath:
+manager-app`, отдельный секрет `TAURI_SIGNING_PRIVATE_KEY_MANAGER`,
+  GitHub Release + job publish → `upload-artifacts.py --app manager`.
+- **ЖИВОЙ БАГ ПРОДА найден и починен в репо (деплой — отдельно!):**
+  `release_files` имела `UNIQUE(version, file_type)` БЕЗ платформы → заливка
+  одного релиза под 3 ОС затирала одну строку, в `/update` выживал последний
+  залитый артефакт. Подтверждено на проде: `/update?current_version=2.5.0`
+  отдаёт ТОЛЬКО `linux-x86_64` — Windows/macOS воркеры обновлений не видят.
+  Миграция БД v17: таблица пересоздаётся с `UNIQUE(version, file_type,
+platform)`; upsert в `upload.js` — по тройке. Прод-сервер ОТСТАЁТ от репо:
+  на нём нет ветки `/update?app=manager` (проверено — отдаёт воркерский
+  ответ) и приёма `manager-updater` (был бы 400). НУЖЕН ДЕПЛОЙ
+  `scripts/deploy-server.py` до первого менеджерского релиза и до починки
+  мультиплатформы воркера.
+- `scripts/upload-artifacts.py`: `--app manager` (только updater-артефакты →
+  `manager-updater`; инсталлеры на сервер не идут), `--channel`/`--rollout`.
+  `scripts/release.py`: `--app manager` — бамп версий в manager-app/*, свой
+  ключ `.secrets/vaultbase-manager-updater.key`, проверка через
+  `/update?app=manager`. CHANGELOG.md менеджерские релизы не трогают.
+- `manager-app/src-tauri/tauri.conf.json`: + `dmg`/`app` в bundle.targets и
+  секция macOS (minimumSystemVersion 12.0, ad-hoc подпись) — иначе CI macOS
+  не дал бы установщик.
+- Тесты: +1 integration в `manager.test.js` (мультиплатформенный upsert,
+  воркерский /update отдаёт все 3 ОС, manager-ветка — 2 ОС). `npm test`:
+  **97/97**. Dry-run заливщика на фейковых артефактах — ок.
+- Коммиты: `18141a1` (клейм), `8a3d21e` (код+тесты+доки). docs/RELEASE.md §9
+  описывает CI менеджера; §4 — предупреждение о баге платформ.
+- **Осталось пользователю:** 1) добавить секрет
+  `TAURI_SIGNING_PRIVATE_KEY_MANAGER` в GitHub; 2) задеплоить сервер
+  (`scripts/deploy-server.py`) — без этого фикс платформ и manager-updater на
+  проде не заработают; 3) затем `git tag mgr-v0.2.0 && git push --tags` для
+  первого CI-релиза менеджера. Пуш main не делал — за пользователем.
+- **Следующий шаг (открыт пользователю):** редизайн админ-панели сервера
+  (`cc-sync-server/admin/`) — варианты предложены в чате, ждём выбор.
