@@ -2236,11 +2236,12 @@
    минимума WCAG 2.2 AA (2.5.8 — 24×24 CSS-пикселя). */
   .btn {
     height: var(--h-control);
-    padding: 0 var(--sp-3);
-    border-radius: var(--r-md);
+    padding: 0 14px;
+    /* REDESIGN-05-2: радиус/вес по эталону 05 «Adaptive» (.btn в мокапе) */
+    border-radius: var(--r-control);
     font-family: var(--font-ui);
     font-size: var(--fs-control);
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1;
     letter-spacing: 0;
     cursor: default;
@@ -2359,20 +2360,21 @@
     background: transparent;
   }
 
-  /* ── Главное действие ───────────────────────────────────── */
+  /* ── Главное действие ─────────────────────────────────────
+   REDESIGN-05-2: .btn-pri мокапа 05 — r9, тень в цвете акцента. */
   .btn-primary {
     height: var(--h-control);
-    padding: 0 var(--sp-3);
-    border-radius: var(--r-md);
+    padding: 0 14px;
+    border-radius: var(--r-control);
     font-family: var(--font-ui);
     font-size: var(--fs-control);
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1;
     cursor: default;
     background: var(--accent);
     border: 1px solid transparent;
     color: var(--accent-fg);
-    box-shadow: var(--shadow-xs);
+    box-shadow: var(--shadow-btn-primary);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2384,7 +2386,7 @@
   .btn-primary:hover {
     background: var(--accent-hover);
     box-shadow:
-      var(--shadow-xs),
+      var(--shadow-btn-primary),
       0 0 0 1px var(--accent-border),
       0 2px 12px -2px var(--accent-dim);
   }
@@ -2408,11 +2410,11 @@
   /* ── Вторичное действие ─────────────────────────────────── */
   .btn-secondary {
     height: var(--h-control);
-    padding: 0 var(--sp-3);
-    border-radius: var(--r-md);
+    padding: 0 14px;
+    border-radius: var(--r-control);
     font-family: var(--font-ui);
     font-size: var(--fs-control);
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1;
     cursor: default;
     background: var(--card);
@@ -2477,7 +2479,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--r-md);
+    border-radius: var(--r-control);
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text-2);
