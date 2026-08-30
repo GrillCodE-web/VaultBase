@@ -1363,3 +1363,36 @@ audit_frontend 0 сирот / 0 фантомов. E2E не прогонялис�
 
 **Коммит:** 9656f63 (10 файлов, +23/−611), запушен. Дерево: чужой WIP
 (tables.jsx, EOL-шум в .snap) и untracked по договорённости не тронуты.
+
+## 2026-08-30 — ✅ @r — REDESIGN-05-3 (Stage 3 «Страницы») закрыт
+
+- **Worktree:** `agent-redesign`, ветка `agent/redesign`. Коммиты (после ребейза):
+  `0b02c63` claim → `aefe9bf` Dashboard → `1505423` Orders → `4922aec` Cards →
+  `4b9ff48` Profiles → `3c77f5c` прочие (Catalog/Proxies/upanel/Settings/Updates/
+  Couriers + мёртвые классы с экранированием) → `da097fc` auth-контур
+  (Login/UserLogin/Activate/Onboarding) → `cb8d7e3` фикс e2e-регрессий
+  (useConfirm через createPortal в body; Modal получил проп titleId,
+  ShopModal — id заголовка) → `3a3858a` пункт в ✅.
+- **Суть:** остаток `style={{}}` по страницам переведён на утилиты/токены Stage 1–2
+  (статика — в классы 1:1 px; динамика из данных/констант осознанно оставлена:
+  RISK_COLORS в Catalog, borderLeft по статусу в OrderRow, цвета FLAGS в
+  CreateOrderModal, сеть-бейдж в CardSidePanel). Новых инлайн-значений не введено.
+- **float.jsx:** проверен отдельно — правок не требуется: 0 `style=`,
+  0 `text-[Npx]`, 0 hex, всё на токенах со Stage 0/2. Коммита нет (нет диффа).
+- **Ребейз на main 4c1e40c** (origin/main вырос: FEAT-004 `0be6db1`/`be3ad6c`,
+  добивка MGR-018 `9656f63`/`7b0f37d` + 6 незапушенных @main локально).
+  Конфликты: MASTER_CHECKLIST — взята новая структура таблицы @main (5B1–5B4) +
+  мой статус; `Cards/ImportModal.jsx` modify/delete — **принято удаление**
+  (ручной импорт выпилен @main в `9656f63`, мой рестайл мёртвого кода не нужен);
+  Cards.jsx/DashboardRedesigned.jsx смержились текстуально. Висячих ссылок на
+  ImportModal нет (grep чист: остались BatchImportModal и локальный в Proxies).
+- **Проверки после ребейза:** eslint 0 errors; audit_frontend 0 сирот/0 фантомов/
+  0 дублей; vitest **337/337**; playwright **102/102** (сьют сократился 112→102 —
+  `9656f63` выпилил спеки ручного импорта; auth.spec на firefox, падавший соло
+  в прошлом прогоне, прошёл без правок кода — флейк; известный флейк
+  settings.spec/firefox тоже зелёный).
+- **Долг (переносится):** визуальный дифф `scripts/visual-audit.mjs` против
+  `audit-shots-stage2-before/` (74 скрина, untracked, НЕ коммичен) — со Stage 2.
+- **Чужое не тронуто:** backend (`src-tauri/**`, `cc-sync-server/**`), WIP @main
+  в manager-work. Локальный шум snapshots.test.jsx.snap (CRLF, пустой дифф) в
+  коммиты не включён.
