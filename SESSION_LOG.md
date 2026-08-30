@@ -1128,3 +1128,10 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
   docs/REDESIGN_05_PLAN.md, scripts/**pycache**/ остаются untracked.
 - **Осталось:** контракт-тесты телеметрии (golden payload_version) — часть
   MGR-021, свободна; серверная retention конвертов — тоже MGR-021.
+
+## 2026-08-30 — ✅ @main — MGR-022 кросс-проверка стыка backend↔UI
+
+- **UI-часть закрыта параллельной сессией** (ab49a07 + bc400b1): Analytics (воронка, сравнение воркеров, рейтинг операторов, теплокарта BIN×шоп), Dashboard (дрейф версий), i18n +17/17, manager.css.
+- **Кросс-проверка стыка (0fb9ceb ↔ bc400b1):** имена и аргументы команд совпадают (`get_fleet_comparison`/`get_fleet_bin_shop`, from/to; getWorkerSnapshots → get_worker_snapshots зарегистрирован); Analytics читает `fleet.operators`/`fleet.workers` с ВЕРХНЕГО уровня ответа fleet_comparison — совпадает с backend (не вложено в fleet-сводку).
+- **Combined-проверки:** audit_frontend.py — критичных проблем нет (0/0/0); eslint — 0 errors (3 старых warning react-refresh); vitest — 337/337 (25 файлов, 70.8s). Rust-прогоны без изменений (193/193, 34/34 — см. 0fb9ceb).
+- **MGR-022 закрыта полностью.** Осталось по смежным: MGR-021 (контракт-тесты телеметрии, серверная retention) — свободна.
