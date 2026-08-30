@@ -1261,3 +1261,19 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
   (index.lock) переждали — её коммиты 9ec6060/1d47f63/7ed2f6e легли до моего.
 - **Свободно дальше:** SEC-014 (локальные alert'ы воркера), BUG-010 (cleanup
   ghost-карточек), FEAT-… по чеклисту.
+
+## 2026-08-30 — MGR-019 закрыт (политики воркера, все слои)
+
+Сессия @main. Три коммита: слой 1 (60ae6b1, сервер+manager UI: DB v18, пресеты
+novice/trusted/probation, пауза/квота на /cards/issue, PolicyModal), слой 2
+(326975b, воркер: PolicyState расширен, энфорсмент import/take_card/profile/drop/
+create_order, blacklist шопов в CreateOrderModal, errorHandler), слой 3
+(cb50647, жизненный цикл: DB v19 revoked_at/revoked_reason, бан отзывает
+pending/delivered срезы с reason='worker_banned', unban перевыпускает только их).
+Тесты: сервер 115/115, воркер Rust 205/205, фронт 337/337, eslint 0 err.
+
+ВАЖНО: telemetry.rs с моим слоем 2 ушёл в коммит 3a94e6d (MGR-018 этап A,
+параллельная активность в том же дереве в 21:04) — HEAD без state.rs не
+собирался ~2 минуты, починено коммитом 326975b. Не моё и не трогал:
+src/pages/DashboardRedesigned.jsx (modified), design-mockups/, docs/CHAT_E2E.md,
+docs/REDESIGN_05_PLAN.md, scripts/**pycache**/.
