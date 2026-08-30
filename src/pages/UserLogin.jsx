@@ -30,33 +30,21 @@ export default function UserLogin({ onLoggedIn }) {
 
   return (
     <div className="auth-screen">
-      <div className="auth-card" style={{ maxWidth: 380 }}>
-        <div className="auth-logo-row" style={{ marginBottom: 8 }}>
+      <div className="auth-card max-w-[380px]">
+        <div className="auth-logo-row mb-2">
           <div className="auth-logo-icon">
             <User size={22} />
           </div>
         </div>
 
         <h1 className="auth-title">Вход в систему</h1>
-        <p
-          className="auth-subtitle"
-          style={{ marginBottom: 24, color: 'var(--muted)', fontSize: 13 }}
-        >
+        <p className="auth-subtitle mb-6 text-muted text-13">
           Введите логин и пароль вашего аккаунта
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="relative">
-            <span
-              style={{
-                position: 'absolute',
-                left: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--muted)',
-                pointerEvents: 'none',
-              }}
-            >
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
               <User size={15} />
             </span>
             <input
@@ -66,23 +54,13 @@ export default function UserLogin({ onLoggedIn }) {
               placeholder="Имя пользователя"
               autoFocus
               autoComplete="username"
-              className="auth-input"
-              style={{ paddingLeft: 36 }}
+              className="auth-input pl-9"
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
           </div>
 
           <div className="relative">
-            <span
-              style={{
-                position: 'absolute',
-                left: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--muted)',
-                pointerEvents: 'none',
-              }}
-            >
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
               <Lock size={15} />
             </span>
             <input
@@ -91,29 +69,21 @@ export default function UserLogin({ onLoggedIn }) {
               onChange={e => setPassword(e.target.value)}
               placeholder="Пароль"
               autoComplete="current-password"
-              className="auth-input"
-              style={{ paddingLeft: 36, paddingRight: 44 }}
+              className="auth-input pl-9 pr-11"
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
             <button
               type="button"
               tabIndex={-1}
               onClick={() => setShowPw(v => !v)}
-              className="bg-transparent border-none cursor-pointer p-0"
-              style={{
-                position: 'absolute',
-                right: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--muted)',
-              }}
+              className="bg-transparent border-none cursor-pointer p-0 absolute right-3 top-1/2 -translate-y-1/2 text-muted"
             >
               {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
 
           {error && (
-            <p role="alert" style={{ color: 'var(--red-t)', fontSize: 13, margin: 0 }}>
+            <p role="alert" className="text-red-t text-13 m-0">
               {error}
             </p>
           )}
@@ -121,14 +91,7 @@ export default function UserLogin({ onLoggedIn }) {
           <button
             type="submit"
             disabled={loading || !username.trim() || !password}
-            className="auth-btn"
-            style={{
-              marginTop: 4,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-            }}
+            className="auth-btn mt-1 flex items-center justify-center gap-2"
           >
             {loading ? (
               <span className="spinner-xs" />

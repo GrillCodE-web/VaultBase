@@ -184,7 +184,7 @@ export default function Login({ onUnlocked }) {
         {/* MGR-005: бан от менеджера — причина на экране лока */}
         {policy?.banned && (
           <div className="auth-error" role="alert" aria-live="assertive">
-            <ShieldAlert size={16} style={{ flexShrink: 0 }} />
+            <ShieldAlert size={16} className="shrink-0" />
             <span>
               <strong>{t('policy_banned_title')}</strong>
               {policy.banned_reason ? ` — ${policy.banned_reason}` : ''}
@@ -240,8 +240,8 @@ export default function Login({ onUnlocked }) {
                 })}
               </div>
               <p
+                className="text-11"
                 style={{
-                  fontSize: 11,
                   color: [
                     'var(--red)',
                     'var(--red)',

@@ -94,12 +94,10 @@ export default function Onboarding({ onComplete, onNavigate }) {
           return (
             <div
               key={step.id}
-              className="flex items-center gap-4 p-[16px_20px] border-b"
-              style={{ opacity: done ? 0.7 : 1 }}
+              className={`flex items-center gap-4 p-[16px_20px] border-b${done ? ' opacity-70' : ''}`}
             >
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: done ? 'var(--accent)' : 'var(--surface)' }}
+                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-accent' : 'bg-surface'}`}
               >
                 {done ? (
                   <CheckCircle size={18} color="var(--bg)" />

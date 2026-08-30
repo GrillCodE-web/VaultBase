@@ -123,12 +123,7 @@ export default function Activate({ onActivated }) {
             </span>
             <button
               onClick={handleCopy}
-              className="btn btn-b btn-sm"
-              style={{
-                background: copied ? 'var(--color-success-bg)' : undefined,
-                color: copied ? 'var(--color-success)' : undefined,
-                borderColor: copied ? 'var(--color-success-bg)' : undefined,
-              }}
+              className={`btn btn-b btn-sm${copied ? ' bg-success-bg text-success border-success-bg' : ''}`}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? t('copied') || 'Copied' : t('copy') || 'Copy'}
@@ -169,13 +164,9 @@ export default function Activate({ onActivated }) {
               maxLength={19}
               spellCheck={false}
               autoComplete="off"
-              className="auth-input mono"
+              className="auth-input mono pl-9 text-center tracking-[0.15em] caret-[var(--blue)]"
               style={{
-                paddingLeft: 36,
-                textAlign: 'center',
-                letterSpacing: '0.15em',
                 border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
-                caretColor: 'var(--blue)',
               }}
               onFocus={e => (e.target.style.borderColor = error ? 'var(--red)' : 'var(--blue)')}
               onBlur={e => (e.target.style.borderColor = error ? 'var(--red)' : 'var(--border)')}
@@ -193,11 +184,9 @@ export default function Activate({ onActivated }) {
         <button
           onClick={handleActivate}
           disabled={loading || success || activationKey.replace(/-/g, '').length !== 16}
-          className="auth-btn"
-          style={{
-            background: loading || success ? 'var(--color-info-bg)' : 'var(--blue)',
-            opacity: activationKey.replace(/-/g, '').length !== 16 && !loading ? 0.5 : 1,
-          }}
+          className={`auth-btn ${loading || success ? 'bg-info-bg' : 'bg-[var(--blue)]'}${
+            activationKey.replace(/-/g, '').length !== 16 && !loading ? ' opacity-50' : ''
+          }`}
         >
           {loading
             ? t('activating') || 'Activating…'
