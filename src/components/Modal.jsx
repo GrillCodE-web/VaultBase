@@ -15,6 +15,13 @@ export function Modal({
   size = 'md',
   showCloseButton = true,
   footer,
+  // REDESIGN-05-2: доп. класс окна (кастомные ширины/варианты у доменов)
+  className = '',
+  // REDESIGN-05-2: scroll-режим для длинных форм — шапка/футер фиксированы,
+  // скроллит только тело (.modal-scroll в components.css)
+  scroll = false,
+  // REDESIGN-05-2: доп. класс тела (например убрать отступы у табличного тела)
+  bodyClassName = '',
 }) {
   const modalRef = useRef(null)
   const previouslyFocusedRef = useRef(null)
@@ -76,7 +83,9 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
-        className="modal modal-enter"
+        className={`modal modal-enter${scroll ? ' modal-scroll' : ''}${
+          className ? ` ${className}` : ''
+        }`}
         style={{ '--modal-size': sizes[size] }}
       >
         {/* Header */}
@@ -96,7 +105,7 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="modal-body">{children}</div>
+        <div className={`modal-body${bodyClassName ? ` ${bodyClassName}` : ''}`}>{children}</div>
 
         {/* Footer */}
         {footer && <div className="modal-footer">{footer}</div>}

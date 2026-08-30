@@ -1,20 +1,18 @@
-﻿import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { ShoppingCart, X, Sparkles, FolderOpen, Save, Trash2, Plus } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useAuth } from '../../hooks/useAuth'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
-import { useFocusTrap } from '../../hooks/useFocusTrap.js'
+import { Modal } from '../../components/Modal.jsx'
 import { useSmartSuggestions, SuggestionBadge } from '../Shops'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { STATUS_COLORS } from '../../constants/colors.js'
 import { RiskBlock } from './RiskBlock.jsx'
-import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 
 const EMPTY_ITEM = { name: '', sku: '', qty: 1, price: '' }
 
 export function CreateOrderModal({ onCreated, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   // Step state
   const [profileId, setProfileId] = useState('')
@@ -405,500 +403,478 @@ export function CreateOrderModal({ onCreated, onClose }) {
   const drops = profileDetail?.drops || []
   const primaryDrop = drops.find(d => d.is_primary) || drops[0]
 
-  const createModalRef = useRef(null)
-  useFocusTrap(createModalRef, true)
-
-  // Scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
+  // REDESIGN-05-2: ручной оверлей/шапка/focus-trap/Escape/body-lock заменены
+  // общим <Modal scroll size="lg"> — шапка/футер фиксированы, тело скроллит.
   return (
-    <div className="modal-overlay items-start overflow-y-auto py-6">
-      <div
-        ref={createModalRef}
-        className="modal w-modal-lg m-auto"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-order-title"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-card z-10 rounded-t-xl">
-          <div className="flex items-center gap-2">
-            <ShoppingCart size={16} className="text-blue-t" />
-            <span id="create-order-title" className="font-semibold text-text">
-              {t('create_order')}
-            </span>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="p-6 flex flex-col gap-5">
-          {/* ── 1. Profile ── */}
-          <div>
-            <label className="form-label">1. Profile *</label>
-            <div className="relative">
-              <input
-                value={profileSearch}
-                onChange={e => {
-                  setProfileSearch(e.target.value)
-                  setProfileId('')
-                  setProfileDetail(null)
-                }}
-                onFocus={() => setProfileFocused(true)}
-                // blur с задержкой: клик по кнопке дропдауна должен успеть
-                // сработать до того, как список скроется
-                onBlur={() => setTimeout(() => setProfileFocused(false), 150)}
-                placeholder={t('orders_holder_search_placeholder')}
-                className="form-input"
-              />
-              {profileFocused && profileResults.length > 0 && (
-                <div className="dropdown-results">
-                  {profileResults.map(p => (
-                    <button key={p.id} onClick={() => selectProfile(p)} className="dropdown-btn">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-text">{p.holder_masked || '—'}</span>
-                        <div className="flex items-center gap-2 text-[12px] text-muted">
-                          <span className="font-mono">···{p.last4}</span>
-                          <span>{p.bank_name || ''}</span>
-                          <span
-                            className={p.drop_count > 0 ? 'drop-count-safe' : 'drop-count-warning'}
-                          >
-                            {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {/* Profile card */}
-            {profileDetail && (
-              <div className="info-card">
-                <div>
-                  <div className="text-muted mb-0.5">Card</div>
-                  <div className="text-text mono">
-                    ···{profileDetail.profile.last4 || profileDetail.card?.last4}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted mb-0.5">Bank</div>
-                  <div className="text-text">{profileDetail.card?.bank_name || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-muted mb-0.5">{t('primary_drop')}</div>
-                  <div className="text-text text-truncate">
-                    {primaryDrop
-                      ? `${primaryDrop.city}, ${primaryDrop.country}`
-                      : t('profile_no_drop')}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── 2. Shop ── */}
-          <div>
-            <label className="form-label">2. Shop *</label>
-            <div className="relative">
-              <input
-                value={shopSearch}
-                onChange={e => {
-                  setShopSearch(e.target.value)
-                  setShopId(null)
-                  setShopObj(null)
-                }}
-                placeholder={t('orders_shop_search_placeholder')}
-                className="form-input"
-              />
-              {shopResults.length > 0 && (
-                <div className="dropdown-results">
-                  {shopResults.map(s => (
-                    <button
-                      key={s._fromCatalog ? `cat-${s.id}` : s.id}
-                      onClick={() => selectShop(s)}
-                      className="dropdown-btn"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-text">{s.name || s.domain}</span>
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted">
-                          {s._fromCatalog && <span className="badge-catalog">catalog</span>}
-                          {s.domain && !s._fromCatalog && <span className="mono">{s.domain}</span>}
-                          {s.score > 0 && (
-                            <span className={s.score >= 60 ? 'score-good' : 'score-warning'}>
-                              ★{s.score}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {/* Shop flags + smart suggestions */}
-            {shopObj && (
-              <div className="mt-2 flex flex-col gap-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {FLAGS.filter(f => shopObj[f.key]).map(f => (
-                    <span
-                      key={f.key}
-                      style={{
-                        fontSize: 10,
-                        padding: '2px 8px',
-                        borderRadius: 999,
-                        ...f.color,
-                      }}
-                    >
-                      {f.label}
-                    </span>
-                  ))}
-                </div>
-                {smartSuggs?.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted">
-                      <Sparkles size={11} /> Smart Suggestions
-                    </div>
-                    {smartSuggs.map((s, i) => (
-                      <SuggestionBadge key={i} s={s} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── 3. Drop ── */}
-          <div>
-            <label className="form-label">3. Shipping Address</label>
-            {!profileId ? (
-              <div className="text-muted text-[12px] italic">
-                {t('orders_select_profile_first')}
-              </div>
-            ) : drops.length === 0 ? (
-              <div className="text-muted text-[12px] italic">{t('orders_profile_no_drops')}</div>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {drops.map(d => (
-                  <label
-                    key={d.id}
-                    onClick={() => setDropId(d.id)}
-                    className={`radio-label ${dropId === d.id ? 'selected' : ''}`}
-                  >
-                    <div className={`radio-circle ${dropId === d.id ? 'selected' : ''}`}>
-                      {dropId === d.id && <div className="radio-dot" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 text-[12px]">
-                        <span className="text-text font-medium">{d.recipient_name}</span>
-                        {d.is_primary && <span className="badge-mini">primary</span>}
-                      </div>
-                      <div className="text-[11px] text-muted">
-                        {d.address}, {d.city}
-                        {d.state ? `, ${d.state}` : ''} {d.zip}, {d.country}
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="lg"
+      scroll
+      title={
+        <span className="flex items-center gap-2">
+          <ShoppingCart size={16} className="text-blue-t" />
+          {t('create_order')}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        {/* ── 1. Profile ── */}
+        <div>
+          <label className="form-label">1. Profile *</label>
+          <div className="relative">
+            <input
+              value={profileSearch}
+              onChange={e => {
+                setProfileSearch(e.target.value)
+                setProfileId('')
+                setProfileDetail(null)
+              }}
+              onFocus={() => setProfileFocused(true)}
+              // blur с задержкой: клик по кнопке дропдауна должен успеть
+              // сработать до того, как список скроется
+              onBlur={() => setTimeout(() => setProfileFocused(false), 150)}
+              placeholder={t('orders_holder_search_placeholder')}
+              className="form-input"
+            />
+            {profileFocused && profileResults.length > 0 && (
+              <div className="dropdown-results">
+                {profileResults.map(p => (
+                  <button key={p.id} onClick={() => selectProfile(p)} className="dropdown-btn">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-text">{p.holder_masked || '—'}</span>
+                      <div className="flex items-center gap-2 text-[12px] text-muted">
+                        <span className="font-mono">···{p.last4}</span>
+                        <span>{p.bank_name || ''}</span>
+                        <span
+                          className={p.drop_count > 0 ? 'drop-count-safe' : 'drop-count-warning'}
+                        >
+                          {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
+                        </span>
                       </div>
                     </div>
-                  </label>
+                  </button>
                 ))}
               </div>
             )}
           </div>
-
-          {/* ── 4+5. Email + Proxy ── */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="form-label">4. Email (optional)</label>
-              <div className="flex flex-col gap-1">
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setEmailMode('pool')}
-                    className={`mode-toggle-btn ${emailMode === 'pool' ? 'active' : ''}`}
-                  >
-                    Pool
-                  </button>
-                  <button
-                    onClick={() => setEmailMode('custom')}
-                    className={`mode-toggle-btn ${emailMode === 'custom' ? 'active' : ''}`}
-                  >
-                    Custom
-                  </button>
+          {/* Profile card */}
+          {profileDetail && (
+            <div className="info-card">
+              <div>
+                <div className="text-muted mb-0.5">Card</div>
+                <div className="text-text mono">
+                  ···{profileDetail.profile.last4 || profileDetail.card?.last4}
                 </div>
-                {emailMode === 'pool' ? (
-                  <select
-                    value={emailId || ''}
-                    onChange={e => setEmailId(e.target.value ? parseInt(e.target.value) : null)}
-                    className="inline-select w-full"
-                  >
-                    <option value="">— None —</option>
-                    {emails.map(em => {
-                      const usedHere = em.shops_used?.some(s => s.id === shopId)
-                      return (
-                        <option key={em.id} value={em.id} disabled={em.is_blocked}>
-                          {em.is_blocked ? '⛔' : usedHere ? '⚠️' : '✔'} {em.email}{' '}
-                          {em.label ? `(${em.label})` : ''}
-                        </option>
-                      )
-                    })}
-                  </select>
-                ) : (
-                  <input
-                    type="email"
-                    value={customEmail}
-                    onChange={e => setCustomEmail(e.target.value)}
-                    placeholder="user@example.com"
-                    className="form-input p-[8px_12px] text-[13px]"
-                  />
-                )}
+              </div>
+              <div>
+                <div className="text-muted mb-0.5">Bank</div>
+                <div className="text-text">{profileDetail.card?.bank_name || '—'}</div>
+              </div>
+              <div>
+                <div className="text-muted mb-0.5">{t('primary_drop')}</div>
+                <div className="text-text text-truncate">
+                  {primaryDrop
+                    ? `${primaryDrop.city}, ${primaryDrop.country}`
+                    : t('profile_no_drop')}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="form-label">5. Proxy (optional)</label>
-              <select
-                value={proxyId || ''}
-                onChange={e => setProxyId(e.target.value ? parseInt(e.target.value) : null)}
-                className="inline-select w-full"
-              >
-                <option value="">— None —</option>
-                {proxies.map(px => {
-                  const usedHere = px.shops_used?.some(s => s.id === shopId)
-                  return (
-                    <option key={px.id} value={px.id} disabled={px.is_blocked}>
-                      {px.is_blocked ? '🔴' : usedHere ? '⚠️' : '✔'}{' '}
-                      {px.label || `${px.host}:${px.port}`} ({px.proxy_type.toUpperCase()})
-                    </option>
-                  )
-                })}
-              </select>
-              {/* G3: Geo-match hint — show recommended proxies matching profile billing country */}
-              {(() => {
-                const billingCountry =
-                  profileDetail?.profile?.country || profileDetail?.card?.country
-                if (!billingCountry || proxies.length === 0) return null
-                const geoMatches = proxies.filter(
-                  px =>
-                    !px.is_blocked &&
-                    px.country &&
-                    px.country.toUpperCase() === billingCountry.toUpperCase()
-                )
-                if (geoMatches.length === 0) return null
-                return (
-                  <div className="info-hint-box">
-                    <div className="text-info-bold">
-                      🎯 {billingCountry.toUpperCase()} proxy recommended for this profile
-                    </div>
-                    {geoMatches.slice(0, 3).map(px => (
-                      <div key={px.id} className="text-muted mono">
-                        {px.label || `${px.host}:${px.port}`}
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
+          )}
+        </div>
 
-          {/* ── 6. Risk Check ── */}
-          <div>
-            <label className="form-label">6. Risk Check</label>
-            <RiskBlock result={riskResult} loading={riskLoading} />
-          </div>
-
-          {/* ── 7. Order number ── */}
-          <div>
-            <label className="form-label">7. Order Number (optional)</label>
+        {/* ── 2. Shop ── */}
+        <div>
+          <label className="form-label">2. Shop *</label>
+          <div className="relative">
             <input
-              value={orderNumber}
-              onChange={e => setOrderNumber(e.target.value)}
-              placeholder="ORD-12345"
-              className="form-input mono"
+              value={shopSearch}
+              onChange={e => {
+                setShopSearch(e.target.value)
+                setShopId(null)
+                setShopObj(null)
+              }}
+              placeholder={t('orders_shop_search_placeholder')}
+              className="form-input"
             />
-          </div>
-
-          {/* ── 8. Items ── */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="form-label mb-0">8. Items</label>
-              <div className="flex items-center gap-2">
-                {/* Load template */}
-                {templates.length > 0 && (
-                  <div className="relative template-group">
-                    <button className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer">
-                      <FolderOpen size={12} /> Templates
-                    </button>
-                    <div className="template-dropdown-menu">
-                      {templates.map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => loadTemplate(t)}
-                          className="template-dropdown-item"
-                        >
-                          {t.name}
-                          {t.shop_tag && <span className="text-muted ml-1">({t.shop_tag})</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <button
-                  onClick={() => setShowSaveTemplate(true)}
-                  className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer"
-                >
-                  <Save size={12} /> Save Template
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              {items.map((item, idx) => (
-                <div key={idx} className="grid gap-2 items-center grid-items-layout">
-                  <div className="relative">
-                    <input
-                      value={item.name}
-                      onChange={e => {
-                        setItem(idx, 'name', e.target.value)
-                        setActiveItemIdx(idx)
-                        searchCatalogItems(e.target.value, idx)
-                      }}
-                      onBlur={() =>
-                        setTimeout(() => {
-                          setItemSuggestions(p => ({ ...p, [idx]: [] }))
-                          setActiveItemIdx(null)
-                        }, 200)
-                      }
-                      placeholder={t('item_name')}
-                      className="form-input-sm"
-                    />
-                    {activeItemIdx === idx && (itemSuggestions[idx] || []).length > 0 && (
-                      <div className="dropdown-results-sm">
-                        {(itemSuggestions[idx] || []).map(ci => (
-                          <button
-                            key={ci.id}
-                            onMouseDown={() => {
-                              setItem(idx, 'name', ci.name)
-                              if (ci.asin) setItem(idx, 'sku', ci.asin)
-                              if (ci.price) setItem(idx, 'price', String(ci.price))
-                              setItemSuggestions(p => ({ ...p, [idx]: [] }))
-                            }}
-                            className="dropdown-btn-sm flex justify-between items-center"
-                          >
-                            <span className="text-[12px] text-text text-truncate flex-1 mr-2">
-                              {ci.name}
-                            </span>
-                            <div className="flex gap-1.5 items-center shrink-0">
-                              {ci.asin && (
-                                <span className="text-[10px] mono text-muted">{ci.asin}</span>
-                              )}
-                              {ci.price && (
-                                <span className="text-[11px] text-green-t">${ci.price}</span>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    value={item.sku}
-                    onChange={e => setItem(idx, 'sku', e.target.value)}
-                    placeholder="SKU"
-                    className="form-input-sm mono"
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.qty}
-                    onChange={e => setItem(idx, 'qty', e.target.value)}
-                    placeholder="Qty"
-                    className="form-input-sm mono"
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={item.price}
-                    onChange={e => setItem(idx, 'price', e.target.value)}
-                    placeholder="$0.00"
-                    className="form-input-sm mono"
-                  />
+            {shopResults.length > 0 && (
+              <div className="dropdown-results">
+                {shopResults.map(s => (
                   <button
-                    onClick={() => removeItem(idx)}
-                    aria-label="Remove item"
-                    disabled={items.length === 1}
-                    className={items.length === 1 ? 'btn-opacity-disabled' : 'btn-opacity-normal'}
+                    key={s._fromCatalog ? `cat-${s.id}` : s.id}
+                    onClick={() => selectShop(s)}
+                    className="dropdown-btn"
                   >
-                    <Trash2 size={13} />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-text">{s.name || s.domain}</span>
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                        {s._fromCatalog && <span className="badge-catalog">catalog</span>}
+                        {s.domain && !s._fromCatalog && <span className="mono">{s.domain}</span>}
+                        {s.score > 0 && (
+                          <span className={s.score >= 60 ? 'score-good' : 'score-warning'}>
+                            ★{s.score}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <button onClick={addItem} className="btn-text-info">
-                <Plus size={12} /> Add Item
-              </button>
-              {total > 0 && (
-                <div className="text-[12px] text-gray-t">
-                  Total: <span className="text-text text-mono-medium">${total.toFixed(2)}</span>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Shop flags + smart suggestions */}
+          {shopObj && (
+            <div className="mt-2 flex flex-col gap-2">
+              <div className="flex flex-wrap gap-1.5">
+                {FLAGS.filter(f => shopObj[f.key]).map(f => (
+                  <span
+                    key={f.key}
+                    style={{
+                      fontSize: 10,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      ...f.color,
+                    }}
+                  >
+                    {f.label}
+                  </span>
+                ))}
+              </div>
+              {smartSuggs?.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted">
+                    <Sparkles size={11} /> Smart Suggestions
+                  </div>
+                  {smartSuggs.map((s, i) => (
+                    <SuggestionBadge key={i} s={s} />
+                  ))}
                 </div>
               )}
             </div>
+          )}
+        </div>
 
-            {/* Save template inline dialog */}
-            {showSaveTemplate && (
-              <div className="template-dialog">
+        {/* ── 3. Drop ── */}
+        <div>
+          <label className="form-label">3. Shipping Address</label>
+          {!profileId ? (
+            <div className="text-muted text-[12px] italic">{t('orders_select_profile_first')}</div>
+          ) : drops.length === 0 ? (
+            <div className="text-muted text-[12px] italic">{t('orders_profile_no_drops')}</div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {drops.map(d => (
+                <label
+                  key={d.id}
+                  onClick={() => setDropId(d.id)}
+                  className={`radio-label ${dropId === d.id ? 'selected' : ''}`}
+                >
+                  <div className={`radio-circle ${dropId === d.id ? 'selected' : ''}`}>
+                    {dropId === d.id && <div className="radio-dot" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[12px]">
+                      <span className="text-text font-medium">{d.recipient_name}</span>
+                      {d.is_primary && <span className="badge-mini">primary</span>}
+                    </div>
+                    <div className="text-[11px] text-muted">
+                      {d.address}, {d.city}
+                      {d.state ? `, ${d.state}` : ''} {d.zip}, {d.country}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── 4+5. Email + Proxy ── */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">4. Email (optional)</label>
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setEmailMode('pool')}
+                  className={`mode-toggle-btn ${emailMode === 'pool' ? 'active' : ''}`}
+                >
+                  Pool
+                </button>
+                <button
+                  onClick={() => setEmailMode('custom')}
+                  className={`mode-toggle-btn ${emailMode === 'custom' ? 'active' : ''}`}
+                >
+                  Custom
+                </button>
+              </div>
+              {emailMode === 'pool' ? (
+                <select
+                  value={emailId || ''}
+                  onChange={e => setEmailId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="inline-select w-full"
+                >
+                  <option value="">— None —</option>
+                  {emails.map(em => {
+                    const usedHere = em.shops_used?.some(s => s.id === shopId)
+                    return (
+                      <option key={em.id} value={em.id} disabled={em.is_blocked}>
+                        {em.is_blocked ? '⛔' : usedHere ? '⚠️' : '✔'} {em.email}{' '}
+                        {em.label ? `(${em.label})` : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              ) : (
                 <input
-                  value={templateName}
-                  onChange={e => setTemplateName(e.target.value)}
-                  placeholder={t('template_name')}
-                  className="form-input-sm flex-1-auto bg-transparent"
+                  type="email"
+                  value={customEmail}
+                  onChange={e => setCustomEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="form-input p-[8px_12px] text-[13px]"
+                />
+              )}
+            </div>
+          </div>
+          <div>
+            <label className="form-label">5. Proxy (optional)</label>
+            <select
+              value={proxyId || ''}
+              onChange={e => setProxyId(e.target.value ? parseInt(e.target.value) : null)}
+              className="inline-select w-full"
+            >
+              <option value="">— None —</option>
+              {proxies.map(px => {
+                const usedHere = px.shops_used?.some(s => s.id === shopId)
+                return (
+                  <option key={px.id} value={px.id} disabled={px.is_blocked}>
+                    {px.is_blocked ? '🔴' : usedHere ? '⚠️' : '✔'}{' '}
+                    {px.label || `${px.host}:${px.port}`} ({px.proxy_type.toUpperCase()})
+                  </option>
+                )
+              })}
+            </select>
+            {/* G3: Geo-match hint — show recommended proxies matching profile billing country */}
+            {(() => {
+              const billingCountry = profileDetail?.profile?.country || profileDetail?.card?.country
+              if (!billingCountry || proxies.length === 0) return null
+              const geoMatches = proxies.filter(
+                px =>
+                  !px.is_blocked &&
+                  px.country &&
+                  px.country.toUpperCase() === billingCountry.toUpperCase()
+              )
+              if (geoMatches.length === 0) return null
+              return (
+                <div className="info-hint-box">
+                  <div className="text-info-bold">
+                    🎯 {billingCountry.toUpperCase()} proxy recommended for this profile
+                  </div>
+                  {geoMatches.slice(0, 3).map(px => (
+                    <div key={px.id} className="text-muted mono">
+                      {px.label || `${px.host}:${px.port}`}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+
+        {/* ── 6. Risk Check ── */}
+        <div>
+          <label className="form-label">6. Risk Check</label>
+          <RiskBlock result={riskResult} loading={riskLoading} />
+        </div>
+
+        {/* ── 7. Order number ── */}
+        <div>
+          <label className="form-label">7. Order Number (optional)</label>
+          <input
+            value={orderNumber}
+            onChange={e => setOrderNumber(e.target.value)}
+            placeholder="ORD-12345"
+            className="form-input mono"
+          />
+        </div>
+
+        {/* ── 8. Items ── */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="form-label mb-0">8. Items</label>
+            <div className="flex items-center gap-2">
+              {/* Load template */}
+              {templates.length > 0 && (
+                <div className="relative template-group">
+                  <button className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer">
+                    <FolderOpen size={12} /> Templates
+                  </button>
+                  <div className="template-dropdown-menu">
+                    {templates.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => loadTemplate(t)}
+                        className="template-dropdown-item"
+                      >
+                        {t.name}
+                        {t.shop_tag && <span className="text-muted ml-1">({t.shop_tag})</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => setShowSaveTemplate(true)}
+                className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer"
+              >
+                <Save size={12} /> Save Template
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {items.map((item, idx) => (
+              <div key={idx} className="grid gap-2 items-center grid-items-layout">
+                <div className="relative">
+                  <input
+                    value={item.name}
+                    onChange={e => {
+                      setItem(idx, 'name', e.target.value)
+                      setActiveItemIdx(idx)
+                      searchCatalogItems(e.target.value, idx)
+                    }}
+                    onBlur={() =>
+                      setTimeout(() => {
+                        setItemSuggestions(p => ({ ...p, [idx]: [] }))
+                        setActiveItemIdx(null)
+                      }, 200)
+                    }
+                    placeholder={t('item_name')}
+                    className="form-input-sm"
+                  />
+                  {activeItemIdx === idx && (itemSuggestions[idx] || []).length > 0 && (
+                    <div className="dropdown-results-sm">
+                      {(itemSuggestions[idx] || []).map(ci => (
+                        <button
+                          key={ci.id}
+                          onMouseDown={() => {
+                            setItem(idx, 'name', ci.name)
+                            if (ci.asin) setItem(idx, 'sku', ci.asin)
+                            if (ci.price) setItem(idx, 'price', String(ci.price))
+                            setItemSuggestions(p => ({ ...p, [idx]: [] }))
+                          }}
+                          className="dropdown-btn-sm flex justify-between items-center"
+                        >
+                          <span className="text-[12px] text-text text-truncate flex-1 mr-2">
+                            {ci.name}
+                          </span>
+                          <div className="flex gap-1.5 items-center shrink-0">
+                            {ci.asin && (
+                              <span className="text-[10px] mono text-muted">{ci.asin}</span>
+                            )}
+                            {ci.price && (
+                              <span className="text-[11px] text-green-t">${ci.price}</span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <input
+                  value={item.sku}
+                  onChange={e => setItem(idx, 'sku', e.target.value)}
+                  placeholder="SKU"
+                  className="form-input-sm mono"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  value={item.qty}
+                  onChange={e => setItem(idx, 'qty', e.target.value)}
+                  placeholder="Qty"
+                  className="form-input-sm mono"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  value={item.price}
+                  onChange={e => setItem(idx, 'price', e.target.value)}
+                  placeholder="$0.00"
+                  className="form-input-sm mono"
                 />
                 <button
-                  onClick={handleSaveTemplate}
-                  disabled={!templateName.trim()}
-                  className={`btn btn-b btn-sm ${!templateName.trim() ? 'btn-opacity-disabled' : 'btn-opacity-normal'}`}
+                  onClick={() => removeItem(idx)}
+                  aria-label="Remove item"
+                  disabled={items.length === 1}
+                  className={items.length === 1 ? 'btn-opacity-disabled' : 'btn-opacity-normal'}
                 >
-                  Save
+                  <Trash2 size={13} />
                 </button>
-                <button
-                  onClick={() => setShowSaveTemplate(false)}
-                  className="btn-icon-only"
-                  aria-label="Cancel save template"
-                >
-                  <X size={14} />
-                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <button onClick={addItem} className="btn-text-info">
+              <Plus size={12} /> Add Item
+            </button>
+            {total > 0 && (
+              <div className="text-[12px] text-gray-t">
+                Total: <span className="text-text text-mono-medium">${total.toFixed(2)}</span>
               </div>
             )}
           </div>
 
-          {/* ── 9. Notes ── */}
-          <div>
-            <label className="form-label">9. Notes</label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={2}
-              className="form-input resize-none"
-            />
-          </div>
-
-          {/* ── Submit ── */}
-          <button
-            onClick={handleCreate}
-            disabled={loading || !profileId || !shopId || !dropId}
-            className={`btn btn-b btn-submit-full ${
-              loading || !profileId || !shopId || !dropId
-                ? 'btn-opacity-disabled'
-                : 'btn-opacity-normal'
-            }`}
-          >
-            {loading ? t('msg_loading') : t('create_order') + ' →'}
-          </button>
+          {/* Save template inline dialog */}
+          {showSaveTemplate && (
+            <div className="template-dialog">
+              <input
+                value={templateName}
+                onChange={e => setTemplateName(e.target.value)}
+                placeholder={t('template_name')}
+                className="form-input-sm flex-1-auto bg-transparent"
+              />
+              <button
+                onClick={handleSaveTemplate}
+                disabled={!templateName.trim()}
+                className={`btn btn-b btn-sm ${!templateName.trim() ? 'btn-opacity-disabled' : 'btn-opacity-normal'}`}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowSaveTemplate(false)}
+                className="btn-icon-only"
+                aria-label="Cancel save template"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* ── 9. Notes ── */}
+        <div>
+          <label className="form-label">9. Notes</label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={2}
+            className="form-input resize-none"
+          />
+        </div>
+
+        {/* ── Submit ── */}
+        <button
+          onClick={handleCreate}
+          disabled={loading || !profileId || !shopId || !dropId}
+          className={`btn btn-b btn-submit-full ${
+            loading || !profileId || !shopId || !dropId
+              ? 'btn-opacity-disabled'
+              : 'btn-opacity-normal'
+          }`}
+        >
+          {loading ? t('msg_loading') : t('create_order') + ' →'}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }

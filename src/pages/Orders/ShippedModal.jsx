@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Truck, X } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useFocusTrap } from '../../hooks/useFocusTrap.js'

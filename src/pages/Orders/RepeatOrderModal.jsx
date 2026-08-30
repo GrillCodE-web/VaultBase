@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { RotateCcw, X } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'

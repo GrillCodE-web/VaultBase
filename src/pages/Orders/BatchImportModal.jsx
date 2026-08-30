@@ -1,30 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { X, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useLang } from '../../hooks/useLang'
 import { STATUS_COLORS } from '../../constants/colors'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
-import { useEscapeKey } from '../../hooks/useEscapeKey.js'
-import { useFocusTrap } from '../../hooks/useFocusTrap.js'
+import { Modal } from '../../components/Modal.jsx'
 
+// REDESIGN-05-2: ручной оверлей/шапка/focus-trap/Escape/body-lock
+// заменены общим <Modal>.
 export function BatchImportModal({ onCreated, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const [parsedRows, setParsedRows] = useState([])
   const [fileName, setFileName] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const { toast } = usePremiumToast()
-  const modalRef = useRef(null)
-  useFocusTrap(modalRef, true)
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
 
   const handleFile = e => {
     const file = e.target.files[0]
@@ -95,140 +86,136 @@ export function BatchImportModal({ onCreated, onClose }) {
   }
 
   return (
-    <div className="modal-overlay">
-      <div
-        ref={modalRef}
-        className="modal w-[var(--modal-sm)]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="batch-import-title"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <Upload size={15} className="text-blue-t" />
-            <span className="modal-title m-0">{t('batch_import_title')}</span>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-
-        {!result ? (
-          <div className="flex flex-col gap-4">
-            <div className="bg-surface border border-border rounded-lg p-[10px_14px] text-[11px] text-muted mono">
-              <div className="font-semibold mb-1 text-text-2">CSV format:</div>
-              <div>profile_id,shop_id,item_name,item_sku,amount</div>
-            </div>
-
-            <div>
-              <label className="form-label">Select CSV file</label>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFile}
-                className="form-input p-[7px_12px] text-[12px] cursor-pointer"
-              />
-            </div>
-
-            {parsedRows.length > 0 && (
-              <div
-                style={{
-                  background: STATUS_COLORS.infoBg,
-                  border: `1px solid ${STATUS_COLORS.info}33`,
-                  borderRadius: 8,
-                  padding: '10px 14px',
-                  fontSize: 12,
-                }}
-              >
-                <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
-                  {parsedRows.length}
-                </span>
-                <span style={{ color: 'var(--text-2)', marginLeft: 6 }}>
-                  valid row{parsedRows.length !== 1 ? 's' : ''} parsed from {fileName}
-                </span>
-              </div>
-            )}
-
-            {loading && progress && (
-              <div
-                className="mt-1"
-                role="progressbar"
-                aria-valuenow={progress.done}
-                aria-valuemin={0}
-                aria-valuemax={progress.total}
-              >
-                <div className="flex justify-between text-[11px] text-muted mb-1">
-                  <span>
-                    {progress.done} / {progress.total}
-                  </span>
-                  <span>{Math.round((progress.done / progress.total) * 100)}%</span>
-                </div>
-                <div className="w-full h-[6px] rounded-full bg-border overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-accent transition-all duration-300"
-                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 mt-1">
-              <button onClick={onClose} disabled={loading} className="btn btn-ghost btn-sm flex-1">
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={loading || parsedRows.length === 0}
-                className="btn btn-b btn-sm flex-1 disabled:opacity-40"
-              >
-                {loading
-                  ? 'Creating ' +
-                    (progress?.done ?? 0) +
-                    '/' +
-                    (progress?.total ?? parsedRows.length) +
-                    '...'
-                  : 'Create ' + parsedRows.length + ' Orders'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div
-                style={{
-                  background: STATUS_COLORS.successBg,
-                  border: `1px solid ${STATUS_COLORS.success}33`,
-                  borderRadius: 10,
-                  padding: 16,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.success }}>
-                  {result.created}
-                </div>
-                <div className="text-[11px] text-muted mt-1">Created</div>
-              </div>
-              <div
-                style={{
-                  background: STATUS_COLORS.errorBg,
-                  border: `1px solid ${STATUS_COLORS.error}33`,
-                  borderRadius: 10,
-                  padding: 16,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.error }}>
-                  {result.failed}
-                </div>
-                <div className="text-[11px] text-muted mt-1">Failed</div>
-              </div>
-            </div>
-            <button onClick={onClose} className="btn btn-g w-full">
-              Done
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="sm"
+      title={
+        <span className="flex items-center gap-2">
+          <Upload size={15} className="text-blue-t" />
+          {t('batch_import_title')}
+        </span>
+      }
+      footer={
+        !result ? (
+          <>
+            <button onClick={onClose} disabled={loading} className="btn btn-ghost btn-sm flex-1">
+              Cancel
             </button>
+            <button
+              onClick={handleCreate}
+              disabled={loading || parsedRows.length === 0}
+              className="btn btn-b btn-sm flex-1 disabled:opacity-40"
+            >
+              {loading
+                ? 'Creating ' +
+                  (progress?.done ?? 0) +
+                  '/' +
+                  (progress?.total ?? parsedRows.length) +
+                  '...'
+                : 'Create ' + parsedRows.length + ' Orders'}
+            </button>
+          </>
+        ) : (
+          <button onClick={onClose} className="btn btn-g w-full">
+            Done
+          </button>
+        )
+      }
+    >
+      {!result ? (
+        <div className="flex flex-col gap-4">
+          <div className="bg-surface border border-border rounded-lg p-[10px_14px] text-[11px] text-muted mono">
+            <div className="font-semibold mb-1 text-text-2">CSV format:</div>
+            <div>profile_id,shop_id,item_name,item_sku,amount</div>
           </div>
-        )}
-      </div>
-    </div>
+
+          <div>
+            <label className="form-label">Select CSV file</label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFile}
+              className="form-input p-[7px_12px] text-[12px] cursor-pointer"
+            />
+          </div>
+
+          {parsedRows.length > 0 && (
+            <div
+              style={{
+                background: STATUS_COLORS.infoBg,
+                border: `1px solid ${STATUS_COLORS.info}33`,
+                borderRadius: 8,
+                padding: '10px 14px',
+                fontSize: 12,
+              }}
+            >
+              <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
+                {parsedRows.length}
+              </span>
+              <span style={{ color: 'var(--text-2)', marginLeft: 6 }}>
+                valid row{parsedRows.length !== 1 ? 's' : ''} parsed from {fileName}
+              </span>
+            </div>
+          )}
+
+          {loading && progress && (
+            <div
+              className="mt-1"
+              role="progressbar"
+              aria-valuenow={progress.done}
+              aria-valuemin={0}
+              aria-valuemax={progress.total}
+            >
+              <div className="flex justify-between text-[11px] text-muted mb-1">
+                <span>
+                  {progress.done} / {progress.total}
+                </span>
+                <span>{Math.round((progress.done / progress.total) * 100)}%</span>
+              </div>
+              <div className="w-full h-[6px] rounded-full bg-border overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-accent transition-all duration-300"
+                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div
+              style={{
+                background: STATUS_COLORS.successBg,
+                border: `1px solid ${STATUS_COLORS.success}33`,
+                borderRadius: 10,
+                padding: 16,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.success }}>
+                {result.created}
+              </div>
+              <div className="text-[11px] text-muted mt-1">Created</div>
+            </div>
+            <div
+              style={{
+                background: STATUS_COLORS.errorBg,
+                border: `1px solid ${STATUS_COLORS.error}33`,
+                borderRadius: 10,
+                padding: 16,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.error }}>
+                {result.failed}
+              </div>
+              <div className="text-[11px] text-muted mt-1">Failed</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
   )
 }
