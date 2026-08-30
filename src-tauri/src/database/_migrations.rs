@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 25;
+    const LATEST_VERSION: u32 = 26;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -78,6 +78,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
         (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
         (23, migration_v23), (24, migration_v24), (25, migration_v25),
+        (26, migration_v26),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -911,6 +912,51 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(kind, pool_slice_id)
             );
+        "#)?;
+        Ok(())
+    }
+
+
+    // REDESIGN-05-5B3: трекинг-контур «перебивки».
+    // 1) tracking_checkpoints — история точек отслеживания по заказу
+    //    (in_transit → out_for_delivery → delivered → exception). Пишет
+    //    фоновый поллер run_tracking_update; дедуп — на уровне INSERT
+    //    (та же пара status+event_at+description не пишется дважды, см.
+    //    record_tracking_checkpoint в _orders.rs).
+    // 2) orders.delivered_at — когда поллер впервые увидел delivered
+    //    (нужно правилу «delivered >24ч и не перебит»).
+    // 3) статус 'received' — заказ перебит и получен дропом (сессия
+    //    перебивки); триггер v20 пересоздаётся аддитивно, старые значения
+    //    не ломаются (как и при FEAT-002-фиксе).
+    fn migration_v26(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS tracking_checkpoints (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id        INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                tracking_number TEXT NOT NULL,
+                carrier         TEXT,
+                status          TEXT NOT NULL,
+                status_detail   TEXT,
+                location        TEXT,
+                description     TEXT,
+                event_at        TEXT,
+                checked_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_checkpoints_order    ON tracking_checkpoints(order_id);
+            CREATE INDEX IF NOT EXISTS idx_checkpoints_tracking ON tracking_checkpoints(tracking_number);
+            CREATE INDEX IF NOT EXISTS idx_checkpoints_status   ON tracking_checkpoints(status);
+
+            ALTER TABLE orders ADD COLUMN delivered_at TEXT;
+
+            DROP TRIGGER IF EXISTS trg_order_status_check;
+            CREATE TRIGGER trg_order_status_check
+            BEFORE UPDATE OF status ON orders
+            BEGIN
+                SELECT CASE
+                    WHEN NEW.status NOT IN ('pending','processing','shipped','delivered','returned','cancelled','refunded','chargeback','declined','failed','received')
+                    THEN RAISE(ABORT, 'invalid order status')
+                END;
+            END;
         "#)?;
         Ok(())
     }

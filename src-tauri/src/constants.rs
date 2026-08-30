@@ -109,6 +109,9 @@ pub const REMINDER_CARD_EXPIRY_DAYS_DEFAULT: i64 = 14;
 /// FEAT-007: через сколько дней без обновления shipped-заказ «застоялся» (дефолт)
 pub const REMINDER_TRACKING_STALE_DAYS_DEFAULT: i64 = 5;
 
+/// REDESIGN-05-5B3: delivered старше стольких часов и не перебит → алерт
+pub const REWORK_OVERDUE_HOURS: i64 = 24;
+
 /// Couriers stuffer sync interval (5 minutes)
 pub const STUFFER_SYNC_INTERVAL_SECS: u64 = 300;
 

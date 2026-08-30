@@ -893,4 +893,191 @@ impl Database {
 
         Ok(SearchResults { cards, profiles, orders, shops, emails, proxies })
     }
+
+    // ─────────────────────────────────────────
+    //  REDESIGN-05-5B3: подсказки привязки трека из почты
+    // ─────────────────────────────────────────
+
+    /// Письма, из которых распарсен трек-номер, но он ещё не привязан ни к
+    /// одному заказу. Матч: 1) точный по extracted_order_number → заказ без
+    /// трека (high); 2) домен отправителя → магазин → самый свежий открытый
+    /// заказ магазина без трека (low). Решение о привязке — за пользователем,
+    /// автоподстановки нет (apply — существующий update_order_tracking).
+    pub fn suggest_tracking_links(&self) -> Result<Vec<crate::models::TrackingLinkSuggestion>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, subject, from_email, from_domain, received_at, extracted_order_number, extracted_tracking
+             FROM imap_messages
+             WHERE extracted_tracking IS NOT NULL AND extracted_tracking != ''
+             ORDER BY id DESC LIMIT 200"
+        ).map_err(|e| e.to_string())?;
+        struct Row {
+            id: i64, subject: String, from_email: String, from_domain: Option<String>,
+            received_at: Option<String>, order_number: Option<String>, tracking: String,
+        }
+        let msgs: Vec<Row> = stmt.query_map([], |r| Ok(Row {
+            id: r.get(0)?, subject: r.get(1)?, from_email: r.get(2)?, from_domain: r.get(3)?,
+            received_at: r.get(4)?, order_number: r.get(5)?, tracking: r.get(6)?,
+        })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+
+        let mut out: Vec<crate::models::TrackingLinkSuggestion> = Vec::new();
+        let mut seen: std::collections::HashSet<(i64, String)> = std::collections::HashSet::new();
+        for m in msgs {
+            if out.len() >= 50 { break; }
+            // трек уже привязан к какому-то заказу — подсказка не нужна
+            let linked: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM orders WHERE tracking_number=?1",
+                params![m.tracking], |r| r.get(0),
+            ).unwrap_or(0);
+            if linked > 0 { continue; }
+            let carrier = crate::tracking::detect_carrier(&m.tracking).map(|c| c.to_string());
+
+            // 1) точный матч по номеру заказа из письма
+            if let Some(on) = m.order_number.as_deref().filter(|s| !s.is_empty()) {
+                let hit: Option<(i64, Option<String>)> = self.conn.query_row(
+                    "SELECT id, tracking_number FROM orders WHERE order_number=?1 LIMIT 1",
+                    params![on], |r| Ok((r.get(0)?, r.get(1)?)),
+                ).ok();
+                if let Some((oid, cur_tracking)) = hit {
+                    if cur_tracking.as_deref().map(|t| t.is_empty()).unwrap_or(true)
+                        && seen.insert((oid, m.tracking.clone())) {
+                        out.push(crate::models::TrackingLinkSuggestion {
+                            message_id: m.id, order_id: Some(oid), order_number: Some(on.to_string()),
+                            tracking_number: m.tracking.clone(), carrier, confidence: "high".into(),
+                            reason: "order_number".into(), subject: m.subject.clone(),
+                            from_email: m.from_email.clone(), received_at: m.received_at.clone(),
+                        });
+                        continue;
+                    }
+                }
+            }
+
+            // 2) домен отправителя → магазин → свежий открытый заказ без трека
+            if let Some(dom) = m.from_domain.as_deref().filter(|s| !s.is_empty()) {
+                let shop_id: Option<i64> = self.conn.query_row(
+                    "SELECT id FROM shops WHERE ?1 = domain OR ?1 LIKE '%.' || domain LIMIT 1",
+                    params![dom], |r| r.get(0),
+                ).ok();
+                if let Some(sid) = shop_id {
+                    let hit: Option<(i64, Option<String>)> = self.conn.query_row(
+                        "SELECT id, order_number FROM orders
+                         WHERE shop_id=?1 AND (tracking_number IS NULL OR tracking_number='')
+                           AND status IN ('pending','shipped')
+                         ORDER BY created_at DESC LIMIT 1",
+                        params![sid], |r| Ok((r.get(0)?, r.get(1)?)),
+                    ).ok();
+                    if let Some((oid, on)) = hit {
+                        if seen.insert((oid, m.tracking.clone())) {
+                            out.push(crate::models::TrackingLinkSuggestion {
+                                message_id: m.id, order_id: Some(oid), order_number: on,
+                                tracking_number: m.tracking.clone(), carrier, confidence: "low".into(),
+                                reason: "shop_domain".into(), subject: m.subject.clone(),
+                                from_email: m.from_email.clone(), received_at: m.received_at.clone(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Ok(out)
+    }
+}
+
+
+// ─────────────────────────────────────────
+//  REDESIGN-05-5B3: suggest_tracking_links — тесты
+// ─────────────────────────────────────────
+
+#[cfg(test)]
+mod suggest_tracking_tests {
+    use crate::database::Database;
+
+    fn test_db() -> (tempfile::TempDir, Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("suggest.db");
+        let db = Database::open(path.to_str().unwrap()).unwrap();
+        (dir, db)
+    }
+
+    fn seed_account(db: &Database) -> i64 {
+        db.conn.execute(
+            "INSERT INTO imap_accounts(label,host,login) VALUES('acc','imap.example.com','u@example.com')",
+            [],
+        ).unwrap();
+        db.conn.last_insert_rowid()
+    }
+
+    fn seed_message(db: &Database, account_id: i64, order_number: Option<&str>, tracking: Option<&str>, from_domain: Option<&str>) -> i64 {
+        db.conn.execute(
+            "INSERT INTO imap_messages(account_id,message_uid,folder,subject,from_email,from_domain,body,received_at,processed,extracted_order_number,extracted_tracking)
+             VALUES(?1,1,'INBOX','Your order shipped','noreply@shop.example',?5,'body',datetime('now'),1,?2,?3)",
+            rusqlite::params![account_id, order_number, tracking, from_domain, from_domain],
+        ).unwrap();
+        db.conn.last_insert_rowid()
+    }
+
+    fn seed_order(db: &Database, order_number: &str, status: &str, tracking: Option<&str>, shop_id: Option<i64>) -> i64 {
+        db.conn.execute(
+            "INSERT INTO orders(order_number,status,tracking_number,shop_id) VALUES(?1,?2,?3,?4)",
+            rusqlite::params![order_number, status, tracking, shop_id],
+        ).unwrap();
+        db.conn.last_insert_rowid()
+    }
+
+    #[test]
+    fn test_suggest_high_confidence_by_order_number() {
+        let (_dir, db) = test_db();
+        let acc = seed_account(&db);
+        let oid = seed_order(&db, "WB-777", "pending", None, None);
+        seed_message(&db, acc, Some("WB-777"), Some("1Z999AA01000000001"), None);
+
+        let out = db.suggest_tracking_links().unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].order_id, Some(oid));
+        assert_eq!(out[0].confidence, "high");
+        assert_eq!(out[0].reason, "order_number");
+        assert_eq!(out[0].tracking_number, "1Z999AA01000000001");
+        assert_eq!(out[0].carrier.as_deref(), Some("UPS"));
+    }
+
+    #[test]
+    fn test_suggest_low_confidence_by_shop_domain() {
+        let (_dir, db) = test_db();
+        let acc = seed_account(&db);
+        db.conn.execute("INSERT INTO shops(name,domain) VALUES('MyShop','myshop.com')", []).unwrap();
+        let shop_id = db.conn.last_insert_rowid();
+        let oid = seed_order(&db, "WB-555", "shipped", None, Some(shop_id));
+        seed_message(&db, acc, None, Some("9400100000000000000001"), Some("myshop.com"));
+
+        let out = db.suggest_tracking_links().unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].order_id, Some(oid));
+        assert_eq!(out[0].confidence, "low");
+        assert_eq!(out[0].reason, "shop_domain");
+        assert_eq!(out[0].carrier.as_deref(), Some("USPS"));
+    }
+
+    #[test]
+    fn test_suggest_skips_already_linked_and_occupied() {
+        let (_dir, db) = test_db();
+        let acc = seed_account(&db);
+        // трек уже привязан к заказу — подсказки быть не должно
+        seed_order(&db, "WB-100", "shipped", Some("1Z111"), None);
+        seed_message(&db, acc, Some("WB-100"), Some("1Z111"), None);
+        // заказ по номеру найден, но трек уже стоит — не предлагаем
+        seed_order(&db, "WB-200", "shipped", Some("1Z222"), None);
+        seed_message(&db, acc, Some("WB-200"), Some("1Z333"), None);
+
+        let out = db.suggest_tracking_links().unwrap();
+        assert!(out.is_empty(), "привязанные треки и занятые заказы не предлагаются: {:?}", out.iter().map(|s| &s.tracking_number).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn test_suggest_no_match_skipped() {
+        let (_dir, db) = test_db();
+        let acc = seed_account(&db);
+        // ни order_number не матчится, ни домен неизвестен — подсказки нет
+        seed_message(&db, acc, Some("WB-404"), Some("1Z404"), Some("unknown-shop.io"));
+        let out = db.suggest_tracking_links().unwrap();
+        assert!(out.is_empty());
+    }
 }

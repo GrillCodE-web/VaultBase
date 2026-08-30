@@ -259,7 +259,9 @@ impl Database {
 
     pub fn update_order_status(&self, id: i64, status: &str, meta: Option<&StatusMeta>, changed_by: Option<i64>) -> Result<(), String> {
         // FIX B64: валидация допустимых статусов
-        const VALID_STATUSES: &[&str] = &["pending", "shipped", "delivered", "declined", "cancelled", "failed"];
+        // REDESIGN-05-5B3: 'received' — заказ перебит дропом (сессия перебивки);
+        // триггер БД обновлён миграцией v26.
+        const VALID_STATUSES: &[&str] = &["pending", "shipped", "delivered", "declined", "cancelled", "failed", "received"];
         if !VALID_STATUSES.contains(&status) {
             return Err(format!("invalid_status: '{}'. Allowed: {}", status, VALID_STATUSES.join(", ")));
         }
@@ -679,6 +681,165 @@ impl Database {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
         }).map_err(|e| e.to_string())?;
         Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    // ─────────────────────────────────────────
+    //  REDESIGN-05-5B3: checkpoints + перебивка
+    // ─────────────────────────────────────────
+
+    /// Записать checkpoint трекинга. Дедуп: та же комбинация
+    /// (order_id, status, event_at, description) второй раз не пишется —
+    /// поллер дёргается каждые N минут и API отдаёт всю историю событий.
+    /// Возвращает true, если строка реально добавлена.
+    pub fn record_tracking_checkpoint(
+        &self,
+        order_id: i64,
+        tracking_number: &str,
+        carrier: Option<&str>,
+        status: &str,
+        status_detail: Option<&str>,
+        location: Option<&str>,
+        description: Option<&str>,
+        event_at: Option<&str>,
+    ) -> Result<bool, String> {
+        let exists: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM tracking_checkpoints
+             WHERE order_id=?1 AND status=?2
+               AND COALESCE(event_at,'')=COALESCE(?3,'')
+               AND COALESCE(description,'')=COALESCE(?4,'')",
+            params![order_id, status, event_at, description], |r| r.get(0),
+        ).unwrap_or(0);
+        if exists > 0 { return Ok(false); }
+        self.conn.execute(
+            "INSERT INTO tracking_checkpoints(order_id,tracking_number,carrier,status,status_detail,location,description,event_at)
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+            params![order_id, tracking_number, carrier, status, status_detail, location, description, event_at],
+        ).map_err(|e| e.to_string())?;
+        Ok(true)
+    }
+
+    /// Последний по времени checkpoint заказа (для детекта перехода статуса).
+    pub fn latest_checkpoint_status(&self, order_id: i64) -> Result<Option<String>, String> {
+        self.conn.query_row(
+            "SELECT status FROM tracking_checkpoints WHERE order_id=?1
+             ORDER BY id DESC LIMIT 1",
+            params![order_id], |r| r.get(0),
+        ).map(Some).or_else(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Ok(None),
+            other => Err(other.to_string()),
+        })
+    }
+
+    /// История checkpoints заказа, новые сверху (таймлайн трекинга в UI).
+    pub fn get_order_checkpoints(&self, order_id: i64) -> Result<Vec<crate::models::TrackingCheckpoint>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id,order_id,tracking_number,carrier,status,status_detail,location,description,event_at,checked_at
+             FROM tracking_checkpoints WHERE order_id=?1 ORDER BY id DESC LIMIT 200"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![order_id], |r| Ok(crate::models::TrackingCheckpoint {
+            id: r.get(0)?, order_id: r.get(1)?, tracking_number: r.get(2)?,
+            carrier: r.get(3)?, status: r.get(4)?, status_detail: r.get(5)?,
+            location: r.get(6)?, description: r.get(7)?, event_at: r.get(8)?,
+            checked_at: r.get(9)?,
+        })).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Проставить orders.delivered_at один раз (первый delivered от поллера).
+    pub fn mark_order_delivered_at(&self, order_id: i64) -> Result<(), String> {
+        self.conn.execute(
+            "UPDATE orders SET delivered_at=datetime('now') WHERE id=?1 AND delivered_at IS NULL",
+            params![order_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    fn map_rework_candidate(r: &rusqlite::Row) -> rusqlite::Result<crate::models::ReworkCandidate> {
+        Ok(crate::models::ReworkCandidate {
+            order_id: r.get(0)?, order_number: r.get(1)?, tracking_number: r.get(2)?,
+            carrier: r.get(3)?, status: r.get(4)?, delivered_at: r.get(5)?,
+            last_checkpoint: r.get(6)?, last_checkpoint_at: r.get(7)?,
+            drop_id: r.get(8)?, drop_city: r.get(9)?, drop_address: r.get(10)?,
+        })
+    }
+
+    const REWORK_SELECT: &'static str =
+        "SELECT o.id, o.order_number, o.tracking_number, o.carrier, o.status, o.delivered_at,
+                (SELECT c.status FROM tracking_checkpoints c WHERE c.order_id=o.id ORDER BY c.id DESC LIMIT 1),
+                (SELECT c.checked_at FROM tracking_checkpoints c WHERE c.order_id=o.id ORDER BY c.id DESC LIMIT 1),
+                o.drop_id, d.city, d.address
+         FROM orders o LEFT JOIN drops d ON d.id=o.drop_id";
+
+    /// Кандидаты в сессию перебивки: активные заказы, у которых последний
+    /// checkpoint — out_for_delivery или delivered. Группировка по дропу/городу —
+    /// на фронте, здесь отдаём полями.
+    pub fn get_rework_candidates(&self) -> Result<Vec<crate::models::ReworkCandidate>, String> {
+        let sql = format!(
+            "{} WHERE o.status IN ('shipped','delivered') \
+             AND (SELECT c.status FROM tracking_checkpoints c WHERE c.order_id=o.id ORDER BY c.id DESC LIMIT 1) \
+                 IN ('out_for_delivery','delivered') \
+             ORDER BY d.city, o.id DESC LIMIT 300",
+            Self::REWORK_SELECT
+        );
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], Self::map_rework_candidate).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Правило «delivered >N часов и не перебит»: delivered_at старше порога,
+    /// статус всё ещё delivered (перебитые уходят в 'received').
+    pub fn get_rework_overdue(&self, hours: i64) -> Result<Vec<crate::models::ReworkCandidate>, String> {
+        let sql = format!(
+            "{} WHERE o.status='delivered' AND o.delivered_at IS NOT NULL \
+             AND o.delivered_at <= datetime('now', ?1) \
+             ORDER BY o.delivered_at LIMIT 300",
+            Self::REWORK_SELECT
+        );
+        let modifier = format!("-{} hours", hours.max(1));
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![modifier], Self::map_rework_candidate).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Сессия перебивки: полученные дропом заказы → 'received', остальные
+    /// из чеклиста → обратно в 'shipped' с заметкой. Оба перехода идут через
+    /// update_order_status — история (order_status_history) и automation-правила
+    /// сохраняются. Возвращает (received_count, missing_count).
+    pub fn complete_rework_session(
+        &self,
+        received_ids: &[i64],
+        missing_ids: &[i64],
+        note: Option<&str>,
+        changed_by: Option<i64>,
+    ) -> Result<(usize, usize), String> {
+        // дедуп пересечений: id из received выигрывает
+        let received_set: std::collections::HashSet<i64> = received_ids.iter().copied().collect();
+        let mut received_n = 0usize;
+        for &id in &received_set {
+            self.update_order_status(id, "received", None, changed_by)?;
+            received_n += 1;
+        }
+        let stamp = format!(
+            "Перебивка {}: не получен{}",
+            chrono::Utc::now().format("%Y-%m-%d"),
+            note.map(|n| format!(" — {}", n)).unwrap_or_default(),
+        );
+        let mut missing_n = 0usize;
+        for &id in missing_ids {
+            if received_set.contains(&id) { continue; }
+            self.update_order_status(id, "shipped", None, changed_by)?;
+            self.conn.execute(
+                "UPDATE orders SET notes = CASE WHEN notes IS NULL OR notes='' THEN ?1 ELSE notes || char(10) || ?1 END WHERE id=?2",
+                params![stamp, id],
+            ).map_err(|e| e.to_string())?;
+            missing_n += 1;
+        }
+        let _ = self.log_event(
+            "order.rework_session",
+            &format!("Rework session: {} received, {} not received", received_n, missing_n),
+            Some("order"), None,
+        );
+        Ok((received_n, missing_n))
     }
 }
 
@@ -1112,5 +1273,121 @@ mod tests {
         assert_eq!(last.1, "cancelled");
         assert_eq!(last.2, Some(u1));
         assert_eq!(last.3, "bulk");
+    }
+}
+
+
+// ─────────────────────────────────────────
+//  REDESIGN-05-5B3: checkpoints + перебивка — интеграционные тесты
+// ─────────────────────────────────────────
+
+#[cfg(test)]
+mod rework_tests {
+    use crate::database::Database;
+
+    fn test_db() -> (tempfile::TempDir, Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rework.db");
+        let db = Database::open(path.to_str().unwrap()).unwrap();
+        (dir, db)
+    }
+
+    fn seed_order(db: &Database, status: &str, tracking: Option<&str>) -> i64 {
+        db.conn.execute(
+            "INSERT INTO orders(order_number,status,tracking_number,carrier) VALUES(?3,?1,?2,'UPS')",
+            rusqlite::params![status, tracking, format!("WB-{}", tracking.unwrap_or("X"))],
+        ).unwrap();
+        db.conn.last_insert_rowid()
+    }
+
+    fn order_status(db: &Database, id: i64) -> String {
+        db.conn.query_row("SELECT status FROM orders WHERE id=?1", rusqlite::params![id], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn test_checkpoint_dedup_and_latest() {
+        let (_dir, db) = test_db();
+        let oid = seed_order(&db, "shipped", Some("1Z999"));
+        assert!(db.record_tracking_checkpoint(oid, "1Z999", Some("UPS"), "in_transit", None, Some("Kyiv"), Some("Departed"), Some("2026-08-30 10:00")).unwrap());
+        // дубликат (та же status+event_at+description) не пишется
+        assert!(!db.record_tracking_checkpoint(oid, "1Z999", Some("UPS"), "in_transit", None, Some("Kyiv"), Some("Departed"), Some("2026-08-30 10:00")).unwrap());
+        // новое событие — пишется
+        assert!(db.record_tracking_checkpoint(oid, "1Z999", Some("UPS"), "out_for_delivery", None, None, Some("Out for Delivery"), Some("2026-08-31 08:00")).unwrap());
+        assert_eq!(db.latest_checkpoint_status(oid).unwrap().as_deref(), Some("out_for_delivery"));
+        let cps = db.get_order_checkpoints(oid).unwrap();
+        assert_eq!(cps.len(), 2);
+        assert_eq!(cps[0].status, "out_for_delivery"); // новые сверху
+    }
+
+    #[test]
+    fn test_rework_candidates_filter() {
+        let (_dir, db) = test_db();
+        let o1 = seed_order(&db, "shipped", Some("1Z001"));
+        let o2 = seed_order(&db, "pending", Some("1Z002"));
+        let _o3 = seed_order(&db, "shipped", Some("1Z003")); // без checkpoints
+        db.record_tracking_checkpoint(o1, "1Z001", None, "out_for_delivery", None, None, None, None).unwrap();
+        db.record_tracking_checkpoint(o2, "1Z002", None, "delivered", None, None, None, None).unwrap();
+        let cands = db.get_rework_candidates().unwrap();
+        let ids: Vec<i64> = cands.iter().map(|c| c.order_id).collect();
+        assert!(ids.contains(&o1), "shipped + out_for_delivery → кандидат");
+        assert!(!ids.contains(&o2), "pending отфильтрован по статусу заказа");
+        assert_eq!(ids.len(), 1);
+        assert_eq!(cands[0].last_checkpoint.as_deref(), Some("out_for_delivery"));
+    }
+
+    #[test]
+    fn test_complete_rework_session() {
+        let (_dir, db) = test_db();
+        let got = seed_order(&db, "delivered", Some("1Z101"));
+        let lost = seed_order(&db, "delivered", Some("1Z102"));
+        // changed_by=None: в тестовой БД нет users (FK на users.id, PRAGMA foreign_keys=ON)
+        let (r, m) = db.complete_rework_session(&[got], &[got, lost], Some("дроп молчит"), None).unwrap();
+        assert_eq!((r, m), (1, 1), "пересечение списков выигрывает received");
+        assert_eq!(order_status(&db, got), "received");
+        assert_eq!(order_status(&db, lost), "shipped");
+        let notes: String = db.conn.query_row("SELECT notes FROM orders WHERE id=?1", rusqlite::params![lost], |r| r.get(0)).unwrap();
+        assert!(notes.contains("Перебивка") && notes.contains("дроп молчит"));
+        // история переходов записана (received — новый статус v26)
+        let hist: i64 = db.conn.query_row(
+            "SELECT COUNT(*) FROM order_status_history WHERE order_id=?1 AND to_status='received'",
+            rusqlite::params![got], |r| r.get(0)).unwrap();
+        assert_eq!(hist, 1);
+    }
+
+    #[test]
+    fn test_rework_overdue_rule() {
+        let (_dir, db) = test_db();
+        let old = seed_order(&db, "delivered", Some("1Z201"));
+        let fresh = seed_order(&db, "delivered", Some("1Z202"));
+        let reworked = seed_order(&db, "delivered", Some("1Z203"));
+        db.mark_order_delivered_at(old).unwrap();
+        db.mark_order_delivered_at(fresh).unwrap();
+        db.mark_order_delivered_at(reworked).unwrap();
+        // старый delivered — 48 часов назад
+        db.conn.execute("UPDATE orders SET delivered_at=datetime('now','-48 hours') WHERE id=?1", rusqlite::params![old]).unwrap();
+        // перебитый (received) со старым delivered_at — не алерт
+        db.update_order_status(reworked, "received", None, None).unwrap();
+        db.conn.execute("UPDATE orders SET delivered_at=datetime('now','-48 hours') WHERE id=?1", rusqlite::params![reworked]).unwrap();
+
+        let overdue = db.get_rework_overdue(24).unwrap();
+        let ids: Vec<i64> = overdue.iter().map(|c| c.order_id).collect();
+        assert!(ids.contains(&old));
+        assert!(!ids.contains(&fresh), "свежий delivered ещё не просрочен");
+        assert!(!ids.contains(&reworked), "received исключён из алертов");
+        // mark_order_delivered_at идемпотентен — не затирает первый delivered
+        db.mark_order_delivered_at(old).unwrap();
+        let ts: String = db.conn.query_row("SELECT delivered_at FROM orders WHERE id=?1", rusqlite::params![old], |r| r.get(0)).unwrap();
+        assert!(ts.as_str() < "2027-01-01", "delivered_at остался старым, got {}", ts);
+    }
+
+    #[test]
+    fn test_status_received_allowed_by_trigger() {
+        let (_dir, db) = test_db();
+        let oid = seed_order(&db, "delivered", None);
+        db.update_order_status(oid, "received", None, None).unwrap();
+        assert_eq!(order_status(&db, oid), "received");
+        // мусорный статус по-прежнему отклоняется триггером БД
+        let err = db.update_order_status(oid, "bogus", None, None);
+        assert!(err.is_err());
     }
 }

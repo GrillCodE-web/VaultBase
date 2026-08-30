@@ -1622,3 +1622,53 @@ pub struct TrackingEvent {
     pub location: Option<String>,
     pub description: String,
 }
+
+// ─────────────────────────────────────────
+//  REDESIGN-05-5B3: трекинг-перебивка
+// ─────────────────────────────────────────
+
+/// Одна точка отслеживания заказа (tracking_checkpoints, миграция v26).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TrackingCheckpoint {
+    pub id: i64,
+    pub order_id: i64,
+    pub tracking_number: String,
+    pub carrier: Option<String>,
+    pub status: String, // pre_transit/in_transit/out_for_delivery/delivered/exception/unknown
+    pub status_detail: Option<String>,
+    pub location: Option<String>,
+    pub description: Option<String>,
+    pub event_at: Option<String>,
+    pub checked_at: String,
+}
+
+/// Кандидат в сессию перебивки: заказ с сигналом out_for_delivery/delivered.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ReworkCandidate {
+    pub order_id: i64,
+    pub order_number: Option<String>,
+    pub tracking_number: Option<String>,
+    pub carrier: Option<String>,
+    pub status: String,
+    pub delivered_at: Option<String>,
+    pub last_checkpoint: Option<String>, // None — статус delivered выставлен вручную, checkpoints ещё нет
+    pub last_checkpoint_at: Option<String>,
+    pub drop_id: Option<i64>,
+    pub drop_city: Option<String>,
+    pub drop_address: Option<String>,
+}
+
+/// Подсказка «привязать трек из письма к заказу» (парсинг IMAP-писем).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TrackingLinkSuggestion {
+    pub message_id: i64,
+    pub order_id: Option<i64>,
+    pub order_number: Option<String>,
+    pub tracking_number: String,
+    pub carrier: Option<String>,
+    pub confidence: String, // high = точный матч по order_number, low = по домену магазина
+    pub reason: String,     // order_number | shop_domain
+    pub subject: String,
+    pub from_email: String,
+    pub received_at: Option<String>,
+}

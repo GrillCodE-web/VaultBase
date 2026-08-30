@@ -496,6 +496,21 @@ export function getTauriMockScript() {
     get_order_templates: function () { return [] },
     save_order_template: function () { return true },
 
+    // ── REDESIGN-05-5B3: трекинг-перебивка (пустые дефолты) ──
+    get_tracking_checkpoints: function () { return [] },
+    get_rework_candidates: function () { return [] },
+    get_rework_alerts: function () { return [] },
+    suggest_tracking_links: function () { return [] },
+    complete_rework_session: function (a) {
+      var received = (a && a.receivedIds) || []
+      var missing = (a && a.missingIds) || []
+      state.orders.forEach(function (o) {
+        if (received.some(function (i) { return o.id === i })) o.status = 'received'
+        else if (missing.some(function (i) { return o.id === i })) o.status = 'shipped'
+      })
+      return { received: received.length, missing: missing.length }
+    },
+
     // ── stuffer (Couriers): ключ не «настроен» — страница покажет экран настройки ──
     stuffer_get_config: function () {
       return { api_key_set: false, base_url: '', provider: 'swat',

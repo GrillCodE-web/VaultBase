@@ -161,3 +161,54 @@ pub(crate) fn batch_create_orders(orders: Vec<serde_json::Value>) -> Result<serd
         Ok(serde_json::json!({ "created": ok, "failed": fail }))
     })
 }
+
+// ─────────────────────────────────────────
+//  REDESIGN-05-5B3: трекинг-перебивка
+// ─────────────────────────────────────────
+
+/// История checkpoints заказа (таймлайн трекинга).
+#[tauri::command]
+pub(crate) fn get_tracking_checkpoints(order_id: i64) -> Result<Vec<TrackingCheckpoint>, String> {
+    require_user()?;
+    with_db!(db, { db.get_order_checkpoints(order_id) })
+}
+
+/// Кандидаты в сессию перебивки: последний checkpoint out_for_delivery/delivered.
+#[tauri::command]
+pub(crate) fn get_rework_candidates() -> Result<Vec<ReworkCandidate>, String> {
+    require_user()?;
+    with_db!(db, { db.get_rework_candidates() })
+}
+
+/// Правило «delivered >24ч и не перебит» — красная подсветка + уведомление.
+#[tauri::command]
+pub(crate) fn get_rework_alerts() -> Result<Vec<ReworkCandidate>, String> {
+    require_user()?;
+    with_db!(db, { db.get_rework_overdue(crate::constants::REWORK_OVERDUE_HOURS) })
+}
+
+/// Подсказки привязки трека из писем к открытым заказам (матч по номеру
+/// заказа / домену магазина). Автоподстановки нет — apply делает
+/// существующая update_order_tracking.
+#[tauri::command]
+pub(crate) fn suggest_tracking_links() -> Result<Vec<TrackingLinkSuggestion>, String> {
+    require_user()?;
+    with_db!(db, { db.suggest_tracking_links() })
+}
+
+/// Сессия перебивки: полученные → 'received', остальные из чеклиста →
+/// обратно в 'shipped' с заметкой. Один вызов = одна сессия.
+#[tauri::command]
+pub(crate) fn complete_rework_session(
+    received_ids: Vec<i64>,
+    missing_ids: Vec<i64>,
+    note: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let user = require_perm(models::perms::CREATE_ORDERS)?;
+    with_db!(db, {
+        if db.is_locked() { return Err("database_locked".into()); }
+        let (received, missing) = db.complete_rework_session(
+            &received_ids, &missing_ids, note.as_deref(), Some(user.user_id))?;
+        Ok(serde_json::json!({ "received": received, "missing": missing }))
+    })
+}

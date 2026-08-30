@@ -425,6 +425,35 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                 }
             }
         }),
+        // REDESIGN-05-5B3: правило «delivered >24ч и не перебит» —
+        // красная подсветка на фронте + уведомление (раз в сутки).
+        CronTask::new("rework_overdue_reminder", crate::constants::REMINDER_CHECK_INTERVAL_SECS, crate::constants::REMINDER_START_DELAY_SECS, |h| {
+            if let Some(st) = STATE.get() {
+                let Ok(db) = st.db.lock() else { return };
+                if db.is_locked() { return; }
+                let hours = crate::constants::REWORK_OVERDUE_HOURS;
+                let orders = db.get_rework_overdue(hours).unwrap_or_default();
+                if !orders.is_empty() {
+                    let _ = db.log_event(
+                        "order.rework_overdue",
+                        &format!("{} delivered-orders not reworked >{}h", orders.len(), hours),
+                        Some("order"), None,
+                    );
+                }
+                drop(db); // не держим lock на emit
+                if !orders.is_empty() {
+                    let _ = h.emit("rework_overdue", serde_json::json!({
+                        "count": orders.len(),
+                        "hours": hours,
+                        "orders": orders.iter().map(|o| serde_json::json!({
+                            "order_id": o.order_id, "order_number": o.order_number,
+                            "tracking_number": o.tracking_number, "carrier": o.carrier,
+                            "delivered_at": o.delivered_at, "drop_city": o.drop_city,
+                        })).collect::<Vec<_>>(),
+                    }));
+                }
+            }
+        }),
         // REDESIGN-05-5B2: публикация групповой статистики для панели
         // воркеров (каждые 5 минут; ошибки глушатся внутри publish).
         CronTask::new("group_stats_publish", crate::commands::group_panel::GROUP_STATS_INTERVAL_SECS, 60, |_h| {
@@ -590,6 +619,88 @@ mod cron_tests {
         assert_eq!(run_due_tasks(&mut tasks, &(), Instant::now()), 2);
         assert_eq!(RAN.load(Ordering::SeqCst), 1, "good выполнился после паники bad");
     }
+
+    #[test]
+    fn test_normalize_checkpoint_status() {
+        // описание точнее грубого статуса API
+        assert_eq!(super::normalize_checkpoint_status("in_transit", "Out for Delivery"), "out_for_delivery");
+        assert_eq!(super::normalize_checkpoint_status("in_transit", "Delivered, Front Door/Porch"), "delivered");
+        // приоритет out_for_delivery над delivered внутри одного текста
+        assert_eq!(super::normalize_checkpoint_status("delivered", "Out for delivery, delivered"), "out_for_delivery");
+        // грубые статусы без описания
+        assert_eq!(super::normalize_checkpoint_status("pre_transit", ""), "pre_transit");
+        assert_eq!(super::normalize_checkpoint_status("exception", ""), "exception");
+        // «Delivery exception» ≠ delivered
+        assert_eq!(super::normalize_checkpoint_status("exception", "Delivery exception — hold"), "exception");
+        // неизвестное → unknown
+        assert_eq!(super::normalize_checkpoint_status("weird", ""), "unknown");
+    }
+}
+
+/// REDESIGN-05-5B3: нормализация статуса checkpoint'а. Описание точнее
+/// грубого статуса API: USPS «Out for Delivery» приезжает как in_transit,
+/// а для сигнала «перебивай» нужна гранулярность out_for_delivery.
+pub(crate) fn normalize_checkpoint_status(raw: &str, description: &str) -> String {
+    let d = description.to_lowercase();
+    if d.contains("out for delivery") { return "out_for_delivery".into(); }
+    if d.contains("delivered") { return "delivered".into(); }
+    match raw {
+        "delivered" | "in_transit" | "pre_transit" | "exception" | "out_for_delivery" => raw.to_string(),
+        _ => "unknown".to_string(),
+    }
+}
+
+/// REDESIGN-05-5B3: записать события + текущий статус в tracking_checkpoints,
+/// проставить delivered_at и при переходе в out_for_delivery/delivered эмитнуть
+/// сигнал «перебивай» (rework_signal) + запись в activity log.
+pub(crate) fn record_tracking_checkpoints(
+    handle: &tauri::AppHandle,
+    order_ids: &HashMap<String, i64>,
+    tracking: &str,
+    carrier: Option<&str>,
+    latest_status: &str,
+    latest_detail: Option<&str>,
+    events: &[crate::models::TrackingEvent],
+) {
+    let Some(st) = STATE.get() else { return };
+    let Ok(db) = st.db.lock() else { return };
+    let Some(&oid) = order_ids.get(tracking) else { return };
+
+    let prev = db.latest_checkpoint_status(oid).ok().flatten();
+    for ev in events {
+        let norm = normalize_checkpoint_status(&ev.status, &ev.description);
+        let _ = db.record_tracking_checkpoint(
+            oid, tracking, carrier, &norm, None,
+            ev.location.as_deref(), Some(&ev.description), Some(&ev.timestamp),
+        );
+    }
+    let latest_norm = normalize_checkpoint_status(latest_status, latest_detail.unwrap_or(""));
+    let _ = db.record_tracking_checkpoint(
+        oid, tracking, carrier, &latest_norm, latest_detail, None, None, None,
+    );
+    if latest_norm == "delivered" {
+        let _ = db.mark_order_delivered_at(oid);
+    }
+    let new = db.latest_checkpoint_status(oid).ok().flatten();
+
+    let transition = new.as_deref().filter(|n| prev.as_deref() != Some(*n))
+        .filter(|n| matches!(*n, "out_for_delivery" | "delivered"));
+    if let Some(signal) = transition {
+        let order_number = db.get_order(oid).ok().and_then(|o| o.order_number);
+        let _ = db.log_event(
+            "order.rework_signal",
+            &format!("Order {} — {} (перебивка)", oid, signal),
+            Some("order"), Some(&oid.to_string()),
+        );
+        drop(db); // не держим lock на emit
+        let _ = handle.emit("rework_signal", serde_json::json!({
+            "order_id": oid,
+            "order_number": order_number,
+            "tracking_number": tracking,
+            "carrier": carrier,
+            "checkpoint_status": signal,
+        }));
+    }
 }
 
 pub(crate) fn run_tracking_update(handle: &tauri::AppHandle, api_key: &str) {
@@ -671,6 +782,9 @@ pub(crate) fn run_tracking_update(handle: &tauri::AppHandle, api_key: &str) {
     // Process direct carrier APIs first
     for tracking in &ups {
         if let Ok(status) = tracking::check_ups_tracking(tracking) {
+            // REDESIGN-05-5B3: checkpoints + сигнал «перебивай» до смены статуса
+            record_tracking_checkpoints(handle, &order_ids, tracking, Some("UPS"),
+                &status.status, Some(&status.status_detail), &status.events);
             if let Some(s) = map_carrier_status(&status.status) {
                 apply_tracking_update(handle, &order_ids, tracking, s);
             }
@@ -679,6 +793,8 @@ pub(crate) fn run_tracking_update(handle: &tauri::AppHandle, api_key: &str) {
 
     for tracking in &fedex {
         if let Ok(status) = tracking::check_fedex_tracking(tracking) {
+            record_tracking_checkpoints(handle, &order_ids, tracking, Some("FedEx"),
+                &status.status, Some(&status.status_detail), &status.events);
             if let Some(s) = map_carrier_status(&status.status) {
                 apply_tracking_update(handle, &order_ids, tracking, s);
             }
@@ -687,6 +803,8 @@ pub(crate) fn run_tracking_update(handle: &tauri::AppHandle, api_key: &str) {
 
     for tracking in &usps {
         if let Ok(status) = tracking::check_usps_tracking(tracking) {
+            record_tracking_checkpoints(handle, &order_ids, tracking, Some("USPS"),
+                &status.status, Some(&status.status_detail), &status.events);
             if let Some(s) = map_carrier_status(&status.status) {
                 apply_tracking_update(handle, &order_ids, tracking, s);
             }
@@ -720,6 +838,18 @@ pub(crate) fn run_tracking_update(handle: &tauri::AppHandle, api_key: &str) {
             for item in accepted {
                 let number = match item["number"].as_str() { Some(n) => n, None => continue };
                 let status_str = item["track_info"]["latest_status"]["status"].as_str().unwrap_or("");
+                // REDESIGN-05-5B3: checkpoint с гранулярностью 17track
+                // (OutForDelivery виден здесь, хотя статус заказа остаётся shipped).
+                let cp_status = match status_str {
+                    "Delivered"                 => "delivered",
+                    "OutForDelivery"            => "out_for_delivery",
+                    "InTransit" | "Pickup"      => "in_transit",
+                    "Expired"                   => "exception",
+                    _                           => "",
+                };
+                if !cp_status.is_empty() {
+                    record_tracking_checkpoints(handle, &order_ids, number, None, cp_status, None, &[]);
+                }
                 let new_status = match status_str {
                     "Delivered"                               => Some("delivered"),
                     "InTransit" | "Pickup" | "OutForDelivery" => Some("shipped"),
