@@ -1,16 +1,12 @@
+// REDESIGN-05-2: пустое состояние переведено с инлайн/Tailwind-литералов
+// на семантические классы empty-state* (components.css). Визуал тот же.
 export function EmptyState({ icon, title, subtitle, action, colSpan }) {
   const inner = (
-    <div className="flex flex-col items-center justify-center gap-2.5 py-[52px] px-5">
-      <div style={{ fontSize: 38, lineHeight: 1 }} className="opacity-25">
-        {icon}
-      </div>
-      <div className="text-[14px] font-semibold text-text mt-1">{title}</div>
-      {subtitle && (
-        <div className="text-[12px] text-muted text-center" style={{ maxWidth: 260 }}>
-          {subtitle}
-        </div>
-      )}
-      {action && <div className="mt-2">{action}</div>}
+    <div className="empty-state">
+      {icon && <div className="empty-state-icon">{icon}</div>}
+      <div className="empty-state-title">{title}</div>
+      {subtitle && <div className="empty-state-text">{subtitle}</div>}
+      {action && <div className="empty-state-action">{action}</div>}
     </div>
   )
 

@@ -3069,25 +3069,19 @@
    ═══════════════════════════════════════════════════════════ */
 
   /* ── Подложка ───────────────────────────────────────────────
-   Легче прежней: macOS не затемняет фон почти до чёрного. */
+   REDESIGN-05-2: по эталону 05 — rgba(10,12,20,.45) (--overlay-modal)
+   без blur (мокап не блюрит фон). */
   .modal-overlay {
     position: fixed;
     top: 0;
     right: 0;
     bottom: 0;
     left: 0;
-    background: var(--overlay-dark);
-    backdrop-filter: blur(6px);
+    background: var(--overlay-modal);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: var(--z-modal);
-  }
-
-  @supports not (backdrop-filter: blur(6px)) {
-    .modal-overlay {
-      background: var(--overlay-darker);
-    }
   }
 
   /* Confirm-диалог (useConfirm) — поверх открытых модалок */
@@ -3100,12 +3094,14 @@
     justify-content: center;
   }
 
-  /* ── Окно ───────────────────────────────────────────────── */
+  /* ── Окно ─────────────────────────────────────────────────
+     REDESIGN-05-2: по эталону 05 — радиус --r-card (14px),
+     мягкая --shadow-modal, тонкий бордер. */
   .modal,
   .modal-box {
     background: var(--card);
-    border: none;
-    border-radius: var(--r-xl);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
     width: 100%;
     /* --modal-size инлайнит Modal.jsx из пропа size (sm/md/lg/xl);
        без него — дефолт md. Не заменять на var(--modal-md): это ломает
@@ -3114,7 +3110,7 @@
     max-height: calc(100vh - 60px);
     overflow-y: auto;
     padding: var(--sp-5);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-modal);
     position: relative;
   }
 
@@ -3190,10 +3186,44 @@
     stroke-width: 1.5;
   }
 
-  /* ── Тело ───────────────────────────────────────────────── */
+  /* ── Тело ─────────────────────────────────────────────────
+     REDESIGN-05-2: .modal-scroll — тело со своим скроллом при
+     sticky-шапке/футере (CreateOrderModal и др.). Само окно
+     overflow:hidden; скроллит только тело. */
   .modal-body {
     margin-top: var(--sp-4);
     margin-bottom: var(--sp-4);
+  }
+
+  .modal-scroll {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .modal-scroll .modal-header,
+  .modal-scroll .modal-footer {
+    flex-shrink: 0;
+    padding-left: var(--sp-5);
+    padding-right: var(--sp-5);
+  }
+
+  .modal-scroll .modal-header {
+    padding-top: var(--sp-5);
+    padding-bottom: var(--sp-3);
+  }
+
+  .modal-scroll .modal-footer {
+    padding-bottom: var(--sp-5);
+  }
+
+  .modal-scroll .modal-body {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    padding: var(--sp-4) var(--sp-5);
   }
 
   /* ── Футер ──────────────────────────────────────────────────
@@ -3421,7 +3451,9 @@
     border-left-color: var(--color-error);
   }
 
-  /* ── Toast Notifications ────────────────────────────────── */
+  /* ── Toast Notifications ──────────────────────────────────
+     REDESIGN-05-2: карточный язык 05 — радиус --r-card, мягкая
+     --shadow-modal; левая цветная полоска сохраняется (статус). */
   .toast-container {
     position: fixed;
     top: 20px;
@@ -3435,12 +3467,12 @@
 
   .toast {
     background: var(--card);
-    border: 1px solid var(--border-hi);
-    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
     padding: var(--sp-3) var(--sp-4);
     min-width: 320px;
     max-width: 420px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-modal);
     display: flex;
     align-items: flex-start;
     gap: var(--sp-3);
@@ -3953,6 +3985,11 @@
     max-width: 340px;
     line-height: var(--lh-body);
     font-family: var(--font-ui);
+  }
+
+  /* Действие под текстом (кнопка «+ Создать…») */
+  .empty-state-action {
+    margin-top: var(--sp-3);
   }
 
   /* ── Скелетоны ──────────────────────────────────────────────

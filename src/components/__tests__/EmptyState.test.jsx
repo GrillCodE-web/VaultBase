@@ -71,10 +71,10 @@ describe('EmptyState', () => {
   it('applies correct styling structure', () => {
     const { container } = render(<EmptyState icon="✨" title="Test" />)
 
+    // REDESIGN-05-2: семантический класс вместо Tailwind-литералов
     const outerDiv = container.querySelector('div')
-    expect(outerDiv).toHaveClass('flex')
-    expect(outerDiv).toHaveClass('flex-col')
-    expect(outerDiv).toHaveClass('items-center')
-    expect(outerDiv).toHaveClass('justify-center')
+    expect(outerDiv).toHaveClass('empty-state')
+    expect(outerDiv.querySelector('.empty-state-icon')).toBeInTheDocument()
+    expect(outerDiv.querySelector('.empty-state-title')).toBeInTheDocument()
   })
 })
