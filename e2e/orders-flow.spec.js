@@ -82,8 +82,10 @@ test.describe('TEST-001: карта → заказ → отслеживание'
     await trackingInput.press('Enter')
     await expect(newRow).toContainText('1Z999E2E2E2E2', { timeout: 10000 })
 
-    // 11. Раскрыть строку — таймлайн отслеживания (dots по шагам статусов)
-    await newRow.click()
+    // 11. Раскрыть строку — таймлайн отслеживания (dots по шагам статусов).
+    // Клик по ячейке магазина (td[3]): центр строки попадает в инлайн-редактор
+    // трека со stopPropagation — тоггл раскрытия там не срабатывает.
+    await newRow.locator('td').nth(3).click()
     await expect(page.locator('.timeline-status-dot').first()).toBeVisible({ timeout: 10000 })
 
     // 12. Мок подтвердил фактические вызовы (статус + трек)

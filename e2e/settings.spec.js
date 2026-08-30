@@ -5,15 +5,15 @@ import { bootApp, navTo, unlockMaster } from './helpers.js'
 // TEST-005: Settings — язык и тема. Контракты, что проверяем:
 //   Язык — useLang (LangProvider): localStorage 'vaultbase_lang' ('en' по умолчанию,
 //          запись в стор только при переключении). Поверхности: Settings → General
-//          (EN/RU) и сайдбар-кнопка 'Language: EN' (aria-label 'Language: …').
+//          (EN/RU) и юзер-меню топбара (.topbar-avatar → menuitem 'Language: EN').
 //          Подписи через t(): nav_cards 'Cards'/'Карты', nav_orders 'Orders'/'Заказы',
 //          settings_bin_enrichment 'BIN Enrichment'/'BIN Обогащение'.
 //   Тема — useTheme: localStorage 'theme' + data-theme на <html>; режимы
 //          system/light/dark, дефолт 'dark'. Реальная покраска — tokens.css:
 //          [data-theme='light'] и корневые токены светлые, [data-theme='dark'] и
 //          @media (prefers-color-scheme: dark) { [data-theme='system'] } тёмные;
-//          body { background: var(--bg) }. Быстрый переключатель в сайдбаре
-//          (aria-label 'Appearance: …') циклит system → light → dark.
+//          body { background: var(--bg) }. Быстрый переключатель в топбаре
+//          (.topbar-ibtn, aria-label 'Theme: ...') циклит system → light → dark.
 
 const dataTheme = page => page.evaluate(() => document.documentElement.getAttribute('data-theme'))
 const stored = (page, key) => page.evaluate(k => localStorage.getItem(k), key)
@@ -37,6 +37,13 @@ function settingsUi(page) {
 
 const mainShell = page => page.locator('.main-content-wrapper')
 const navBtn = (page, label) => page.locator('button.sbi', { hasText: label }).first()
+// Топбар: юзер-меню за аватаром (Menu, роль menuitem), цикл темы — .topbar-ibtn
+const userMenuBtn = (page, label) => page.getByRole('menuitem', { name: label })
+const openUserMenu = async page => {
+  await page.locator('.topbar-avatar').click()
+  await expect(page.locator('.menu-dropdown')).toBeVisible()
+}
+const themeBtn = (page, label) => page.locator(`.topbar-ibtn[aria-label="Theme: ${label}"]`)
 
 test.describe('TEST-005: Язык (Settings)', () => {
   test.beforeEach(async ({ page }) => {
@@ -51,7 +58,8 @@ test.describe('TEST-005: Язык (Settings)', () => {
     await expect(ui.enBtn).toHaveClass(/btn-b/)
     await expect(ui.ruBtn).toHaveClass(/btn-ghost/)
     await expect(navBtn(page, 'Cards')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Language: EN' })).toBeVisible()
+    await openUserMenu(page)
+    await expect(userMenuBtn(page, 'Language: EN')).toBeVisible()
     expect(await stored(page, 'vaultbase_lang')).toBeNull()
   })
 
@@ -83,11 +91,13 @@ test.describe('TEST-005: Язык (Settings)', () => {
     expect(await stored(page, 'vaultbase_lang')).toBe('ru')
   })
 
-  test('сайдбар-переключатель Language: EN тоже включает RU (состояние общее)', async ({ page }) => {
+  test('юзер-меню Language: EN тоже включает RU (состояние общее)', async ({ page }) => {
     const ui = settingsUi(page)
-    await page.getByRole('button', { name: 'Language: EN' }).click()
+    await openUserMenu(page)
+    await userMenuBtn(page, 'Language: EN').click()
     await expect(navBtn(page, 'Карты')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Language: RU' })).toBeVisible()
+    await openUserMenu(page)
+    await expect(userMenuBtn(page, 'Язык: RU')).toBeVisible()
     await expect(ui.ruBtn).toHaveClass(/btn-b/)
     expect(await stored(page, 'vaultbase_lang')).toBe('ru')
   })
@@ -157,18 +167,18 @@ test.describe('TEST-005: Тема (Settings → Appearance)', () => {
     expect(await stored(page, 'theme')).toBe('light')
   })
 
-  test('сайдбар-цикл dark → system → light → dark синхронен с Settings', async ({ page }) => {
+  test('топбар-цикл темы dark → system → light → dark синхронен с Settings', async ({ page }) => {
     const ui = settingsUi(page)
-    await page.getByRole('button', { name: 'Appearance: Dark', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Appearance: System', exact: true })).toBeVisible()
+    await themeBtn(page, 'Dark').click()
+    await expect(themeBtn(page, 'System')).toBeVisible()
     expect(await dataTheme(page)).toBe('system')
 
-    await page.getByRole('button', { name: 'Appearance: System', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Appearance: Light', exact: true })).toBeVisible()
+    await themeBtn(page, 'System').click()
+    await expect(themeBtn(page, 'Light')).toBeVisible()
     expect(await dataTheme(page)).toBe('light')
 
-    await page.getByRole('button', { name: 'Appearance: Light', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Appearance: Dark', exact: true })).toBeVisible()
+    await themeBtn(page, 'Light').click()
+    await expect(themeBtn(page, 'Dark')).toBeVisible()
     expect(await dataTheme(page)).toBe('dark')
     expect(await stored(page, 'theme')).toBe('dark')
     // вкладки на открытой странице Settings показывают тот же режим

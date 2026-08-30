@@ -55,3 +55,4 @@ src-tauri/rust-toolchain.toml
 audit-shots/
 audit-run*.log
 dev-server.log
+audit-shots-before/
