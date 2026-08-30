@@ -26,9 +26,14 @@ import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pag
 import { STATUS_COLORS, getDeliveryRateColor } from '../constants/colors'
 import { PROXIES_OVERSCAN } from '../constants/virtualization.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+import { useTasksStore } from '../store/tasks.js'
 import { Modal } from '../components/Modal.jsx'
 import { useAuth } from '../hooks/useAuth'
 import ProxiesUpanelTab from './Proxies/upanel'
+
+// REDESIGN-05-4 (порция 3): пакетная проверка — пул потоков и порог «slow»
+const PROXY_TEST_CONCURRENCY = 4
+const PROXY_SLOW_MS = 1500
 
 // ─── Helpers ──────────────────────────────────────────────────
 function TypeBadge({ type }) {
@@ -514,6 +519,8 @@ export default function ProxyList() {
   const [modal, setModal] = useState(null) // null | "add" | "import" | "stats" | Proxy
   const [testingId, setTestingId] = useState(null)
   const [testResults, setTestResults] = useState({})
+  // REDESIGN-05-4 (порция 3): latency последней проверки, мс по proxy.id
+  const [testLatency, setTestLatency] = useState({})
   const [testingAll, setTestingAll] = useState(false)
   const [testAllProgress, setTestAllProgress] = useState({
     current: 0,
@@ -616,46 +623,85 @@ export default function ProxyList() {
     }
   }
 
+  // REDESIGN-05-4 (порция 3): пачкой по ВСЕМ прокси (не только текущая
+  // страница), пул из 4 потоков, latency в мс, прогресс + отмена через
+  // реестр фон-задач (статус-бар). Гео backend не отдаёт — SESSION_LOG.
   const handleTestAll = async () => {
     if (testingAll) return
     setTestingAll(true)
-    const list = proxies
-    setTestAllProgress({ current: 0, total: list.length, online: 0, failed: 0 })
+    const cancelled = { current: false }
+    let list = proxies
+    try {
+      const r = await invoke('get_proxies', {
+        filter: { is_blocked: null, is_used: null, proxy_type: null },
+        page: 1,
+        perPage: 10000,
+      })
+      if (r.items?.length) list = r.items
+    } catch (e) {
+      handleError(e, 'Proxies.testAllLoad')
+    }
     setTestResults({})
+    setTestLatency({})
+    setTestAllProgress({ current: 0, total: list.length, online: 0, failed: 0 })
+    const taskId = useTasksStore.getState().start(t('proxy_test_all'), {
+      total: list.length,
+      cancellable: true,
+      onCancel: () => {
+        cancelled.current = true
+      },
+    })
     let online = 0,
-      failed = 0
-    for (let i = 0; i < list.length; i++) {
-      const p = list[i]
-      setTestResults(prev => ({ ...prev, [p.id]: 'testing' }))
-      setTestAllProgress(prev => ({ ...prev, current: i + 1 }))
-      try {
-        const ok = await invoke('test_proxy_connection', { host: p.host, port: p.port })
-        if (ok) {
-          online++
-          setTestResults(prev => ({ ...prev, [p.id]: 'online' }))
-        } else {
+      failed = 0,
+      done = 0,
+      idx = 0
+    const worker = async () => {
+      while (idx < list.length && !cancelled.current) {
+        const p = list[idx++]
+        setTestResults(prev => ({ ...prev, [p.id]: 'testing' }))
+        const t0 = performance.now()
+        try {
+          const ok = await invoke('test_proxy_connection', { host: p.host, port: p.port })
+          const ms = Math.round(performance.now() - t0)
+          setTestLatency(prev => ({ ...prev, [p.id]: ms }))
+          if (ok) {
+            online++
+            setTestResults(prev => ({ ...prev, [p.id]: ms > PROXY_SLOW_MS ? 'slow' : 'online' }))
+          } else {
+            failed++
+            setTestResults(prev => ({ ...prev, [p.id]: 'failed' }))
+          }
+        } catch (e) {
+          handleError(e)
           failed++
           setTestResults(prev => ({ ...prev, [p.id]: 'failed' }))
         }
-      } catch (e) {
-        handleError(e)
-        failed++
-        setTestResults(prev => ({ ...prev, [p.id]: 'failed' }))
+        done++
+        setTestAllProgress({ current: done, total: list.length, online, failed })
+        useTasksStore.getState().progress(taskId, done)
       }
-      setTestAllProgress(prev => ({ ...prev, online, failed }))
     }
+    await Promise.all(
+      Array.from({ length: Math.min(PROXY_TEST_CONCURRENCY, list.length) }, () => worker())
+    )
     setTestingAll(false)
-    toast(`Done: ${online} online, ${failed} failed`, online > 0 ? 'success' : 'warn')
+    useTasksStore.getState().finish(taskId, cancelled.current ? 'cancelled' : 'done')
+    if (!cancelled.current) {
+      toast(`Done: ${online} online, ${failed} failed`, online > 0 ? 'success' : 'warn')
+    }
   }
 
   const handleTestProxy = async proxy => {
     setTestingId(proxy.id)
     try {
+      const t0 = performance.now()
       const ok = await invoke('test_proxy_connection', { host: proxy.host, port: proxy.port })
-      setTestResults(r => ({ ...r, [proxy.id]: ok }))
+      const ms = Math.round(performance.now() - t0)
+      setTestLatency(r => ({ ...r, [proxy.id]: ms }))
+      setTestResults(r => ({ ...r, [proxy.id]: ok ? (ms > PROXY_SLOW_MS ? 'slow' : true) : false }))
       toast(
         ok
-          ? `${proxy.host}:${proxy.port} — reachable`
+          ? `${proxy.host}:${proxy.port} — reachable (${ms}ms)`
           : `${proxy.host}:${proxy.port} — unreachable`,
         ok ? 'success' : 'error'
       )
@@ -912,6 +958,7 @@ export default function ProxyList() {
                     const rawResult = testResults[proxy.id]
                     let healthStatus = null
                     if (rawResult === true || rawResult === 'online') healthStatus = 'online'
+                    if (rawResult === 'slow') healthStatus = 'slow'
                     if (rawResult === false || rawResult === 'failed') healthStatus = 'offline'
                     const boundShop = proxyBindings[proxy.id] || null
                     return (
@@ -947,6 +994,11 @@ export default function ProxyList() {
                               </td>
                               <td>
                                 <StatusBadge proxy={proxy} healthStatus={healthStatus} />
+                                {testLatency[proxy.id] != null && (
+                                  <span className="text-10 text-muted mono ml-1">
+                                    {testLatency[proxy.id]}ms
+                                  </span>
+                                )}
                               </td>
                               <td className="text-11 text-muted">{usedInLabel(proxy)}</td>
                               <td className="text-11 text-muted">{timeAgo(proxy.last_checked)}</td>
@@ -967,6 +1019,8 @@ export default function ProxyList() {
                                     ) : testResults[proxy.id] === true ||
                                       testResults[proxy.id] === 'online' ? (
                                       <Wifi size={12} className="text-success" />
+                                    ) : testResults[proxy.id] === 'slow' ? (
+                                      <Wifi size={12} className="text-warning" />
                                     ) : testResults[proxy.id] === false ||
                                       testResults[proxy.id] === 'failed' ? (
                                       <WifiOff size={12} className="text-red-t" />
@@ -1043,6 +1097,7 @@ export default function ProxyList() {
                       const rawResult = testResults[proxy.id]
                       let healthStatus = null
                       if (rawResult === true || rawResult === 'online') healthStatus = 'online'
+                      if (rawResult === 'slow') healthStatus = 'slow'
                       if (rawResult === false || rawResult === 'failed') healthStatus = 'offline'
                       const boundShop = proxyBindings[proxy.id] || null
                       return (
@@ -1065,6 +1120,11 @@ export default function ProxyList() {
                           </td>
                           <td>
                             <StatusBadge proxy={proxy} healthStatus={healthStatus} />
+                            {testLatency[proxy.id] != null && (
+                              <span className="text-10 text-muted mono ml-1">
+                                {testLatency[proxy.id]}ms
+                              </span>
+                            )}
                           </td>
                           <td className="text-11 text-muted">{usedInLabel(proxy)}</td>
                           <td className="text-11 text-muted">{timeAgo(proxy.last_checked)}</td>
@@ -1084,6 +1144,8 @@ export default function ProxyList() {
                                 ) : testResults[proxy.id] === true ||
                                   testResults[proxy.id] === 'online' ? (
                                   <Wifi size={12} className="text-success" />
+                                ) : testResults[proxy.id] === 'slow' ? (
+                                  <Wifi size={12} className="text-warning" />
                                 ) : testResults[proxy.id] === false ||
                                   testResults[proxy.id] === 'failed' ? (
                                   <WifiOff size={12} className="text-red-t" />

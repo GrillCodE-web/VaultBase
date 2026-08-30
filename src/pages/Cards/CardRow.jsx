@@ -71,6 +71,7 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
     rowDragLeave,
     rowDragEnd,
     rowDrop,
+    ruleHlIds,
   } = useCardRowCtx()
   const { hasPerm } = useAuth()
   const canTake = hasPerm('take_cards')
@@ -109,6 +110,7 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
     card.status === 'in_use' && 'card-row-in-use',
     isQuarantined && 'card-row-quarantined', // Visual indicator for quarantine
     deletingIds.includes(card.id) && 'card-row-deleting',
+    ruleHlIds?.[card.id] && 'row-rule-hl', // REDESIGN-05-4: lite-правила
   ]
     .filter(Boolean)
     .join(' ')

@@ -27,6 +27,12 @@ export const ImapEmailRow = React.memo(function ImapEmailRow({ msg, ActionBadge 
         {msg.subject || '(no subject)'}
       </div>
 
+      {msg._folderLabel && (
+        <div className="text-10 text-muted mt-[3px] overflow-hidden text-ellipsis whitespace-nowrap">
+          {msg._folderLabel}
+        </div>
+      )}
+
       {(msg.action_taken || msg.extracted_order_number) && (
         <div className="flex gap-1 mt-[3px] flex-wrap">
           {msg.action_taken && <ActionBadge action={msg.action_taken} />}

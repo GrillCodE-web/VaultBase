@@ -1184,6 +1184,20 @@
     cursor: pointer;
   }
 
+  /* ── REDESIGN-05-4 (порция 3): подсветка строк по lite-правилам ── */
+  .tbl tr.row-rule-hl > td {
+    background: var(--color-warning-bg);
+  }
+
+  .tbl tr.row-rule-hl > td:first-child {
+    box-shadow: inset 3px 0 0 var(--yellow);
+  }
+
+  /* Сравнение профилей: различающиеся строки (та же warning-подсветка) */
+  .tbl tr.cmp-diff > td {
+    background: var(--color-warning-bg);
+  }
+
   /* Premium hover effects - glow shadow, scale lift, animated border */
   .card-row:hover {
     box-shadow:

@@ -1,9 +1,10 @@
 import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { RefreshCw, Search, Mail } from 'lucide-react'
+import { RefreshCw, Search, Mail, FolderSearch } from 'lucide-react'
 import { ImapEmailRow } from './ImapEmailRow.jsx'
 import { ActionBadge } from './ImapActionBadge.jsx'
 import { IMAP_OVERSCAN } from '../../../constants/virtualization.js'
+import { useLang } from '../../../hooks/useLang'
 
 const MSG_PAGE_SIZE = 30
 
@@ -27,7 +28,10 @@ export function ImapEmailList({
   msgSearch,
   onMsgContextMenu,
   domainRoutes = [],
+  searchAll = false,
+  onToggleSearchAll,
 }) {
+  const { t } = useLang()
   const totalPages = Math.ceil(msgTotal / MSG_PAGE_SIZE)
   const searchRef = useRef(null)
   const debounceRef = useRef(null)
@@ -60,7 +64,9 @@ export function ImapEmailList({
   return (
     <div className="w-[300px] shrink-0 border-r flex flex-col overflow-y-auto">
       <div className="p-[8px_12px] border-b bg-card flex items-center gap-1.5">
-        <span className="text-12 font-semibold flex-1">{selectedFolder}</span>
+        <span className="text-12 font-semibold flex-1">
+          {searchAll ? t('imap_all_folders') : selectedFolder}
+        </span>
         <span className="text-11 text-muted">{msgTotal} msgs</span>
         <button
           onClick={() =>
@@ -84,6 +90,18 @@ export function ImapEmailList({
           onChange={handleSearchChange}
           className="flex-1 border-none bg-transparent outline-none text-12 text-text min-w-0"
         />
+        <button
+          onClick={onToggleSearchAll}
+          className={`px-2 py-[2px] rounded-full text-11 border transition-colors shrink-0 ${
+            searchAll
+              ? 'bg-accent text-white border-accent'
+              : 'bg-transparent text-muted border-border hover:bg-hover'
+          }`}
+          title={t('imap_search_all_hint')}
+          aria-pressed={searchAll}
+        >
+          <FolderSearch size={11} className="inline -mt-px" /> {t('imap_all_folders')}
+        </button>
       </div>
 
       {domainRoutes.length > 0 && (
@@ -160,7 +178,7 @@ export function ImapEmailList({
             })}
           </div>
 
-          {totalPages > 1 && (
+          {totalPages > 1 && !searchAll && (
             <div className="flex justify-center gap-2 p-3 border-t">
               <button
                 disabled={msgPage <= 1}

@@ -19,6 +19,7 @@ import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+import { useTasksStore } from '../store/tasks.js'
 import { ImapFolderTree, ImapEmailList, ImapMessageViewer } from './Imap/components/index.js'
 import { ImapDomainRoutes } from './Imap/components/ImapDomainRoutes.jsx'
 import { Modal } from '../components/Modal.jsx'
@@ -342,6 +343,8 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const [msgTotal, setMsgTotal] = useState(0)
   const [loadingMsgs, setLoadingMsgs] = useState(false)
   const [msgSearch, setMsgSearch] = useState('')
+  // REDESIGN-05-4 (порция 3): поиск по всем папкам всех аккаунтов сразу
+  const [searchAll, setSearchAll] = useState(false)
 
   // UI State
   const [viewMode, setViewMode] = useState('inbox')
@@ -434,6 +437,104 @@ export default function Imap({ onNavigate: _onNavigate }) {
     msgPageRef.current = msgPage
     msgSearchRef.current = msgSearch
   })
+
+  // REDESIGN-05-4 (порция 3): fan-out поиск по всем папкам всех аккаунтов
+  // (get_imap_folders × get_imap_messages, пул из 3, отмена через фон-задачи).
+  // Результаты сливаются в общий список с пометкой папки (_folderLabel).
+  const runAllFolderSearch = useCallback(
+    async query => {
+      const q = (query || '').trim()
+      if (!q) return
+      setLoadingMsgs(true)
+      setSelectedMessage(null)
+      const cancelled = { current: false }
+      const taskId = useTasksStore.getState().start(t('imap_search_all_task'), {
+        cancellable: true,
+        onCancel: () => {
+          cancelled.current = true
+        },
+      })
+      try {
+        const pairs = []
+        for (const acc of accounts) {
+          if (cancelled.current) break
+          try {
+            const folders = await invoke('get_imap_folders', { id: acc.id })
+            for (const f of Array.isArray(folders) ? folders : []) {
+              pairs.push({ acc, folder: f })
+            }
+          } catch (e) {
+            handleError(e, 'Imap.allFolders.folders')
+          }
+        }
+        useTasksStore.getState().progress(taskId, 0, pairs.length)
+        const found = []
+        let idx = 0,
+          done = 0
+        const worker = async () => {
+          while (idx < pairs.length && !cancelled.current && found.length < 200) {
+            const { acc, folder } = pairs[idx++]
+            try {
+              const res = await invoke('get_imap_messages', {
+                accountId: acc.id,
+                folder,
+                page: 1,
+                perPage: 10,
+                search: q,
+              })
+              for (const m of res?.items || []) {
+                found.push({ ...m, _folderLabel: `${acc.label || acc.login} · ${folder}` })
+              }
+            } catch (e) {
+              handleError(e)
+            }
+            done++
+            useTasksStore.getState().progress(taskId, done)
+          }
+        }
+        await Promise.all(Array.from({ length: Math.min(3, pairs.length) }, () => worker()))
+        if (!cancelled.current) {
+          found.sort((a, b) =>
+            String(b.received_at || '').localeCompare(String(a.received_at || ''))
+          )
+          setMessages(found)
+          setMsgTotal(found.length)
+          setMsgPage(1)
+        }
+      } catch (e) {
+        const error = handleError(e, 'Imap.runAllFolderSearch')
+        toastErr(getErrorMessage(error))
+      } finally {
+        setLoadingMsgs(false)
+        useTasksStore.getState().finish(taskId, cancelled.current ? 'cancelled' : 'done')
+      }
+    },
+    [accounts, t, toastErr]
+  )
+
+  const handleSearch = useCallback(
+    val => {
+      setMsgSearch(val)
+      if (searchAll && val.trim()) {
+        runAllFolderSearch(val)
+      } else {
+        loadMessages(selectedAccount?.id, selectedFolder, 1, val)
+      }
+    },
+    [searchAll, runAllFolderSearch, loadMessages, selectedAccount, selectedFolder]
+  )
+
+  const handleToggleSearchAll = useCallback(() => {
+    setSearchAll(prev => {
+      const next = !prev
+      if (next && msgSearchRef.current.trim()) {
+        runAllFolderSearch(msgSearchRef.current)
+      } else if (!next) {
+        loadMessages(selectedAccount?.id, selectedFolder, 1, msgSearchRef.current)
+      }
+      return next
+    })
+  }, [runAllFolderSearch, loadMessages, selectedAccount, selectedFolder])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка IMAP-аккаунтов
@@ -535,6 +636,7 @@ export default function Imap({ onNavigate: _onNavigate }) {
   }
 
   const selectFolder = (acc, folder) => {
+    setSearchAll(false)
     setSelectedAccount(acc)
     setSelectedFolder(folder)
     loadMessages(acc.id, folder, 1, msgSearch)
@@ -660,10 +762,9 @@ export default function Imap({ onNavigate: _onNavigate }) {
             loadingMsgs={loadingMsgs}
             onLoadMessages={loadMessages}
             onSelectMessage={handleSelectMessage}
-            onSearch={val => {
-              setMsgSearch(val)
-              loadMessages(selectedAccount?.id, selectedFolder, 1, val)
-            }}
+            onSearch={handleSearch}
+            searchAll={searchAll}
+            onToggleSearchAll={handleToggleSearchAll}
             onMarkRead={handleMarkRead}
             onArchive={handleArchiveMessage}
             onDelete={handleDeleteMessage}

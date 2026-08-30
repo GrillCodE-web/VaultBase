@@ -9,6 +9,7 @@ import { ConfirmProvider } from './hooks/useConfirm'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import { useSyncFreshness } from './hooks/useSyncFreshness.js'
+import { useLiteRules } from './hooks/useLiteRules.js'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { AppTour } from './components/AppTour'
@@ -26,6 +27,7 @@ import { useOrdersStore } from './store/orders.js'
 import { useCardsStore } from './store/cards.js'
 import { useNotificationsStore } from './store/notifications.js'
 import { NotificationCenter } from './components/NotificationCenter.jsx'
+import { TasksIndicator } from './components/TasksIndicator.jsx'
 // SPRINT3-DAY2: Structured logging
 import { createLogger } from './utils/logger'
 // UX-012: нативные OS-уведомления (новая почта, статус посылки, ошибки sync)
@@ -187,6 +189,10 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
 
   // REDESIGN-05-4: «данные устарели» — последний sync старше 5 минут
   const { stale: dataStale } = useSyncFreshness()
+
+  // REDESIGN-05-4 (порция 3): lite-правила — периодическая оценка,
+  // подсветка строк + уведомления
+  useLiteRules()
 
   // FIX P2-STATUS-01: WS sync connection status
   const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting, group_id? }
@@ -1504,6 +1510,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
                 {t('statusbar_stale')}
               </button>
             )}
+            <TasksIndicator />
           </div>
           <div className="statusbar-right">
             {idleDeadline && (

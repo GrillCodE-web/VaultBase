@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 // FIX P2-3: AbortController for fetch cancellation
 import { invoke } from '@tauri-apps/api/core'
-import { X, SearchCode, Download } from 'lucide-react'
+import { X, SearchCode, Download, Scale } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useTableFilters } from '../hooks/useTableFilters.js'
@@ -20,6 +20,7 @@ import { ProfilesTable } from './Profiles/ProfilesTable.jsx'
 import { useRowOrder } from '../hooks/useRowOrder.js'
 import { QuickOrderModal } from './Profiles/QuickOrderModal.jsx'
 import { DuplicateProfilesModal } from './Profiles/DuplicateProfilesModal.jsx'
+import { CompareProfilesModal } from './Profiles/CompareProfilesModal.jsx'
 import { usePersistedState } from '../hooks/usePersistedState.js'
 
 // REDESIGN-05-4 (порция 2): выбор колонок таблицы профилей (localStorage).
@@ -55,6 +56,8 @@ export default function ProfileList({
   const [showCreate, setShowCreate] = useState(initOpenCreate)
   const [showDupProfiles, setShowDupProfiles] = useState(false)
   const [dupProfileGroups, setDupProfileGroups] = useState([])
+  // REDESIGN-05-4 (порция 3): сравнение профилей — id пары для модалки
+  const [compareIds, setCompareIds] = useState(null)
   const [quickOrderProfile, setQuickOrderProfile] = useState(null)
   const [enrichProgress, setEnrichProgress] = useState(null)
   const [visibleCols, setVisibleCols] = usePersistedState(
@@ -448,6 +451,15 @@ export default function ProfileList({
       {selectedCount > 0 && (
         <div className="flex items-center gap-3 px-4 py-2 bg-accent/10 rounded-md mb-2">
           <span className="text-xs text-muted">{selectedCount} selected</span>
+          {selectedCount === 2 && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setCompareIds([...selected])}
+              title={t('cmp_open_hint')}
+            >
+              <Scale size={13} /> {t('cmp_open')}
+            </button>
+          )}
           <button
             className="btn btn-ghost btn-sm"
             onClick={handleBulkEnrich}
@@ -506,6 +518,8 @@ export default function ProfileList({
           onClose={() => setShowDupProfiles(false)}
         />
       )}
+      {/* REDESIGN-05-4 (порция 3): сравнение двух выбранных профилей */}
+      {compareIds && <CompareProfilesModal ids={compareIds} onClose={() => setCompareIds(null)} />}
       {quickOrderProfile && (
         <QuickOrderModal
           profile={quickOrderProfile}

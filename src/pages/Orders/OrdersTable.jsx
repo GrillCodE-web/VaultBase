@@ -9,6 +9,7 @@ import { OrderTimeline } from './OrderTimeline.jsx'
 import { StatusMenu } from './StatusMenu.jsx'
 import { ORDERS_OVERSCAN } from '../../constants/virtualization.js'
 import { recordRecentEntity } from '../../utils/recentEntities.js'
+import { useLiteRulesStore } from '../../store/liteRules.js'
 
 /**
  * OrdersTable вЂ” РІС‹РґРµР»РµРЅРЅС‹Р№ РєРѕРјРїРѕРЅРµРЅС‚ С‚Р°Р±Р»РёС†С‹ Р·Р°РєР°Р·РѕРІ
@@ -38,6 +39,8 @@ export function OrdersTable({
   const show = id => !visibleCols || visibleCols.includes(id)
   const colCount = visibleCols ? visibleCols.length : 13
   const [expandedId, setExpandedId] = useState(null)
+  // REDESIGN-05-4 (порция 3): подсветка строк по lite-правилам
+  const orderRuleHl = useLiteRulesStore(s => s.highlights.orders)
 
   // Virtual scrolling setup
   const parentRef = useRef(null)
@@ -132,6 +135,7 @@ export function OrdersTable({
                     isSelected={selected.includes(o.id)}
                     isDeleting={deletingIds.includes(o.id)}
                     isExpanded={expandedId === o.id}
+                    ruleHl={!!orderRuleHl[o.id]}
                     onToggleExpand={() => {
                       const next = expandedId === o.id ? null : o.id
                       setExpandedId(next)

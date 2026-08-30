@@ -7,6 +7,7 @@ import { CardRow } from './CardRow.jsx'
 import { CardRowContext } from './cardRowContext.js'
 import { CARDS_VIRTUAL_THRESHOLD } from '../../constants/cards.js'
 import { CARDS_OVERSCAN } from '../../constants/virtualization.js'
+import { useLiteRulesStore } from '../../store/liteRules.js'
 
 /**
  * CardTable — выделённый компонент таблицы карт
@@ -54,6 +55,9 @@ export function CardTable({
   const dragColRef = useRef(null)
   const dragRowRef = useRef(null)
   const parentRef = useRef(null)
+
+  // REDESIGN-05-4 (порция 3): подсветка строк по lite-правилам (card_expiring)
+  const ruleHlIds = useLiteRulesStore(s => s.highlights.cards)
 
   // ── UX-011: drag & drop строк (группировка по банку отключает ручной порядок) ──
   const rowReorder = !groupByBank && typeof onRowMove === 'function'
@@ -122,6 +126,7 @@ export function CardTable({
       rowDragLeave,
       rowDragEnd,
       rowDrop,
+      ruleHlIds,
     }),
     [
       revealed,
@@ -151,6 +156,7 @@ export function CardTable({
       rowDragLeave,
       rowDragEnd,
       rowDrop,
+      ruleHlIds,
     ]
   )
 

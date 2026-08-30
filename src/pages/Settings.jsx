@@ -34,6 +34,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useAuth } from '../hooks/useAuth'
 import { LicenseSection } from '../components/LicenseSection'
 import { STATUS_COLORS } from '../constants/colors'
+import { useLiteRulesStore, RULE_TEMPLATES } from '../store/liteRules.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 
 const THEME_OPTIONS = [
@@ -66,6 +67,9 @@ export default function Settings() {
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
   const { theme, setTheme } = useTheme()
+  // REDESIGN-05-4 (порция 3): lite-правила подсветки/уведомлений
+  const liteRules = useLiteRulesStore(s => s.rules)
+  const setLiteRule = useLiteRulesStore(s => s.setRule)
   const { currentUser, isAdmin, hasPerm } = useAuth()
 
   const [binApiKey, setBinApiKey] = useState('')
@@ -1305,6 +1309,52 @@ export default function Settings() {
             </div>
           )}
         </div>
+
+        {/* REDESIGN-05-4 (порция 3): правила-автоматизации lite */}
+        <div className="panel col-span-full">
+          <div className="ptitle">
+            <Zap size={13} className="inline mr-1.5" />
+            {t('rules_title')}
+          </div>
+          <div className="setting-desc mb-3">{t('rules_desc')}</div>
+          {liteRules.map(rule => {
+            const tp = RULE_TEMPLATES.find(x => x.id === rule.id)
+            if (!tp) return null
+            return (
+              <div className="setting-row" key={rule.id}>
+                <div className="setting-info">
+                  <div className="setting-title">{t(`rule_${rule.id}`)}</div>
+                  <div className="setting-desc">{t(`rule_${rule.id}_desc`)}</div>
+                </div>
+                <input
+                  type="number"
+                  className="form-input w-20"
+                  min={1}
+                  max={999}
+                  value={rule.threshold}
+                  disabled={!rule.enabled}
+                  aria-label={t(`rule_${rule.id}`)}
+                  onChange={e => {
+                    const v = parseInt(e.target.value, 10)
+                    if (Number.isFinite(v) && v > 0) {
+                      setLiteRule(rule.id, { threshold: v })
+                    }
+                  }}
+                />
+                <span className="text-muted text-11">{t(tp.unit)}</span>
+                <label className="toggle-wrap">
+                  <input
+                    type="checkbox"
+                    checked={rule.enabled}
+                    onChange={e => setLiteRule(rule.id, { enabled: e.target.checked })}
+                  />
+                  <span className="track" />
+                </label>
+              </div>
+            )
+          })}
+        </div>
+
       </div>
 
       {/* Catalog */}

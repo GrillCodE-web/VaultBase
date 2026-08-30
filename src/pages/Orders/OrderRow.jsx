@@ -169,6 +169,7 @@ export const OrderRow = React.memo(
     StatusMenuComponent,
     TimelineComponent,
     visibleCols,
+    ruleHl,
   }) {
     const { t } = useLang()
     // REDESIGN-05-4: скрытие колонок; без пропа — все (e2e/совместимость)
@@ -190,7 +191,7 @@ export const OrderRow = React.memo(
       <>
         <tr
           onClick={onToggleExpand}
-          className={`cursor-pointer ${isDeleting ? 'opacity-30 line-through pointer-events-none' : ''}`}
+          className={`cursor-pointer ${isDeleting ? 'opacity-30 line-through pointer-events-none' : ''} ${ruleHl ? 'row-rule-hl' : ''}`}
           style={{
             transition: 'opacity 0.4s ease, background 0.15s ease',
             borderLeft: getBorderColor(),
@@ -343,6 +344,7 @@ export const OrderRow = React.memo(
       prev.isDeleting === next.isDeleting &&
       prev.isExpanded === next.isExpanded &&
       prev.showStatusMenu === next.showStatusMenu &&
+      prev.ruleHl === next.ruleHl &&
       // REDESIGN-05-4: массив видимых колонок — стабильная ссылка из стейта страницы
       prev.visibleCols === next.visibleCols
     )
