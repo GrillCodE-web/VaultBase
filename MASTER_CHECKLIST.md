@@ -358,13 +358,14 @@
 
 ## 8. DevOps и CI/CD
 
-| #          | Задача                                                                    | Приоритет | Файл(ы)                        | Статус |
-| ---------- | ------------------------------------------------------------------------- | --------- | ------------------------------ | ------ |
-| DEVOPS-001 | Автоматическая сборка релизов: push тега → CI → артефакты → release notes | 🟡        | `build-release.yml`, `ship.py` | ✅     |
-| DEVOPS-002 | Staging окружение: staging sync-сервер + процесс деплоя                   | 🟡        | `VaultBase.staging.toml`       | ⬜     |
-| DEVOPS-003 | Crash-reporting (Sentry) — узнавать о падениях у пользователей            | 🟡        | Tauri Sentry plugin            | ✅     |
-| DEVOPS-004 | Autoupdate: проверить подпись на всех платформах                          | 🟡        | `tauri.conf.json`              | ✅     |
-| DEVOPS-005 | Убрать DEV конфиги — всё всегда production                                | 🟡        | Все конфиги                    | ✅     |
+| #          | Задача                                                                                                                                  | Приоритет | Файл(ы)                                                                        | Статус   |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------ | -------- |
+| DEVOPS-001 | Автоматическая сборка релизов: push тега → CI → артефакты → release notes                                                               | 🟡        | `build-release.yml`, `ship.py`                                                 | ✅       |
+| DEVOPS-002 | Staging окружение: staging sync-сервер + процесс деплоя                                                                                 | 🟡        | `VaultBase.staging.toml`                                                       | ⬜       |
+| DEVOPS-003 | Crash-reporting (Sentry) — узнавать о падениях у пользователей                                                                          | 🟡        | Tauri Sentry plugin                                                            | ✅       |
+| DEVOPS-004 | Autoupdate: проверить подпись на всех платформах                                                                                        | 🟡        | `tauri.conf.json`                                                              | ✅       |
+| DEVOPS-005 | Убрать DEV конфиги — всё всегда production                                                                                              | 🟡        | Все конфиги                                                                    | ✅       |
+| DEVOPS-006 | CI менеджера (`mgr-v*` → 3 ОС → сервер) + фикс release_files: UNIQUE без платформы затирал Windows/macOS-обновления (живо только Linux) | 🔴        | `build-manager-release.yml`, `upload.js`, `database.js`, `upload-artifacts.py` | 🔄 @main |
 
 ---
 
