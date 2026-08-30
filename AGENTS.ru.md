@@ -18,8 +18,6 @@ manager-work/
 │   │   ├── Imap.jsx              # Почтовые аккаунты
 │   │   ├── Updates.jsx           # Обновления
 │   │   ├── Settings.jsx          # Настройки + аудит
-│   │   ├── MyStats.jsx           # Личная статистика оператора
-│   │   ├── UsersPage.jsx         # Управление пользователями (admin)
 │   │   ├── Drops.jsx             # Заглушка (функционал внутри Profiles)
 │   │   └── UserLogin.jsx         # Аутентификация пользователя
 │   ├── components/               # Переиспользуемые компоненты
@@ -51,7 +49,7 @@ manager-work/
 │
 ├── src-tauri/                    # Бэкенд Rust (Tauri v2)
 │   ├── src/
-│   │   ├── main.rs               # Точка входа: setup, invoke_handler (206 команд)
+│   │   ├── main.rs               # Точка входа: setup, invoke_handler (248 команд)
 │   │   ├── commands/             # Tauri-команды по доменам
 │   │   │   ├── mod.rs            # Реэкспорт всех команд
 │   │   │   ├── auth.rs           # Вход, сессии, мастер-пароль

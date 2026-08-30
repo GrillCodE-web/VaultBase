@@ -3,7 +3,8 @@
 > Russian version: [AGENTS.ru.md](AGENTS.ru.md). Version 2.11.3, updated 2026-08-25.
 
 Secure desktop app (Tauri 2 + React 18 + Rust + SQLite/SQLCipher) for managing cards,
-profiles, orders, shops, proxies and email. 206 Tauri commands, 306 unit tests.
+profiles, orders, shops, proxies and email. 248 worker + 19 manager Tauri
+commands, 337 JS + 185 Rust unit tests.
 
 ## Project layout
 
@@ -11,19 +12,19 @@ profiles, orders, shops, proxies and email. 206 Tauri commands, 306 unit tests.
 src/                  # React frontend (Vite)
   pages/              # One file per page: DashboardRedesigned, Cards, Profiles,
                       # Orders, Catalog, Shops, Proxies, Couriers, Imap, Updates,
-                      # ActivityLog, UsersPage, MyStats, Settings, Login, UserLogin,
+                      # ActivityLog, Settings, Login, UserLogin,
                       # Activate, Onboarding, Drops (stub — feature lives in Profiles)
   components/         # Shared UI: Modal, EmptyState, ErrorBoundary, skeletons
   store/              # List stores (cards, orders)
   api/                # Thin wrappers over Tauri commands
   hooks/              # useAuth, useLang (i18n with {param} interpolation),
                       # useIdleTimer, useSmartToast, useConfirm, useKeyboardShortcuts
-  i18n/               # en.js / ru.js — 530+ keys; keep both in sync
+  i18n/               # en.js / ru.js — 1018 keys; keep both in sync
   styles/             # 7 consolidated CSS files — see warning below
   App.jsx             # Main shell: view router (activate → auth → user_login → app),
                       # sidebar NAV_DEFS + PAGE_MAP, badges, global search
 src-tauri/src/
-  main.rs             # Entry point + invoke_handler (206 commands)
+  main.rs             # Entry point + invoke_handler (248 commands)
   commands/           # Tauri commands by domain (cards, orders, dashboard, imap,
                       # smtp, auth, license, sync, stuffer, catalog, config, misc)
   database/           # SQLCipher DB layer: _core, _cards, _orders, _analytics,
@@ -64,7 +65,7 @@ Phantom tokens (referenced but never defined) silently break colors — run
 - **Backend:** all commands return `Result<T, String>`; permissions checked via
   `models::perms::*` on both frontend (`hasPerm`) and backend.
 - **Dates:** DB stores UTC `YYYY-MM-DD HH:MM:SS`; frontend formatters must accept both
-  that and full ISO (see `fmtDate` in UsersPage/MyStats).
+  that and full ISO (see `fmtDate` in src/utils/formatting.js).
 - **Adding a command:** implement in the right `commands/*.rs` domain, re-export in
   `commands/mod.rs`, register in `main.rs` `invoke_handler`, call via
   `invoke('cmd_name', { args })` from React.
@@ -75,7 +76,7 @@ Phantom tokens (referenced but never defined) silently break colors — run
 npm run dev          # Vite dev server :5173
 npx tauri dev        # Full desktop app
 npm run lint         # ESLint (0 errors required)
-npx vitest run       # 306 unit tests
+npx vitest run       # 337 unit tests
 npm run test:e2e     # Playwright e2e
 npm run tauri build  # Production bundles
 ```
@@ -100,6 +101,6 @@ an entry after every completed checklist item — chats die, the log survives.
 ## Auth flow
 
 License activation (challenge → activation key via sync server) → master password
-(unlocks SQLCipher DB, PBKDF2 600k) → auto-login in solo mode. Role (admin/operator)
+(unlocks SQLCipher DB, PBKDF2 1M) → auto-login in solo mode. Role (admin/operator)
 comes from the license (`license_role` config, refreshed on verify). The first-run
 admin password is random 32 bytes and never stored anywhere.
