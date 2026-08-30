@@ -1043,3 +1043,39 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
 - **Следующий шаг:** Этап 1 — каркас: сайдбар 232px с группами Продажи/Пул/Инфраструктура/
   Система, топбар 56px, статус-бар, ⌘K-палитра, единый инспектор (СТОП-линия: без backend),
   переключатель плотности. Контракт — docs/REDESIGN_05_PLAN.md §3.
+
+## 2026-08-30 — ✅ @main — ADMIN-001: полный редизайн админ-панели (вариант B) + деплой на прод
+
+- **Worktree:** `manager-work`, ветка `main`. Коммиты: `0bdaca3` (изоляция env в auth.test),
+  `687a68b` (сам редизайн). Пуш `7052f9a..687a68b` в origin/main (забрал заодно
+  отложенные: c4eda8c DEVOPS-006 follow-up, 6dcf883 claim, df53fd6+212f594 REDESIGN-05 @r,
+  18a3c49 MGR-017).
+- **admin/index.html — полная перезапись (~1885 строк):** дизайн-токены (CSS vars),
+  Inter, lucide-иконки вместо эмодзи, тёмная тема с градиентами, сайдбар + топбар,
+  тосты/скелетоны, модалки. Релизы — карточки версий (группировка по semver) с вкладками
+  Worker/Manager, пер-версия: pub-тумблер, channel, rollout-слайдер, удаление файлов по
+  платформам; модалка загрузки с drag-drop и авто-детектом типа/платформы файла.
+  Остальные страницы: dashboard (графики), activity, licenses (CRUD, inline-метки,
+  роль, revoke/restore/rotate/delete), invites (+CSV, копирование), sync-группы
+  (CRUD, участники), footprints (список + агрегация по доменам), connections
+  (авто-обновление), audit.
+- **admin/login.html** — переписан в той же токен-системе.
+- **admin-api.js:** новый `PATCH /versions/:version` (published/channel/rollout),
+  `DELETE /versions/:version` теперь по ключу (version, file_type, platform).
+- **Тесты:** +8 в `test/admin-versions.test.js` → 106/106. Попутно найдена и закрыта
+  дыра в изоляции `auth.test.js`: `withEnv` не чистил `SESSION_SECRET`/`ADMIN_PASS` из
+  внешнего шелла — тест ротации ADMIN_PASS падал (105/106) в сессии с экспортированным
+  секретом; в чистом env было зелёным. Фикс — удаление трёх ADMIN_*/SESSION_SECRET
+  перед подстановкой тестового env.
+- **Живой локальный прогон** (порт 3999, до коммита): логин, навигация, рендер карточек
+  релизов (2 worker + 4 платформенные на тестовых данных) — ок.
+- **Деплой на прод** (`deploy-server.py`, 33 файла, бэкап `/root/backup-20260830-154449`):
+  sha256 admin/index.html, admin/login.html, routes/admin-api.js на проде == локальным
+  (байт-в-байт). Хелсчеки 200 (`/version`, `/update`). `/update?current_version=2.11.0`
+  отдаёт все 3 платформы (darwin-aarch64, linux-x86_64, windows-x86_64). Без cookie
+  index и API → 302 на логин, логин отдаётся с новыми токенами (--accent, Inter).
+  `npm ci` на шаге [4/6] упал на сервере (usage-ошибка старого npm) — безвредно:
+  package.json/package-lock в этом диапазоне коммитов не менялись, node_modules актуальны.
+- **Следующий шаг (за пользователем):** первый CI-релиз менеджера —
+  `git tag mgr-v0.2.0 && git push origin mgr-v0.2.0` (секрет
+  `TAURI_SIGNING_PRIVATE_KEY_MANAGER` уже в GitHub).
