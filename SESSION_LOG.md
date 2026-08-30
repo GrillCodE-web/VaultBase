@@ -929,3 +929,36 @@ cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без о
   wipe + удаление backups/logs/EBWebView/конфигов, либо VeraCrypt-контейнер для всего
   %LOCALAPPDATA%\vaultbase).
 - Проверки: дублей разделов нет (по 1 вхождению), все 36 локальных ссылок валидны.
+
+## 2026-08-30 — ✅ @main — MGR-016: воркер = потребитель (worker_keys + запечатанные срезы)
+
+- **Коммит:** 2811b13 (cc-sync-server, 10 файлов, +636/−170). Чеклист → ✅ отдельным коммитом.
+- **Миграция v16:** `worker_keys` (зеркало manager_keys: installation_id, pubkey, key_type='x25519',
+  is_active, revoked_at), `sync_cards.issued_by` TEXT DEFAULT 'worker' ('worker' legacy | 'manager'),
+  `sync_groups.is_deprecated` INTEGER DEFAULT 0, очередь `issued_card_slices`
+  (status pending/delivered/ack/revoked, UNIQUE(card_hash, target_iid), idx по target+status).
+- **Запрет создания карт воркером:** `applyCardPush(db, gid, iid, cards, { allowCreate:false })` —
+  батч, содержащий неизвестный card_hash, отклоняется целиком (CardCreateForbiddenError,
+  code `cards_import_disabled`, атомарный rollback). REST `/sync/cards` → 403
+  `{error:'cards_import_disabled', rejected:n}`; ws-tauri push → `{type:'error', error:'cards_import_disabled'}`.
+  Обновления статусов существующих карт работают. socket.js (браузерный админ-канал) намеренно не
+  тронут — это не воркер-канал. Обновления статуса существующих карт разрешены (не зависят от issued_by).
+- **Группы погашены:** POST /sync/group/create|pair|join → 410 `groups_deprecated`
+  (пары joinLimiter/pairLimiter оставлены). Легаси-члены сохраняют /group/info, /group/leave,
+  GET/POST /cards. Генераторы generateGroupKey/generatePairCode удалены, `crypto` из sync.js выпилен.
+- **Активация:** POST /activate принимает опциональный `worker_pubkey` (64 hex; кривой формат →
+  400 worker_pubkey_invalid ДО выдачи токена; отсутствие — ок, легаси-клиенты). Сохранение
+  best-effort: сбои не срывают активацию. Аудит `worker_key_register` {source:'activation'}.
+- **routes/worker-cards.js (новый, монтируется в index.js):** менеджер — POST /manager/api/cards/issue
+  ({target_iid, slices:[{card_hash,sealed_data}]}, кап 100 срезов, sealed_data ≤16КБ; повторная выдача
+  перезаписывает конверт и возвращает в pending; без активного ключа → 409 worker_key_not_registered)
+  и GET /manager/api/cards/issued?target_iid=&status= (без sealed_data). Воркер — POST
+  /sync/worker-key/register (ротация: прошлый ключ отзывается, 1 активный, лимит 20/ч),
+  GET /sync/cards/issued (at-least-once: pending+delivered до явного ack, отметка delivered),
+  POST /sync/cards/issued/ack. Роли жёстко: managerRouter=requireManagerToken, workerRouter=requireWorkerToken.
+- **manager-api.js:** GET /workers/keys — активные pubkey воркеров (+worker_label) для запечатывания срезов.
+- **Аудит раздач:** manager_cards_issue, worker_key_register; push cards_issued воркеру (ws-tauri sendToInstallation + io). Список /cards/issued НЕ аудитится (UI-поллинг засорил бы журнал) — аудит на фактах раздачи/регистрации.
+- **Тесты:** +4 unit в card-push.test.js (allowCreate: reject новых / обновление существующих / атомарность батча / дефолт без ограничений), +10 integration test/worker-cards.test.js (410 групп, 403 cards_import_disabled vs 200 обновления, ротация ключа, роли в обе стороны, 409 без ключа, активация с pubkey, at-least-once+ack, перевыпуск, аудит). `npm test`: **96 pass / 0 fail** (было 82).
+- Коммит: 2811b13 (только cc-sync-server/_; чужие src-tauri/_ и design-mockups/ в дереве не тронуты).
+- **Следующий шаг:** клиентская сторона — воркер (Rust) должен получать срезы через /sync/cards/issued и
+  бронить/деклайнить по ним; менеджер-app — UI выдачи (MGR-017+). Легаси-группы в UI воркера скрыть.
