@@ -1,16 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { useFocusTrap } from '../../hooks/useFocusTrap.js'
 import { invoke } from '@tauri-apps/api/core'
 import { User, MapPin, Check, X, Shuffle } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { HEX_COLORS } from '../../constants/colors.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
-import { useEscapeKey } from '../../hooks/useEscapeKey.js'
 import { useConfirm } from '../../hooks/useConfirm.jsx'
+import { Modal } from '../../components/Modal.jsx'
 
 export function ProfileModal({ onCreated, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const [mode, setMode] = useState('quick') // "quick" | "full"
   const [cardId, setCardId] = useState('')
@@ -207,252 +205,235 @@ export function ProfileModal({ onCreated, onClose }) {
     }
   }
 
-  const createProfRef = useRef(null)
-  useFocusTrap(createProfRef, true)
-  // Scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
+  // REDESIGN-05-2: ручной оверлей/шапка/focus-trap/Escape/body-lock
+  // заменены общим <Modal> (480px — произвольная ширина через size).
   return (
-    <div className="modal-overlay">
-      <div
-        ref={createProfRef}
-        className="modal w-[480px]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-profile-title"
-      >
-        <div className="modal-header">
-          <div className="flex items-center gap-3">
-            <User size={16} className="text-blue-t" />
-            <span id="create-profile-title" className="modal-title m-0">
-              {t('new_profile')}
-            </span>
-            <div className="mode-toggle-group">
-              {['quick', 'full'].map(m => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className="mode-toggle-btn"
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="480px"
+      title={
+        <span className="flex items-center gap-3">
+          <User size={16} className="text-blue-t" />
+          {t('new_profile')}
+          <span className="mode-toggle-group">
+            {['quick', 'full'].map(m => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className="mode-toggle-btn"
+                style={{
+                  background: mode === m ? 'var(--accent)' : 'transparent',
+                  color: mode === m ? HEX_COLORS.white : 'var(--muted)',
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </span>
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div className="form-group">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="form-label m-0">Free Card *</label>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              title="Auto-select first free card"
+              onClick={() => {
+                if (filtered.length > 0) handleCardSelect(filtered[0])
+              }}
+            >
+              <Shuffle size={12} /> Auto
+            </button>
+          </div>
+          <input
+            className="form-input mb-2"
+            placeholder={t('profiles_search_placeholder')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <div className="card-selection-list">
+            {cardsLoading ? (
+              <div className="p-4 text-center text-muted text-[12px]">Loading…</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-4 text-center text-muted text-[12px]">{t('no_free_cards')}</div>
+            ) : (
+              filtered.map(c => (
+                <div
+                  key={c.id}
+                  onClick={() => handleCardSelect(c)}
+                  className="card-selection-item"
                   style={{
-                    background: mode === m ? 'var(--accent)' : 'transparent',
-                    color: mode === m ? HEX_COLORS.white : 'var(--muted)',
+                    background: cardId === String(c.id) ? 'var(--color-info-bg)' : 'transparent',
+                  }}
+                  onMouseEnter={e => {
+                    if (cardId !== String(c.id)) e.currentTarget.style.background = 'var(--hover)'
+                  }}
+                  onMouseLeave={e => {
+                    if (cardId !== String(c.id)) e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-6 flex flex-col gap-4">
-          <div className="form-group">
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="form-label m-0">Free Card *</label>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                title="Auto-select first free card"
-                onClick={() => {
-                  if (filtered.length > 0) handleCardSelect(filtered[0])
-                }}
-              >
-                <Shuffle size={12} /> Auto
-              </button>
-            </div>
-            <input
-              className="form-input mb-2"
-              placeholder={t('profiles_search_placeholder')}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <div className="card-selection-list">
-              {cardsLoading ? (
-                <div className="p-4 text-center text-muted text-[12px]">Loading…</div>
-              ) : filtered.length === 0 ? (
-                <div className="p-4 text-center text-muted text-[12px]">{t('no_free_cards')}</div>
-              ) : (
-                filtered.map(c => (
-                  <div
-                    key={c.id}
-                    onClick={() => handleCardSelect(c)}
-                    className="card-selection-item"
-                    style={{
-                      background: cardId === String(c.id) ? 'var(--color-info-bg)' : 'transparent',
-                    }}
-                    onMouseEnter={e => {
-                      if (cardId !== String(c.id)) e.currentTarget.style.background = 'var(--hover)'
-                    }}
-                    onMouseLeave={e => {
-                      if (cardId !== String(c.id)) e.currentTarget.style.background = 'transparent'
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      {c.card_type && (
-                        <span className="text-[10px] text-muted uppercase font-semibold">
-                          {c.card_type}
-                        </span>
-                      )}
-                      <span className="font-mono text-[12px] text-text">
-                        ●●●● {c.last4 || '????'}
+                  <div className="flex items-center gap-2">
+                    {c.card_type && (
+                      <span className="text-[10px] text-muted uppercase font-semibold">
+                        {c.card_type}
                       </span>
-                      {c.expiry_date && (
-                        <span className="text-[11px] text-muted">{c.expiry_date}</span>
-                      )}
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      {c.bank_name && <span className="text-[11px] text-muted">{c.bank_name}</span>}
-                      {c.country && (
-                        <span className="text-[10px] font-mono text-muted">{c.country}</span>
-                      )}
-                      {cardId === String(c.id) && <Check size={13} className="text-blue-t" />}
-                    </div>
+                    )}
+                    <span className="font-mono text-[12px] text-text">
+                      ●●●● {c.last4 || '????'}
+                    </span>
+                    {c.expiry_date && (
+                      <span className="text-[11px] text-muted">{c.expiry_date}</span>
+                    )}
                   </div>
-                ))
-              )}
-            </div>
+                  <div className="flex gap-2 items-center">
+                    {c.bank_name && <span className="text-[11px] text-muted">{c.bank_name}</span>}
+                    {c.country && (
+                      <span className="text-[10px] font-mono text-muted">{c.country}</span>
+                    )}
+                    {cardId === String(c.id) && <Check size={13} className="text-blue-t" />}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-          {/* Card billing preview */}
-          {cardId && cardBillingPreview && (
-            <div className="billing-preview-box">
-              <MapPin size={11} className="icon-no-shrink" />
-              <span>{cardBillingPreview}</span>
+        </div>
+        {/* Card billing preview */}
+        {cardId && cardBillingPreview && (
+          <div className="billing-preview-box">
+            <MapPin size={11} className="icon-no-shrink" />
+            <span>{cardBillingPreview}</span>
+          </div>
+        )}
+
+        {/* Email assignment */}
+        <div className="form-group mb-0">
+          <label className="form-label mb-1">{t('email_label_optional')}</label>
+          <div className="input-with-button">
+            <input
+              className="form-input"
+              list="email-suggestions"
+              placeholder={t('email_placeholder')}
+              value={emailInput}
+              onChange={e => {
+                setEmailInput(e.target.value)
+                // If user picks from datalist, find matching id
+                const match = availableEmails.find(em => em.email === e.target.value)
+                setEmailId(match ? match.id : null)
+              }}
+            />
+            <button
+              className="btn btn-ghost btn-sm text-sm"
+              type="button"
+              title={t('email_auto_assign_title')}
+              disabled={emailLoading}
+              onClick={handleAutoAssignEmail}
+            >
+              🎲
+            </button>
+          </div>
+          <datalist id="email-suggestions">
+            {availableEmails.map(e => (
+              <option key={e.id} value={e.email} />
+            ))}
+          </datalist>
+          {/* UX-018: feedback — какой email будет привязан к профилю */}
+          {emailId && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-green-t">
+              <Check size={12} className="icon-no-shrink" />
+              <span>{t('email_will_be_linked', { email: emailInput })}</span>
             </div>
           )}
-
-          {/* Email assignment */}
-          <div className="form-group mb-0">
-            <label className="form-label mb-1">{t('email_label_optional')}</label>
-            <div className="input-with-button">
-              <input
-                className="form-input"
-                list="email-suggestions"
-                placeholder={t('email_placeholder')}
-                value={emailInput}
-                onChange={e => {
-                  setEmailInput(e.target.value)
-                  // If user picks from datalist, find matching id
-                  const match = availableEmails.find(em => em.email === e.target.value)
-                  setEmailId(match ? match.id : null)
-                }}
-              />
-              <button
-                className="btn btn-ghost btn-sm text-sm"
-                type="button"
-                title={t('email_auto_assign_title')}
-                disabled={emailLoading}
-                onClick={handleAutoAssignEmail}
-              >
-                🎲
-              </button>
+          {!emailId && emailInput.trim() && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted">
+              <X size={12} className="icon-no-shrink" />
+              <span>{t('email_not_in_pool')}</span>
             </div>
-            <datalist id="email-suggestions">
-              {availableEmails.map(e => (
-                <option key={e.id} value={e.email} />
-              ))}
-            </datalist>
-            {/* UX-018: feedback — какой email будет привязан к профилю */}
-            {emailId && (
-              <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-green-t">
-                <Check size={12} className="icon-no-shrink" />
-                <span>{t('email_will_be_linked', { email: emailInput })}</span>
-              </div>
-            )}
-            {!emailId && emailInput.trim() && (
-              <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted">
-                <X size={12} className="icon-no-shrink" />
-                <span>{t('email_not_in_pool')}</span>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
 
-          {mode === 'quick' ? (
+        {mode === 'quick' ? (
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={autoCreateDrop}
+              onChange={e => handleAutoCreateDropToggle(e.target.checked)}
+            />
+            <span>{t('auto_create_drop')}</span>
+            <span className="helper-text">{t('auto_create_drop_helper')}</span>
+          </label>
+        ) : (
+          <>
+            <div className="form-group">
+              <label className="form-label">{t('cc_col_notes')}</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+                placeholder={t('cc_col_notes') + '…'}
+                className="form-input resize-none"
+              />
+            </div>
+            {templates.length > 0 && (
+              <div className="form-group">
+                <label className="form-label">Templates</label>
+                <div className="template-list">
+                  {templates.map(tpl => (
+                    <div key={tpl.id} className="template-item">
+                      <button
+                        type="button"
+                        className="template-apply-btn"
+                        onClick={() => {
+                          if (tpl.source) setNotes(n => (n ? n : `Source: ${tpl.source}`))
+                        }}
+                        title="Apply template"
+                      >
+                        {tpl.name}
+                        {tpl.country ? ` · ${tpl.country}` : ''}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm template-delete-btn"
+                        onClick={() => handleDeleteTemplate(tpl.id)}
+                        title="Delete template"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <label className="checkbox-label">
               <input
                 type="checkbox"
-                checked={autoCreateDrop}
-                onChange={e => handleAutoCreateDropToggle(e.target.checked)}
+                checked={saveAsTemplate}
+                onChange={e => setSaveAsTemplate(e.target.checked)}
               />
-              <span>{t('auto_create_drop')}</span>
-              <span className="helper-text">{t('auto_create_drop_helper')}</span>
-            </label>
-          ) : (
-            <>
-              <div className="form-group">
-                <label className="form-label">{t('cc_col_notes')}</label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  rows={3}
-                  placeholder={t('cc_col_notes') + '…'}
-                  className="form-input resize-none"
-                />
-              </div>
-              {templates.length > 0 && (
-                <div className="form-group">
-                  <label className="form-label">Templates</label>
-                  <div className="template-list">
-                    {templates.map(tpl => (
-                      <div key={tpl.id} className="template-item">
-                        <button
-                          type="button"
-                          className="template-apply-btn"
-                          onClick={() => {
-                            if (tpl.source) setNotes(n => (n ? n : `Source: ${tpl.source}`))
-                          }}
-                          title="Apply template"
-                        >
-                          {tpl.name}
-                          {tpl.country ? ` · ${tpl.country}` : ''}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm template-delete-btn"
-                          onClick={() => handleDeleteTemplate(tpl.id)}
-                          title="Delete template"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <label className="checkbox-label">
+              Save as template
+              {saveAsTemplate && (
                 <input
-                  type="checkbox"
-                  checked={saveAsTemplate}
-                  onChange={e => setSaveAsTemplate(e.target.checked)}
+                  className="form-input inline-input-sm ml-2"
+                  placeholder="Template name…"
+                  value={templateName}
+                  onChange={e => setTemplateName(e.target.value)}
                 />
-                Save as template
-                {saveAsTemplate && (
-                  <input
-                    className="form-input inline-input-sm ml-2"
-                    placeholder="Template name…"
-                    value={templateName}
-                    onChange={e => setTemplateName(e.target.value)}
-                  />
-                )}
-              </label>
-            </>
-          )}
-          <button
-            onClick={handleCreate}
-            disabled={loading || !cardId}
-            className="btn btn-b btn-full-width"
-            style={{ opacity: loading || !cardId ? 0.4 : 1 }}
-          >
-            {loading ? t('msg_loading') : t('new_profile')}
-          </button>
-        </div>
+              )}
+            </label>
+          </>
+        )}
+        <button
+          onClick={handleCreate}
+          disabled={loading || !cardId}
+          className="btn btn-b btn-full-width"
+          style={{ opacity: loading || !cardId ? 0.4 : 1 }}
+        >
+          {loading ? t('msg_loading') : t('new_profile')}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }

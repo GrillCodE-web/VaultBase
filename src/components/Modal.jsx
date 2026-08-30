@@ -65,6 +65,9 @@ export function Modal({
     lg: 'var(--modal-lg)',
     xl: 'var(--modal-xl)',
   }
+  // REDESIGN-05-2: size может быть произвольной CSS-длиной ('620px') —
+  // для доменных модалок, чья ширина не совпадает со шкалой.
+  const modalSize = sizes[size] ?? size
 
   // Портал в body: модалка не должна зависеть от предков страницы —
   // transform/filter/overflow у любого из них ломают position:fixed
@@ -86,7 +89,7 @@ export function Modal({
         className={`modal modal-enter${scroll ? ' modal-scroll' : ''}${
           className ? ` ${className}` : ''
         }`}
-        style={{ '--modal-size': sizes[size] }}
+        style={{ '--modal-size': modalSize }}
       >
         {/* Header */}
         {(title || showCloseButton) && (
