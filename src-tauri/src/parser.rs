@@ -1,7 +1,7 @@
 //! CC dump parser with auto-delimiter detection, Luhn validation, and column auto-detection.
 //! FIX P2-DOMAIN: Added log metadata parsing (date, domain, IP)
 
-use crate::models::{CardInput, MappingPreview};
+use crate::models::MappingPreview;
 
 // ─────────────────────────────────────────
 //  Log metadata structure
@@ -14,16 +14,9 @@ pub struct LogMetadata {
     pub domain: Option<String>,     // e.g., "tristatecamera.com"
 }
 
-// ─────────────────────────────────────────
-//  Public result type
-// ─────────────────────────────────────────
-
-#[derive(Debug)]
-pub struct ParseResult {
-    pub parsed:  Vec<CardInput>,
-    pub skipped: usize,
-    pub errors:  Vec<String>,
-}
+// MGR-018: parse_cards/ParseResult выпилены вместе с командой import_cards —
+// карты создаёт только менеджер; воркеру остаются detect_mapping/mapping_preview
+// (импорт дропов) и extract_bin_last4/luhn_valid (валидация в database).
 
 // ─────────────────────────────────────────
 //  US State abbreviations
@@ -444,94 +437,6 @@ pub fn mapping_preview(raw: &str) -> MappingPreview {
 }
 
 // ─────────────────────────────────────────
-//  Public: parse_cards
-// ─────────────────────────────────────────
-
-pub fn parse_cards(raw: &str, mapping: Vec<String>, source: &str) -> ParseResult {
-    let delim = detect_delimiter(raw);
-    let mut parsed  = Vec::new();
-    let mut skipped = 0usize;
-    let mut errors  = Vec::new();
-    // FIX B69: data_line_no считает только непустые строки — номера в ошибках соответствуют
-    // тому что видит пользователь после удаления пустых строк
-    let mut data_line_no = 0usize;
-
-    for line in raw.lines() {
-        // FIX P2-DOMAIN: Parse log metadata (timestamp, IP, domain)
-        let (meta, card_line) = parse_log_line(line.trim());
-
-        if card_line.is_empty() { continue; }
-        data_line_no += 1;
-        let line_no = data_line_no; // 1-based для сообщений об ошибках
-
-        let parts: Vec<&str> = card_line.split(delim).map(|s| s.trim()).collect();
-
-        let mut input = CardInput {
-            source: source.to_string(),
-            // FIX P2-DOMAIN: Populate domain and acquired_at from log metadata
-            domain: meta.domain,
-            acquired_at: meta.timestamp,
-            // Use IP from log if not explicitly mapped
-            ip_address: meta.ip,
-            ..Default::default()
-        };
-
-        let mut has_card_number = false;
-
-        for (i, field) in mapping.iter().enumerate() {
-            let val = parts.get(i).copied().unwrap_or("").trim();
-            if val.is_empty() || field == "skip" { continue; }
-
-            match field.as_str() {
-                "card_number" => {
-                    let clean: String = val.chars().filter(|c| c.is_ascii_digit()).collect();
-                    // DB-006: явная проверка длины (13-19 цифр по ISO/IEC 7812)
-                    // с отдельным сообщением — иначе Luhn-молчание скрывало
-                    // очевидные ошибки парсинга столбцов (телефон вместо карты)
-                    if clean.len() < 13 || clean.len() > 19 {
-                        errors.push(format!("Line {}: invalid card length ({} digits)", line_no, clean.len()));
-                        skipped += 1;
-                        break;
-                    }
-                    if luhn_valid(&clean) {
-                        input.card_number = clean;
-                        has_card_number = true;
-                    } else {
-                        errors.push(format!("Line {}: invalid card number \"{}\"", line_no, &val[..val.len().min(20)]));
-                        skipped += 1;
-                        break;
-                    }
-                }
-                "expiry_date"     => { input.expiry_date = parse_expiry(val); }
-                "cvv"             => { input.cvv = Some(val.to_string()); }
-                "holder_name"     => { input.holder_name = Some(val.to_string()); }
-                "billing_address" => { input.billing_address = Some(val.to_string()); }
-                "city"            => { input.city = Some(val.to_string()); }
-                "state"           => { input.state = Some(val.to_string()); }
-                "zip"             => { input.zip = Some(val.to_string()); }
-                "country"         => { input.country = Some(val.to_string()); }
-                "phone"           => { input.phone = Some(val.to_string()); }
-                "email"           => { input.email = Some(val.to_string()); }
-                "ip_address"      => { input.ip_address = Some(val.to_string()); } // Override if explicitly mapped
-                _ => {}
-            }
-        }
-
-        if !has_card_number {
-            if !errors.last().map(|e: &String| e.starts_with(&format!("Line {}:", line_no))).unwrap_or(false) {
-                errors.push(format!("Line {}: missing card_number", line_no));
-                skipped += 1;
-            }
-            continue;
-        }
-
-        parsed.push(input);
-    }
-
-    ParseResult { parsed, skipped, errors }
-}
-
-// ─────────────────────────────────────────
 //  Helpers (used by database.rs)
 // ─────────────────────────────────────────
 
@@ -647,73 +552,6 @@ mod tests {
         assert_eq!(p.preview_rows.len(), 5); // max 5 preview rows
         assert_eq!(p.preview_rows[0], vec!["4111111111111111".to_string(), "12/29".to_string()]);
         assert_eq!(p.detected_mapping, mapping(&["card_number", "expiry_date"]));
-    }
-
-    // ── parse_cards ──
-
-    #[test]
-    fn test_parse_cards_valid_full_row() {
-        let raw = "4111111111111111|12/29|123|John Doe";
-        let res = parse_cards(raw, mapping(&["card_number", "expiry_date", "cvv", "holder_name"]), "test-src");
-        assert_eq!(res.parsed.len(), 1);
-        assert_eq!(res.skipped, 0);
-        assert!(res.errors.is_empty());
-        let c = &res.parsed[0];
-        assert_eq!(c.card_number, "4111111111111111");
-        assert_eq!(c.expiry_date.as_deref(), Some("12/29"));
-        assert_eq!(c.cvv.as_deref(), Some("123"));
-        assert_eq!(c.holder_name.as_deref(), Some("John Doe"));
-        assert_eq!(c.source, "test-src");
-    }
-
-    #[test]
-    fn test_parse_cards_invalid_luhn_skipped_with_error() {
-        let raw = "4111111111111112|12/29";
-        let res = parse_cards(raw, mapping(&["card_number", "expiry_date"]), "t");
-        assert_eq!(res.parsed.len(), 0);
-        assert_eq!(res.skipped, 1);
-        assert_eq!(res.errors.len(), 1);
-        assert!(res.errors[0].contains("invalid card number"));
-    }
-
-    #[test]
-    fn test_parse_cards_missing_card_number() {
-        let raw = "12/29|123";
-        let res = parse_cards(raw, mapping(&["expiry_date", "cvv"]), "t");
-        assert_eq!(res.parsed.len(), 0);
-        assert_eq!(res.skipped, 1);
-        assert!(res.errors[0].contains("missing card_number"));
-    }
-
-    #[test]
-    fn test_parse_cards_empty_lines_ignored_and_line_numbers() {
-        // FIX B69: пустые строки не считаются — ошибка на 2-й строке данных = "Line 2"
-        let raw = "4111111111111111|12/29\n\n\n4111111111111112|11/29\n";
-        let res = parse_cards(raw, mapping(&["card_number", "expiry_date"]), "t");
-        assert_eq!(res.parsed.len(), 1);
-        assert_eq!(res.skipped, 1);
-        assert!(res.errors[0].starts_with("Line 2:"), "got: {}", res.errors[0]);
-    }
-
-    #[test]
-    fn test_parse_cards_log_line_metadata() {
-        let raw = "[2026-03-04 01:25:38] IP: 107.218.77.158 | Domain: tristatecamera.com | Data: 4111111111111111|12/29|123";
-        let res = parse_cards(raw, mapping(&["card_number", "expiry_date", "cvv"]), "log");
-        assert_eq!(res.parsed.len(), 1);
-        let c = &res.parsed[0];
-        assert_eq!(c.card_number, "4111111111111111");
-        assert_eq!(c.domain.as_deref(), Some("tristatecamera.com"));
-        assert_eq!(c.acquired_at.as_deref(), Some("2026-03-04 01:25:38"));
-        assert_eq!(c.ip_address.as_deref(), Some("107.218.77.158"));
-    }
-
-    #[test]
-    fn test_parse_cards_expired_expiry_becomes_none_but_card_kept() {
-        // Истёкший срок → expiry_date=None, но карта всё равно парсится (Luhn валиден)
-        let raw = "4111111111111111|01/20";
-        let res = parse_cards(raw, mapping(&["card_number", "expiry_date"]), "t");
-        assert_eq!(res.parsed.len(), 1);
-        assert_eq!(res.parsed[0].expiry_date, None);
     }
 
     // ── extract_bin_last4 ──

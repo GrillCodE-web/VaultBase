@@ -72,7 +72,9 @@ Tauri вызываются напрямую, и настоящая провер�
 
 ## 2. Карта прав → команд
 
-19 объявленных прав. 15 реально проверяются, 4 — нет (раздел 4).
+18 объявленных прав. 14 реально проверяются, 4 — нет (раздел 4).
+(`add_cards_manual` выпилено в MGR-018 вместе с командой `import_cards`:
+карты создаёт только менеджер, воркер принимает запечатанные срезы.)
 
 ### Карты
 
@@ -80,7 +82,6 @@ Tauri вызываются напрямую, и настоящая провер�
 | --------------------- | ------------------------------------------------------------------------------- |
 | `view_cards_pool`     | `get_cards`, `get_card`, `get_card_filter_meta`, `get_expiring_cards_dashboard` |
 | `take_cards`          | `take_card`                                                                     |
-| `add_cards_manual`    | `import_cards`                                                                  |
 | `transfer_cards`      | `transfer_card_cmd`                                                             |
 | `view_own_cards_full` | `reveal_card`                                                                   |
 
@@ -305,14 +306,13 @@ fn get_orders(filter: OrderFilter, page: u32, per_page: u32) -> Result<Paginated
 ```rust
 // models.rs
 pub const OPERATOR_DEFAULTS: &[&str] = &[
-    VIEW_CARDS_POOL, TAKE_CARDS, ADD_CARDS_MANUAL, VIEW_OWN_CARDS_FULL,
+    VIEW_CARDS_POOL, TAKE_CARDS, VIEW_OWN_CARDS_FULL,
     CREATE_ORDERS, VIEW_COURIERS, VIEW_PACKAGES, CREATE_PACKAGES,
 ];
 ```
 
-Оператор «из коробки» умеет: смотреть пул карт, брать карты, добавлять карты,
-раскрывать свои, создавать заказы, смотреть курьеров и посылки, создавать
-посылки.
+Оператор «из коробки» умеет: смотреть пул карт, брать карты, раскрывать
+свои, создавать заказы, смотреть курьеров и посылки, создавать посылки.
 
 **Не умеет:** видеть статистику дашборда, экспортировать, управлять
 магазинами/email/прокси, передавать карты, добавлять курьеров.
@@ -396,5 +396,5 @@ grep -c "require_perm\|require_user\|require_admin\|require_any_perm" src-tauri/
 | `src-tauri/src/main.rs`                 | Охранники (строки 40–70) + их применение в ~198 командах  |
 | `src-tauri/src/database/_migrations.rs` | Схема; здесь же отсутствующий `orders.created_by`         |
 | `src/hooks/useAuth.jsx`                 | `hasPerm` на фронте — для скрытия UI                      |
-| `src/pages/UsersPage.jsx`               | Подписи и группировка 19 прав в интерфейсе                |
+| `src/pages/UsersPage.jsx`               | Подписи и группировка прав в интерфейсе                   |
 | `src/App.jsx`                           | Навигация; `users` скрыт по `isAdmin` (строка 745)        |

@@ -851,15 +851,14 @@ pub(crate) fn enforce_daily_quota(db: &Database, kind: DailyQuota) -> Result<(),
 
 /// Жёсткий запрет добавления карт. None (solo-режим, политики ещё не
 /// было) — пропускает; Some(false) — сервер запретил.
+/// MGR-018: единственный вызов жил в import_cards; после выпила ручного
+/// импорта гейт оставлен как test-only справка о семантике поля политики.
+#[cfg(test)]
 pub(crate) fn enforce_can_add_cards_with(flag: Option<bool>) -> Result<(), String> {
     if flag == Some(false) {
         return Err("policy_can_add_cards".into());
     }
     Ok(())
-}
-
-pub(crate) fn enforce_can_add_cards() -> Result<(), String> {
-    enforce_can_add_cards_with(crate::state::policy_snapshot().can_add_cards)
 }
 
 /// Кулдаун после деклайна: взятие карты блокируется, если с последнего
@@ -1866,7 +1865,7 @@ mod telemetry_tests {
         assert_eq!(st.max_drops, None);
         assert_eq!(st.shop_blacklist, vec!["evil.test".to_string(), "bad.shop".to_string()]);
 
-        // без политики вовсе (solo) — can_add_cards None, импорт не блокируется
+        // без политики вовсе (solo) — can_add_cards None, гейт не срабатывает
         let st = parse_policy_state(&serde_json::json!({"banned": 0}), false);
         assert_eq!(st.can_add_cards, None);
         assert!(!st.paused);

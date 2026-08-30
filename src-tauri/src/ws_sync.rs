@@ -325,6 +325,17 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
         "cards_issued" => {
             crate::commands::slices::fetch_on_ws_notify();
         }
+        // MGR-018 (этап C): {"type":"assets_issued","kind":"proxy"|"email"} —
+        // менеджер выдал срезы прокси/email. Тот же фоновый забор.
+        "assets_issued" => {
+            let kind = msg["kind"].as_str().unwrap_or("");
+            crate::commands::slices::fetch_assets_on_ws_notify(kind);
+        }
+        // MGR-018 (этап D): {"type":"config_shared","kind":"stuffer"} —
+        // менеджер выдал share-ключ конфигурации (stuffer base_url + API key).
+        "config_shared" => {
+            crate::commands::slices::fetch_config_shares_on_ws_notify();
+        }
         // {"type":"auth_error","error":"invalid_token"|"missing_token"}
         "auth_error" => {
             let err = msg["error"].as_str().unwrap_or("");

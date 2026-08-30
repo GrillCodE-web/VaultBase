@@ -86,6 +86,8 @@ export default function Settings() {
   const [stufferUrl, setStufferUrl] = useState('')
   const [stufferKey, setStufferKey] = useState('')
   const [stufferKeySet, setStufferKeySet] = useState(false)
+  // MGR-018 (этап D): share-ключ от менеджера активен → секция read-only
+  const [stufferShared, setStufferShared] = useState(false)
   const [stufferSaved, setStufferSaved] = useState(false)
   // FEAT-011: реестр stuffer-аккаунтов с индивидуальными API-ключами
   const [stufferAccounts, setStufferAccounts] = useState([])
@@ -171,6 +173,7 @@ export default function Settings() {
         if (!cancelled && cfg) {
           setStufferUrl(cfg.base_url || '')
           setStufferKeySet(!!cfg.api_key_set)
+          setStufferShared(!!cfg.shared)
         }
       }),
       invoke('stuffer_list_accounts')
@@ -1023,6 +1026,9 @@ export default function Settings() {
               {t('settings_stuffer_title')}
             </div>
             <div className="setting-desc mb-2">{t('settings_stuffer_desc')}</div>
+            {stufferShared && (
+              <div className="setting-desc mb-2">{t('settings_stuffer_shared')}</div>
+            )}
             <div className="flex flex-col gap-2">
               <input
                 type="text"
@@ -1030,6 +1036,7 @@ export default function Settings() {
                 onChange={e => setStufferUrl(e.target.value)}
                 placeholder={t('settings_stuffer_url')}
                 className="form-input"
+                disabled={stufferShared}
               />
               <input
                 type="password"
@@ -1039,14 +1046,17 @@ export default function Settings() {
                   stufferKeySet ? t('settings_stuffer_key_set') : t('settings_stuffer_key_ph')
                 }
                 className="form-input"
+                disabled={stufferShared}
               />
               <div className="flex gap-2 self-end">
-                <button
-                  onClick={saveStufferConfig}
-                  className={`btn btn-sm ${stufferSaved ? 'btn-g' : 'btn-b'}`}
-                >
-                  {stufferSaved ? t('settings_stuffer_saved') : t('settings_stuffer_save')}
-                </button>
+                {!stufferShared && (
+                  <button
+                    onClick={saveStufferConfig}
+                    className={`btn btn-sm ${stufferSaved ? 'btn-g' : 'btn-b'}`}
+                  >
+                    {stufferSaved ? t('settings_stuffer_saved') : t('settings_stuffer_save')}
+                  </button>
+                )}
                 <button
                   onClick={runStufferTest}
                   disabled={!stufferKeySet || stufferTesting}

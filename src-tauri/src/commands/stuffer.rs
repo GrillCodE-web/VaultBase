@@ -30,16 +30,26 @@ use std::collections::HashMap;
 #[tauri::command]
 pub(crate) fn stuffer_get_config() -> Result<StufferConfigView, String> {
     with_db!(db, {
-        let api_key_set = db
-            .get_config("stuffer_api_key")
-            .map_err(|e| e.to_string())?
-            .map(|s| !s.is_empty())
-            .unwrap_or(false);
-        let base_url = db
-            .get_config("stuffer_base_url")
-            .map_err(|e| e.to_string())?
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| crate::stuffer::DEFAULT_BASE_URL.to_string());
+        // MGR-018 (этап D): активен share-ключ менеджера — показываем его
+        // состояние (read-only), ручной конфиг на этом воркере не действует.
+        let shared = shared_creds(db)?;
+        let api_key_set = if shared.is_some() {
+            true
+        } else {
+            db
+                .get_config("stuffer_api_key")
+                .map_err(|e| e.to_string())?
+                .map(|s| !s.is_empty())
+                .unwrap_or(false)
+        };
+        let base_url = match &shared {
+            Some((base, _)) => base.clone(),
+            None => db
+                .get_config("stuffer_base_url")
+                .map_err(|e| e.to_string())?
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| crate::stuffer::DEFAULT_BASE_URL.to_string()),
+        };
         let provider_id = db
             .get_config("stuffer_provider")
             .map_err(|e| e.to_string())?
@@ -54,6 +64,7 @@ pub(crate) fn stuffer_get_config() -> Result<StufferConfigView, String> {
             api_key_set,
             base_url,
             provider: provider_id,
+            shared: shared.is_some(),
             pay_options,
         })
     })
@@ -63,6 +74,11 @@ pub(crate) fn stuffer_get_config() -> Result<StufferConfigView, String> {
 pub(crate) fn stuffer_set_config(api_key: Option<String>, base_url: String) -> Result<(), String> {
     require_perm(models::perms::MANAGE_COURIERS)?;
     with_db!(db, {
+        // MGR-018 (этап D): активный share-ключ менеджера read-only — ручная
+        // правка конфига запрещена, пока менеджер не выдаст замену.
+        if shared_creds(db)?.is_some() {
+            return Err("stuffer_config_managed".into());
+        }
         let base = if base_url.trim().is_empty() {
             crate::stuffer::DEFAULT_BASE_URL.to_string()
         } else {
@@ -338,16 +354,25 @@ pub(crate) struct SharedCourierList {
 fn stuffer_account_sources() -> Result<Vec<(i64, String, String, String, String)>, String> {
     with_db!(db, {
         let mut sources: Vec<(i64, String, String, String, String)> = Vec::new();
-        if let Some(key) = db.get_config("stuffer_api_key").map_err(|e| e.to_string())? {
-            if !key.is_empty() {
-                let base = db.get_config("stuffer_base_url").map_err(|e| e.to_string())?
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_else(|| crate::stuffer::DEFAULT_BASE_URL.to_string());
-                let provider = db.get_config("stuffer_provider").map_err(|e| e.to_string())?
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_else(|| "swat".to_string());
-                sources.push((0, "Default".to_string(), provider, base, key));
-            }
+        // MGR-018 (этап D): share-ключ менеджера заменяет легаси-аккаунт.
+        let legacy = match shared_creds(db)? {
+            Some((base, key)) => Some((base, key)),
+            None => match db.get_config("stuffer_api_key").map_err(|e| e.to_string())?
+                .filter(|key| !key.is_empty()) {
+                Some(key) => {
+                    let base = db.get_config("stuffer_base_url").map_err(|e| e.to_string())?
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or_else(|| crate::stuffer::DEFAULT_BASE_URL.to_string());
+                    Some((base, key))
+                }
+                None => None,
+            },
+        };
+        if let Some((base, key)) = legacy {
+            let provider = db.get_config("stuffer_provider").map_err(|e| e.to_string())?
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "swat".to_string());
+            sources.push((0, "Default".to_string(), provider, base, key));
         }
         for acc in db.list_stuffer_accounts()? {
             if acc.api_key.is_empty() { continue; }
@@ -445,8 +470,23 @@ pub(crate) fn stuffer_delete_account(id: i64) -> Result<(), String> {
     })
 }
 
+/// MGR-018 (этап D): share-ключ от менеджера (stuffer_shared_*) в приоритете
+/// над ручным конфигом; воркер хранит его read-only.
+fn shared_creds(db: &crate::database::Database) -> Result<Option<(String, String)>, String> {
+    let key = db.get_config("stuffer_shared_api_key").map_err(|e| e.to_string())?
+        .filter(|s| !s.is_empty());
+    let Some(key) = key else { return Ok(None) };
+    let base = db.get_config("stuffer_shared_base_url").map_err(|e| e.to_string())?
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| crate::stuffer::DEFAULT_BASE_URL.to_string());
+    Ok(Some((base, key)))
+}
+
 pub(crate) fn stuffer_creds() -> Result<(String, String), String> {
     with_db!(db, {
+        if let Some(creds) = shared_creds(db)? {
+            return Ok(creds);
+        }
         let api_key = db
             .get_config("stuffer_api_key")
             .map_err(|e| e.to_string())?
@@ -492,5 +532,53 @@ pub(crate) struct StufferConfigView {
     api_key_set: bool,
     base_url: String,
     provider: String,
+    /// MGR-018 (этап D): активен share-ключ от менеджера (read-only).
+    shared: bool,
     pay_options: Vec<String>,
+}
+
+
+#[cfg(test)]
+mod stuffer_config_tests {
+    //! MGR-018 (этап D): share-ключ stuffer от менеджера.
+    use super::*;
+
+    fn test_db() -> (tempfile::TempDir, crate::database::Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("stuffer.db");
+        let mut db = crate::database::Database::open(path.to_str().unwrap()).unwrap();
+        let salt = crate::encryption::generate_salt();
+        db.set_encryption(crate::encryption::FieldEncryption::new(
+            "stuffer_test_pw_1234567890",
+            &salt,
+        ));
+        (dir, db)
+    }
+
+    #[test]
+    fn shared_creds_none_by_default() {
+        let (_dir, db) = test_db();
+        assert_eq!(shared_creds(&db).unwrap(), None);
+    }
+
+    #[test]
+    fn shared_creds_reads_pair_and_defaults_base() {
+        let (_dir, db) = test_db();
+        db.set_config("stuffer_shared_api_key", "mgr-key-1").unwrap();
+        // base не задан → дефолт панели
+        let (base, key) = shared_creds(&db).unwrap().unwrap();
+        assert_eq!(base, crate::stuffer::DEFAULT_BASE_URL);
+        assert_eq!(key, "mgr-key-1");
+        // явный base
+        db.set_config("stuffer_shared_base_url", "https://panel.example").unwrap();
+        let (base2, _) = shared_creds(&db).unwrap().unwrap();
+        assert_eq!(base2, "https://panel.example");
+    }
+
+    #[test]
+    fn shared_creds_empty_key_means_inactive() {
+        let (_dir, db) = test_db();
+        db.set_config("stuffer_shared_api_key", "").unwrap();
+        assert_eq!(shared_creds(&db).unwrap(), None);
+    }
 }

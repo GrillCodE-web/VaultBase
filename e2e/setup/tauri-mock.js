@@ -237,34 +237,6 @@ export function getTauriMockScript() {
       })
       return { preview_rows: rows, detected_mapping: detected }
     },
-    import_cards: function (a) {
-      var raw = String((a && a.raw) || '')
-      var mapping = (a && a.mapping) || []
-      var sep = raw.indexOf('|') !== -1 ? '|' : raw.indexOf(';') !== -1 ? ';' : (raw.indexOf('\\t') !== -1 ? '\\t' : ',')
-      var imported = 0
-      var skipped = 0
-      raw.split('\\n').map(function (l) { return l.trim() }).filter(Boolean).forEach(function (line) {
-        var cols = line.split(sep)
-        var numIdx = mapping.indexOf('card_number')
-        var num = numIdx >= 0 ? (cols[numIdx] || '').replace(/\\s+/g, '') : ''
-        // без валидного номера parse_cards отдаст строку в skipped/errors
-        if (!/^\\d{13,19}$/.test(num)) { skipped += 1; return }
-        var get = function (field) {
-          var i = mapping.indexOf(field)
-          return i >= 0 ? String(cols[i] || '').trim() : ''
-        }
-        seq += 1
-        state.cards.push({
-          id: seq, bin: num.slice(0, 6), last4: num.slice(-4), holder_name: get('holder_name'),
-          status: 'free', card_type: 'debit', card_level: 'classic', orders_count: 0,
-          country: get('country') || 'US', city: get('city'), state: get('state'), zip: get('zip'),
-          bank_name: '', source: (a && a.source) || 'manual',
-          acquired_at: nowStr(), created_at: nowStr(), expiry_date: get('expiry_date'),
-        })
-        imported += 1
-      })
-      return { total: imported + skipped, imported: imported, skipped: skipped, errors: [] }
-    },
     export_cards: function (a) {
       var ids = (a && a.ids) || []
       var csv = (a && a.format) === 'csv'

@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 23;
+    const LATEST_VERSION: u32 = 25;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -77,7 +77,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (13, migration_v13), (14, migration_v14), (15, migration_v15),
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
         (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
-        (23, migration_v23),
+        (23, migration_v23), (24, migration_v24), (25, migration_v25),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -872,6 +872,45 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
             );
             CREATE INDEX IF NOT EXISTS idx_arr_rule ON automation_rule_runs(rule_id);
             CREATE INDEX IF NOT EXISTS idx_arr_time ON automation_rule_runs(created_at);
+        "#)?;
+        Ok(())
+    }
+
+    // REDESIGN-05-5B1: связка локальной карты с серверным срезом пула.
+    // card_hash у менеджера солёный и в локальную схему не переносится
+    // (см. slices.rs), поэтому для outcome-отчётов и будущего UI «эта карта
+    // из пула» нужна явная связь pool_slice_id ↔ card_id.
+    fn migration_v24(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS card_pool_links (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                pool_slice_id INTEGER NOT NULL UNIQUE,
+                card_id       INTEGER NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
+                card_hash     TEXT NOT NULL,
+                created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_pool_links_card ON card_pool_links(card_id);
+        "#)?;
+        Ok(())
+    }
+
+    // MGR-018 (этап C): централизованные срезы прокси/email от менеджера.
+    // source='manager' помечает пришедшее срезом (локальное — 'manual').
+    // asset_pool_links связывает серверный срез (pool_slice_id из
+    // issued_asset_slices на cc-sync-server) с локальной строкой — дедуп при
+    // at-least-once доставке и точка опоры для будущего отзыва менеджером.
+    fn migration_v25(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            ALTER TABLE proxies ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
+            ALTER TABLE email_pool ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
+            CREATE TABLE IF NOT EXISTS asset_pool_links (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind          TEXT NOT NULL CHECK (kind IN ('proxy','email')),
+                pool_slice_id INTEGER NOT NULL,
+                local_id      INTEGER NOT NULL,
+                created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(kind, pool_slice_id)
+            );
         "#)?;
         Ok(())
     }

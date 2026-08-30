@@ -661,8 +661,88 @@ impl Database {
     }
 
     pub fn delete_proxy(&self, id: i64) -> Result<(), String> {
-        self.conn.execute("DELETE FROM proxies WHERE id=?1", params![id]).map_err(|e| e.to_string())?;
+        self.conn.execute(
+            "DELETE FROM proxies WHERE id = ?1",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+
+        let _ = self.log_event("proxy.deleted", &format!("Proxy {} deleted", id), Some("proxy"), Some(&id.to_string()));
         Ok(())
+    }
+
+    // ─────────────────────────────────────────
+    //  MGR-018 (этап C): приём централизованных срезов прокси/email
+    // ─────────────────────────────────────────
+
+    /// Дедуп-ключ серверного среза: уже принимали именно этот pool_slice_id?
+    fn asset_slice_seen(&self, kind: &str, pool_slice_id: i64) -> bool {
+        self.conn.query_row(
+            "SELECT 1 FROM asset_pool_links WHERE kind = ?1 AND pool_slice_id = ?2",
+            params![kind, pool_slice_id],
+            |_| Ok(()),
+        ).is_ok()
+    }
+
+    fn link_asset_slice(&self, kind: &str, pool_slice_id: i64, local_id: i64) {
+        let _ = self.conn.execute(
+            "INSERT OR IGNORE INTO asset_pool_links (kind, pool_slice_id, local_id) VALUES (?1, ?2, ?3)",
+            params![kind, pool_slice_id, local_id],
+        );
+    }
+
+    /// Срез email от менеджера. Дедуп: по pool_slice_id (at-least-once
+    /// доставка) и по email_hash (такой адрес уже есть локально).
+    /// Возвращает Some(id) при вставке, None при дубле.
+    pub fn insert_manager_email(&self, pool_slice_id: i64, email: &str, label: Option<String>) -> Result<Option<i64>, String> {
+        if email.trim().is_empty() { return Ok(None); }
+        if self.asset_slice_seen("email", pool_slice_id) { return Ok(None); }
+        let email_enc = self.encrypt_field(email)?;
+        let hash = Self::email_hash(email);
+        let changes = self.conn.execute(
+            "INSERT OR IGNORE INTO email_pool (email, email_hash, label, source) VALUES (?1, ?2, ?3, 'manager')",
+            params![email_enc, hash, label],
+        ).map_err(|e| e.to_string())?;
+        if changes == 0 { return Ok(None); }
+        let id = self.conn.last_insert_rowid();
+        self.link_asset_slice("email", pool_slice_id, id);
+        let _ = self.log_event("email.slice_received", &format!("Email #{} received from manager", id), Some("email"), Some(&id.to_string()));
+        Ok(Some(id))
+    }
+
+    /// Срез прокси от менеджера. Дедуп: по pool_slice_id и по содержимому
+    /// (host+port+username — тот же прокси уже заведён локально).
+    pub fn insert_manager_proxy(&self, pool_slice_id: i64, input: &ProxyInput) -> Result<Option<i64>, String> {
+        if input.host.trim().is_empty() || input.port <= 0 { return Ok(None); }
+        if self.asset_slice_seen("proxy", pool_slice_id) { return Ok(None); }
+        let exists = self.conn.query_row(
+            "SELECT 1 FROM proxies WHERE host = ?1 AND port = ?2 AND IFNULL(username, '') = ?3",
+            params![input.host, input.port, input.username],
+            |_| Ok(()),
+        ).is_ok();
+        if exists {
+            // Связываем срез с уже существующей строкой, чтобы повторные
+            // доставки того же среза гасли по pool_slice_id.
+            if let Ok(existing_id) = self.conn.query_row(
+                "SELECT id FROM proxies WHERE host = ?1 AND port = ?2 AND IFNULL(username, '') = ?3",
+                params![input.host, input.port, input.username],
+                |r| r.get::<_, i64>(0),
+            ) {
+                self.link_asset_slice("proxy", pool_slice_id, existing_id);
+            }
+            return Ok(None);
+        }
+        let password_enc = self.encrypt_field(&input.password)?;
+        let username = if input.username.is_empty() { None } else { Some(input.username.clone()) };
+        let label = if input.label.is_empty() { None } else { Some(input.label.clone()) };
+        let notes = if input.notes.is_empty() { None } else { Some(input.notes.clone()) };
+        self.conn.execute(
+            "INSERT INTO proxies (host, port, proxy_type, username, password, label, notes, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'manager')",
+            params![input.host, input.port, input.proxy_type, username, password_enc, label, notes],
+        ).map_err(|e| e.to_string())?;
+        let id = self.conn.last_insert_rowid();
+        self.link_asset_slice("proxy", pool_slice_id, id);
+        let _ = self.log_event("proxy.slice_received", &format!("Proxy #{} received from manager", id), Some("proxy"), Some(&id.to_string()));
+        Ok(Some(id))
     }
 
     pub fn check_all_proxy_health(&self) -> Result<crate::models::ProxyHealthResult, String> {

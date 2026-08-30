@@ -26,7 +26,6 @@ const PERMISSION_LABELS = {
   view_stats_global: 'просмотр общей статистики',
   view_cards_pool: 'просмотр пула карт',
   take_cards: 'взятие карт',
-  add_cards_manual: 'добавление карт',
   transfer_cards: 'передача карт',
   view_own_cards_full: 'просмотр своих карт полностью',
   create_orders: 'создание заказов',
@@ -194,18 +193,40 @@ export function handleError(error, context = '') {
     }
   }
 
-  // MGR-019: политики менеджера. Коды приходят из telemetry::enforce_*.
-  // Ветка ДО общих `invalid`/`auth`-проверок: 'policy_can_add_cards' сам по
-  // себе классификаторам не подчиняется, но порядок страхует на будущее.
-  if (message === 'policy_can_add_cards') {
+  // MGR-018 (этап C): пул прокси/email централизован — в managed-режиме
+  // локальные add/update/delete/import закрыты, срезы приходят от менеджера.
+  if (message === 'managed_pool_readonly') {
     return {
       type: 'PermissionError',
-      code: 'POLICY_CAN_ADD_CARDS',
-      message: 'Менеджер запретил добавление карт для вашей учётной записи.',
+      code: 'MANAGED_POOL_READONLY',
+      message: 'Пул управляется менеджером: локальное добавление и правка отключены.',
       details: { originalMessage: message },
       context,
     }
   }
+
+  // MGR-018 (этап D): BIN-обогащение у менеджера / stuffer-ключ read-only.
+  if (message === 'bin_enrich_managed') {
+    return {
+      type: 'ValidationError',
+      code: 'BIN_ENRICH_MANAGED',
+      message: 'BIN-обогащение выполняет менеджер: банк/тип/уровень приходят в срезе карты.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+  if (message === 'stuffer_config_managed') {
+    return {
+      type: 'PermissionError',
+      code: 'STUFFER_CONFIG_MANAGED',
+      message: 'Ключ Stuffer выдан менеджером и доступен только для чтения.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
+
+  // MGR-019: политики менеджера. Коды приходят из telemetry::enforce_*.
+  // (policy_can_add_cards ушёл вместе с ручным импортом карт — MGR-018.)
   if (message.startsWith('decline_cooldown_active')) {
     const mins = message.split(':')[1] || ''
     return {

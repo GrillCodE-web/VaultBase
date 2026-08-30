@@ -27,59 +27,13 @@ use chrono;
 use serde_json;
 use std::collections::HashMap;
 
+// detect_mapping_preview остаётся: используется импортом дропов
+// (Profiles/ImportDropsModal → import_drops). Ручной импорт КАРТ выпилен
+// (MGR-018): карты создаёт только менеджер, воркер принимает запечатанные
+// срезы (commands/slices.rs).
 #[tauri::command]
 pub(crate) fn detect_mapping_preview(raw: String) -> Result<MappingPreview, String> {
     Ok(parser::mapping_preview(&raw))
-}
-
-#[tauri::command]
-pub(crate) fn import_cards(raw: String, mapping: Vec<String>, source: String) -> Result<ImportResult, String> {
-    require_perm(models::perms::ADD_CARDS_MANUAL)?;
-    crate::commands::telemetry::enforce_can_add_cards()?;
-    let parse_result = parser::parse_cards(&raw, mapping, &source);
-    let total_parsed = parse_result.parsed.len();
-
-    let inserted = with_db!(db, {
-        if db.is_locked() { return Err("database_locked".into()); }
-        match db.insert_cards(parse_result.parsed) {
-            Ok(n) => Ok(n),
-            Err(e) => {
-                // DB-008: failed операции тоже в activity log
-                let _ = db.log_event(
-                    "card.import_failed",
-                    &format!("Import from '{}' failed: {}", source, e),
-                    Some("card"), None,
-                );
-                Err(e)
-            }
-        }
-    })?;
-
-    let skipped = total_parsed - inserted + parse_result.skipped;
-
-    with_db!(db, {
-        // DB-008: частичные ошибки парсинга — отдельным событием, чтобы
-        // молчаливые пропуски строк (Luhn/длина) были видны в логе
-        if skipped > 0 {
-            let sample = parse_result.errors.first().cloned().unwrap_or_default();
-            let _ = db.log_event(
-                "card.import_partial",
-                &format!("Import from '{}': {} skipped of {}. First error: {}", source, skipped, total_parsed, sample),
-                Some("card"), None,
-            );
-        }
-        let _ = db.log_event(
-            "card.imported",
-            &format!("Imported {} cards from source '{}'", inserted, source),
-            Some("card"), None,
-        );
-        Ok(ImportResult {
-            total:    total_parsed as u32,
-            imported: inserted as u32,
-            skipped:  skipped as u32,
-            errors:   parse_result.errors,
-        })
-    })
 }
 
 #[tauri::command]
@@ -342,6 +296,9 @@ pub(crate) fn export_cards(ids: Vec<i64>, format: String) -> Result<String, Stri
 pub(crate) fn enrich_bin(id: i64, force: Option<bool>) -> Result<BinInfo, String> {
     require_user()?;
     let guard  = state().db.lock().map_err(|e| e.to_string())?;
+    // MGR-018 (этап D): в managed-режиме обогащение выполняет менеджер при
+    // выпуске среза — воркерский enrich по внешнему API отключён.
+    if crate::commands::slices::is_managed(&guard) { return Err("bin_enrich_managed".into()); }
     let api_key = guard.get_config("bin_api_key")
         .map_err(|e| e.to_string())?
         .unwrap_or_default();
@@ -495,12 +452,18 @@ pub(crate) fn find_duplicate_drops() -> Result<Vec<Vec<Drop>>, String> {
     with_db!(db, { db.find_duplicate_drops() })
 }
 
+// MGR-018 (этап C): мутации пула прокси/email закрыты гейтом
+// crate::commands::slices::enforce_pool_editable — в managed-режиме пул
+// централизован у менеджера (read-only), solo-режим не затрагивается.
 #[tauri::command]
 pub(crate) fn add_email(email: String, label: String, notes: String) -> Result<EmailPoolEntry, String> {
     require_perm(models::perms::MANAGE_EMAILS)?;
     let label = if label.is_empty() { None } else { Some(label) };
     let notes = if notes.is_empty() { None } else { Some(notes) };
-    with_db!(db, { db.add_email(&email, label, notes) })
+    with_db!(db, {
+        crate::commands::slices::enforce_pool_editable(db)?;
+        db.add_email(&email, label, notes)
+    })
 }
 
 #[tauri::command]
@@ -514,7 +477,10 @@ pub(crate) fn update_email(id: i64, label: String, notes: String) -> Result<(), 
     require_perm(models::perms::MANAGE_EMAILS)?;
     let label = if label.is_empty() { None } else { Some(label) };
     let notes = if notes.is_empty() { None } else { Some(notes) };
-    with_db!(db, { db.update_email(id, label, notes) })
+    with_db!(db, {
+        crate::commands::slices::enforce_pool_editable(db)?;
+        db.update_email(id, label, notes)
+    })
 }
 
 #[tauri::command]
@@ -526,7 +492,10 @@ pub(crate) fn block_email(id: i64, blocked: bool) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn delete_email(id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_EMAILS)?;
-    with_db!(db, { db.delete_email(id) })
+    with_db!(db, {
+        crate::commands::slices::enforce_pool_editable(db)?;
+        db.delete_email(id)
+    })
 }
 
 #[tauri::command]
@@ -540,13 +509,19 @@ pub(crate) fn get_clean_email_for_shop(shop_id: i64) -> Result<Option<EmailPoolE
 #[tauri::command]
 pub(crate) fn add_proxy(input: ProxyInput) -> Result<Proxy, String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
-    with_db!(db, { db.add_proxy(&input) })
+    with_db!(db, {
+        crate::commands::slices::enforce_pool_editable(db)?;
+        db.add_proxy(&input)
+    })
 }
 
 #[tauri::command]
 pub(crate) fn import_proxies(raw: String) -> Result<ImportResult, String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
-    with_db!(db, { db.import_proxies(&raw) })
+    with_db!(db, {
+        crate::commands::slices::enforce_pool_editable(db)?;
+        db.import_proxies(&raw)
+    })
 }
 
 #[tauri::command]
@@ -558,7 +533,10 @@ pub(crate) fn get_proxies(filter: ProxyFilter, page: u32, per_page: u32) -> Resu
 #[tauri::command]
 pub(crate) fn update_proxy(id: i64, input: ProxyInput) -> Result<(), String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
-    with_db!(db, { db.update_proxy(id, &input) })
+    with_db!(db, {
+        crate::commands::slices::enforce_pool_editable(db)?;
+        db.update_proxy(id, &input)
+    })
 }
 
 #[tauri::command]
@@ -570,7 +548,10 @@ pub(crate) fn block_proxy(id: i64, blocked: bool) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn delete_proxy(id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
-    with_db!(db, { db.delete_proxy(id) })
+    with_db!(db, {
+        crate::commands::slices::enforce_pool_editable(db)?;
+        db.delete_proxy(id)
+    })
 }
 
 #[tauri::command]

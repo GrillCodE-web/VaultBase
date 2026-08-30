@@ -1383,7 +1383,8 @@ pub mod perms {
     pub const VIEW_STATS_GLOBAL:   &str = "view_stats_global";
     pub const VIEW_CARDS_POOL:     &str = "view_cards_pool";
     pub const TAKE_CARDS:          &str = "take_cards";
-    pub const ADD_CARDS_MANUAL:    &str = "add_cards_manual";
+    // ADD_CARDS_MANUAL выпилено (MGR-018): карты создаёт только менеджер,
+    // у воркера нет ни одной ручной точки добавления.
     pub const TRANSFER_CARDS:      &str = "transfer_cards";
     pub const VIEW_OWN_CARDS_FULL: &str = "view_own_cards_full";
     pub const CREATE_ORDERS:       &str = "create_orders";
@@ -1404,7 +1405,6 @@ pub mod perms {
     pub const OPERATOR_DEFAULTS: &[&str] = &[
         VIEW_CARDS_POOL,
         TAKE_CARDS,
-        ADD_CARDS_MANUAL,
         VIEW_OWN_CARDS_FULL,
         CREATE_ORDERS,
         VIEW_COURIERS,
@@ -1423,7 +1423,6 @@ pub mod perms {
         (VIEW_STATS_GLOBAL,   "Общая статистика"),
         (VIEW_CARDS_POOL,     "Просмотр пула карт"),
         (TAKE_CARDS,          "Брать карты из пула"),
-        (ADD_CARDS_MANUAL,    "Добавлять карты вручную"),
         (TRANSFER_CARDS,      "Передавать карты"),
         (VIEW_OWN_CARDS_FULL, "Полные данные своих карт"),
         (CREATE_ORDERS,       "Создавать заказы"),

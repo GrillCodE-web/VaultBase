@@ -1066,6 +1066,8 @@ export const en = {
   // Stuffer settings
   settings_stuffer_title: 'Stuffer API',
   settings_stuffer_desc: 'Couriers and packages integration.',
+  settings_stuffer_shared:
+    'API key is issued by the manager and is read-only here. Contact the manager to replace it.',
   settings_stuffer_url: 'Base URL',
   settings_stuffer_key: 'API key',
   settings_stuffer_key_set: 'API key is set. Leave empty to keep it.',

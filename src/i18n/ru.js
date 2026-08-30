@@ -1065,6 +1065,8 @@ export const ru = {
   // Настройки Stuffer
   settings_stuffer_title: 'Stuffer API',
   settings_stuffer_desc: 'Интеграция курьеров и посылок.',
+  settings_stuffer_shared:
+    'API-ключ выдан менеджером и доступен только для чтения. Для замены обратитесь к менеджеру.',
   settings_stuffer_url: 'Базовый URL',
   settings_stuffer_key: 'API-ключ',
   settings_stuffer_key_set: 'API-ключ сохранён. Оставьте пустым, чтобы не менять.',

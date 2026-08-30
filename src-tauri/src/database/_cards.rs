@@ -596,6 +596,14 @@ impl Database {
             return Ok(info);
         }
 
+        // MGR-018 (этап D): managed-воркер внешний BIN API не дёргает и
+        // локальный ключ не использует — обогащение выполняет менеджер при
+        // выпуске среза (банк/тип/уровень едут в запечатанном payload); у
+        // воркера остаются локальный и серверный кэш. Solo-режим — как раньше.
+        if crate::commands::slices::is_managed(self) {
+            return Err("bin_enrich_managed".into());
+        }
+
         // 3. Fall back to iinapi.com API
         fetch_bin_info(&bin, api_key)
             .map(|info| {
