@@ -537,6 +537,37 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
          AND (event_type LIKE '%error%' OR event_type LIKE '%fail%' OR event_type LIKE '%reject%') \
          AND DATE(created_at, 'localtime') = ?1", &[&date]);
 
+    // MGR-022: флотовая теплокарта BIN×шоп — топ-50 пар за дату (менеджер
+    // агрегирует по флоту; у одиночного воркера пары слишком редкие).
+    let mut bin_shop: Vec<serde_json::Value> = Vec::new();
+    if let Ok(mut stmt) = db.conn.prepare(
+        "SELECT COALESCE(cc.bin, '?'), s.domain, COUNT(*), \
+                SUM(CASE WHEN o.status IN ('shipped','delivered') THEN 1 ELSE 0 END), \
+                SUM(CASE WHEN o.status = 'declined' THEN 1 ELSE 0 END) \
+         FROM orders o JOIN profiles pr ON pr.id = o.profile_id \
+         JOIN credit_cards cc ON cc.id = pr.card_id \
+         JOIN shops s ON s.id = o.shop_id \
+         WHERE DATE(o.created_at, 'localtime') = ?1 \
+         GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 50",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![date], |r| {
+            Ok(serde_json::json!({
+                "bin": r.get::<_, String>(0)?, "shop": r.get::<_, String>(1)?,
+                "orders": r.get::<_, i64>(2)?, "ok": r.get::<_, i64>(3)?,
+                "declined": r.get::<_, i64>(4)?,
+            }))
+        }) {
+            bin_shop = rows.flatten().collect();
+        }
+    }
+
+    // MGR-022: SLA-блок — скользящие 7 дней (get_sla_stats, order_status_history).
+    // Ошибка не роняет телеметрию: блок просто отсутствует.
+    let sla = db.get_sla_stats("7d", None, None)
+        .ok()
+        .and_then(|s| serde_json::to_value(s).ok())
+        .unwrap_or(serde_json::Value::Null);
+
     serde_json::json!({
         "payload_version": 2,
         "worker_sent_at": chrono::Utc::now().to_rfc3339(),
@@ -548,6 +579,8 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
             "by_status": orders_by_status,
         },
         "by_user": build_by_user(db, date),
+        "bin_shop": bin_shop,
+        "sla": sla,
         "cards": {
             "taken": cards_taken,
             "used": cards_used,
@@ -1911,5 +1944,80 @@ mod telemetry_tests {
         ).unwrap();
         let s = build_daily_stats(&db, &today_local());
         assert_eq!(s["cards"]["dead"], serde_json::json!(1), "событие из card_status_events, лог не дублирует");
+    }
+
+    // ── MGR-022: SLA + bin_shop ──
+
+    /// Заказ с контролируемыми штампами: created 10:00, shipped 14:00 (+4ч),
+    /// delivered на следующий день 02:00 (+16ч от создания, +12ч после shipped).
+    fn make_sla_order(db: &Database, n: usize, created: &str) -> i64 {
+        let prof = make_profile(db, n);
+        let shop = make_shop(db, &format!("sla{}.example.com", n));
+        let oid = make_order(db, &prof, shop, n);
+        db.conn.execute("UPDATE orders SET created_at=?1, status='delivered' WHERE id=?2",
+            params![created, oid]).unwrap();
+        oid
+    }
+
+    #[test]
+    fn test_sla_stats_averages_and_aging() {
+        let (_dir, db) = test_db();
+        // пустая БД — все средние None, счётчики 0
+        let s0 = db.get_sla_stats("all", None, None).unwrap();
+        assert!(s0.avg_hours_pending_to_shipped.is_none());
+        assert_eq!(s0.orders_shipped, 0);
+        assert_eq!(s0.pending_aging.lt24h, 0);
+
+        let oid = make_sla_order(&db, 1, "2026-08-20 10:00:00");
+        db.conn.execute(
+            "INSERT INTO order_status_history(order_id, from_status, to_status, created_at) \
+             VALUES(?1, 'pending', 'shipped', '2026-08-20 14:00:00')", params![oid]).unwrap();
+        db.conn.execute(
+            "INSERT INTO order_status_history(order_id, from_status, to_status, created_at) \
+             VALUES(?1, 'shipped', 'delivered', '2026-08-21 02:00:00')", params![oid]).unwrap();
+
+        let s = db.get_sla_stats("all", None, None).unwrap();
+        assert_eq!(s.avg_hours_pending_to_shipped, Some(4.0));
+        assert_eq!(s.avg_hours_shipped_to_delivered, Some(12.0));
+        assert_eq!(s.avg_hours_created_to_delivered, Some(16.0));
+        assert!(s.avg_hours_created_to_declined.is_none());
+        assert_eq!(s.orders_shipped, 1);
+        assert_eq!(s.orders_delivered, 1);
+        assert_eq!(s.by_shop.len(), 1);
+        assert_eq!(s.by_shop[0].avg_hours_to_delivered, Some(16.0));
+
+        // период без заказов — средних нет (история не подтягивает чужие заказы)
+        let s2 = db.get_sla_stats("custom", Some("2026-08-25"), Some("2026-08-26")).unwrap();
+        assert_eq!(s2.orders_shipped, 0);
+        assert!(s2.avg_hours_pending_to_shipped.is_none());
+
+        // висящий pending попадает в aging
+        let p2 = make_profile(&db, 2);
+        let sh2 = make_shop(&db, "aging.example.com");
+        make_order(&db, &p2, sh2, 99); // status='pending', created_at=now
+        let s3 = db.get_sla_stats("all", None, None).unwrap();
+        assert_eq!(s3.pending_aging.lt24h, 1);
+        assert!(s3.pending_aging.oldest_hours >= 0.0);
+    }
+
+    #[test]
+    fn test_daily_stats_sla_and_bin_shop_blocks() {
+        let (_dir, db) = test_db();
+        let prof = make_profile(&db, 1);
+        let shop = make_shop(&db, "binshop.example.com");
+        make_order(&db, &prof, shop, 1);
+
+        let s = build_daily_stats(&db, &today_local());
+        assert!(s["sla"].is_object(), "sla-блок присутствует");
+        assert!(s["sla"]["pending_aging"].is_object());
+        assert_eq!(s["sla"]["pending_aging"]["lt24h"], serde_json::json!(1));
+
+        let pairs = s["bin_shop"].as_array().unwrap();
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0]["orders"], serde_json::json!(1));
+        assert_eq!(pairs[0]["bin"].as_str().unwrap().len(), 6);
+        // домен шопа совпадает с ключом карты shops
+        let shop_key = s["shops"].as_object().unwrap().keys().next().unwrap().clone();
+        assert_eq!(pairs[0]["shop"].as_str().unwrap(), shop_key);
     }
 }

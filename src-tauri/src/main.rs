@@ -306,6 +306,7 @@ fn main() {
             commands::dashboard::get_by_country, commands::dashboard::get_by_source, commands::dashboard::get_by_domain, commands::dashboard::get_expiring_cards_dashboard,
             commands::dashboard::export_dashboard_csv, commands::dashboard::get_sidebar_badges,
             commands::dashboard::get_bin_performance, commands::dashboard::get_shop_win_loss,
+            commands::dashboard::get_sla_stats,
             commands::imap::add_imap_account, commands::imap::get_imap_accounts, commands::imap::update_imap_account,
             commands::imap::delete_imap_account, commands::imap::toggle_imap_account, commands::imap::get_imap_messages,
             commands::imap::test_imap_connection, commands::imap::link_email_to_imap, commands::imap::link_all_imap_accounts,

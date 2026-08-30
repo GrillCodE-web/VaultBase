@@ -278,6 +278,26 @@ pub fn get_analytics(state: State<'_, AppState>, from: String, to: String) -> Re
     with_open(&state, |database, _| telemetry::analytics(database, &from, &to))
 }
 
+// MGR-022: сравнение воркеров между собой (объёмы, воронка, SLA, дрейф версий)
+#[tauri::command]
+pub fn get_fleet_comparison(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
+    let date_ok = |s: &str| s.len() == 10 && s.as_bytes()[4] == b'-' && s.as_bytes()[7] == b'-';
+    if !date_ok(&from) || !date_ok(&to) {
+        return Err("invalid_date".into());
+    }
+    with_open(&state, |database, _| telemetry::fleet_comparison(database, &from, &to))
+}
+
+// MGR-022: флотовая теплокарта BIN×шоп
+#[tauri::command]
+pub fn get_fleet_bin_shop(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
+    let date_ok = |s: &str| s.len() == 10 && s.as_bytes()[4] == b'-' && s.as_bytes()[7] == b'-';
+    if !date_ok(&from) || !date_ok(&to) {
+        return Err("invalid_date".into());
+    }
+    with_open(&state, |database, _| telemetry::fleet_bin_shop(database, &from, &to))
+}
+
 #[tauri::command]
 pub fn get_worker_snapshots(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| telemetry::worker_snapshots(database))

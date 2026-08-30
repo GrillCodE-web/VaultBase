@@ -27,6 +27,8 @@ fn main() {
             commands::server_request,
             commands::sync_telemetry,
             commands::get_analytics,
+            commands::get_fleet_comparison,
+            commands::get_fleet_bin_shop,
             commands::get_worker_snapshots,
             commands::get_worker_stats,
             commands::evaluate_alerts,

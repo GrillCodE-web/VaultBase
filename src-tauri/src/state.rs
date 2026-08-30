@@ -208,6 +208,24 @@ pub(crate) fn backup_dir() -> PathBuf {
         .join("backups")
 }
 
+/// SEC: автобэкапы — дополнительный шифротекст на диске и форензик-след
+/// (имена с датами). По умолчанию ВЫКЛЮЧЕНЫ; включаются осознанно через
+/// конфиг `[backup] enabled=true` или env `VAULTBASE_BACKUPS=1`.
+pub(crate) fn backups_enabled() -> bool {
+    match std::env::var("VAULTBASE_BACKUPS") {
+        Ok(v) => matches!(v.as_str(), "1" | "true" | "yes" | "on"),
+        Err(_) => {
+            let profile = std::env::var("VAULTBASE_PROFILE").unwrap_or_else(|_| {
+                if cfg!(debug_assertions) { "dev".into() } else { "production".into() }
+            });
+            let path = crate::config::get_config_path(&profile);
+            crate::config::load_config(&path)
+                .map(|c| c.backup.enabled)
+                .unwrap_or(false)
+        }
+    }
+}
+
 macro_rules! with_db {
     ($db:ident, $body:block) => {{
         let mut guard = crate::state::state().db.lock().map_err(|e| e.to_string())?;
@@ -267,6 +285,12 @@ pub(crate) fn secret_flag_target(key: &str) -> Option<&'static str> {
 }
 
 pub(crate) fn auto_backup(db: &Database) -> Result<(), String> {
+    // SEC: автобэкапы по умолчанию выключены — каждый бэкап это дополнительная
+    // копия БД на диске (форензик-след). Включаются через [backup] enabled=true
+    // или env VAULTBASE_BACKUPS=1.
+    if !backups_enabled() {
+        return Ok(());
+    }
     let src = match db.conn.path() {
         Some(p) => p.to_string(),
         None => return Ok(()),

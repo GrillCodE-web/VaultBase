@@ -515,4 +515,93 @@ impl Database {
             unsynced_footprints,
         })
     }
+
+    /// MGR-022: SLA-таймеры из order_status_history (MGR-014).
+    /// Средние часы переходов по заказам, СОЗДАННЫМ в периоде; заказы без
+    /// истории (до миграции v21) не участвуют — AVG игнорирует NULL.
+    /// pending_aging — мгновенный срез текущих pending (без привязки к периоду).
+    pub fn get_sla_stats(&self, period: &str, from: Option<&str>, to: Option<&str>) -> Result<SlaStats, String> {
+        let (start, end) = period_dates(period, from, to);
+        let (date_and, p_strs) = date_and_clause(&start, &end, "o.created_at");
+        let extra = if date_and.is_empty() { String::new() } else { format!(" AND {}", date_and) };
+        let p_refs: Vec<&dyn rusqlite::ToSql> = p_strs.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+        let sql = format!(
+            "WITH t AS ( \
+               SELECT order_id, \
+                 MIN(CASE WHEN to_status='shipped'   THEN created_at END) AS shipped_at, \
+                 MIN(CASE WHEN to_status='delivered' THEN created_at END) AS delivered_at, \
+                 MIN(CASE WHEN to_status='declined'  THEN created_at END) AS declined_at \
+               FROM order_status_history GROUP BY order_id \
+             ) \
+             SELECT \
+               AVG((julianday(t.shipped_at)   - julianday(o.created_at)) * 24.0), \
+               AVG((julianday(t.delivered_at) - julianday(t.shipped_at)) * 24.0), \
+               AVG((julianday(t.delivered_at) - julianday(o.created_at)) * 24.0), \
+               AVG((julianday(t.declined_at)  - julianday(o.created_at)) * 24.0), \
+               COUNT(t.shipped_at), COUNT(t.delivered_at), COUNT(t.declined_at) \
+             FROM orders o JOIN t ON t.order_id = o.id \
+             WHERE 1=1{}",
+            extra
+        );
+        let round1 = |v: Option<f64>| v.map(|x| (x * 10.0).round() / 10.0);
+        let (a_ps, a_sd, a_cd, a_cdec, n_ship, n_del, n_dec): (
+            Option<f64>, Option<f64>, Option<f64>, Option<f64>, i64, i64, i64,
+        ) = self.conn.query_row(&sql, p_refs.as_slice(), |r| Ok((
+            r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?,
+            r.get::<_, i64>(4)?, r.get::<_, i64>(5)?, r.get::<_, i64>(6)?,
+        ))).map_err(|e| e.to_string())?;
+
+        let aging: (i64, i64, i64, i64, Option<f64>) = self.conn.query_row(
+            "WITH p AS ( \
+               SELECT (julianday('now') - julianday(created_at)) * 24.0 AS h \
+               FROM orders WHERE status='pending' \
+             ) \
+             SELECT \
+               COALESCE(SUM(CASE WHEN h < 24 THEN 1 ELSE 0 END), 0), \
+               COALESCE(SUM(CASE WHEN h >= 24 AND h < 72 THEN 1 ELSE 0 END), 0), \
+               COALESCE(SUM(CASE WHEN h >= 72 AND h < 168 THEN 1 ELSE 0 END), 0), \
+               COALESCE(SUM(CASE WHEN h >= 168 THEN 1 ELSE 0 END), 0), \
+               MAX(h) FROM p",
+            [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        ).map_err(|e| e.to_string())?;
+
+        let shop_sql = format!(
+            "WITH t AS ( \
+               SELECT order_id, \
+                 MIN(CASE WHEN to_status='delivered' THEN created_at END) AS delivered_at \
+               FROM order_status_history GROUP BY order_id \
+             ) \
+             SELECT s.domain, COUNT(*), \
+               AVG((julianday(t.delivered_at) - julianday(o.created_at)) * 24.0) \
+             FROM orders o JOIN shops s ON s.id = o.shop_id JOIN t ON t.order_id = o.id \
+             WHERE 1=1{} \
+             GROUP BY s.domain ORDER BY 2 DESC LIMIT 10",
+            extra
+        );
+        let mut stmt = self.conn.prepare(&shop_sql).map_err(|e| e.to_string())?;
+        let by_shop = stmt.query_map(p_refs.as_slice(), |r| {
+            Ok(SlaShop {
+                shop: r.get(0)?,
+                orders: r.get(1)?,
+                avg_hours_to_delivered: round1(r.get::<_, Option<f64>>(2)?),
+            })
+        }).map_err(|e| e.to_string())?
+          .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+        Ok(SlaStats {
+            avg_hours_pending_to_shipped: round1(a_ps),
+            avg_hours_shipped_to_delivered: round1(a_sd),
+            avg_hours_created_to_delivered: round1(a_cd),
+            avg_hours_created_to_declined: round1(a_cdec),
+            orders_shipped: n_ship,
+            orders_delivered: n_del,
+            orders_declined: n_dec,
+            pending_aging: SlaAging {
+                lt24h: aging.0, d1_3: aging.1, d3_7: aging.2, gt7d: aging.3,
+                oldest_hours: aging.4.map(|x| (x * 10.0).round() / 10.0).unwrap_or(0.0),
+            },
+            by_shop,
+        })
+    }
 }

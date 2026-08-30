@@ -52,18 +52,38 @@ impl From<LogLevel> for LevelFilter {
 /// # Returns
 /// * `Ok(())` if successful
 /// * `Err(String)` if initialization fails
+/// SEC: файловые логи — форензик-след (хронология сессий, пути с именем
+/// пользователя ОС). В release-сборке по умолчанию НЕ пишутся: включаются
+/// осознанно через env `VAULTBASE_LOG_FILE=1`. В dev-сборке (debug_assertions)
+/// включены по умолчанию для отладки.
+fn file_logging_enabled() -> bool {
+    match std::env::var("VAULTBASE_LOG_FILE") {
+        Ok(v) => matches!(v.as_str(), "1" | "true" | "yes" | "on"),
+        Err(_) => cfg!(debug_assertions),
+    }
+}
+
 pub fn init_logging(
     log_dir: PathBuf,
     log_level: LogLevel,
     enable_json: bool,
 ) -> Result<(), String> {
-    // Create logs directory if it doesn't exist
-    std::fs::create_dir_all(&log_dir)
-        .map_err(|e| format!("Failed to create log directory: {}", e))?;
-
-    // Set up file appender with daily rotation
-    let file_appender = rolling::daily(&log_dir, "vaultbase.log");
-    let (non_blocking_appender, _guard) = non_blocking(file_appender);
+    let file_enabled = file_logging_enabled();
+    let non_blocking_appender = if file_enabled {
+        // Create logs directory if it doesn't exist
+        std::fs::create_dir_all(&log_dir)
+            .map_err(|e| format!("Failed to create log directory: {}", e))?;
+        // Set up file appender with daily rotation
+        let file_appender = rolling::daily(&log_dir, "vaultbase.log");
+        let (appender, _guard) = non_blocking(file_appender);
+        // _guard осознанно не сохраняем: его drop не закрывает файл (он живёт
+        // внутри writer'а), а worker-канал завершается — записи просто теряются
+        // при выключении. Держать глобальный guard ради красивого shutdown не
+        // имеет смысла: лог-файлы в проде выключены.
+        Some(appender)
+    } else {
+        None
+    };
 
     // Configure environment filter
     // Default to configured level, but allow RUST_LOG env override
@@ -88,33 +108,36 @@ pub fn init_logging(
         .with_span_events(FmtSpan::CLOSE)
         .with_filter(env_filter.clone());
 
-    // File layer - JSON format for structured parsing
-    // Boxed to unify the two branch types (JSON vs plain formatter)
+    // File layer - JSON format for structured parsing.
+    // Boxed to unify branch types; None в release по умолчанию (см.
+    // file_logging_enabled) — файловых логов нет вообще.
     use tracing_subscriber::Layer;
-    let file_layer = if enable_json {
-        fmt::layer()
-            .json()
-            .with_target(true)
-            .with_thread_ids(true)
-            .with_thread_names(true)
-            .with_line_number(true)
-            .with_span_events(FmtSpan::CLOSE)
-            .with_writer(non_blocking_appender)
-            .with_filter(env_filter.clone())
-            .boxed()
-    } else {
-        fmt::layer()
-            .with_target(true)
-            .with_thread_ids(true)
-            .with_thread_names(true)
-            .with_line_number(true)
-            .with_span_events(FmtSpan::CLOSE)
-            .with_writer(non_blocking_appender)
-            .with_filter(env_filter)
-            .boxed()
-    };
+    let file_layer = non_blocking_appender.map(|writer| {
+        if enable_json {
+            fmt::layer()
+                .json()
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_thread_names(true)
+                .with_line_number(true)
+                .with_span_events(FmtSpan::CLOSE)
+                .with_writer(writer)
+                .with_filter(env_filter.clone())
+                .boxed()
+        } else {
+            fmt::layer()
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_thread_names(true)
+                .with_line_number(true)
+                .with_span_events(FmtSpan::CLOSE)
+                .with_writer(writer)
+                .with_filter(env_filter)
+                .boxed()
+        }
+    });
 
-    // Initialize subscriber with both layers
+    // Initialize subscriber with layers (file layer optional)
     tracing_subscriber::registry()
         .with(console_layer)
         .with(file_layer)
@@ -123,6 +146,7 @@ pub fn init_logging(
 
     tracing::info!(
         log_dir = %log_dir.display(),
+        file_logging = file_enabled,
         log_level = ?log_level,
         json_enabled = enable_json,
         "Logging system initialized"

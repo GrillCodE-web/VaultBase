@@ -43,10 +43,43 @@ fn overwrite_then_remove(path: &str) {
     }
 }
 
+/// Перезаписать и удалить все файлы в директории (нерекурсивно — наши
+/// директории плоские), затем саму директорию.
+fn wipe_dir(dir: &std::path::Path) {
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for e in rd.filter_map(|e| e.ok()) {
+            let p = e.path();
+            if p.is_file() {
+                overwrite_then_remove(&p.to_string_lossy());
+            }
+        }
+    }
+    let _ = std::fs::remove_dir(dir);
+}
+
 /// Стереть БД и всё, что нужно для её расшифровки. Перед вызовом соединения
 /// обязаны быть закрыты (`db.close_connections()`), иначе на Windows удаление
 /// файла не удастся.
+///
+/// Заодно стираются форензик-следы приложения: автобэкапы (`backups/`) —
+/// дополнительные копии БД с датами в именах — и файловые логи (`logs/`),
+/// содержащие хронологию сессий и пути с именем пользователя ОС.
 pub fn wipe_local_data(db_path: &str) {
+    wipe_local_data_in(
+        db_path,
+        &[
+            // Автобэкапы: копии БД (даже шифрованные — лишний шифротекст под
+            // перебор).
+            crate::state::backup_dir(),
+            // Файловые логи: хронология сессий, пути с именем пользователя ОС.
+            crate::logging::get_default_log_dir(),
+        ],
+    );
+}
+
+/// Ядро wipe: файлы базы + произвольный набор каталогов-следов. Вынесено, чтобы
+/// тесты стирали только временные каталоги, а не реальные `backups/`/`logs/`.
+fn wipe_local_data_in(db_path: &str, extra_dirs: &[std::path::PathBuf]) {
     let sidecar = crate::database::Database::salt_file_path(db_path);
     let files = [
         sidecar.clone(),
@@ -58,6 +91,9 @@ pub fn wipe_local_data(db_path: &str) {
     ];
     for f in files {
         overwrite_then_remove(&f);
+    }
+    for dir in extra_dirs {
+        wipe_dir(dir);
     }
 }
 
@@ -77,7 +113,12 @@ mod tests {
             f.write_all(b"secret-data").unwrap();
         }
 
-        wipe_local_data(dbp);
+        // Тестируем ядро с временным каталогом: публичный wipe_local_data стёр бы
+        // реальные backups/logs на машине разработчика.
+        let extra = vec![dir.join("backups"), dir.join("logs")];
+        std::fs::create_dir_all(dir.join("backups")).unwrap();
+        std::fs::write(dir.join("backups").join("backup_1.db"), b"copy").unwrap();
+        wipe_local_data_in(dbp, &extra);
 
         for suffix in ["", "-wal", "-shm", ".salt", ".salt.bak", ".plaintext.bak"] {
             assert!(
@@ -87,6 +128,11 @@ mod tests {
                 suffix
             );
         }
+        assert!(
+            !dir.join("backups").join("backup_1.db").exists(),
+            "backup copy must be wiped"
+        );
+        assert!(!dir.join("logs").exists(), "logs dir must be wiped");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -97,6 +143,6 @@ mod tests {
             .to_str()
             .unwrap()
             .to_string();
-        wipe_local_data(&dbp); // не паникует
+        wipe_local_data_in(&dbp, &[]); // не паникует
     }
 }

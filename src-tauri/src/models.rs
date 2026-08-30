@@ -1093,6 +1093,37 @@ pub struct RevenuePoint {
     pub profit: f64,
 }
 
+// MGR-022: SLA-метрики времени заказа (из order_status_history, MGR-014).
+// None = за период нет заказов с таким переходом (история пишется с v21).
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SlaAging {
+    pub lt24h: i64,
+    pub d1_3: i64,
+    pub d3_7: i64,
+    pub gt7d: i64,
+    pub oldest_hours: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SlaShop {
+    pub shop: String,
+    pub orders: i64,
+    pub avg_hours_to_delivered: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SlaStats {
+    pub avg_hours_pending_to_shipped: Option<f64>,
+    pub avg_hours_shipped_to_delivered: Option<f64>,
+    pub avg_hours_created_to_delivered: Option<f64>,
+    pub avg_hours_created_to_declined: Option<f64>,
+    pub orders_shipped: i64,
+    pub orders_delivered: i64,
+    pub orders_declined: i64,
+    pub pending_aging: SlaAging,
+    pub by_shop: Vec<SlaShop>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HeatmapCell {
     pub bank: String,

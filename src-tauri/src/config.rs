@@ -14,6 +14,17 @@ pub struct Config {
     // (или с пустым dsn) Sentry не инициализируется и ничего не отправляет.
     #[serde(default)]
     pub sentry: SentryConfig,
+    // SEC: автобэкапы. Секция опциональна; по умолчанию ВЫКЛЮЧЕНЫ (false) —
+    // дополнительный шифротекст на диске и форензик-след (даты в именах).
+    #[serde(default)]
+    pub backup: BackupConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct BackupConfig {
+    /// Автобэкапы при разблокировке. По умолчанию false.
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -133,6 +144,7 @@ fn validate_config(config: &Config) -> Result<(), String> {
 pub fn get_default_config(profile: &str) -> Config {
     match profile {
         "dev" => Config {
+            backup: BackupConfig::default(),
             sentry: SentryConfig::default(),
             app: AppConfig {
                 profile: "dev".to_string(),
@@ -160,6 +172,7 @@ pub fn get_default_config(profile: &str) -> Config {
         },
         
         "staging" => Config {
+            backup: BackupConfig::default(),
             sentry: SentryConfig::default(),
             app: AppConfig {
                 profile: "staging".to_string(),
@@ -187,6 +200,7 @@ pub fn get_default_config(profile: &str) -> Config {
         },
         
         _ => Config {
+            backup: BackupConfig::default(),
             sentry: SentryConfig::default(),
             app: AppConfig {
                 profile: "production".to_string(),

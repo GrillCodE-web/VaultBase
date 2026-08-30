@@ -104,6 +104,13 @@ pub(crate) fn get_bin_performance() -> Result<Vec<models::BinPerf>, String> {
 }
 
 #[tauri::command]
+pub(crate) fn get_sla_stats(period: String, from: Option<String>, to: Option<String>) -> Result<SlaStats, String> {
+    require_perm(models::perms::VIEW_STATS_GLOBAL)?;
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_sla_stats(&period, from.as_deref(), to.as_deref())
+}
+
+#[tauri::command]
 pub(crate) fn get_shop_win_loss() -> Result<Vec<models::ShopWinLoss>, String> {
     require_user()?;
     with_db!(db, { db.get_shop_win_loss() })

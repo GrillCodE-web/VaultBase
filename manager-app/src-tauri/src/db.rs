@@ -120,6 +120,16 @@ CREATE TABLE IF NOT EXISTS card_exports (
     note TEXT DEFAULT '',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS report_rollups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    installation_id TEXT NOT NULL,
+    month TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    days_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(installation_id, month)
+);
+CREATE INDEX IF NOT EXISTS idx_report_rollups_month ON report_rollups(month);
 "#,
             )
             .map_err(|e| format!("init schema: {e}"))?;
