@@ -588,15 +588,15 @@ clients receive current tags in `full_data.courier_tags` after `full_pull`.
 Rate limiting is applied per-endpoint, not per-router. Only the endpoints listed
 below are limited; the catalog, BIN and admin API routes have **no** rate limiter.
 
-| Endpoint                  | Limit   | Window |
-| ------------------------- | ------- | ------ |
-| `POST /footprint`         | 100 req | 1 min  |
-| `POST /footprint/check`   | 10 req  | 1 min  |
-| `POST /activate`          | 10 req  | 15 min |
-| `POST /verify`            | 60 req  | 15 min |
-| `POST /sync/group/join`   | 10 req  | 15 min |
-| `POST /sync/group/pair`   | 20 req  | 1 hour |
-| `POST <ADMIN_PATH>/login` | 10 req  | 15 min |
+| Endpoint                                         | Limit   | Window |
+| ------------------------------------------------ | ------- | ------ |
+| `POST /footprint`                                | 100 req | 1 min  |
+| `POST /footprint/check`                          | 10 req  | 1 min  |
+| `POST /activate`                                 | 10 req  | 15 min |
+| `POST /verify`                                   | 60 req  | 15 min |
+| `POST /sync/group/join` (410 Gone since MGR-016) | 10 req  | 15 min |
+| `POST /sync/group/pair` (410 Gone since MGR-016) | 20 req  | 1 hour |
+| `POST <ADMIN_PATH>/login`                        | 10 req  | 15 min |
 
 The stricter limit on `/footprint/check` is deliberate: it is a cross-user lookup,
 so a loose limit would allow enumeration. Requests are keyed by license token when

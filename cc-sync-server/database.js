@@ -126,14 +126,6 @@ function migrate(db) {
         PRIMARY KEY (group_id, installation_id)
       );
 
-      CREATE TABLE IF NOT EXISTS sync_pair_codes (
-        code       TEXT PRIMARY KEY,
-        group_id   TEXT NOT NULL,
-        created_by TEXT,
-        expires_at DATETIME,
-        used_by    TEXT
-      );
-
       CREATE TABLE IF NOT EXISTS sync_cards (
         card_hash      TEXT NOT NULL,
         group_id       TEXT NOT NULL,
@@ -196,17 +188,12 @@ function migrate(db) {
     `);
   }
 
-  // SEC-008: zero-knowledge pair codes. The desktop client now generates the
-  // pair code locally and sends only its SHA-256 hash plus the group key
-  // encrypted with a key derived from the pair code. A server DB dump can no
-  // longer reveal active pair codes or the group key plaintext.
+  // SEC-008 (исторически): zero-knowledge pair codes. MGR-016 закрыл выдачу
+  // и вход по pair-кодам (410 Gone), MGR-018 (этап E1) добивает остаток:
+  // sync_pair_codes дропается миграцией v24 — ALTER'ы здесь больше не нужны,
+  // оставлен только шаг версии, чтобы не сдвигать нумерацию существующих БД.
   if (ver < 10) {
-    db.exec(`
-      ALTER TABLE sync_pair_codes ADD COLUMN code_hash      TEXT;
-      ALTER TABLE sync_pair_codes ADD COLUMN enc_group_key  TEXT;
-      CREATE INDEX IF NOT EXISTS idx_sync_pair_hash ON sync_pair_codes(code_hash);
-      PRAGMA user_version = 10;
-    `);
+    db.exec(`PRAGMA user_version = 10;`);
   }
 
   // VaultBase Manager: telemetry pipeline, worker policies, news, shop
@@ -630,6 +617,17 @@ function migrate(db) {
       ALTER TABLE worker_config_shares_new RENAME TO worker_config_shares;
 
       PRAGMA user_version = 23;
+    `);
+  }
+
+  // MGR-018 (этап E1): pair-коды выпилены — endpoints отвечают 410 Gone ещё с
+  // MGR-016, таблица мертва (ничто её не читает и не пишет). Сами группы
+  // (sync_groups/sync_group_members) остаются: на них завязаны панель
+  // воркеров (REDESIGN-05-5B2) и admin CRUD.
+  if (ver < 24) {
+    db.exec(`
+      DROP TABLE IF EXISTS sync_pair_codes;
+      PRAGMA user_version = 24;
     `);
   }
 }

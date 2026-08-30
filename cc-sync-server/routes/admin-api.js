@@ -449,7 +449,6 @@ router.delete('/sync-groups/:id', (req, res) => {
   const db = getDb();
   db.prepare('DELETE FROM sync_cards WHERE group_id = ?').run(req.params.id);
   db.prepare('DELETE FROM sync_group_members WHERE group_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM sync_pair_codes WHERE group_id = ?').run(req.params.id);
   db.prepare('DELETE FROM sync_groups WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
