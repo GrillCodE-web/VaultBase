@@ -1580,3 +1580,49 @@ target_iid, sealed_data, ref_type, ref_id, created_at, expires_at)`. Серве�
   свои fetch/poll по `/manager/api/chat/*` + socket.io `manager:chat_message`
   (контракт в routes/chat.js). После коммита MGR-018 второй сессией — дропнуть
   `stash@{0}` и закрыть строку MGR-018 в чеклисте.
+
+---
+
+## 2026-08-31, ~02:40 — 🔄 @r — REDESIGN-05-4 — порция 3 закрыта
+
+**Коммит `0f1c9cc`** (порция 3, «десктоп-натив» frontend-only подмножество):
+
+- **Прокси пачкой** (Proxies.jsx): теперь по ВСЕМ прокси (get_proxies
+  perPage 10000, не только текущая страница), пул 4 потока, latency в мс
+  вокруг test_proxy_connection (slow >1500мс → жёлтый Wifi + статус Slow),
+  прогресс + отмена через реестр фон-задач.
+- **Индикатор фон-задач**: новый `store/tasks.js` (start/progress/finish/
+  cancel, DONE_TTL 4с) + `components/TasksIndicator.jsx` в статус-баре
+  (пилюля со счётчиком, поповер с прогрессом done/total и ✕ отменой).
+- **Правила-автоматизации lite**: `store/liteRules.js` (localStorage
+  `vb_lite_rules_v1`) + `utils/liteRulesRunner.js` + `hooks/useLiteRules.js`
+  (первый прогон через 4с, далее каждые 120с). 4 шаблона: pending>Nч →
+  подсветка ордера (деф. 24ч, вкл), серия declined у магазина ≥N →
+  уведомление (деф. 3, вкл), карта истекает ≤N дн → подсветка (деф. 14,
+  выкл), shipped без трека >Nч → подсветка (деф. 12, выкл). Подсветка строк
+  `.row-rule-hl` в Orders (проп ruleHl в OrderRow, memo-компаратор учтён) и
+  Cards (ruleHlIds через CardRowContext). Уведомления в центр с дедупом
+  `lite:{rule}:{target}:{дата}`. UI — панель в Settings (порог + тоггл).
+  Данные — существующие команды: get_orders по статусам,
+  get_expiring_cards_dashboard. Backend FEAT-004 (automation.rs) не
+  переиспользован: его условия/действия про переходы статусов ордеров,
+  а не про «подсветить».
+- **IMAP-поиск по всем папкам**: тоггл «Все папки» в ImapEmailList →
+  fan-out get_imap_folders × get_imap_messages (пул 3, cap 200), метка
+  «аккаунт · папка» на строке, отмена через фон-задачи, пагинация скрыта.
+- **Сравнение профилей**: `Profiles/CompareProfilesModal.jsx` — выбрать
+  ровно 2 профиля чекбоксами → кнопка «Сравнить» в bulk-баре; get_profile
+  ×2, таблица полей (карта/банк/дропы/primary-дроп/заметки/дата),
+  различающиеся строки подсвечены (`.cmp-diff`).
+- **Экспорт отчёта CSV/PDF с дашборда — УЖЕ БЫЛ** (export_dashboard_csv +
+  window.print с @media print, DashboardRedesigned.jsx) — не дублировал,
+  отмечаю как покрытый.
+- **Блокер для @main (backend):** гео прокси (страна/флаг по IP) —
+  test_proxy_connection отдаёт только bool, check_proxy_health_now —
+  сводку; для «latency+гео» из контракта нужна команда с geoip.
+
+**Проверки:** eslint 0 errors (и повтор после lint-staged), audit_frontend
+0/0/0 (поймал 1 сироту .cmp-modal — убран до коммита). vitest/e2e — по
+накоплению после порций (по правилам вахты).
+
+**Осталось по 05-4:** порции 4–5 + финальный блок + визуальный дифф.
