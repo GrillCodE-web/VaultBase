@@ -229,7 +229,10 @@ export default function Dashboard({ onSync, onNavigate }) {
                     <th>{t('ins_metric_col')}</th>
                     <th>{t('ins_value_col')}</th>
                     <th>{t('ins_baseline_col')}</th>
-                    <th>{t('col_impact')}</th>
+                    <th>
+                      {t('col_impact')}
+                      <span className="hint-q" title={t('tip_impact')}>?</span>
+                    </th>
                     <th>{t('col_date')}</th>
                   </tr>
                 </thead>

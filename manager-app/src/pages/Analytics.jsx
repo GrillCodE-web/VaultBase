@@ -6,6 +6,16 @@ import {
 import { useLang } from '../hooks/useLang.jsx'
 import { getAnalytics, getFleetComparison, getFleetBinShop } from '../api/server.js'
 
+function Th({ tip, children }) {
+  const { t } = useLang()
+  return (
+    <th>
+      {children}
+      {tip && <span className="hint-q" title={t(tip)}>?</span>}
+    </th>
+  )
+}
+
 const STATUS_COLORS = {
   delivered: '#3ddc97',
   shipped: '#4f8cff',
@@ -314,14 +324,14 @@ export default function Analytics({ onSync }) {
                     <th>{t('col_label')}</th>
                     <th>{t('col_days')}</th>
                     <th>{t('orders_col')}</th>
-                    <th>{t('delivery_rate')}</th>
-                    <th>{t('decline_ratio')}</th>
+                    <Th tip="tip_delivery_rate">{t('delivery_rate')}</Th>
+                    <Th tip="tip_decline_ratio">{t('decline_ratio')}</Th>
                     <th>{t('col_revenue')}</th>
                     <th>{t('cards_taken_col')}</th>
-                    <th>{t('dead_ratio')}</th>
+                    <Th tip="tip_dead_ratio">{t('dead_ratio')}</Th>
                     <th>{t('drops_col')}</th>
-                    <th>{t('col_funnel')}</th>
-                    <th>{t('col_sla')}</th>
+                    <Th tip="tip_funnel">{t('col_funnel')}</Th>
+                    <Th tip="tip_sla">{t('col_sla')}</Th>
                     <th>{t('app_version')}</th>
                   </tr>
                 </thead>

@@ -4,6 +4,8 @@
 // - Прогноз выгорания пула: free из последнего daily_stats.pool.by_status.free
 //   делится на средний расход (used+dead)/день за trailing 7d.
 // - «Действия дня»: ранжированные карточки с impact (объёмное влияние).
+// - Score воркера (0..100) из trailing 7д: 100 − 1.5×dead% − decline% − 20×offline_share
+//   + предложение квот (human-in-the-loop: предлагаем, не применяем).
 // Только локальные расшифрованные reports — сеть не трогаем.
 use crate::db::Database;
 use crate::telemetry::{parse_day, DayStats};
@@ -41,6 +43,38 @@ fn pct(num: i64, den: i64) -> f64 {
     } else {
         0.0
     }
+}
+
+fn sum_by(days: &[&DayRow], f: &dyn Fn(&DayRow) -> i64) -> i64 {
+    days.iter().map(|r| f(r)).sum()
+}
+
+/// Score воркера 0..100 по trailing-окну: штрафы за долю мёртвых карт (×1.5),
+/// деклайн и долю дней без единого заказа (×20). Чем выше, тем стабильнее.
+fn worker_score(dead_pct: f64, decline_pct: f64, zero_order_days: usize, days: usize) -> i64 {
+    let offline_share = if days > 0 {
+        zero_order_days as f64 / days as f64
+    } else {
+        0.0
+    };
+    (100.0 - 1.5 * dead_pct - decline_pct - 20.0 * offline_share)
+        .round()
+        .clamp(0.0, 100.0) as i64
+}
+
+/// Предложение квоты карт/день по score и текущему потреблению. Ничего не
+/// применяем: решение — за оператором в модалке Policy (human-in-the-loop).
+fn suggest_quota(score: i64, avg_taken: f64) -> i64 {
+    if avg_taken <= 0.0 {
+        return 0;
+    }
+    let factor = match score {
+        80..=i64::MAX => 1.25,
+        60..=79 => 1.0,
+        40..=59 => 0.5,
+        _ => 0.25,
+    };
+    (avg_taken * factor).ceil() as i64
 }
 
 struct DayRow {
@@ -107,6 +141,7 @@ pub fn insights(db: &Database) -> Result<Value, String> {
     let mut anomalies: Vec<Value> = Vec::new();
     let mut forecast: Vec<Value> = Vec::new();
     let mut actions: Vec<Value> = Vec::new();
+    let mut worker_scores: Vec<Value> = Vec::new();
 
     // ── fleet baseline: медианы метрик последнего дня по флоту ──
     let mut fl_decline: Vec<f64> = Vec::new();
@@ -139,6 +174,39 @@ pub fn insights(db: &Database) -> Result<Value, String> {
         let Some(last) = days.first() else { continue };
         let name = if label.is_empty() { iid.clone() } else { label.clone() };
         let base: Vec<&DayRow> = days.iter().skip(1).collect();
+
+        // ── score воркера по всему окну (последний день + trailing 7д) ──
+        {
+            let all: Vec<&DayRow> = days.iter().collect();
+            let n = all.len();
+            let taken = sum_by(&all, &|r: &DayRow| r.d.cards_taken);
+            let dead = sum_by(&all, &|r: &DayRow| r.d.cards_dead);
+            let orders = sum_by(&all, &|r: &DayRow| r.d.orders);
+            let declined = sum_by(&all, &|r: &DayRow| r.d.declined);
+            let zero_days = all.iter().filter(|r| r.d.orders == 0).count();
+            let score = worker_score(pct(dead, taken), pct(declined, orders), zero_days, n);
+            let avg_taken = taken as f64 / n.max(1) as f64;
+            let suggested = suggest_quota(score, avg_taken);
+            worker_scores.push(json!({
+                "installation_id": iid,
+                "label": name,
+                "score": score,
+                "days": n,
+                "avg_cards_taken": r1(avg_taken),
+                "suggested_quota_cards": suggested,
+            }));
+            if suggested > 0 {
+                actions.push(json!({
+                    "code": "quota_tune",
+                    "severity": "info",
+                    "impact": r1((suggested as f64 - avg_taken).abs() * 2.0),
+                    "installation_id": iid,
+                    "label": name,
+                    "page": "workers",
+                    "params": { "score": score, "suggested_quota": suggested },
+                }));
+            }
+        }
 
         let base_avg = |f: &dyn Fn(&DayRow) -> f64| -> Option<f64> {
             if base.is_empty() {
@@ -311,6 +379,12 @@ pub fn insights(db: &Database) -> Result<Value, String> {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     actions.truncate(10);
+    worker_scores.sort_by(|a, b| {
+        b["score"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&a["score"].as_i64().unwrap_or(0))
+    });
     forecast.sort_by(|a, b| {
         let da = a["days_left"].as_f64().unwrap_or(f64::MAX);
         let dbb = b["days_left"].as_f64().unwrap_or(f64::MAX);
@@ -378,6 +452,7 @@ pub fn insights(db: &Database) -> Result<Value, String> {
         "actions": actions,
         "fleet_daily": fleet_daily,
         "night_summary": night_summary,
+        "worker_scores": worker_scores,
         "fleet_baseline": {
             "decline_rate": fleet_decline.map(r1),
             "dead_ratio": fleet_dead.map(r1),
@@ -610,6 +685,62 @@ mod tests {
         let r = insights(&db).unwrap();
         assert!(r["night_summary"].is_null());
         assert_eq!(r["fleet_daily"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn worker_score_math_and_quota_action() {
+        let (_dir, db) = temp_db();
+        // 8 дней: 10 заказов, 1 деклайн (10%), 5 taken/1 dead (20%)
+        for i in 0..8 {
+            let date = (chrono::Local::now() - chrono::Duration::days(i))
+                .format("%Y-%m-%d")
+                .to_string();
+            insert_report(
+                &db, "w1", "W", &date,
+                r#"{"orders":{"total":10,"by_status":{"delivered":9,"declined":1}},
+                    "cards":{"taken":5,"used":4,"dead":1}}"#,
+            );
+        }
+        let r = insights(&db).unwrap();
+        let ws = r["worker_scores"].as_array().unwrap();
+        assert_eq!(ws.len(), 1);
+        // score = 100 − 1.5×20 − 10 − 0 = 60 → квота = ceil(5×1.0) = 5
+        assert_eq!(ws[0]["score"], 60);
+        assert_eq!(ws[0]["avg_cards_taken"], 5.0);
+        assert_eq!(ws[0]["suggested_quota_cards"], 5);
+        assert!(r["actions"].as_array().unwrap().iter().any(|a| a["code"] == "quota_tune"));
+    }
+
+    #[test]
+    fn clean_worker_gets_100_and_raised_quota() {
+        let (_dir, db) = temp_db();
+        for i in 0..4 {
+            let date = (chrono::Local::now() - chrono::Duration::days(i))
+                .format("%Y-%m-%d")
+                .to_string();
+            insert_report(
+                &db, "w1", "W", &date,
+                r#"{"orders":{"total":8,"by_status":{"delivered":8}},
+                    "cards":{"taken":4,"used":4,"dead":0}}"#,
+            );
+        }
+        let r = insights(&db).unwrap();
+        let ws = &r["worker_scores"][0];
+        assert_eq!(ws["score"], 100);
+        assert_eq!(ws["suggested_quota_cards"], 5); // ceil(4×1.25)
+    }
+
+    #[test]
+    fn worker_without_taken_gets_no_quota_action() {
+        let (_dir, db) = temp_db();
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        insert_report(
+            &db, "w1", "W", &today,
+            r#"{"orders":{"total":0,"by_status":{}},"cards":{"taken":0,"used":0,"dead":0}}"#,
+        );
+        let r = insights(&db).unwrap();
+        assert_eq!(r["worker_scores"][0]["suggested_quota_cards"], 0);
+        assert!(r["actions"].as_array().unwrap().iter().all(|a| a["code"] != "quota_tune"));
     }
 
     #[test]

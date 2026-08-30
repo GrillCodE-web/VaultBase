@@ -839,3 +839,25 @@ textarea.code {
 .sparkline {
   display: block;
 }
+
+/* ── MGR-020: тултипы «?» к метрикам ──────────────────────────── */
+
+.hint-q {
+  display: inline-block;
+  margin-left: 5px;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  color: var(--text-3);
+  font-size: 10px;
+  cursor: help;
+  vertical-align: middle;
+}
+.hint-q:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
-import { api, getWorkerSnapshots, getWorkerStats, fmtDateTime, fmtRelative } from '../api/server.js'
+import { api, getWorkerSnapshots, getWorkerStats, getInsights, fmtDateTime, fmtRelative } from '../api/server.js'
 
-function PolicyModal({ worker, onClose, onChanged }) {
+function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
   const { t } = useLang()
   const [banned, setBanned] = useState(worker.banned === 1)
   const [reason, setReason] = useState(worker.banned_reason || '')
@@ -98,6 +98,26 @@ function PolicyModal({ worker, onClose, onChanged }) {
             <input type="number" min="0" value={quotaOrders} onChange={(e) => setQuotaOrders(e.target.value)} placeholder="—" />
           </div>
         </div>
+
+        {scoreRow && (
+          <div className="field">
+            <span className="hint">
+              {t('quota_suggest', {
+                score: scoreRow.score,
+                avg: scoreRow.avg_cards_taken,
+                quota: scoreRow.suggested_quota_cards,
+              })}
+            </span>{' '}
+            {scoreRow.suggested_quota_cards > 0 && (
+              <button
+                className="btn small"
+                onClick={() => setQuotaCards(String(scoreRow.suggested_quota_cards))}
+              >
+                {t('quota_apply')}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="field-row">
           <div className="field">
@@ -248,18 +268,21 @@ export default function Workers({ navParams }) {
   const [toast, setToast] = useState('')
   const [onlyWorkers, setOnlyWorkers] = useState(true)
   const [sortBy, setSortBy] = useState('activity')
+  const [insights, setInsights] = useState(null)
 
   const load = () => {
     Promise.all([
       api('GET', '/manager/api/workers'),
       getWorkerSnapshots(),
+      getInsights().catch(() => null),
     ])
-      .then(([wres, snres]) => {
+      .then(([wres, snres, ins]) => {
         const rows = wres.status === 200 ? wres.body.workers || [] : []
         const map = {}
         for (const s of snres.snapshots || []) map[s.installation_id] = s
         setWorkers(rows)
         setSnapshots(map)
+        setInsights(ins)
       })
       .catch(() => {
         setWorkers([])
@@ -274,6 +297,12 @@ export default function Workers({ navParams }) {
     const w = workers.find((x) => x.installation_id === navParams.focus)
     if (w) setSelected(w)
   }, [workers, navParams?.focus])
+
+  const scoreMap = useMemo(() => {
+    const m = {}
+    for (const ws of insights?.worker_scores || []) m[ws.installation_id] = ws
+    return m
+  }, [insights])
 
   const rows = useMemo(() => {
     if (!workers) return []
@@ -347,6 +376,7 @@ export default function Workers({ navParams }) {
                 <th>{t('col_role')}</th>
                 <th>{t('col_status')}</th>
                 <th>{t('col_last_seen')}</th>
+                <th>{t('col_score')}</th>
                 <th>{t('quota_cards')} / {t('quota_orders')}</th>
                 <th>{t('policy_min_version')}</th>
                 <th>{t('actions')}</th>
@@ -373,6 +403,21 @@ export default function Workers({ navParams }) {
                             : <span className="tag red">{t('status_offline')}</span>}
                     </td>
                     <td>{fmtRelative(w.hb_last_seen || w.last_seen, lang)}</td>
+                    <td>
+                      {scoreMap[w.installation_id]
+                        ? (
+                          <span
+                            className={`tag mono ${scoreMap[w.installation_id].score >= 80 ? 'green' : scoreMap[w.installation_id].score >= 60 ? 'amber' : 'red'}`}
+                            title={t('score_hint', {
+                              avg: scoreMap[w.installation_id].avg_cards_taken,
+                              quota: scoreMap[w.installation_id].suggested_quota_cards,
+                            })}
+                          >
+                            {scoreMap[w.installation_id].score}
+                          </span>
+                        )
+                        : <span className="meta">—</span>}
+                    </td>
                     <td className="mono">{w.quota_cards_day ?? '—'} / {w.quota_orders_day ?? '—'}</td>
                     <td>
                       {w.min_version
@@ -436,6 +481,7 @@ export default function Workers({ navParams }) {
       {modal && (
         <PolicyModal
           worker={modal}
+          scoreRow={scoreMap[modal.installation_id] || null}
           onClose={() => setModal(null)}
           onChanged={() => {
             setToast(t('bribed'))
