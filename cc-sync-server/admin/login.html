@@ -1,155 +1,121 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>VaultBase — Вход</title>
+<title>VaultBase Admin — Вход</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0d0f14; --panel:#151922; --line:#232936;
-    --text:#e8ecf4; --muted:#7b8598;
-    --accent:#6c63ff; --accent2:#00d4aa; --danger:#ff5470;
+    --bg:#0b0d12; --surface:#12151d; --surface2:#181c26; --surface3:#1f2431;
+    --border:#222838; --border-strong:#2e3548;
+    --text:#e8ecf4; --text-2:#9aa3b2; --muted:#667084;
+    --accent:#6c63ff; --accent-2:#8b7dff; --green:#00d4aa; --red:#ff5470;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
-    min-height:100vh; display:grid; place-items:center; padding:24px;
+    font-family:'Inter',-apple-system,'Segoe UI',sans-serif;
     background:var(--bg); color:var(--text);
-    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
-    position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
   }
-  /* Ambient glow — purely decorative, sits behind the card. */
-  body::before,body::after{
-    content:""; position:fixed; width:520px; height:520px; border-radius:50%;
-    filter:blur(120px); opacity:.16; pointer-events:none;
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none;
+    background:
+      radial-gradient(700px 380px at 50% -10%, rgba(108,99,255,.10), transparent 60%),
+      radial-gradient(500px 300px at 85% 100%, rgba(0,212,170,.05), transparent 60%);
   }
-  body::before{background:var(--accent); top:-180px; left:-160px}
-  body::after{background:var(--accent2); bottom:-200px; right:-160px}
-
   .card{
-    position:relative; width:100%; max-width:400px;
-    background:var(--panel); border:1px solid var(--line); border-radius:16px;
-    padding:40px 36px; box-shadow:0 24px 64px rgba(0,0,0,.55);
-    animation:rise .45s cubic-bezier(.2,.8,.2,1) both;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:18px; padding:36px 34px; width:380px; position:relative;
+    box-shadow:0 20px 60px rgba(0,0,0,.45);
+    animation:in .25s cubic-bezier(.2,.8,.2,1);
   }
-  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-  @media (prefers-reduced-motion:reduce){.card{animation:none}}
-
-  .brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
-  .mark{
-    width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
-    background:linear-gradient(135deg,var(--accent),var(--accent2));
-    font-weight:800;font-size:15px;color:#0d0f14;flex:none;
+  @keyframes in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .logo{
+    width:46px;height:46px;border-radius:12px;margin-bottom:18px;
+    background:linear-gradient(135deg,var(--accent),var(--green));
+    display:grid;place-items:center;font-weight:800;font-size:17px;color:#0b0d12;
   }
-  .brand h1{font-size:19px;font-weight:700;letter-spacing:-.2px}
-  .sub{color:var(--muted);font-size:13px;margin-bottom:26px}
-
-  label{display:block;font-size:12px;font-weight:600;color:var(--muted);
-    text-transform:uppercase;letter-spacing:.55px;margin:0 0 7px}
+  h1{font-size:19px;font-weight:800;letter-spacing:-.3px}
+  .sub{font-size:13px;color:var(--muted);margin:5px 0 24px}
+  .field{margin-bottom:14px}
+  label{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px}
   input{
-    width:100%;padding:11px 13px;margin-bottom:16px;
-    background:#0f1219;border:1px solid var(--line);border-radius:9px;
-    color:var(--text);font-size:14px;font-family:inherit;
-    transition:border-color .15s,box-shadow .15s;
+    width:100%;background:var(--surface2);border:1px solid var(--border);
+    border-radius:9px;padding:10px 13px;color:var(--text);font-size:14px;
+    font-family:inherit;outline:none;transition:.15s;
   }
-  input:focus{outline:none;border-color:var(--accent);
-    box-shadow:0 0 0 3px rgba(108,99,255,.16)}
-
-  button{
-    width:100%;padding:12px;border:0;border-radius:9px;cursor:pointer;
-    background:linear-gradient(135deg,var(--accent),#8b7dff);
-    color:#fff;font-size:14px;font-weight:600;font-family:inherit;
-    transition:filter .15s,transform .06s;
+  input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.15)}
+  .btn{
+    width:100%;padding:11px;border:none;border-radius:9px;margin-top:6px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#fff;font-size:14px;font-weight:700;font-family:inherit;
+    cursor:pointer;transition:.15s;
   }
-  button:hover:not(:disabled){filter:brightness(1.1)}
-  button:active:not(:disabled){transform:translateY(1px)}
-  button:disabled{opacity:.55;cursor:not-allowed}
-
-  .err{
-    display:none;margin-bottom:16px;padding:10px 13px;border-radius:9px;
-    background:rgba(255,84,112,.1);border:1px solid rgba(255,84,112,.32);
-    color:var(--danger);font-size:13px;
+  .btn:hover:not(:disabled){filter:brightness(1.12)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .error{
+    display:none;background:rgba(255,84,112,.1);border:1px solid rgba(255,84,112,.35);
+    color:var(--red);font-size:13px;font-weight:500;border-radius:9px;
+    padding:9px 13px;margin-bottom:14px;
   }
-  .err.show{display:block}
-  .foot{margin-top:22px;text-align:center;color:var(--muted);font-size:11px}
+  .foot{margin-top:20px;font-size:11px;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
-  <main class="card">
-    <div class="brand">
-      <div class="mark">VB</div>
-      <h1>VaultBase</h1>
+<div class="card">
+  <div class="logo">VB</div>
+  <h1>Панель управления</h1>
+  <p class="sub">VaultBase Sync Server — авторизация</p>
+  <div class="error" id="err"></div>
+  <form id="loginForm">
+    <div class="field">
+      <label>Логин</label>
+      <input id="user" type="text" autocomplete="username" required>
     </div>
-    <p class="sub">Панель администратора</p>
-
-    <div class="err" id="err" role="alert"></div>
-
-    <form id="form" autocomplete="on">
-      <label for="username">Логин</label>
-      <input id="username" name="username" type="text" required autofocus
-             autocomplete="username" spellcheck="false">
-
-      <label for="password">Пароль</label>
-      <input id="password" name="password" type="password" required
-             autocomplete="current-password">
-
-      <button type="submit" id="submit">Войти</button>
-    </form>
-
-    <p class="foot">Защищённая зона · доступ журналируется</p>
-  </main>
-
+    <div class="field">
+      <label>Пароль</label>
+      <input id="pass" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn" id="btn" type="submit">Войти</button>
+  </form>
+  <div class="foot">Доступ только для администраторов</div>
+</div>
 <script>
-(function(){
-  var form = document.getElementById('form');
-  var btn  = document.getElementById('submit');
-  var err  = document.getElementById('err');
-
-  // Base path of the admin mount, derived from the current URL so the page
-  // keeps working if ADMIN_PATH changes. '/login' is always the last segment.
-  var base = location.pathname.replace(/\/login\/?$/, '');
-
-  function fail(msg){
-    err.textContent = msg;
-    err.classList.add('show');
-    btn.disabled = false;
-    btn.textContent = 'Войти';
-  }
-
-  form.addEventListener('submit', function(e){
-    e.preventDefault();
-    err.classList.remove('show');
-    btn.disabled = true;
-    btn.textContent = 'Проверка…';
-
-    fetch(base + '/login', {
+const BASE = window.location.pathname.replace(/\/login\/?$/, '');
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('btn');
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+  btn.disabled = true;
+  try {
+    const res = await fetch(BASE + '/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: document.getElementById('username').value,
-        password: document.getElementById('password').value
-      })
-    })
-    .then(function(r){ return r.json().then(function(b){ return { ok: r.ok, body: b }; }); })
-    .then(function(r){
-      if (!r.ok) {
-        fail(r.body && r.body.error === 'rate_limited'
-          ? 'Слишком много попыток. Попробуйте позже.'
-          : 'Неверный логин или пароль');
-        return;
-      }
-      // Only same-origin absolute paths are accepted, so a crafted ?next=
-      // cannot bounce the authenticated admin to an external site.
-      var params = new URLSearchParams(location.search);
-      var next = params.get('next') || '';
-      var safe = /^\/[^/\\]/.test(next) ? next : base + '/';
-      location.replace(safe);
-    })
-    .catch(function(){ fail('Сеть недоступна. Повторите попытку.'); });
-  });
-})();
+        username: document.getElementById('user').value,
+        password: document.getElementById('pass').value,
+      }),
+    });
+    if (res.ok) {
+      const next = new URLSearchParams(location.search).get('next');
+      location.href = next && next.startsWith('/') ? next : BASE + '/';
+    } else {
+      const d = await res.json().catch(() => ({}));
+      err.textContent = d.error || 'Неверный логин или пароль';
+      err.style.display = 'block';
+    }
+  } catch {
+    err.textContent = 'Сервер недоступен';
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
 </script>
 </body>
 </html>

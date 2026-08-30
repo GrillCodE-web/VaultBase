@@ -265,17 +265,71 @@ router.get('/versions', (req, res) => {
   res.json(getDb().prepare('SELECT * FROM release_files ORDER BY published_at DESC').all());
 });
 
-// DELETE /admin/api/versions/:version?file_type=xxx — removes one file entry
+// PATCH /admin/api/versions/:version
+// Тело: { file_type='updater', platform?, is_published?, channel?, rollout_percent? }.
+// Без platform правка применяется ко всем ОС этого типа (канал и роллаут —
+// свойства релиза целиком, а не одной платформы). channel/rollout_percent
+// читает ветка /update?app=manager (MGR-009 staged rollout).
+router.patch('/versions/:version', (req, res) => {
+  const db = getDb();
+  const version = req.params.version;
+  const file_type = String(req.body?.file_type || 'updater');
+  const platform = req.body?.platform ? String(req.body.platform) : null;
+
+  const sets = [];
+  const vals = [];
+  if (req.body?.is_published !== undefined) {
+    sets.push('is_published = ?');
+    vals.push(req.body.is_published ? 1 : 0);
+  }
+  if (req.body?.channel !== undefined) {
+    const ch = String(req.body.channel);
+    if (!['stable', 'beta'].includes(ch))
+      return res.status(400).json({ error: 'channel: stable|beta' });
+    sets.push('channel = ?');
+    vals.push(ch);
+  }
+  if (req.body?.rollout_percent !== undefined) {
+    const pct = Number(req.body.rollout_percent);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100)
+      return res.status(400).json({ error: 'rollout_percent: 0..100' });
+    sets.push('rollout_percent = ?');
+    vals.push(Math.round(pct));
+  }
+  if (!sets.length) return res.status(400).json({ error: 'nothing to update' });
+
+  const where = platform ? 'version=? AND file_type=? AND platform=?' : 'version=? AND file_type=?';
+  const wvals = platform ? [version, file_type, platform] : [version, file_type];
+  const changed = db.prepare(`UPDATE release_files SET ${sets.join(', ')} WHERE ${where}`)
+    .run(...vals, ...wvals).changes;
+  if (!changed) return res.status(404).json({ error: 'not found' });
+
+  // is_published воркерского updater-а зеркалится в versions — /update читает
+  // оттуда «последнюю версию». manager-updater в versions не пишется никогда.
+  if (file_type === 'updater' && req.body?.is_published !== undefined)
+    db.prepare('UPDATE versions SET is_published=? WHERE version=?')
+      .run(req.body.is_published ? 1 : 0, version);
+
+  db.prepare('INSERT INTO audit_log (action, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+    .run('release_patch', JSON.stringify({ version, file_type, platform, set: req.body }));
+  res.json({ ok: true, changed });
+});
+
+// DELETE /admin/api/versions/:version?file_type=xxx[&platform=yyy] — removes file entries
 router.delete('/versions/:version', (req, res) => {
   const db = getDb();
   const file_type = req.query.file_type || 'updater';
-  const row = db.prepare('SELECT download_url FROM release_files WHERE version=? AND file_type=?').get(req.params.version, file_type);
-  if (!row) return res.status(404).json({ error: 'not found' });
+  const platform = req.query.platform || null;
+  const where = platform ? 'version=? AND file_type=? AND platform=?' : 'version=? AND file_type=?';
+  const wvals = platform ? [req.params.version, file_type, platform] : [req.params.version, file_type];
+  const rows = db.prepare(`SELECT download_url FROM release_files WHERE ${where}`).all(...wvals);
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
 
-  if (row.download_url) {
-    const fs = require('fs');
-    const path = require('path');
-    const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, '../public/releases');
+  const fs = require('fs');
+  const path = require('path');
+  const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, '../public/releases');
+  for (const row of rows) {
+    if (!row.download_url) continue;
     const filename = row.download_url.split('/').pop();
     const filepath = path.join(RELEASES_DIR, filename);
     // Deleting the binary is best-effort: the DB row must be removed either way, so
@@ -292,10 +346,16 @@ router.delete('/versions/:version', (req, res) => {
     }
   }
 
-  db.prepare('DELETE FROM release_files WHERE version=? AND file_type=?').run(req.params.version, file_type);
-  // Also remove from versions table if it was an updater
-  if (file_type === 'updater')
-    db.prepare('DELETE FROM versions WHERE version=?').run(req.params.version);
+  db.prepare(`DELETE FROM release_files WHERE ${where}`).run(...wvals);
+  // Строку versions трогаем, только когда не осталось updater-артефактов этой
+  // версии: при удалении одной ОС из трёх остальные должны продолжать обновляться.
+  // manager-updater в versions не пишется, поэтому там чистить нечего.
+  if (file_type === 'updater') {
+    const left = db.prepare(
+      "SELECT COUNT(*) AS n FROM release_files WHERE version=? AND file_type='updater'"
+    ).get(req.params.version).n;
+    if (left === 0) db.prepare('DELETE FROM versions WHERE version=?').run(req.params.version);
+  }
   res.json({ ok: true });
 });
 

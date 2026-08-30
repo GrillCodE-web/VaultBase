@@ -1,286 +1,419 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
 <title>VaultBase — Панель управления</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
-<link rel="shortcut icon" href="/favicon.svg"/>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0d0f14;
-  --surface:#13161e;
-  --surface2:#1a1e2a;
-  --border:#ffffff10;
-  --accent:#6c63ff;
-  --accent2:#00d4aa;
-  --danger:#ff4d6d;
-  --warn:#f7b731;
-  --text:#e8eaf0;
-  --muted:#6b7280;
-  --radius:12px;
-  --sidebar:260px;
+  --bg:#0b0d12; --surface:#12151d; --surface2:#181c26; --surface3:#1f2431;
+  --border:#222838; --border-strong:#2e3548;
+  --text:#e8ecf4; --text-2:#9aa3b2; --muted:#667084;
+  --accent:#6c63ff; --accent-2:#8b7dff; --accent-soft:rgba(108,99,255,.14);
+  --green:#00d4aa; --green-soft:rgba(0,212,170,.12);
+  --red:#ff5470; --red-soft:rgba(255,84,112,.12);
+  --yellow:#f7b731; --yellow-soft:rgba(247,183,49,.12);
+  --blue:#53a8ff; --blue-soft:rgba(83,168,255,.12);
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --tr:.15s cubic-bezier(.4,0,.2,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
-a{color:inherit;text-decoration:none}
-button{cursor:pointer;font-family:inherit}
-input,select,textarea{font-family:inherit}
+html{scrollbar-color:var(--surface3) transparent}
+body{
+  font-family:'Inter',-apple-system,'Segoe UI',sans-serif;
+  background:var(--bg); color:var(--text); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(600px 300px at 15% -5%, rgba(108,99,255,.07), transparent 60%),
+    radial-gradient(500px 260px at 85% 0%, rgba(0,212,170,.05), transparent 60%);
+}
+.svg-icon{width:16px;height:16px;flex:none;stroke-width:2}
+button .svg-icon{width:15px;height:15px}
 
+/* ── Layout ─────────────────────────────────────────────── */
 .sidebar{
-  width:var(--sidebar);min-width:var(--sidebar);
-  background:var(--surface);
-  border-right:1px solid var(--border);
-  display:flex;flex-direction:column;
+  width:236px;background:var(--surface);border-right:1px solid var(--border);
   position:fixed;top:0;left:0;bottom:0;z-index:100;
+  display:flex;flex-direction:column;
 }
-.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sidebar-logo .mark{width:28px;height:28px;flex-shrink:0;border-radius:7px}
-.sidebar-logo .brand{
-  font-size:18px;font-weight:700;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  letter-spacing:-.3px;
+.sidebar-logo{
+  padding:18px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:11px;
 }
-.sidebar-logo .version{font-size:11px;color:var(--muted);margin-top:3px}
-.nav{flex:1;padding:12px 8px;overflow-y:auto}
+.sidebar-logo .mark{
+  width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--green));
+  font-weight:800;font-size:13px;color:#0b0d12;
+}
+.sidebar-logo .brand{font-weight:800;font-size:16px;letter-spacing:-.2px}
+.sidebar-logo .version{font-size:10px;color:var(--muted);margin-top:1px}
+.nav{flex:1;padding:12px 10px;overflow-y:auto}
+.nav-sep{
+  padding:14px 10px 6px;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.9px;color:var(--muted);
+}
 .nav-item{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 12px;border-radius:8px;
-  font-size:13px;color:var(--muted);
-  cursor:pointer;transition:.15s;margin-bottom:2px;
+  padding:8px 12px;border-radius:var(--radius-sm);cursor:pointer;
+  display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;
+  color:var(--text-2);transition:var(--tr);margin-bottom:1px;border:1px solid transparent;
 }
 .nav-item:hover{background:var(--surface2);color:var(--text)}
-.nav-item.active{background:linear-gradient(135deg,#6c63ff22,#00d4aa11);color:var(--text);font-weight:600}
-.nav-item.active .nav-icon{color:var(--accent)}
-.nav-icon{font-size:16px;width:20px;text-align:center}
-.nav-sep{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;padding:12px 12px 4px;text-transform:uppercase}
-.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent-2);border-color:rgba(108,99,255,.25)}
+.sidebar-footer{padding:14px;border-top:1px solid var(--border)}
+.status-text{
+  font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;
+  padding:7px 10px;background:var(--surface2);border-radius:8px;margin-bottom:10px;
+  border:1px solid var(--border);
+}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex:none}
+.status-dot.ok{background:var(--green);box-shadow:0 0 8px var(--green)}
 .logout-btn{
-  width:100%;margin-top:12px;padding:8px;cursor:pointer;
-  background:transparent;border:1px solid var(--border);border-radius:7px;
-  color:var(--muted);font-size:12px;font-family:inherit;
-  transition:border-color .15s,color .15s;
+  width:100%;padding:8px;background:transparent;border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--muted);font-size:12px;font-weight:600;
+  cursor:pointer;transition:var(--tr);font-family:inherit;
+  display:flex;align-items:center;justify-content:center;gap:7px;
 }
-.logout-btn:hover{border-color:#ff5470;color:#ff5470}
-.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#6b7280;margin-right:6px}
-.status-dot.ok{background:var(--accent2)}
-.status-text{font-size:12px;color:var(--muted)}
+.logout-btn:hover{color:var(--red);border-color:rgba(255,84,112,.4);background:var(--red-soft)}
 
-.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main{margin-left:236px;min-height:100vh;position:relative;z-index:1}
 .topbar{
-  height:56px;display:flex;align-items:center;justify-content:space-between;
-  padding:0 28px;border-bottom:1px solid var(--border);
-  background:var(--surface);position:sticky;top:0;z-index:50;
+  padding:0 26px;height:60px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(11,13,18,.8);backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:50;
 }
-.page-title{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.page-title{font-size:16px;font-weight:700;letter-spacing:-.2px}
 .topbar-right{display:flex;align-items:center;gap:12px}
-.btn{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;
-  border:none;transition:.15s;
+.connection-badge{
+  display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;
+  font-size:12px;font-weight:600;background:var(--surface);border:1px solid var(--border);
+  color:var(--text-2);
 }
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:#5a52e0}
-.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
-.btn-ghost:hover{background:#1e2333}
-.btn-danger{background:#ff4d6d22;color:var(--danger);border:1px solid #ff4d6d44}
-.btn-danger:hover{background:#ff4d6d33}
-.btn-success{background:#00d4aa22;color:var(--accent2);border:1px solid #00d4aa44}
-.btn-success:hover{background:#00d4aa33}
-.btn-sm{padding:5px 11px;font-size:12px}
-
-.content{padding:28px;flex:1}
-.page{display:none}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+.pulse.on{background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.content{padding:26px;max-width:1240px}
+.page{display:none;animation:fadeUp .22s ease}
 .page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.page{animation:none}}
 
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:28px}
-.stat-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;
-}
-.stat-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,var(--accent),var(--accent2));opacity:.6;
-}
-.stat-label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.stat-value{font-size:32px;font-weight:800;letter-spacing:-1px;line-height:1}
-.stat-sub{font-size:12px;color:var(--muted);margin-top:6px}
-.stat-card.accent .stat-value{color:var(--accent)}
-.stat-card.success .stat-value{color:var(--accent2)}
-.stat-card.danger .stat-value{color:var(--danger)}
-.stat-card.warn .stat-value{color:var(--warn)}
-
+/* ── Components ─────────────────────────────────────────── */
 .card{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);overflow:hidden;margin-bottom:20px;
+  border-radius:var(--radius);overflow:hidden;
 }
+.card + .card{margin-top:16px}
 .card-header{
-  padding:16px 20px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
 }
-.card-title{font-size:15px;font-weight:700}
-.card-body{padding:20px}
+.card-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-title .svg-icon{color:var(--accent-2)}
+.card-body{padding:18px}
+.hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45}
+.section-hint{
+  font-size:12px;color:var(--text-2);margin-bottom:18px;padding:11px 15px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
+  border-left:3px solid var(--accent);line-height:1.55;display:flex;gap:9px;
+}
+.section-hint .svg-icon{color:var(--accent-2);margin-top:1px}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-bottom:18px}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px 18px;transition:var(--tr);
+  display:flex;flex-direction:column;gap:4px;
+}
+.stat-card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.stat-head{display:flex;align-items:center;justify-content:space-between}
+.stat-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.stat-ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none}
+.stat-ico .svg-icon{width:15px;height:15px}
+.stat-ico.violet{background:var(--accent-soft);color:var(--accent-2)}
+.stat-ico.green{background:var(--green-soft);color:var(--green)}
+.stat-ico.red{background:var(--red-soft);color:var(--red)}
+.stat-ico.yellow{background:var(--yellow-soft);color:var(--yellow)}
+.stat-ico.blue{background:var(--blue-soft);color:var(--blue)}
+.stat-value{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1.15}
+.stat-sub{font-size:11px;color:var(--muted)}
+
+.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.chart-title{font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.chart-title .svg-icon{color:var(--accent-2)}
+.chart-wrap{height:180px;position:relative}
+
+.btn{
+  padding:8px 15px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;
+  cursor:pointer;transition:var(--tr);border:1px solid transparent;font-family:inherit;
+  display:inline-flex;align-items:center;gap:7px;color:var(--text);
+  background:var(--surface2);border-color:var(--border);
+}
+.btn:hover{border-color:var(--border-strong);background:var(--surface3)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  border-color:transparent;color:#fff;
+}
+.btn-primary:hover:not(:disabled){filter:brightness(1.12);background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+.btn-danger{background:transparent;color:var(--red);border-color:rgba(255,84,112,.35)}
+.btn-danger:hover{background:var(--red-soft);border-color:var(--red)}
+.btn-success{background:transparent;color:var(--green);border-color:rgba(0,212,170,.35)}
+.btn-success:hover{background:var(--green-soft);border-color:var(--green)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--text-2)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:7px}
+.btn-icon{padding:6px;border-radius:7px}
+a.btn{text-decoration:none}
+
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{
-  padding:10px 14px;text-align:left;
-  font-size:11px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);
+  padding:10px 14px;text-align:left;font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+  border-bottom:1px solid var(--border);white-space:nowrap;
 }
-tbody td{padding:11px 14px;border-bottom:1px solid var(--border)}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
 tbody tr:last-child td{border-bottom:none}
+tbody tr{transition:background .1s}
 tbody tr:hover{background:var(--surface2)}
-.code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2)}
-.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.badge-green{background:#00d4aa22;color:var(--accent2)}
-.badge-red{background:#ff4d6d22;color:var(--danger)}
-.badge-grey{background:#ffffff12;color:var(--muted)}
-.badge-purple{background:#6c63ff22;color:var(--accent)}
-.badge-warn{background:#f7b73122;color:var(--warn)}
-
-.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px}
-.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
-.chart-title{font-size:14px;font-weight:700;margin-bottom:16px;color:var(--text)}
-.chart-wrap{height:180px;position:relative}
+.code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent-2)}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;
+  font-size:11px;font-weight:700;white-space:nowrap;
+}
+.badge .svg-icon{width:11px;height:11px}
+.badge-green{background:var(--green-soft);color:var(--green)}
+.badge-red{background:var(--red-soft);color:var(--red)}
+.badge-grey{background:var(--surface3);color:var(--text-2)}
+.badge-purple{background:var(--accent-soft);color:var(--accent-2)}
+.badge-warn{background:var(--yellow-soft);color:var(--yellow)}
+.badge-blue{background:var(--blue-soft);color:var(--blue)}
 
 .form-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 .inp{
   background:var(--surface2);border:1px solid var(--border);
-  border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;
-  outline:none;transition:.15s;
+  border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-size:13px;
+  outline:none;transition:var(--tr);font-family:inherit;
 }
-.inp:focus{border-color:var(--accent)}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.15)}
 .inp-sm{padding:6px 10px;font-size:12px}
+select.inp{cursor:pointer}
+textarea.inp{resize:vertical;min-height:64px}
 
 .modal-overlay{
-  display:none;position:fixed;inset:0;background:#00000080;
-  z-index:200;align-items:center;justify-content:center;
+  display:none;position:fixed;inset:0;background:rgba(4,6,10,.66);
+  backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;padding:20px;
 }
 .modal-overlay.open{display:flex}
 .modal{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:16px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;
+  background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:16px;width:500px;max-width:96vw;max-height:90vh;overflow-y:auto;
+  box-shadow:var(--shadow);animation:modalIn .18s cubic-bezier(.2,.8,.2,1);
 }
-.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.modal-title{font-size:16px;font-weight:700}
-.modal-close{background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
-.modal-body{padding:20px 24px}
-.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
-.form-group{margin-bottom:16px}
-.form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.5px}
+@keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal-sm{width:400px}
+.modal-header{padding:17px 22px 15px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:9px}
+.modal-title .svg-icon{color:var(--accent-2)}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px;display:grid;place-items:center}
+.modal-close:hover{color:var(--text);background:var(--surface2)}
+.modal-body{padding:19px 22px}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.form-group{margin-bottom:15px}
+.form-label{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.6px}
 .form-group .inp{width:100%}
 
 #toast-container{position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px}
 .toast{
-  background:var(--surface2);border:1px solid var(--border);
-  border-radius:10px;padding:12px 18px;font-size:13px;
-  display:flex;align-items:center;gap:10px;animation:slideIn .2s ease;
+  background:var(--surface3);border:1px solid var(--border-strong);
+  border-radius:10px;padding:11px 16px;font-size:13px;font-weight:500;
+  display:flex;align-items:center;gap:9px;animation:slideIn .2s ease;
+  box-shadow:var(--shadow);max-width:380px;
 }
-.toast.success{border-color:#00d4aa44;color:var(--accent2)}
-.toast.error{border-color:#ff4d6d44;color:var(--danger)}
+.toast.success{border-color:rgba(0,212,170,.4)}.toast.success .svg-icon{color:var(--green)}
+.toast.error{border-color:rgba(255,84,112,.4)}.toast.error .svg-icon{color:var(--red)}
 @keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
-.loader{display:inline-block;width:16px;height:16px;border:2px solid #ffffff20;border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.empty{text-align:center;padding:48px 20px;color:var(--muted)}
-.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
-.empty-text{font-size:14px}
-.activity-list{display:flex;flex-direction:column;gap:1px}
-.activity-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
-.activity-item:last-child{border-bottom:none}
-.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
-.activity-desc{font-size:13px;color:var(--text)}
-.activity-time{font-size:11px;color:var(--muted);margin-top:2px}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#ffffff18;border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:#ffffff30}
-@media(max-width:768px){
-  .sidebar{transform:translateX(-100%);transition:.25s}
-  .sidebar.open{transform:none}
-  .main{margin-left:0}
-  .charts-row{grid-template-columns:1fr}
-  .stats-grid{grid-template-columns:1fr 1fr}
+.toast.out{transition:.25s;opacity:0;transform:translateX(20px)}
+
+.skel{position:relative;overflow:hidden;background:var(--surface2);border-radius:7px}
+.skel::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);
+  animation:shimmer 1.3s infinite;
 }
-.connection-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:4px 10px;border-radius:20px;font-size:12px;
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.skel-row{height:38px;margin:8px 14px}
+
+.empty{text-align:center;padding:46px 20px;color:var(--muted)}
+.empty-icon{
+  width:52px;height:52px;margin:0 auto 12px;border-radius:14px;
   background:var(--surface2);border:1px solid var(--border);
+  display:grid;place-items:center;color:var(--muted);
 }
-.pulse{width:7px;height:7px;border-radius:50%;background:var(--accent2);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.hint{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
-.section-hint{
-  font-size:12px;color:var(--muted);margin-bottom:16px;padding:10px 14px;
-  background:var(--surface);border:1px solid var(--border);border-radius:8px;
-  border-left:3px solid var(--accent);line-height:1.5;
+.empty-icon .svg-icon{width:22px;height:22px}
+.empty-text{font-size:13px}
+
+.activity-list{display:flex;flex-direction:column}
+.activity-item{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+.activity-desc{font-size:13px}
+.activity-time{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Переключатель (kill-switch и публикация релизов) */
+.switch{position:relative;display:inline-block;width:38px;height:21px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch .track{
+  position:absolute;inset:0;border-radius:20px;cursor:pointer;
+  background:var(--surface3);border:1px solid var(--border-strong);transition:var(--tr);
+}
+.switch .track::before{
+  content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:var(--muted);transition:var(--tr);
+}
+.switch input:checked + .track{background:var(--accent-soft);border-color:var(--accent)}
+.switch input:checked + .track::before{transform:translateX(17px);background:var(--accent-2)}
+.switch input:disabled + .track{opacity:.5;cursor:not-allowed}
+
+/* Вкладки «Воркер / Менеджер» */
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
+.seg button{
+  border:none;background:transparent;color:var(--text-2);font:inherit;font-size:12.5px;font-weight:600;
+  padding:6px 16px;border-radius:8px;cursor:pointer;transition:var(--tr);
+  display:inline-flex;align-items:center;gap:7px;
+}
+.seg button.active{background:var(--accent-soft);color:var(--accent-2)}
+.seg button:hover:not(.active){color:var(--text)}
+
+/* Релизы: карточки версий */
+.rel-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:14px;overflow:hidden;
+}
+.rel-head{
+  padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  border-bottom:1px solid var(--border);
+}
+.rel-version{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--accent-2)}
+.rel-notes{font-size:12px;color:var(--muted);flex:1;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rel-meta{display:flex;align-items:center;gap:10px;margin-left:auto}
+.rel-date{font-size:11.5px;color:var(--muted)}
+.rel-body{padding:14px 18px}
+.plat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.plat-card{
+  background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:11px 13px;display:flex;flex-direction:column;gap:8px;
+}
+.plat-head{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700}
+.plat-head .svg-icon{color:var(--text-2)}
+.plat-head .plat-size{margin-left:auto;font-size:11px;color:var(--muted);font-weight:500}
+.plat-files{display:flex;flex-direction:column;gap:5px}
+.plat-file{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-2)}
+.plat-file .ftype{font-weight:600;color:var(--text)}
+.plat-file .sig-ok{color:var(--green)}
+.plat-file .sig-no{color:var(--yellow)}
+.plat-file .file-actions{margin-left:auto;display:flex;gap:2px}
+.icon-btn{
+  background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;
+  border-radius:6px;display:grid;place-items:center;transition:var(--tr);
+}
+.icon-btn:hover{background:var(--surface3);color:var(--text)}
+.icon-btn.danger:hover{color:var(--red);background:var(--red-soft)}
+.rollout-row{display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap}
+.rollout-slider{flex:1;min-width:200px;display:flex;align-items:center;gap:10px}
+input[type=range].slider{
+  -webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:4px;
+  background:var(--surface3);outline:none;cursor:pointer;
+}
+input[type=range].slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;
+  background:var(--accent-2);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--accent);
+  transition:transform .1s;
+}
+input[type=range].slider::-webkit-slider-thumb:hover{transform:scale(1.15)}
+input[type=range].slider::-moz-range-thumb{
+  width:13px;height:13px;border-radius:50%;background:var(--accent-2);
+  border:2px solid var(--surface);box-shadow:0 0 0 1px var(--accent);
+}
+.rollout-val{
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-2);
+  background:var(--accent-soft);border-radius:7px;padding:3px 9px;min-width:46px;text-align:center;
+}
+
+/* Dropzone заливки релизов */
+.dropzone{
+  border:1.5px dashed var(--border-strong);border-radius:12px;padding:26px 18px;
+  text-align:center;color:var(--muted);cursor:pointer;transition:var(--tr);
+  background:var(--surface2);
+}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-soft);color:var(--text-2)}
+.dropzone .svg-icon{width:26px;height:26px;margin-bottom:8px;color:var(--accent-2)}
+.dropzone .dz-file{margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green)}
+.progress{height:5px;border-radius:5px;background:var(--surface3);overflow:hidden;margin-top:10px;display:none}
+.progress .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .2s}
+
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--border-strong)}
+::-webkit-scrollbar-track{background:transparent}
+
+@media (max-width:980px){
+  .sidebar{width:64px}
+  .sidebar .label,.sidebar .brand,.sidebar .version,.sidebar .status-text span,.sidebar .logout-btn span{display:none}
+  .nav-item{justify-content:center;padding:9px}
+  .sidebar-logo{justify-content:center;padding:14px 10px}
+  .main{margin-left:64px}
+  .charts-row{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
 
-<aside class="sidebar" id="sidebar">
+<aside class="sidebar">
   <div class="sidebar-logo">
-    <img class="mark" src="/favicon.svg" width="28" height="28" alt=""/>
-    <div>
+    <div class="mark">VB</div>
+    <div class="label">
       <div class="brand">VaultBase</div>
-      <div class="version">Панель управления v2</div>
+      <div class="version">Sync Server · Admin</div>
     </div>
   </div>
   <nav class="nav">
-    <div class="nav-sep">Обзор</div>
-    <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard',this)">
-      <span class="nav-icon">◈</span> Дашборд
-    </div>
-    <div class="nav-item" data-page="activity" onclick="navigate('activity',this)">
-      <span class="nav-icon">⚡</span> Активность
-    </div>
-    <div class="nav-sep">Управление</div>
-    <div class="nav-item" data-page="licenses" onclick="navigate('licenses',this)">
-      <span class="nav-icon">🔑</span> Лицензии
-    </div>
-    <div class="nav-item" data-page="invites" onclick="navigate('invites',this)">
-      <span class="nav-icon">✉</span> Инвайт-коды
-    </div>
-    <div class="nav-item" data-page="sync" onclick="navigate('sync',this)">
-      <span class="nav-icon">⇄</span> Синхронизация
-    </div>
-    <div class="nav-sep">Релизы</div>
-    <div class="nav-item" data-page="versions" onclick="navigate('versions',this)">
-      <span class="nav-icon">📦</span> Версии / Файлы
-    </div>
-    <div class="nav-sep">Отладка</div>
-    <div class="nav-item" data-page="footprints" onclick="navigate('footprints',this)">
-      <span class="nav-icon">🖨</span> Фингерпринты
-    </div>
-    <div class="nav-item" data-page="connections" onclick="navigate('connections',this)">
-      <span class="nav-icon">🔌</span> Подключения
-    </div>
-    <div class="nav-item" data-page="audit" onclick="navigate('audit',this)">
-      <span class="nav-icon">📋</span> Журнал
-    </div>
+    <div class="nav-sep label">Мониторинг</div>
+    <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard',this)"><i data-lucide="layout-dashboard"></i><span class="label">Дашборд</span></div>
+    <div class="nav-item" data-page="activity" onclick="navigate('activity',this)"><i data-lucide="zap"></i><span class="label">Активность</span></div>
+    <div class="nav-item" data-page="connections" onclick="navigate('connections',this)"><i data-lucide="cable"></i><span class="label">Подключения</span></div>
+    <div class="nav-sep label">Управление</div>
+    <div class="nav-item" data-page="licenses" onclick="navigate('licenses',this)"><i data-lucide="key-round"></i><span class="label">Лицензии</span></div>
+    <div class="nav-item" data-page="invites" onclick="navigate('invites',this)"><i data-lucide="mail"></i><span class="label">Инвайт-коды</span></div>
+    <div class="nav-item" data-page="versions" onclick="navigate('versions',this)"><i data-lucide="package"></i><span class="label">Релизы</span></div>
+    <div class="nav-item" data-page="sync" onclick="navigate('sync',this)"><i data-lucide="refresh-cw"></i><span class="label">Синхронизация</span></div>
+    <div class="nav-sep label">Данные</div>
+    <div class="nav-item" data-page="footprints" onclick="navigate('footprints',this)"><i data-lucide="fingerprint"></i><span class="label">Фингерпринты</span></div>
+    <div class="nav-item" data-page="audit" onclick="navigate('audit',this)"><i data-lucide="clipboard-list"></i><span class="label">Журнал</span></div>
   </nav>
   <div class="sidebar-footer">
-    <div class="status-text">
-      <span class="status-dot" id="srv-dot"></span>
-      <span id="srv-status">Проверка...</span>
-    </div>
-    <button type="button" class="logout-btn" onclick="logout()">Выйти</button>
+    <div class="status-text"><span class="status-dot" id="srv-dot"></span><span id="srv-status">Проверка...</span></div>
+    <button class="logout-btn" onclick="logout()"><i data-lucide="log-out"></i><span>Выйти</span></button>
   </div>
 </aside>
 
 <div class="main">
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:12px">
-      <span class="page-title" id="topbar-title">Дашборд</span>
-    </div>
+    <div class="page-title" id="topbar-title">Дашборд</div>
     <div class="topbar-right">
-      <div class="connection-badge">
-        <span class="pulse" id="live-pulse" style="background:var(--muted)"></span>
-        <span id="live-count">0 онлайн</span>
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="refreshAll()">↺ Обновить</button>
+      <div class="connection-badge"><span class="pulse" id="live-pulse"></span><span id="live-count">—</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="refreshAll()" title="Обновить данные страницы"><i data-lucide="rotate-cw"></i></button>
     </div>
   </div>
 
@@ -288,77 +421,97 @@ tbody tr:hover{background:var(--surface2)}
 
     <!-- ДАШБОРД -->
     <div class="page active" id="page-dashboard">
-      <div class="section-hint">📊 Общая сводка по системе. Данные обновляются автоматически каждые 30 сек. Статистика берётся с бэкенда (Node.js API).</div>
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-card accent"><div class="stat-label">Активные лицензии</div><div class="stat-value" id="s-active">—</div></div>
-        <div class="stat-card danger"><div class="stat-label">Отозванные</div><div class="stat-value" id="s-revoked">—</div></div>
-        <div class="stat-card success"><div class="stat-label">Фингерпринты (7д)</div><div class="stat-value" id="s-fp7">—</div></div>
-        <div class="stat-card"><div class="stat-label">Всего фингерпринтов</div><div class="stat-value" id="s-fptotal">—</div></div>
-        <div class="stat-card warn"><div class="stat-label">Инвайты активные</div><div class="stat-value" id="s-inv-active">—</div></div>
-        <div class="stat-card"><div class="stat-label">Инвайты использованы</div><div class="stat-value" id="s-inv-used">—</div></div>
-        <div class="stat-card accent"><div class="stat-label">Всего активаций</div><div class="stat-value" id="s-inv-uses">—</div></div>
-        <div class="stat-card accent"><div class="stat-label">Версия приложения</div><div class="stat-value" style="font-size:20px" id="s-version">—</div></div>
-        <div class="stat-card success"><div class="stat-label">Группы синхр.</div><div class="stat-value" id="s-groups">—</div></div>
-        <div class="stat-card"><div class="stat-label">Клиенты онлайн</div><div class="stat-value" id="s-live">—</div><div class="stat-sub" id="s-live-sub"></div></div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-head"><span class="stat-label">Активные лицензии</span><span class="stat-ico green"><i data-lucide="key-round"></i></span></div>
+          <div class="stat-value" id="s-active">—</div>
+          <div class="stat-sub">из них отозвано: <span id="s-revoked">—</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-head"><span class="stat-label">Онлайн</span><span class="stat-ico blue"><i data-lucide="cable"></i></span></div>
+          <div class="stat-value" id="s-live">—</div>
+          <div class="stat-sub" id="s-live-sub">клиентов подключено</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-head"><span class="stat-label">Фингерпринты за 7 дней</span><span class="stat-ico violet"><i data-lucide="fingerprint"></i></span></div>
+          <div class="stat-value" id="s-fp7">—</div>
+          <div class="stat-sub">всего: <span id="s-fptotal">—</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-head"><span class="stat-label">Инвайты</span><span class="stat-ico yellow"><i data-lucide="mail"></i></span></div>
+          <div class="stat-value" id="s-inv-active">—</div>
+          <div class="stat-sub">использовано: <span id="s-inv-used">—</span> · активаций: <span id="s-inv-uses">—</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-head"><span class="stat-label">Версия воркера</span><span class="stat-ico green"><i data-lucide="package"></i></span></div>
+          <div class="stat-value code" id="s-version">—</div>
+          <div class="stat-sub">последняя опубликованная</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-head"><span class="stat-label">Группы синхронизации</span><span class="stat-ico violet"><i data-lucide="refresh-cw"></i></span></div>
+          <div class="stat-value" id="s-groups">—</div>
+          <div class="stat-sub">активных групп</div>
+        </div>
       </div>
+
       <div class="charts-row">
         <div class="chart-card">
-          <div class="chart-title">Фингерпринты — последние 7 дней</div>
+          <div class="chart-title"><i data-lucide="bar-chart-3"></i>Фингерпринты по дням (7 дней)</div>
           <div class="chart-wrap"><canvas id="chartFpDay"></canvas></div>
         </div>
         <div class="chart-card">
-          <div class="chart-title">По типу хеша</div>
+          <div class="chart-title"><i data-lucide="pie-chart"></i>По типам хешей</div>
           <div class="chart-wrap"><canvas id="chartFpType"></canvas></div>
         </div>
       </div>
-      <div class="card" style="margin-top:16px">
-        <div class="chart-title">Аварийные выключатели (MGR-008)</div>
-        <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;padding:8px 0">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="cfg-kill-switch" onchange="saveServerConfig('kill_switch', this.checked)">
-            <span>Kill-switch деплоя <span style="color:var(--muted);font-size:12px">(воркерский sync/WS и раздача обновлений → 503; админка и менеджеры работают)</span></span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="cfg-ws-nonce" onchange="saveServerConfig('ws_require_nonce', this.checked)">
-            <span>Анти-replay WS (nonce) <span style="color:var(--muted);font-size:12px">(включать после обновления всех воркеров)</span></span>
-          </label>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i data-lucide="shield-check"></i>Защита сервера</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <label class="switch"><input type="checkbox" id="cfg-kill-switch" onchange="saveServerConfig('kill_switch', this.checked)"><span class="track"></span></label>
+            <div>
+              <div style="font-weight:600;font-size:13px">Kill-switch</div>
+              <div class="hint" style="margin-top:1px">Экстренно отключает /update, /version и /api/releases — клиенты перестают видеть обновления и скачивания</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <label class="switch"><input type="checkbox" id="cfg-ws-nonce" onchange="saveServerConfig('ws_require_nonce', this.checked)"><span class="track"></span></label>
+            <div>
+              <div style="font-weight:600;font-size:13px">Обязательный nonce для WebSocket</div>
+              <div class="hint" style="margin-top:1px">Анти-replay защита WS-авторизации: сервер выдаёт одноразовый nonce на подключение</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- АКТИВНОСТЬ -->
     <div class="page" id="page-activity">
-      <div class="section-hint">⚡ Лента событий: сохранение фингерпринтов, проверки лицензий, использование инвайтов. Данные агрегируются из нескольких таблиц БД на бэкенде.</div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Последние события</div>
-          <div style="display:flex;gap:8px">
-            <select class="inp inp-sm" id="activityFilter" onchange="loadActivity()">
-              <option value="all">Все</option>
-              <option value="footprint">Фингерпринты</option>
-              <option value="verify">Проверки</option>
-              <option value="invite">Инвайты</option>
-            </select>
-          </div>
+          <div class="card-title"><i data-lucide="zap"></i>Активность</div>
+          <select class="inp inp-sm" id="activityFilter" onchange="loadActivity()">
+            <option value="all">Все события</option>
+            <option value="footprint_saved">Фингерпринты</option>
+            <option value="verify">Проверки</option>
+            <option value="invite_used">Инвайты</option>
+          </select>
         </div>
-        <div class="card-body">
-          <div class="activity-list" id="activity-list">
-            <div class="empty"><div class="empty-icon">⚡</div><div class="empty-text">Загрузка...</div></div>
-          </div>
-        </div>
+        <div class="card-body"><div id="activity-list" class="activity-list"></div></div>
       </div>
     </div>
 
     <!-- ЛИЦЕНЗИИ -->
     <div class="page" id="page-licenses">
-      <div class="section-hint">🔑 Управление лицензиями клиентов. Каждая лицензия привязана к Installation ID десктоп-приложения. Через API бэкенда можно создать, отозвать или удалить лицензию. Ключ активации генерируется автоматически из Installation ID + Challenge.</div>
+      <div class="section-hint"><i data-lucide="info"></i><span>Управление лицензиями клиентов. Каждая лицензия привязана к Installation ID десктоп-приложения. Ключ активации генерируется автоматически из Installation ID + Challenge. Метку и роль можно менять прямо в таблице.</span></div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Лицензии</div>
+          <div class="card-title"><i data-lucide="key-round"></i>Лицензии</div>
           <div style="display:flex;gap:8px">
             <input class="inp inp-sm" id="lic-search" placeholder="Поиск..." oninput="filterLicenses()" style="width:200px">
-            <button class="btn btn-primary btn-sm" onclick="openAddLicense()">+ Добавить</button>
-            <a href="#" id="lic-csv" class="btn btn-ghost btn-sm">⬇ CSV</a>
+            <button class="btn btn-primary btn-sm" onclick="openAddLicense()"><i data-lucide="plus"></i>Добавить</button>
+            <a href="#" id="lic-csv" class="btn btn-ghost btn-sm"><i data-lucide="download"></i>CSV</a>
           </div>
         </div>
         <div class="table-wrap">
@@ -375,13 +528,13 @@ tbody tr:hover{background:var(--surface2)}
 
     <!-- ИНВАЙТ-КОДЫ -->
     <div class="page" id="page-invites">
-      <div class="section-hint">✉ Инвайт-коды для доступа к скачиванию приложения. По умолчанию код на 1 использование, но можно задать любое количество (max_uses=0 — безлимитный). Счётчик использований (use_count) отображается в таблице. Можно сбросить счётчик кнопкой «Сбросить».</div>
+      <div class="section-hint"><i data-lucide="info"></i><span>Инвайт-коды для доступа к скачиванию приложения. По умолчанию код на 1 использование (max_uses=0 — безлимитный). Счётчик использований можно сбросить кнопкой «Сбросить».</span></div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Инвайт-коды</div>
+          <div class="card-title"><i data-lucide="mail"></i>Инвайт-коды</div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" onclick="openCreateInvite()">+ Сгенерировать</button>
-            <a href="#" id="inv-csv" class="btn btn-ghost btn-sm">⬇ CSV</a>
+            <button class="btn btn-primary btn-sm" onclick="openCreateInvite()"><i data-lucide="plus"></i>Сгенерировать</button>
+            <a href="#" id="inv-csv" class="btn btn-ghost btn-sm"><i data-lucide="download"></i>CSV</a>
           </div>
         </div>
         <div class="table-wrap">
@@ -398,11 +551,11 @@ tbody tr:hover{background:var(--surface2)}
 
     <!-- ГРУППЫ СИНХРОНИЗАЦИИ -->
     <div class="page" id="page-sync">
-      <div class="section-hint">⇄ Группы синхронизации объединяют несколько устройств для обмена данными через WebSocket. Бэкенд хранит sync_groups, sync_group_members и sync_cards. Каждая группа имеет уникальный ключ шифрования.</div>
+      <div class="section-hint"><i data-lucide="info"></i><span>Группы синхронизации объединяют несколько устройств для обмена данными через WebSocket. Каждая группа имеет уникальный ключ шифрования.</span></div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Группы синхронизации</div>
-          <button class="btn btn-primary btn-sm" onclick="openCreateGroup()">+ Новая группа</button>
+          <div class="card-title"><i data-lucide="refresh-cw"></i>Группы синхронизации</div>
+          <button class="btn btn-primary btn-sm" onclick="openCreateGroup()"><i data-lucide="plus"></i>Новая группа</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -413,60 +566,50 @@ tbody tr:hover{background:var(--surface2)}
           </table>
         </div>
       </div>
-      <div class="card" id="sync-members-card" style="display:none">
+      <div class="card" id="sync-members-card" style="display:none;margin-top:16px">
         <div class="card-header">
-          <div class="card-title">Участники группы: <span id="sync-members-name">—</span></div>
+          <div class="card-title"><i data-lucide="users"></i>Участники: <span id="sync-members-name" style="color:var(--accent-2)">—</span></div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" onclick="openAddMember()">+ Добавить</button>
-            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sync-members-card').style.display='none'">Закрыть</button>
+            <button class="btn btn-primary btn-sm" onclick="openAddMember()"><i data-lucide="plus"></i>Добавить</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sync-members-card').style.display='none'"><i data-lucide="x"></i></button>
           </div>
         </div>
-        <div class="card-body">
-          <div id="sync-members-list"></div>
-        </div>
+        <div class="card-body"><div id="sync-members-list"></div></div>
       </div>
     </div>
 
-    <!-- ВЕРСИИ / ФАЙЛЫ -->
+    <!-- РЕЛИЗЫ -->
     <div class="page" id="page-versions">
-      <div class="section-hint">📦 Управление релизами. Загружай файлы установщиков (installer/portable/updater) для каждой платформы. Бэкенд сохраняет файл в /releases/, создаёт запись в release_files. Файлы с пометкой «Опубликован» отдаются через API скачивания после ввода инвайт-кода на фронтенде (pub-www).</div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Файлы релизов</div>
-          <button class="btn btn-primary btn-sm" onclick="openUploadVersion()">↑ Загрузить</button>
+      <div class="section-hint"><i data-lucide="info"></i><span>Релизы воркера и менеджера. Воркерские updater-артефакты раздаются встроенному авто-обновлению Tauri на всех трёх ОС; менеджерские (<span class="code">manager-updater</span>) идут через <span class="code">/update?app=manager</span> с каналом stable/beta и постепенным роллаутом по проценту флота.</span></div>
+      <div class="form-row" style="justify-content:space-between">
+        <div class="seg" id="rel-tabs">
+          <button class="active" data-tab="worker" onclick="setRelTab('worker',this)"><i data-lucide="monitor"></i>Воркер</button>
+          <button data-tab="manager" onclick="setRelTab('manager',this)"><i data-lucide="briefcase"></i>Менеджер</button>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th>Версия</th><th>Тип файла</th><th>Платформа</th>
-              <th>Заметки</th><th>Опубликован</th><th>Скачать</th><th>Действия</th>
-            </tr></thead>
-            <tbody id="ver-tbody"></tbody>
-          </table>
-        </div>
+        <button class="btn btn-primary btn-sm" onclick="openUploadVersion()"><i data-lucide="upload-cloud"></i>Загрузить файл</button>
       </div>
+      <div id="rel-list"></div>
     </div>
 
     <!-- ФИНГЕРПРИНТЫ -->
     <div class="page" id="page-footprints">
-      <div class="section-hint">🖨 Все сохранённые фингерпринты (хеши). Десктоп-приложение отправляет их на бэкенд через API. Можно фильтровать по домену или переключить на вид «по доменам» для агрегации.</div>
-      <div class="card" style="margin-bottom:16px">
+      <div class="section-hint"><i data-lucide="info"></i><span>Все сохранённые фингерпринты (хеши). Вид «по доменам» агрегирует хеши по магазинам; клик по домену фильтрует список.</span></div>
+      <div class="card">
         <div class="card-header">
-          <div class="card-title">Фингерпринты</div>
+          <div class="card-title"><i data-lucide="fingerprint"></i>Фингерпринты</div>
           <div style="display:flex;gap:8px;align-items:center">
             <select class="inp inp-sm" id="fp-view" onchange="loadFootprints()">
               <option value="list">Список</option>
               <option value="domains">По доменам</option>
             </select>
-            <input class="inp inp-sm" id="fp-domain" placeholder="Фильтр по домену..." style="width:200px">
-            <button class="btn btn-ghost btn-sm" onclick="loadFootprints()">Найти</button>
+            <input class="inp inp-sm" id="fp-domain" placeholder="Фильтр по домену..." style="width:200px" onkeydown="if(event.key==='Enter')loadFootprints()">
+            <button class="btn btn-ghost btn-sm" onclick="loadFootprints()"><i data-lucide="search"></i></button>
           </div>
         </div>
         <div class="table-wrap">
           <table id="fp-table">
             <thead id="fp-thead"><tr>
-              <th>Домен</th><th>Тип хеша</th><th>Хеш</th>
-              <th>Токен юзера</th><th>Создан</th>
+              <th>Домен</th><th>Тип хеша</th><th>Хеш</th><th>Токен юзера</th><th>Создан</th>
             </tr></thead>
             <tbody id="fp-tbody"></tbody>
           </table>
@@ -476,45 +619,42 @@ tbody tr:hover{background:var(--surface2)}
 
     <!-- ПОДКЛЮЧЕНИЯ -->
     <div class="page" id="page-connections">
-      <div class="section-hint">🔌 Живые WebSocket-подключения клиентов к бэкенду и лог событий. Используй авто-обновление для мониторинга в реальном времени.</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-        <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px">
-          <input type="checkbox" id="conn-autorefresh" onchange="toggleConnAutoRefresh(this.checked)"> Авто-обновление (5 сек)
+      <div class="form-row">
+        <label style="font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px;cursor:pointer">
+          <label class="switch"><input type="checkbox" id="conn-autorefresh" onchange="toggleConnAutoRefresh(this.checked)"><span class="track"></span></label>
+          Авто-обновление (5 сек)
         </label>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div class="card">
-          <div class="card-header"><div class="card-title">WebSocket подключения</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadConnections()">↺</button>
+          <div class="card-header"><div class="card-title"><i data-lucide="cable"></i>WebSocket подключения</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadConnections()"><i data-lucide="rotate-cw"></i></button>
           </div>
-          <div class="card-body">
-            <div id="conn-list"><div class="empty"><div class="empty-text">Загрузка...</div></div></div>
-          </div>
+          <div class="card-body"><div id="conn-list"></div></div>
         </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">Лог событий</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadEvents()">↺</button>
+          <div class="card-header"><div class="card-title"><i data-lucide="scroll-text"></i>Лог событий</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadEvents()"><i data-lucide="rotate-cw"></i></button>
           </div>
-          <div class="card-body">
-            <div id="events-list"><div class="empty"><div class="empty-text">Загрузка...</div></div></div>
-          </div>
+          <div class="card-body"><div id="events-list"></div></div>
         </div>
       </div>
     </div>
 
     <!-- ЖУРНАЛ -->
     <div class="page" id="page-audit">
-      <div class="section-hint">📋 Журнал аудита: ротации токенов, изменения лицензий и другие административные действия. Данные берутся из таблицы audit_log на бэкенде.</div>
+      <div class="section-hint"><i data-lucide="info"></i><span>Журнал аудита: ротации токенов, изменения лицензий и релизов, другие административные действия из таблицы audit_log.</span></div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Журнал аудита</div>
+          <div class="card-title"><i data-lucide="clipboard-list"></i>Журнал аудита</div>
           <div style="display:flex;gap:8px">
             <select class="inp inp-sm" id="audit-filter" onchange="loadAudit()">
               <option value="">Все действия</option>
               <option value="token_rotation">Ротация токенов</option>
               <option value="license">Лицензии</option>
+              <option value="release">Релизы</option>
             </select>
-            <button class="btn btn-ghost btn-sm" onclick="loadAudit()">↺</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadAudit()"><i data-lucide="rotate-cw"></i></button>
           </div>
         </div>
         <div class="table-wrap">
@@ -534,8 +674,8 @@ tbody tr:hover{background:var(--surface2)}
 <div class="modal-overlay" id="modal-addlic">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Добавить лицензию</div>
-      <button class="modal-close" onclick="closeModal('modal-addlic')">×</button>
+      <div class="modal-title"><i data-lucide="key-round"></i>Добавить лицензию</div>
+      <button class="modal-close" onclick="closeModal('modal-addlic')"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -560,7 +700,7 @@ tbody tr:hover{background:var(--surface2)}
         </select>
         <div class="hint">Роль применяется в приложении после активации лицензии</div>
       </div>
-      <div id="add-result" style="font-size:13px;color:var(--accent2);margin-top:8px;display:none"></div>
+      <div id="add-result" style="font-size:13px;color:var(--green);margin-top:8px;display:none"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-addlic')">Отмена</button>
@@ -572,8 +712,8 @@ tbody tr:hover{background:var(--surface2)}
 <div class="modal-overlay" id="modal-invites">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Сгенерировать инвайт-коды</div>
-      <button class="modal-close" onclick="closeModal('modal-invites')">×</button>
+      <div class="modal-title"><i data-lucide="mail"></i>Сгенерировать инвайт-коды</div>
+      <button class="modal-close" onclick="closeModal('modal-invites')"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -585,8 +725,8 @@ tbody tr:hover{background:var(--surface2)}
         <input class="inp" id="inv-label" placeholder="Название пачки...">
       </div>
       <div class="form-group">
-        <label class="form-label">Макс. использований (0 = безлимит, по умолч. 1)</label>
-        <input class="inp" id="inv-maxuses" type="number" min="0" value="1" placeholder="1">
+        <label class="form-label">Макс. использований (0 = безлимит)</label>
+        <input class="inp" id="inv-maxuses" type="number" min="0" value="1">
       </div>
       <div class="form-group">
         <label class="form-label">Срок жизни в днях (пусто = бессрочно)</label>
@@ -602,10 +742,10 @@ tbody tr:hover{background:var(--surface2)}
 </div>
 
 <div class="modal-overlay" id="modal-group">
-  <div class="modal">
+  <div class="modal modal-sm">
     <div class="modal-header">
-      <div class="modal-title">Создать группу синхронизации</div>
-      <button class="modal-close" onclick="closeModal('modal-group')">×</button>
+      <div class="modal-title"><i data-lucide="refresh-cw"></i>Создать группу синхронизации</div>
+      <button class="modal-close" onclick="closeModal('modal-group')"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -621,10 +761,10 @@ tbody tr:hover{background:var(--surface2)}
 </div>
 
 <div class="modal-overlay" id="modal-addmember">
-  <div class="modal">
+  <div class="modal modal-sm">
     <div class="modal-header">
-      <div class="modal-title">Добавить участника в группу</div>
-      <button class="modal-close" onclick="closeModal('modal-addmember')">×</button>
+      <div class="modal-title"><i data-lucide="user-plus"></i>Добавить участника</div>
+      <button class="modal-close" onclick="closeModal('modal-addmember')"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -642,49 +782,101 @@ tbody tr:hover{background:var(--surface2)}
 <div class="modal-overlay" id="modal-upload">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Загрузить файл релиза</div>
-      <button class="modal-close" onclick="closeModal('modal-upload')">×</button>
+      <div class="modal-title"><i data-lucide="upload-cloud"></i>Загрузить файл релиза</div>
+      <button class="modal-close" onclick="closeModal('modal-upload')"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body">
       <div class="form-group">
+        <label class="form-label">Приложение</label>
+        <div class="seg" id="upl-app-seg" style="width:100%">
+          <button class="active" data-app="worker" onclick="setUplApp('worker',this)" style="flex:1;justify-content:center"><i data-lucide="monitor"></i>Воркер</button>
+          <button data-app="manager" onclick="setUplApp('manager',this)" style="flex:1;justify-content:center"><i data-lucide="briefcase"></i>Менеджер</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="dropzone" id="upl-drop" onclick="document.getElementById('upl-file').click()">
+          <i data-lucide="upload-cloud"></i>
+          <div>Перетащи файл сюда или кликни для выбора</div>
+          <div class="hint">.msi / -setup.exe / .deb / .AppImage / .dmg / .app.tar.gz — тип и платформа определятся автоматически</div>
+          <div class="dz-file" id="upl-filename"></div>
+        </div>
+        <input type="file" id="upl-file" style="display:none" onchange="onUplFile(this.files)">
+      </div>
+      <div class="form-group">
         <label class="form-label">Версия</label>
-        <input class="inp" id="upl-version" placeholder="напр. 1.2.3">
+        <input class="inp" id="upl-version" placeholder="напр. 2.12.0">
       </div>
-      <div class="form-group">
-        <label class="form-label">Тип файла</label>
-        <select class="inp" id="upl-filetype">
-          <option value="updater">updater</option>
-          <option value="installer">installer</option>
-          <option value="portable">portable</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Платформа</label>
-        <select class="inp" id="upl-platform">
-          <option value="windows-x86_64">windows-x86_64</option>
-          <option value="darwin-aarch64">darwin-aarch64</option>
-          <option value="darwin-x86_64">darwin-x86_64</option>
-          <option value="linux-x86_64">linux-x86_64</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group">
+          <label class="form-label">Тип файла</label>
+          <select class="inp" id="upl-filetype">
+            <option value="updater">updater (авто-обновление)</option>
+            <option value="installer-msi">installer-msi</option>
+            <option value="installer-nsis">installer-nsis</option>
+            <option value="installer-deb">installer-deb</option>
+            <option value="installer-appimage">installer-appimage</option>
+            <option value="installer-dmg">installer-dmg</option>
+            <option value="installer-app">installer-app</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Платформа</label>
+          <select class="inp" id="upl-platform">
+            <option value="windows-x86_64">windows-x86_64</option>
+            <option value="darwin-aarch64">darwin-aarch64</option>
+            <option value="linux-x86_64">linux-x86_64</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Подпись (signature)</label>
-        <input class="inp" id="upl-sig" placeholder="base64 подпись">
+        <input class="inp" id="upl-sig" placeholder="base64 подпись из .sig файла">
+        <div class="hint">Обязательна для updater — без неё авто-обновление отвергнет сборку</div>
+      </div>
+      <div class="form-group" id="upl-mgr-opts" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="form-label">Канал</label>
+            <select class="inp" id="upl-channel">
+              <option value="stable">stable</option>
+              <option value="beta">beta</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Роллаут, %</label>
+            <input class="inp" id="upl-rollout" type="number" min="0" max="100" value="100">
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Заметки к релизу (необязательно)</label>
-        <textarea class="inp" id="upl-notes" rows="3" placeholder="Что нового в этой версии..."></textarea>
-        <div class="hint">Эти заметки будут показаны пользователю на странице скачивания как changelog</div>
+        <textarea class="inp" id="upl-notes" rows="2" placeholder="Что нового в этой версии..."></textarea>
       </div>
-      <div class="form-group">
-        <label class="form-label">Файл</label>
-        <input type="file" id="upl-file" class="inp">
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:0">
+        <label class="switch"><input type="checkbox" id="upl-publish" checked><span class="track"></span></label>
+        <span style="font-size:13px">Опубликовать сразу (видно клиентам и на странице скачивания)</span>
       </div>
-      <div id="upl-progress" style="display:none;margin-top:8px;font-size:13px;color:var(--accent2)"></div>
+      <div class="progress" id="upl-progress"><div class="bar" id="upl-bar"></div></div>
+      <div id="upl-status" style="font-size:12px;color:var(--text-2);margin-top:8px"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-upload')">Отмена</button>
-      <button class="btn btn-primary" onclick="uploadVersion()">Загрузить</button>
+      <button class="btn btn-primary" id="upl-submit" onclick="uploadVersion()"><i data-lucide="upload-cloud"></i>Загрузить</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="confirm-title"><i data-lucide="alert-triangle"></i>Подтверждение</div>
+    </div>
+    <div class="modal-body">
+      <div id="confirm-text" style="font-size:13.5px;line-height:1.55;color:var(--text-2)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="confirm-cancel">Отмена</button>
+      <button class="btn btn-danger" id="confirm-ok">Подтвердить</button>
     </div>
   </div>
 </div>
@@ -692,674 +884,1002 @@ tbody tr:hover{background:var(--surface2)}
 <div id="toast-container"></div>
 
 <script>
-// Derived from the current URL so the panel keeps working if ADMIN_PATH changes.
-const ADMIN_BASE = location.pathname.replace(/\/(index\.html)?$/, '');
-const API = ADMIN_BASE + '/api';
-let chartDay = null, chartType = null;
-let allLicenses = [];
-let connAutoRefreshTimer = null;
-let currentSyncGroupId = null;
+const BASE = window.location.pathname.replace(/\/+$/, '');
+const qs = new URLSearchParams(location.search);
+if (qs.get('next')) toast('Сессия истекла — войдите снова', 'error');
 
-const pageNames = {
-  dashboard:'Дашборд',activity:'Активность',licenses:'Лицензии',
-  invites:'Инвайт-коды',sync:'Синхронизация',versions:'Версии / Файлы',
-  footprints:'Фингерпринты',connections:'Подключения',audit:'Журнал'
+/* ── helpers ─────────────────────────────────────────────── */
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escAttr(s) { return esc(s); }
+function renderIcons(root) {
+  if (window.lucide) lucide.createIcons(root ? { root } : undefined);
+}
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle-2' : 'alert-circle'}"></i><span>${esc(msg)}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  renderIcons(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, 3200);
+}
+function confirmAction(text, { title = 'Подтверждение', okText = 'Подтвердить', danger = true } = {}) {
+  return new Promise(resolve => {
+    const ov = document.getElementById('modal-confirm');
+    document.getElementById('confirm-text').textContent = text;
+    document.getElementById('confirm-title').innerHTML =
+      `<i data-lucide="${danger ? 'alert-triangle' : 'info'}"></i>${esc(title)}`;
+    const ok = document.getElementById('confirm-ok');
+    const cancel = document.getElementById('confirm-cancel');
+    ok.textContent = okText;
+    ok.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+    renderIcons(ov);
+    ov.classList.add('open');
+    const done = v => { ov.classList.remove('open'); ok.onclick = cancel.onclick = null; resolve(v); };
+    ok.onclick = () => done(true);
+    cancel.onclick = () => done(false);
+    ov.onclick = e => { if (e.target === ov) done(false); };
+  });
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); renderIcons(document.getElementById(id)); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el && el.id !== 'modal-confirm') el.classList.remove('open'); }));
+
+function fmtSize(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  const mb = bytes / 1048576;
+  return mb >= 1 ? mb.toFixed(1) + ' МБ' : Math.round(bytes / 1024) + ' КБ';
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(String(d).replace(' ', 'T') + (String(d).endsWith('Z') ? '' : 'Z')).toLocaleString('ru-RU');
+}
+function skelRows(n = 4) {
+  return Array.from({ length: n }, () => '<div class="skel skel-row"></div>').join('');
+}
+function emptyState(icon, text) {
+  return `<div class="empty"><div class="empty-icon"><i data-lucide="${icon}"></i></div><div class="empty-text">${esc(text)}</div></div>`;
+}
+
+/* ── api ─────────────────────────────────────────────────── */
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const res = await fetch(BASE + '/api' + path, opts);
+  if (res.status === 401) { location.href = BASE + '/login'; return {}; }
+  const data = await res.json().catch(() => ({}));
+  return { status: res.status, ok: res.ok, data };
+}
+const GET  = p => api('GET', p);
+const POST = (p, b) => api('POST', p, b);
+const PATCH = (p, b) => api('PATCH', p, b);
+const DELETE_ = p => api('DELETE', p);
+
+/* ── navigation ──────────────────────────────────────────── */
+const PAGE_TITLES = {
+  dashboard: 'Дашборд', activity: 'Активность', licenses: 'Лицензии',
+  invites: 'Инвайт-коды', versions: 'Релизы', sync: 'Синхронизация',
+  footprints: 'Фингерпринты', connections: 'Подключения', audit: 'Журнал аудита',
 };
 function navigate(page, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-'+page).classList.add('active');
-  if (el) el.classList.add('active');
-  document.getElementById('topbar-title').textContent = pageNames[page] || page;
+  document.getElementById('page-' + page).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('topbar-title').textContent = PAGE_TITLES[page] || page;
+  renderIcons(document.getElementById('page-' + page));
   loadPage(page);
 }
 function loadPage(page) {
-  if (connAutoRefreshTimer) { clearInterval(connAutoRefreshTimer); connAutoRefreshTimer = null; }
-  if (page==='dashboard') loadDashboard();
-  else if (page==='activity') loadActivity();
-  else if (page==='licenses') loadLicenses();
-  else if (page==='invites') loadInvites();
-  else if (page==='sync') loadSyncGroups();
-  else if (page==='versions') loadVersions();
-  else if (page==='footprints') loadFootprints();
-  else if (page==='connections') { loadConnections(); loadEvents(); }
-  else if (page==='audit') loadAudit();
+  ({ dashboard: loadDashboard, activity: loadActivity, licenses: loadLicenses,
+     invites: loadInvites, versions: loadVersions, sync: loadGroups,
+     footprints: loadFootprints, connections: () => { loadConnections(); loadEvents(); },
+     audit: loadAudit }[page] || (() => {}))();
 }
 function refreshAll() {
-  const active = document.querySelector('.nav-item.active');
-  if (active) { const page = active.dataset.page; loadPage(page); }
+  const active = document.querySelector('.page.active');
+  if (active) loadPage(active.id.replace('page-', ''));
+  checkServer();
+  loadLiveCount();
 }
 
-async function api(method, path, body) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    credentials: 'same-origin',
-  };
-  if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(API + path, opts);
-
-  // Session expired or revoked — send the operator back to the login form
-  // instead of surfacing a bare 401 in every widget on the page.
-  if (r.status === 401) {
-    location.replace(ADMIN_BASE + '/login?next=' +
-      encodeURIComponent(location.pathname));
-    return { ok: false, status: 401, data: null };
-  }
-
-  const text = await r.text();
-  try { return { ok: r.ok, status: r.status, data: JSON.parse(text) }; }
-  catch { return { ok: r.ok, status: r.status, data: text }; }
-}
-
-async function logout() {
+/* ── server status ───────────────────────────────────────── */
+async function checkServer() {
   try {
-    await fetch(ADMIN_BASE + '/logout', { method: 'POST', credentials: 'same-origin' });
-  } catch (e) {
-    // Network failure still clears client state; the cookie expires server-side.
-    console.warn('logout request failed', e);
-  }
-  location.replace(ADMIN_BASE + '/login');
-}
-const GET = p => api('GET', p);
-const POST = (p, b) => api('POST', p, b);
-const DEL = p => api('DELETE', p);
-const PATCH = (p, b) => api('PATCH', p, b);
-
-function toast(msg, type='success') {
-  const el = document.createElement('div');
-  el.className = 'toast ' + type;
-  el.textContent = msg;
-  document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
-}
-
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
-});
-
-function fmt(dt) {
-  if (!dt) return '—';
-  const d = new Date(dt);
-  return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
-         d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-}
-function ago(dt) {
-  if (!dt) return '—';
-  const s = Math.floor((Date.now() - new Date(dt)) / 1000);
-  if (s < 60) return s + ' сек назад';
-  if (s < 3600) return Math.floor(s/60) + ' мин назад';
-  if (s < 86400) return Math.floor(s/3600) + ' ч назад';
-  return Math.floor(s/86400) + ' д назад';
-}
-function short(s, n=16) { return s && s.length > n ? s.slice(0,n)+'…' : (s||'—'); }
-
-async function checkHealth() {
-  try {
-    const r = await fetch('/health');
+    const r = await fetch(BASE + '/api/health');
     const d = await r.json();
-    document.getElementById('srv-dot').className = 'status-dot ok';
-    document.getElementById('srv-status').textContent = 'Сервер онлайн · ' + Math.round(d.uptime)+' сек';
+    const ok = r.ok && d.status === 'ok';
+    document.getElementById('srv-dot').className = 'status-dot' + (ok ? ' ok' : '');
+    document.getElementById('srv-status').textContent = ok ? 'Сервер работает' : 'Ошибка сервера';
   } catch {
     document.getElementById('srv-dot').className = 'status-dot';
-    document.getElementById('srv-status').textContent = 'Сервер недоступен';
+    document.getElementById('srv-status').textContent = 'Нет связи';
   }
 }
 
-async function updateLiveBadge() {
+async function loadLiveCount() {
   try {
     const { data } = await GET('/connections');
-    const n = data.total || 0;
-    document.getElementById('live-count').textContent = n + ' онлайн';
-    document.getElementById('live-pulse').style.background = n > 0 ? 'var(--accent2)' : 'var(--muted)';
+    const n = (data.connections || []).length;
+    document.getElementById('live-count').textContent = n > 0 ? n + ' онлайн' : '0 онлайн';
+    document.getElementById('live-pulse').className = 'pulse' + (n > 0 ? ' on' : '');
   } catch {}
+}
+</script>
+
+<script>
+/* ── dashboard ───────────────────────────────────────────── */
+let chartFpDayObj = null, chartFpTypeObj = null;
+
+const CHART_COLORS = ['#6c63ff', '#00d4aa', '#53a8ff', '#f7b731', '#ff5470', '#a55eea'];
+
+function chartDefaults() {
+  Chart.defaults.color = '#667084';
+  Chart.defaults.borderColor = 'rgba(255,255,255,.05)';
+  Chart.defaults.font.family = "'Inter',sans-serif";
+  Chart.defaults.font.size = 11;
 }
 
 async function loadDashboard() {
-  const [{ data: s }, { data: gstats }, { data: connData }] = await Promise.all([
-    GET('/stats'), GET('/groups/stats'), GET('/connections'),
-  ]);
-  document.getElementById('s-active').textContent   = s.active_licenses ?? '—';
-  document.getElementById('s-revoked').textContent  = s.revoked_licenses ?? '—';
-  document.getElementById('s-fp7').textContent      = s.footprints_7d ?? '—';
-  document.getElementById('s-fptotal').textContent  = s.total_footprints ?? '—';
-  document.getElementById('s-inv-active').textContent = s.invite_active ?? '—';
-  document.getElementById('s-inv-used').textContent   = s.invite_used ?? '—';
-  document.getElementById('s-inv-uses').textContent   = s.invite_total_uses ?? '—';
-  document.getElementById('s-version').textContent    = s.version || '—';
-  document.getElementById('s-groups').textContent   = gstats?.total ?? '—';
-  const live = connData?.total ?? 0;
-  document.getElementById('s-live').textContent = live;
-  document.getElementById('s-live-sub').textContent = live > 0 ? 'клиентов подключено' : 'нет подключений';
-  loadServerConfig();
+  try {
+    const { data } = await GET('/stats');
+    const s = data || {};
+    document.getElementById('s-active').textContent = s.active_licenses ?? '—';
+    document.getElementById('s-revoked').textContent = s.revoked_licenses ?? '—';
+    document.getElementById('s-fp7').textContent = s.footprints_7d ?? '—';
+    document.getElementById('s-fptotal').textContent = s.total_footprints ?? '—';
+    document.getElementById('s-version').textContent = s.version || '—';
+    document.getElementById('s-inv-active').textContent = s.invite_active ?? '—';
+    document.getElementById('s-inv-used').textContent = s.invite_used ?? '—';
+    document.getElementById('s-inv-uses').textContent = s.invite_total_uses ?? '—';
 
-  const labels = (s.fp_by_day || []).map(d => d.date.slice(5));
-  const counts = (s.fp_by_day || []).map(d => d.count);
-  if (chartDay) chartDay.destroy();
-  chartDay = new Chart(document.getElementById('chartFpDay'), {
+    const { data: connData } = await GET('/connections');
+    const online = (connData.connections || []).length;
+    document.getElementById('s-live').textContent = online;
+    document.getElementById('s-live-sub').textContent = online === 1 ? 'клиент подключён' : 'клиентов подключено';
+
+    const { data: groups } = await GET('/sync/groups');
+    document.getElementById('s-groups').textContent = (groups || []).length;
+
+    const { data: cfg } = await GET('/config');
+    document.getElementById('cfg-kill-switch').checked = cfg.kill_switch === '1';
+    document.getElementById('cfg-ws-nonce').checked = cfg.ws_require_nonce === '1';
+
+    renderCharts(s.fp_by_day || [], s.fp_by_type || []);
+  } catch (e) { console.error(e); }
+}
+
+function renderCharts(fpByDay, fpByType) {
+  if (!window.Chart) return;
+  chartDefaults();
+
+  if (chartFpDayObj) chartFpDayObj.destroy();
+  chartFpDayObj = new Chart(document.getElementById('chartFpDay'), {
     type: 'bar',
     data: {
-      labels,
-      datasets: [{ data: counts, backgroundColor: '#6c63ff66', borderColor: '#6c63ff', borderWidth: 1.5, borderRadius: 4 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#6b7280', font: { size: 11 } }, grid: { color: '#ffffff08' } },
-        y: { ticks: { color: '#6b7280', font: { size: 11 } }, grid: { color: '#ffffff08' }, beginAtZero: true }
-      }
-    }
-  });
-
-  const ftypes = (s.fp_by_type || []).map(d => d.type);
-  const fcounts = (s.fp_by_type || []).map(d => d.count);
-  if (chartType) chartType.destroy();
-  chartType = new Chart(document.getElementById('chartFpType'), {
-    type: 'doughnut',
-    data: {
-      labels: ftypes.length ? ftypes : ['Нет данных'],
-      datasets: [{ data: fcounts.length ? fcounts : [1],
-        backgroundColor: ['#6c63ff','#00d4aa','#f7b731','#ff4d6d','#818cf8'], borderWidth: 0 }]
+      labels: fpByDay.map(d => d.date),
+      datasets: [{
+        data: fpByDay.map(d => d.count),
+        backgroundColor: 'rgba(108,99,255,.55)',
+        hoverBackgroundColor: '#6c63ff',
+        borderRadius: 6, borderSkipped: false, maxBarThickness: 34,
+      }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { color: '#6b7280', font: { size: 11 }, padding: 10 } } }
-    }
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#1f2431', borderColor: '#2e3548', borderWidth: 1,
+        titleColor: '#e8ecf4', bodyColor: '#9aa3b2', padding: 10, cornerRadius: 8,
+      }},
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 7 } },
+        y: { beginAtZero: true, ticks: { precision: 0 } },
+      },
+    },
+  });
+
+  if (chartFpTypeObj) chartFpTypeObj.destroy();
+  chartFpTypeObj = new Chart(document.getElementById('chartFpType'), {
+    type: 'doughnut',
+    data: {
+      labels: fpByType.map(d => d.hash_type || 'неизвестно'),
+      datasets: [{
+        data: fpByType.map(d => d.count),
+        backgroundColor: CHART_COLORS,
+        borderColor: '#12151d', borderWidth: 3, hoverOffset: 6,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 12 } },
+        tooltip: { backgroundColor: '#1f2431', borderColor: '#2e3548', borderWidth: 1,
+          titleColor: '#e8ecf4', bodyColor: '#9aa3b2', padding: 10, cornerRadius: 8 } },
+    },
   });
 }
 
-async function loadServerConfig() {
-  const { data } = await GET('/server-config');
-  if (!data) return;
-  document.getElementById('cfg-kill-switch').checked = data.kill_switch === '1';
-  document.getElementById('cfg-ws-nonce').checked = data.ws_require_nonce === '1';
+async function saveServerConfig(key, value) {
+  const res = await POST('/config', { key, value: value ? '1' : '0' });
+  toast(res.ok ? 'Настройка сохранена' : ('Ошибка: ' + (res.data.error || res.status)), res.ok ? 'success' : 'error');
 }
 
-async function saveServerConfig(key, enabled) {
-  const { ok } = await POST('/server-config', { key, value: enabled ? '1' : '0' });
-  if (ok) toast((enabled ? 'Включено: ' : 'Выключено: ') + key);
-  else { toast('Не удалось сохранить ' + key, 'error'); loadServerConfig(); }
-}
-
+/* ── activity ────────────────────────────────────────────── */
 async function loadActivity() {
-  const type = document.getElementById('activityFilter')?.value || 'all';
-  const { data } = await GET('/activity?type=' + type);
   const el = document.getElementById('activity-list');
-  if (!data || !data.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">⚡</div><div class="empty-text">Нет событий</div></div>';
-    return;
-  }
-  const typeColors = { footprint_saved: 'var(--accent)', verify: 'var(--accent2)', invite_used: 'var(--warn)' };
-  el.innerHTML = data.map(a => `
+  el.innerHTML = skelRows(6);
+  const filter = document.getElementById('activityFilter').value;
+  const path = '/activity?limit=50' + (filter && filter !== 'all' ? `&type=${encodeURIComponent(filter)}` : '');
+  const { data } = await GET(path);
+  const list = data.activity || [];
+  if (!list.length) { el.innerHTML = emptyState('zap', 'Нет событий'); renderIcons(el); return; }
+  el.innerHTML = list.map(a => `
     <div class="activity-item">
-      <span class="activity-dot" style="background:${typeColors[a.event_type]||'var(--muted)'}"></span>
-      <div>
-        <div class="activity-desc">${a.description}</div>
-        <div class="activity-time">${ago(a.created_at)} · ${a.event_type.replace(/_/g,' ')}</div>
+      <span class="activity-dot" style="background:${a.action === 'footprint_saved' ? 'var(--green)' : a.action === 'invite_used' ? 'var(--accent-2)' : 'var(--blue)'}"></span>
+      <div style="min-width:0">
+        <div class="activity-desc code">${esc(a.action)}</div>
+        <div class="activity-time">${esc(a.installation_id || '—')} · ${fmtDate(a.created_at)}</div>
       </div>
     </div>
   `).join('');
 }
+</script>
+
+<script>
+/* ── licenses ────────────────────────────────────────────── */
+let allLicenses = [];
 
 async function loadLicenses() {
+  const tb = document.getElementById('lic-tbody');
+  tb.innerHTML = `<tr><td colspan="8" style="padding:0">${skelRows(5)}</td></tr>`;
   const { data } = await GET('/licenses');
   allLicenses = data || [];
   renderLicenses(allLicenses);
 }
+
 function filterLicenses() {
   const q = document.getElementById('lic-search').value.toLowerCase();
-  renderLicenses(allLicenses.filter(r =>
-    (r.installation_id||'').toLowerCase().includes(q) ||
-    (r.label||'').toLowerCase().includes(q)
+  renderLicenses(allLicenses.filter(l =>
+    (l.installation_id || '').toLowerCase().includes(q) ||
+    (l.challenge || '').toLowerCase().includes(q) ||
+    (l.label || '').toLowerCase().includes(q)
   ));
 }
-function renderLicenses(rows) {
+
+function renderLicenses(list) {
   const tb = document.getElementById('lic-tbody');
-  if (!rows.length) {
-    tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-text">Нет лицензий</div></div></td></tr>';
-    return;
+  if (!list.length) {
+    tb.innerHTML = `<tr><td colspan="8" style="padding:0">${emptyState('key-round', 'Лицензий пока нет — добавьте первую')}</td></tr>`;
+    renderIcons(tb); return;
   }
-  tb.innerHTML = rows.map(r => `
+  tb.innerHTML = list.map(l => `
     <tr>
-      <td><span class="code" title="${r.installation_id}" onclick="copyText('${r.installation_id}')" style="cursor:pointer">${short(r.installation_id, 20)}</span></td>
-      <td>
-        <span class="lic-label" data-id="${r.installation_id}" style="cursor:pointer;border-bottom:1px dashed #ffffff30;padding-bottom:1px"
-          onclick="editLicenseLabel(this,'${r.installation_id}','${(r.label||'').replace(/'/g,"\\'")}')">
-          ${r.label || '<span style="color:var(--muted)">нажми для ввода</span>'}
-        </span>
+      <td class="code">${esc(l.installation_id)}</td>
+      <td id="label-cell-${escAttr(l.installation_id)}">
+        <span class="label-text" style="font-size:13px">${esc(l.label || '—')}</span>
+        <button class="icon-btn" onclick="editLabel('${escAttr(l.installation_id)}', '${escAttr(l.label || '')}')" title="Изменить метку"><i data-lucide="pencil"></i></button>
       </td>
-      <td><span class="code">${r.challenge || '—'}</span></td>
+      <td class="code">${esc(l.challenge)}</td>
       <td>
-        <span class="badge ${r.role === 'admin' ? 'badge-green':'badge-grey'}" style="cursor:pointer" title="Нажми чтобы сменить роль"
-          onclick="toggleLicenseRole('${r.installation_id}','${r.role === 'admin' ? 'operator' : 'admin'}')">
-          ${r.role === 'admin' ? 'Админ' : 'Оператор'}
-        </span>
+        <button class="badge ${l.role === 'admin' ? 'badge-purple' : 'badge-grey'}" style="cursor:pointer;border:none;font:inherit"
+          onclick="toggleRole('${escAttr(l.installation_id)}', '${l.role === 'admin' ? 'admin' : 'operator'}')"
+          title="Нажмите, чтобы сменить роль">
+          ${l.role === 'admin' ? 'Админ' : 'Оператор'}
+        </button>
       </td>
-      <td><span class="badge ${r.is_active ? 'badge-green':'badge-red'}">${r.is_active ? 'Активна':'Отозвана'}</span></td>
-      <td style="color:var(--muted);font-size:12px">${fmt(r.created_at)}</td>
-      <td style="color:var(--muted);font-size:12px">${r.last_seen ? ago(r.last_seen) : '—'}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          ${r.is_active
-            ? `<button class="btn btn-danger btn-sm" onclick="revokeLicense('${r.installation_id}')">Отозвать</button>`
-            : `<button class="btn btn-success btn-sm" onclick="restoreLicense('${r.installation_id}')">Восстановить</button>`}
-          <button class="btn btn-ghost btn-sm" onclick="rotateToken('${r.installation_id}')" title="Выдать новый токен; старый перестанет работать">Ротация</button>
-          <button class="btn btn-ghost btn-sm" onclick="deleteLicense('${r.installation_id}')">Удалить</button>
-        </div>
-      </td>
+      <td><span class="badge ${l.is_active ? 'badge-green' : 'badge-red'}">
+        <i data-lucide="${l.is_active ? 'check' : 'x'}"></i>${l.is_active ? 'Активна' : 'Отозвана'}
+      </span></td>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(l.created_at)}</td>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${l.last_login ? fmtDate(l.last_login) : '—'}</td>
+      <td><div style="display:flex;gap:2px">
+        <button class="icon-btn" onclick="rotateToken('${escAttr(l.installation_id)}')" title="Ротация токена"><i data-lucide="refresh-ccw"></i></button>
+        ${l.is_active
+          ? `<button class="icon-btn" onclick="revokeLicense('${escAttr(l.installation_id)}')" title="Отозвать" style="color:var(--yellow)"><i data-lucide="ban"></i></button>`
+          : `<button class="icon-btn" onclick="restoreLicense('${escAttr(l.installation_id)}')" title="Восстановить" style="color:var(--green)"><i data-lucide="undo-2"></i></button>`}
+        <button class="icon-btn danger" onclick="deleteLicense('${escAttr(l.installation_id)}')" title="Удалить"><i data-lucide="trash-2"></i></button>
+      </div></td>
     </tr>
   `).join('');
+  renderIcons(tb);
 }
-async function editLicenseLabel(el, id, current) {
-  const inp = document.createElement('input');
-  inp.className = 'inp inp-sm';
-  inp.value = current;
-  inp.style.width = '130px';
-  el.replaceWith(inp);
-  inp.focus();
-  inp.select();
-  const save = async () => {
-    const label = inp.value.trim();
-    const { ok } = await PATCH(`/licenses/${encodeURIComponent(id)}`, { label });
-    if (ok) { toast('Метка сохранена'); loadLicenses(); }
-    else { toast('Ошибка сохранения', 'error'); loadLicenses(); }
-  };
-  inp.addEventListener('blur', save);
-  inp.addEventListener('keydown', e => { if (e.key==='Enter') { inp.removeEventListener('blur',save); save(); } if (e.key==='Escape') loadLicenses(); });
-}
-async function toggleLicenseRole(id, newRole) {
-  if (!confirm(`Сменить роль лицензии на «${newRole === 'admin' ? 'Админ' : 'Оператор'}»?`)) return;
-  const { ok, data } = await PATCH(`/licenses/${encodeURIComponent(id)}`, { role: newRole });
-  if (ok) { toast('Роль обновлена'); loadLicenses(); }
-  else { toast((data && data.error) || 'Ошибка', 'error'); }
-}
+
 function openAddLicense() {
-  document.getElementById('add-iid').value = '';
-  document.getElementById('add-challenge').value = '';
-  document.getElementById('add-label').value = '';
+  ['add-iid', 'add-challenge', 'add-label'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('add-role').value = 'operator';
-  document.getElementById('add-result').style.display = 'none';
+  const r = document.getElementById('add-result');
+  r.style.display = 'none'; r.textContent = '';
   openModal('modal-addlic');
 }
+
 async function addLicense() {
-  const installation_id = document.getElementById('add-iid').value.trim();
+  const iid = document.getElementById('add-iid').value.trim();
   const challenge = document.getElementById('add-challenge').value.trim();
   const label = document.getElementById('add-label').value.trim();
   const role = document.getElementById('add-role').value;
-  if (!installation_id || !challenge) { toast('Заполни обязательные поля', 'error'); return; }
-  const { ok, data } = await POST('/licenses', { installation_id, challenge, label, role });
-  if (!ok) { toast(data.error || 'Ошибка', 'error'); return; }
-  const res = document.getElementById('add-result');
-  res.style.display = 'block';
-  res.innerHTML = `Ключ активации: <span class="code">${data.activation_key}</span>`;
-  toast('Лицензия создана');
-  loadLicenses();
+  if (!iid || !challenge) { toast('Заполните Installation ID и Challenge', 'error'); return; }
+  const res = await POST('/licenses', { installation_id: iid, challenge, label, role });
+  if (res.ok) {
+    const r = document.getElementById('add-result');
+    r.style.display = 'block';
+    r.innerHTML = `Ключ активации: <span class="code">${esc(res.data.activation_key)}</span>`;
+    loadLicenses();
+    toast('Лицензия создана');
+  } else {
+    toast('Ошибка: ' + (res.data.error || res.status), 'error');
+  }
 }
-async function revokeLicense(id) {
-  if (!confirm('Отозвать лицензию?')) return;
-  const { ok } = await POST(`/licenses/${id}/revoke`);
-  if (ok) { toast('Лицензия отозвана'); loadLicenses(); }
+
+async function toggleRole(iid, currentRole) {
+  const newRole = currentRole === 'admin' ? 'operator' : 'admin';
+  const res = await PATCH('/licenses/' + encodeURIComponent(iid), { role: newRole });
+  toast(res.ok ? `Роль изменена: ${newRole}` : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  if (res.ok) loadLicenses();
 }
-async function restoreLicense(id) {
-  const { ok } = await POST(`/licenses/${id}/restore`);
-  if (ok) { toast('Лицензия восстановлена'); loadLicenses(); }
+
+function editLabel(iid, current) {
+  const cell = document.getElementById('label-cell-' + CSS.escape(iid));
+  if (!cell) return;
+  cell.innerHTML = `
+    <div style="display:flex;gap:6px;align-items:center">
+      <input class="inp inp-sm" id="label-input" value="${escAttr(current)}" style="width:130px">
+      <button class="icon-btn" style="color:var(--green)" onclick="saveLabel('${escAttr(iid)}')"><i data-lucide="check"></i></button>
+      <button class="icon-btn danger" onclick="loadLicenses()"><i data-lucide="x"></i></button>
+    </div>`;
+  renderIcons(cell);
+  document.getElementById('label-input').focus();
 }
-async function deleteLicense(id) {
-  if (!confirm('Удалить лицензию навсегда?')) return;
-  const { ok } = await DEL(`/licenses/${id}`);
-  if (ok) { toast('Удалено'); loadLicenses(); }
+
+async function saveLabel(iid) {
+  const label = document.getElementById('label-input').value.trim();
+  const res = await PATCH('/licenses/' + encodeURIComponent(iid), { label });
+  toast(res.ok ? 'Метка сохранена' : 'Ошибка', res.ok ? 'success' : 'error');
+  if (res.ok) loadLicenses();
 }
-async function rotateToken(id) {
-  if (!confirm('Выдать новый токен?\n\nСтарый токен немедленно перестанет работать — клиент на этой установке потребует повторной активации.')) return;
-  const { ok, data } = await POST(`/licenses/${encodeURIComponent(id)}/rotate-token`);
-  if (!ok) { toast((data && data.error) || 'Не удалось выполнить ротацию', 'error'); return; }
-  // Shown once: the plaintext token is not retrievable from any later response.
-  copyText(data.new_token);
-  toast('Токен обновлён и скопирован в буфер обмена');
+
+async function revokeLicense(iid) {
+  if (!(await confirmAction(`Отозвать лицензию ${iid}? Приложение клиента потеряет доступ.`, { title: 'Отзыв лицензии', okText: 'Отозвать' }))) return;
+  const res = await PATCH('/licenses/' + encodeURIComponent(iid), { is_active: 0 });
+  toast(res.ok ? 'Лицензия отозвана' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
   loadLicenses();
 }
 
-async function loadInvites() {
-  const { data } = await GET('/invites');
-  const tb = document.getElementById('inv-tbody');
-  if (!data || !data.length) {
-    tb.innerHTML = '<tr><td colspan="8"><div class="empty"><div class="empty-text">Нет инвайт-кодов</div></div></td></tr>';
-    return;
-  }
-  tb.innerHTML = data.map(r => {
-    const useCount = r.use_count ?? 0;
-    const maxUses  = r.max_uses  ?? 1;
-    const limitStr = maxUses === 0 ? '∞' : maxUses;
-    const isExhausted = maxUses > 0 && useCount >= maxUses;
-    return `
-    <tr>
-      <td><span class="code" title="${r.code}" onclick="copyText('${r.code}')" style="cursor:pointer">${r.code}</span></td>
-      <td>${r.label || '<span style="color:var(--muted)">—</span>'}</td>
-      <td><span class="badge ${isExhausted ? 'badge-grey':'badge-green'}">${isExhausted ? 'Исчерпан':'Активен'}</span></td>
-      <td style="font-weight:600;color:${useCount>0?'var(--accent2)':'var(--muted)'}">${useCount}</td>
-      <td style="color:var(--muted);font-size:12px">${limitStr}</td>
-      <td style="color:var(--muted);font-size:12px">${r.expires_at ? fmt(r.expires_at) : '∞'}</td>
-      <td style="color:var(--muted);font-size:12px">${fmt(r.created_at)}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-sm" onclick="copyText('${r.code}')">Копировать</button>
-          ${useCount > 0 ? `<button class="btn btn-success btn-sm" onclick="resetInvite('${r.code}')">Сбросить</button>` : ''}
-          <button class="btn btn-danger btn-sm" onclick="deleteInvite('${r.code}')">Удалить</button>
-        </div>
-      </td>
-    </tr>
-  `;}).join('');
+async function restoreLicense(iid) {
+  const res = await PATCH('/licenses/' + encodeURIComponent(iid), { is_active: 1 });
+  toast(res.ok ? 'Лицензия восстановлена' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  loadLicenses();
 }
+
+async function rotateToken(iid) {
+  if (!(await confirmAction(`Ротировать токен для ${iid}? Старый токен перестанет работать — клиенту потребуется повторная активация.`, { title: 'Ротация токена', okText: 'Ротировать' }))) return;
+  const res = await POST('/licenses/' + encodeURIComponent(iid) + '/rotate');
+  toast(res.ok ? 'Токен ротирован' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+}
+
+async function deleteLicense(iid) {
+  if (!(await confirmAction(`Удалить лицензию ${iid} навсегда?`, { title: 'Удаление лицензии', okText: 'Удалить' }))) return;
+  const res = await DELETE_('/licenses/' + encodeURIComponent(iid));
+  toast(res.ok ? 'Удалена' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  loadLicenses();
+}
+
+/* ── invites ─────────────────────────────────────────────── */
+async function loadInvites() {
+  const tb = document.getElementById('inv-tbody');
+  tb.innerHTML = `<tr><td colspan="8" style="padding:0">${skelRows(4)}</td></tr>`;
+  const { data } = await GET('/invites');
+  const list = data || [];
+  if (!list.length) {
+    tb.innerHTML = `<tr><td colspan="8" style="padding:0">${emptyState('mail', 'Инвайт-кодов нет')}</td></tr>`;
+    renderIcons(tb); return;
+  }
+  tb.innerHTML = list.map(i => {
+    const exhausted = i.max_uses > 0 && i.use_count >= i.max_uses;
+    const expired = i.expires_at && new Date(String(i.expires_at).replace(' ', 'T') + 'Z') < new Date();
+    const status = i.is_used || exhausted
+      ? '<span class="badge badge-red"><i data-lucide="x"></i>Использован</span>'
+      : expired
+        ? '<span class="badge badge-warn"><i data-lucide="clock"></i>Истёк</span>'
+        : '<span class="badge badge-green"><i data-lucide="check"></i>Активен</span>';
+    return `<tr>
+      <td class="code">${esc(i.code)}</td>
+      <td>${esc(i.label || '—')}</td>
+      <td>${status}</td>
+      <td>${i.use_count || 0}</td>
+      <td>${i.max_uses > 0 ? i.max_uses : '∞'}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${i.expires_at ? fmtDate(i.expires_at) : '—'}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${fmtDate(i.created_at)}</td>
+      <td><div style="display:flex;gap:2px">
+        <button class="icon-btn" onclick="copyInv('${escAttr(i.code)}')" title="Копировать код"><i data-lucide="copy"></i></button>
+        <button class="icon-btn" onclick="resetInvite('${escAttr(i.code)}')" title="Сбросить счётчик" style="color:var(--yellow)"><i data-lucide="rotate-ccw"></i></button>
+        <button class="icon-btn danger" onclick="deleteInvite('${escAttr(i.code)}')" title="Удалить"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  renderIcons(tb);
+}
+
+function copyInv(code) {
+  navigator.clipboard.writeText(code).then(() => toast('Скопировано: ' + code));
+}
+
+async function resetInvite(code) {
+  if (!(await confirmAction(`Сбросить счётчик использований кода ${code}? Код снова станет активным.`, { title: 'Сброс инвайта', okText: 'Сбросить', danger: false }))) return;
+  const res = await PATCH('/invites/' + encodeURIComponent(code), { reset: true });
+  toast(res.ok ? 'Счётчик сброшен' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  loadInvites();
+}
+
+async function deleteInvite(code) {
+  if (!(await confirmAction(`Удалить инвайт-код ${code}?`, { title: 'Удаление инвайта', okText: 'Удалить' }))) return;
+  const res = await DELETE_('/invites/' + encodeURIComponent(code));
+  toast(res.ok ? 'Удалён' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  loadInvites();
+}
+
 function openCreateInvite() {
+  ['inv-label', 'inv-expires'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('inv-count').value = 1;
-  document.getElementById('inv-label').value = '';
   document.getElementById('inv-maxuses').value = 1;
-  document.getElementById('inv-expires').value = '';
-  document.getElementById('inv-result').style.display = 'none';
+  const r = document.getElementById('inv-result');
+  r.style.display = 'none'; r.innerHTML = '';
   openModal('modal-invites');
 }
+
 async function createInvites() {
   const count = parseInt(document.getElementById('inv-count').value) || 1;
   const label = document.getElementById('inv-label').value.trim();
-  const max_uses = parseInt(document.getElementById('inv-maxuses').value) || 1;
-  const expires_days = document.getElementById('inv-expires').value.trim();
-  const body = { count, label, max_uses };
-  if (expires_days) body.expires_days = parseInt(expires_days);
-  const { ok, data } = await POST('/invites', body);
-  if (!ok) { toast('Ошибка создания инвайтов', 'error'); return; }
-  const res = document.getElementById('inv-result');
-  res.style.display = 'block';
-  res.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Сгенерированные коды:</div>' +
-    data.codes.map(c => `<div class="code" style="margin:2px 0;cursor:pointer" onclick="copyText('${c}')">${c}</div>`).join('');
-  toast(`${data.codes.length} код(ов) создано`);
-  loadInvites();
-}
-async function resetInvite(code) {
-  const { ok } = await POST(`/invites/${code}/reset`);
-  if (ok) { toast('Сброшен в активный'); loadInvites(); }
-}
-async function deleteInvite(code) {
-  if (!confirm('Удалить инвайт-код?')) return;
-  const { ok } = await DEL(`/invites/${code}`);
-  if (ok) { toast('Удалено'); loadInvites(); }
+  const max_uses = parseInt(document.getElementById('inv-maxuses').value);
+  const expRaw = parseInt(document.getElementById('inv-expires').value);
+  const expires_at = expRaw > 0 ? new Date(Date.now() + expRaw * 864e5).toISOString() : undefined;
+  const res = await POST('/invites', { count, label, max_uses, expires_at });
+  if (res.ok) {
+    renderInviteCodes(res.data.codes || []);
+    loadInvites();
+  } else {
+    toast('Ошибка: ' + (res.data.error || res.status), 'error');
+  }
 }
 
-async function loadSyncGroups() {
-  const { data } = await GET('/sync-groups');
+function renderInviteCodes(codes) {
+  const box = document.getElementById('inv-result');
+  if (!codes.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px">Сгенерированные коды</div>
+    ${codes.map(c => `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);padding:8px 12px;border-radius:8px;margin-bottom:6px;border:1px solid var(--border)">
+        <span class="code" style="flex:1">${esc(c)}</span>
+        <button class="icon-btn" onclick="copyInv('${escAttr(c)}')"><i data-lucide="copy"></i></button>
+      </div>`).join('')}`;
+  renderIcons(box);
+}
+</script>
+
+<script>
+/* ── sync groups ─────────────────────────────────────────── */
+let currentGroupId = null;
+
+async function loadGroups() {
   const tb = document.getElementById('sync-tbody');
-  if (!data || !data.length) {
-    tb.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-text">Нет групп синхронизации</div></div></td></tr>';
-    return;
+  tb.innerHTML = `<tr><td colspan="6" style="padding:0">${skelRows(3)}</td></tr>`;
+  const { data } = await GET('/sync/groups');
+  const groups = data || [];
+  if (!groups.length) {
+    tb.innerHTML = `<tr><td colspan="6" style="padding:0">${emptyState('refresh-cw', 'Нет групп синхронизации')}</td></tr>`;
+    renderIcons(tb); return;
   }
-  tb.innerHTML = data.map(g => `
+  tb.innerHTML = groups.map(g => `
     <tr>
-      <td><span class="code" onclick="copyText('${g.id}')" style="cursor:pointer" title="${g.id}">${short(g.id, 12)}</span></td>
-      <td>${g.name || '—'}</td>
-      <td><span class="badge badge-purple">${g.members?.length || 0}</span></td>
-      <td><span style="color:var(--muted);font-size:12px">${g.card_count || 0} хешей</span></td>
-      <td style="color:var(--muted);font-size:12px">${fmt(g.created_at)}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-sm" onclick="viewGroupMembers('${g.id}','${g.name || 'Группа'}',${JSON.stringify(g.members||[]).replace(/"/g,'&quot;')})">Участники</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteSyncGroup('${g.id}')">Удалить</button>
-        </div>
-      </td>
+      <td class="code">${esc(g.id)}</td>
+      <td style="font-weight:600">${esc(g.name)}</td>
+      <td><span class="badge badge-grey">${g.member_count}</span></td>
+      <td><span class="badge badge-grey">${g.card_count}</span></td>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(g.created_at)}</td>
+      <td><div style="display:flex;gap:2px">
+        <button class="icon-btn" onclick="viewGroupMembers('${escAttr(g.id)}', '${escAttr(g.name)}')" title="Участники"><i data-lucide="users"></i></button>
+        <button class="icon-btn danger" onclick="deleteGroup('${escAttr(g.id)}', '${escAttr(g.name)}')" title="Удалить"><i data-lucide="trash-2"></i></button>
+      </div></td>
     </tr>
   `).join('');
+  renderIcons(tb);
 }
-function viewGroupMembers(groupId, groupName, members) {
-  currentSyncGroupId = groupId;
-  document.getElementById('sync-members-name').textContent = groupName;
-  const card = document.getElementById('sync-members-card');
-  card.style.display = 'block';
-  const list = document.getElementById('sync-members-list');
-  if (!members || !members.length) {
-    list.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Пока нет участников</div></div>';
-    return;
-  }
-  list.innerHTML = members.map(m => `
-    <div class="activity-item" style="display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div class="code" onclick="copyText('${m.installation_id}')" style="cursor:pointer">${m.installation_id}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Присоединился: ${fmt(m.joined_at)}</div>
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="removeMember('${groupId}','${m.installation_id}')">Убрать</button>
-    </div>
-  `).join('');
+
+async function viewGroupMembers(id, name) {
+  currentGroupId = id;
+  document.getElementById('sync-members-name').textContent = name;
+  document.getElementById('sync-members-card').style.display = 'block';
+  const el = document.getElementById('sync-members-list');
+  el.innerHTML = skelRows(2);
+  const { data } = await GET(`/sync/groups/${encodeURIComponent(id)}/members`);
+  const members = data.members || [];
+  el.innerHTML = members.length
+    ? members.map(m => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface2);border-radius:8px;margin-bottom:6px;border:1px solid var(--border)">
+        <span class="code">${esc(m.installation_id)}</span>
+        <button class="icon-btn danger" onclick="removeMember('${escAttr(m.installation_id)}')" title="Убрать из группы"><i data-lucide="user-minus"></i></button>
+      </div>`).join('')
+    : emptyState('users', 'Нет участников');
+  renderIcons(el);
+  document.getElementById('sync-members-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-async function removeMember(groupId, iid) {
-  if (!confirm('Убрать участника из группы?')) return;
-  const { ok } = await DEL(`/sync-groups/${groupId}/members/${iid}`);
-  if (ok) { toast('Участник убран'); loadSyncGroups(); document.getElementById('sync-members-card').style.display='none'; }
-}
-function openAddMember() {
-  document.getElementById('addmember-iid').value = '';
-  openModal('modal-addmember');
-}
-async function addMemberToGroup() {
-  const installation_id = document.getElementById('addmember-iid').value.trim();
-  if (!installation_id) { toast('Введи Installation ID', 'error'); return; }
-  const { ok, data } = await POST(`/sync-groups/${currentSyncGroupId}/members`, { installation_id });
-  if (!ok) { toast(data?.error || 'Ошибка', 'error'); return; }
-  toast('Участник добавлен');
-  closeModal('modal-addmember');
-  loadSyncGroups();
-}
-function openCreateGroup() {
-  document.getElementById('grp-name').value = '';
-  openModal('modal-group');
-}
+
+function openCreateGroup() { document.getElementById('grp-name').value = ''; openModal('modal-group'); }
+
 async function createGroup() {
-  const name = document.getElementById('grp-name').value.trim() || 'Новая группа';
-  const { ok, data } = await POST('/sync-groups', { name });
-  if (!ok) { toast('Ошибка', 'error'); return; }
-  toast('Группа создана — ключ: ' + (data?.group_key ? data.group_key.slice(0,16)+'...' : 'ok'));
-  closeModal('modal-group');
-  loadSyncGroups();
+  const name = document.getElementById('grp-name').value.trim();
+  if (!name) { toast('Введите название', 'error'); return; }
+  const res = await POST('/sync/groups', { name });
+  if (res.ok) { toast('Группа создана'); closeModal('modal-group'); loadGroups(); }
+  else toast('Ошибка: ' + (res.data.error || res.status), 'error');
 }
-async function deleteSyncGroup(id) {
-  if (!confirm('Удалить группу и все её данные?')) return;
-  const { ok } = await DEL(`/sync-groups/${id}`);
-  if (ok) { toast('Удалено'); loadSyncGroups(); document.getElementById('sync-members-card').style.display='none'; }
+
+function openAddMember() { document.getElementById('addmember-iid').value = ''; openModal('modal-addmember'); }
+
+async function addMemberToGroup() {
+  const iid = document.getElementById('addmember-iid').value.trim();
+  if (!iid) { toast('Введите Installation ID', 'error'); return; }
+  const res = await POST(`/sync/groups/${encodeURIComponent(currentGroupId)}/members`, { installation_id: iid });
+  if (res.ok) { toast('Участник добавлен'); closeModal('modal-addmember'); viewGroupMembers(currentGroupId, document.getElementById('sync-members-name').textContent); loadGroups(); }
+  else toast('Ошибка: ' + (res.data.error || res.status), 'error');
 }
+
+async function removeMember(iid) {
+  if (!(await confirmAction(`Убрать ${iid} из группы?`, { okText: 'Убрать' }))) return;
+  const res = await DELETE_(`/sync/groups/${encodeURIComponent(currentGroupId)}/members/${encodeURIComponent(iid)}`);
+  toast(res.ok ? 'Убран из группы' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  viewGroupMembers(currentGroupId, document.getElementById('sync-members-name').textContent);
+  loadGroups();
+}
+
+async function deleteGroup(id, name) {
+  if (!(await confirmAction(`Удалить группу «${name}»? Синхронизация между её участниками остановится.`, { title: 'Удаление группы', okText: 'Удалить' }))) return;
+  const res = await DELETE_('/sync/groups/' + encodeURIComponent(id));
+  if (res.ok) {
+    toast('Группа удалена');
+    document.getElementById('sync-members-card').style.display = 'none';
+    loadGroups();
+  } else toast('Ошибка: ' + (res.data.error || res.status), 'error');
+}
+</script>
+
+<script>
+/* ── versions / releases ─────────────────────────────────── */
+let allReleases = [];
+let relTab = 'worker';
+
+const PLAT_META = {
+  'windows-x86_64': { label: 'Windows x64', icon: 'app-window' },
+  'darwin-aarch64': { label: 'macOS Apple Silicon', icon: 'apple' },
+  'linux-x86_64': { label: 'Linux x64', icon: 'terminal' },
+};
+const FTYPE_SHORT = {
+  'updater': 'updater', 'manager-updater': 'updater',
+  'installer-msi': 'MSI', 'installer-nsis': 'NSIS', 'installer-deb': 'DEB',
+  'installer-appimage': 'AppImage', 'installer-dmg': 'DMG', 'installer-app': 'APP',
+};
+
+function semverKey(v) {
+  const m = String(v).match(/(\d+)\.(\d+)\.(\d+)/);
+  return m ? (+m[1]) * 1e6 + (+m[2]) * 1e3 + (+m[3]) : 0;
+}
+function platMeta(p) { return PLAT_META[p] || { label: p || 'unknown', icon: 'hard-drive' }; }
 
 async function loadVersions() {
+  const el = document.getElementById('rel-list');
+  el.innerHTML = skelRows(4);
   const { data } = await GET('/versions');
-  const tb = document.getElementById('ver-tbody');
-  if (!data || !data.length) {
-    tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-text">Нет релизов</div></div></td></tr>';
-    return;
-  }
-  tb.innerHTML = data.map(v => `
-    <tr>
-      <td><span class="badge badge-purple">${v.version}</span></td>
-      <td>${v.file_type || '—'}</td>
-      <td style="color:var(--muted);font-size:12px">${v.platform || '—'}</td>
-      <td style="color:var(--muted);font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(v.notes||'').replace(/"/g,'&quot;')}">${v.notes || '<span style="opacity:.4">—</span>'}</td>
-      <td style="color:var(--muted);font-size:12px">${fmt(v.published_at)}</td>
-      <td>${v.download_url ? `<a href="${v.download_url}" class="btn btn-ghost btn-sm">⬇</a>` : '—'}</td>
-      <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteVersion('${v.version}','${v.file_type}')">Удалить</button>
-      </td>
-    </tr>
-  `).join('');
-}
-function openUploadVersion() {
-  document.getElementById('upl-version').value = '';
-  document.getElementById('upl-sig').value = '';
-  document.getElementById('upl-notes').value = '';
-  document.getElementById('upl-file').value = '';
-  document.getElementById('upl-progress').style.display = 'none';
-  openModal('modal-upload');
-}
-async function uploadVersion() {
-  const version = document.getElementById('upl-version').value.trim();
-  const file_type = document.getElementById('upl-filetype').value;
-  const platform = document.getElementById('upl-platform').value;
-  const signature = document.getElementById('upl-sig').value.trim();
-  const notes = document.getElementById('upl-notes').value.trim();
-  const file = document.getElementById('upl-file').files[0];
-  if (!version || !file) { toast('Версия и файл обязательны', 'error'); return; }
-  const prog = document.getElementById('upl-progress');
-  prog.style.display = 'block'; prog.textContent = 'Загрузка...';
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('version', version);
-  fd.append('file_type', file_type);
-  fd.append('platform', platform);
-  if (signature) fd.append('signature', signature);
-  if (notes) fd.append('notes', notes);
-  try {
-    // Upload is mounted under the admin path, not a fixed '/admin' prefix.
-    const r = await fetch(ADMIN_BASE + '/upload', {
-      method: 'POST', body: fd, credentials: 'same-origin',
-    });
-    if (r.status === 401) {
-      location.replace(ADMIN_BASE + '/login?next=' + encodeURIComponent(location.pathname));
-      return;
-    }
-    const d = await r.json();
-    if (!r.ok) { prog.textContent = 'Ошибка: ' + (d.error||'неизвестная'); return; }
-    prog.textContent = 'Загружено! URL: ' + (d.download_url || '');
-    toast('Релиз загружен');
-    loadVersions();
-  } catch(e) { prog.textContent = 'Ошибка сети'; }
-}
-async function deleteVersion(version, file_type) {
-  if (!confirm('Удалить этот файл релиза?')) return;
-  const { ok } = await DEL(`/versions/${version}?file_type=${file_type}`);
-  if (ok) { toast('Удалено'); loadVersions(); }
+  allReleases = data || [];
+  renderReleases();
 }
 
+function setRelTab(tab, btn) {
+  relTab = tab;
+  document.querySelectorAll('#rel-tabs button').forEach(b => b.classList.toggle('active', b === btn));
+  renderReleases();
+}
+
+function renderReleases() {
+  const el = document.getElementById('rel-list');
+  const isMgr = relTab === 'manager';
+  const rows = allReleases.filter(r => isMgr ? r.file_type === 'manager-updater' : r.file_type !== 'manager-updater');
+
+  if (!rows.length) {
+    el.innerHTML = `<div class="card"><div class="card-body">${emptyState('package',
+      isMgr ? 'Релизов менеджера пока нет — загрузите первый (mgr-v* из CI или кнопка «Загрузить файл»)'
+            : 'Релизов воркера пока нет')}</div></div>`;
+    renderIcons(el); return;
+  }
+
+  // Группируем по версии, свежие сверху (semver, затем дата)
+  const byVer = {};
+  for (const r of rows) (byVer[r.version] = byVer[r.version] || []).push(r);
+  const versions = Object.keys(byVer).sort((a, b) =>
+    semverKey(b) - semverKey(a) ||
+    String(byVer[b][0].published_at || '').localeCompare(String(byVer[a][0].published_at || '')));
+
+  el.innerHTML = versions.map(v => relCard(v, byVer[v], isMgr)).join('');
+  renderIcons(el);
+}
+
+function relCard(version, rows, isMgr) {
+  const ftype = isMgr ? 'manager-updater' : 'updater';
+  const updaters = rows.filter(r => r.file_type === ftype);
+  const published = (updaters.length ? updaters : rows).some(r => r.is_published);
+  const channel = updaters[0]?.channel || 'stable';
+  const rollout = updaters[0]?.rollout_percent ?? 100;
+  const date = rows.map(r => r.published_at).filter(Boolean).sort().pop();
+
+  // Группируем файлы по платформе
+  const byPlat = {};
+  for (const r of rows) (byPlat[r.platform || 'unknown'] = byPlat[r.platform || 'unknown'] || []).push(r);
+  const plats = Object.keys(byPlat).sort();
+
+  const platCards = plats.map(p => {
+    const pm = platMeta(p);
+    const files = byPlat[p].sort((a, b) => (a.file_type === ftype ? -1 : 0) - (b.file_type === ftype ? -1 : 0));
+    const total = files.reduce((s, f) => s + (f.file_size || 0), 0);
+    const fileRows = files.map(f => `
+      <div class="plat-file">
+        <span class="ftype">${esc(FTYPE_SHORT[f.file_type] || f.file_type)}</span>
+        ${f.signature
+          ? '<i data-lucide="shield-check" class="sig-ok" title="Подписан"></i>'
+          : '<i data-lucide="shield-alert" class="sig-no" title="Без подписи — авто-обновление не примет"></i>'}
+        <span style="color:var(--muted)">${fmtSize(f.file_size)}</span>
+        <span class="file-actions">
+          ${f.download_url ? `<a class="icon-btn" href="${escAttr(f.download_url)}" title="Скачать"><i data-lucide="download"></i></a>` : ''}
+          <button class="icon-btn danger" title="Удалить файл" onclick="deleteReleaseFile('${escAttr(version)}','${escAttr(f.file_type)}','${escAttr(p)}')"><i data-lucide="trash-2"></i></button>
+        </span>
+      </div>`).join('');
+    return `
+      <div class="plat-card">
+        <div class="plat-head"><i data-lucide="${pm.icon}"></i>${pm.label}<span class="plat-size">${fmtSize(total)}</span></div>
+        <div class="plat-files">${fileRows}</div>
+      </div>`;
+  }).join('');
+
+  const pubToggle = updaters.length
+    ? `<label class="switch" title="${published ? 'Опубликован — виден клиентам' : 'Снят с публикации'}">
+        <input type="checkbox" ${published ? 'checked' : ''} onchange="toggleReleasePublished('${escAttr(version)}','${ftype}',this.checked)">
+        <span class="track"></span>
+      </label>`
+    : '';
+
+  const mgrControls = isMgr && updaters.length ? `
+    <div class="rollout-row">
+      <div class="seg">
+        <button class="${channel === 'stable' ? 'active' : ''}" onclick="setReleaseChannel('${escAttr(version)}','stable')">stable</button>
+        <button class="${channel === 'beta' ? 'active' : ''}" onclick="setReleaseChannel('${escAttr(version)}','beta')">beta</button>
+      </div>
+      <div class="rollout-slider">
+        <input type="range" class="slider" min="0" max="100" step="5" value="${rollout}"
+          oninput="document.getElementById('rollout-val-${escAttr(version)}').textContent=this.value+'%'"
+          onchange="setReleaseRollout('${escAttr(version)}', +this.value)">
+        <span class="rollout-val" id="rollout-val-${escAttr(version)}">${rollout}%</span>
+      </div>
+      <span class="hint" style="margin:0">доля флота менеджеров, которая видит обновление</span>
+    </div>` : '';
+
+  return `
+    <div class="rel-card">
+      <div class="rel-head">
+        <span class="rel-version">v${esc(version)}</span>
+        ${isMgr ? `<span class="badge ${channel === 'beta' ? 'badge-warn' : 'badge-blue'}">${channel}</span>` : ''}
+        <span class="badge ${published ? 'badge-green' : 'badge-grey'}">${published ? 'опубликован' : 'черновик'}</span>
+        <span class="rel-notes">${esc(rows[0].notes || '')}</span>
+        <div class="rel-meta">
+          <span class="rel-date">${fmtDate(date)}</span>
+          ${pubToggle}
+        </div>
+      </div>
+      <div class="rel-body">
+        <div class="plat-grid">${platCards}</div>
+        ${mgrControls}
+      </div>
+    </div>`;
+}
+
+async function toggleReleasePublished(version, fileType, publish) {
+  const res = await PATCH('/versions/' + encodeURIComponent(version), { file_type: fileType, is_published: publish });
+  toast(res.ok ? (publish ? 'Релиз опубликован' : 'Релиз снят с публикации') : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  loadVersions();
+}
+
+async function setReleaseChannel(version, channel) {
+  const res = await PATCH('/versions/' + encodeURIComponent(version), { file_type: 'manager-updater', channel });
+  toast(res.ok ? `Канал: ${channel}` : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  loadVersions();
+}
+
+async function setReleaseRollout(version, pct) {
+  const res = await PATCH('/versions/' + encodeURIComponent(version), { file_type: 'manager-updater', rollout_percent: pct });
+  toast(res.ok ? `Роллаут: ${pct}% флота` : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  if (!res.ok) loadVersions();
+}
+
+async function deleteReleaseFile(version, fileType, platform) {
+  if (!(await confirmAction(`Удалить файл ${fileType} (${platform}) версии ${version}? Бинарник будет стёрт с сервера.`, { title: 'Удаление файла релиза', okText: 'Удалить' }))) return;
+  const res = await DELETE_(`/versions/${encodeURIComponent(version)}?file_type=${encodeURIComponent(fileType)}&platform=${encodeURIComponent(platform)}`);
+  toast(res.ok ? 'Файл удалён' : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  loadVersions();
+}
+
+/* ── upload ──────────────────────────────────────────────── */
+let uplApp = 'worker';
+let uplFile = null;
+
+const WORKER_FTYPES = [
+  ['updater', 'updater (авто-обновление)'],
+  ['installer-msi', 'installer-msi'], ['installer-nsis', 'installer-nsis'],
+  ['installer-deb', 'installer-deb'], ['installer-appimage', 'installer-appimage'],
+  ['installer-dmg', 'installer-dmg'], ['installer-app', 'installer-app'],
+];
+
+function setUplApp(app, btn) {
+  uplApp = app;
+  document.querySelectorAll('#upl-app-seg button').forEach(b => b.classList.toggle('active', b === btn));
+  document.getElementById('upl-mgr-opts').style.display = app === 'manager' ? 'block' : 'none';
+  const sel = document.getElementById('upl-filetype');
+  if (app === 'manager') {
+    sel.innerHTML = '<option value="manager-updater">manager-updater (авто-обновление менеджера)</option>';
+  } else {
+    sel.innerHTML = WORKER_FTYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  }
+  if (uplFile) detectUplType(uplFile.name);
+}
+
+function openUploadVersion() {
+  uplFile = null;
+  document.getElementById('upl-file').value = '';
+  document.getElementById('upl-filename').textContent = '';
+  ['upl-version', 'upl-sig', 'upl-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('upl-publish').checked = true;
+  document.getElementById('upl-channel').value = 'stable';
+  document.getElementById('upl-rollout').value = 100;
+  document.getElementById('upl-status').textContent = '';
+  document.getElementById('upl-progress').style.display = 'none';
+  setUplApp(relTab === 'manager' ? 'manager' : 'worker',
+    document.querySelector(`#upl-app-seg button[data-app="${relTab === 'manager' ? 'manager' : 'worker'}"]`));
+  openModal('modal-upload');
+}
+
+// Авто-определение типа/платформы по имени — зеркало RULES из scripts/upload-artifacts.py
+function detectUplType(name) {
+  const n = name.toLowerCase();
+  let ftype = null, plat = null;
+  if (/\.msi(\.zip)?$/.test(n)) { ftype = 'installer-msi'; plat = 'windows-x86_64'; }
+  else if (/-setup\.exe$/.test(n)) { ftype = 'installer-nsis'; plat = 'windows-x86_64'; }
+  else if (/\.deb$/.test(n)) { ftype = 'installer-deb'; plat = 'linux-x86_64'; }
+  else if (/\.appimage$/.test(n)) { ftype = 'installer-appimage'; plat = 'linux-x86_64'; }
+  else if (/\.dmg$/.test(n)) { ftype = 'installer-dmg'; plat = 'darwin-aarch64'; }
+  else if (/\.app\.tar\.gz$/.test(n)) { ftype = 'installer-app'; plat = 'darwin-aarch64'; }
+  if (!ftype) return;
+  if (uplApp === 'manager') {
+    // Менеджеру на сервер идут только updater-артефакты (см. upload-artifacts.py)
+    document.getElementById('upl-filetype').value = 'manager-updater';
+  } else {
+    document.getElementById('upl-filetype').value = ftype;
+  }
+  document.getElementById('upl-platform').value = plat;
+  // Версия из имени файла, если поле пустое
+  const vm = name.match(/(\d+\.\d+\.\d+)/);
+  const vinp = document.getElementById('upl-version');
+  if (vm && !vinp.value) vinp.value = vm[1];
+}
+
+function onUplFile(files) {
+  if (!files || !files.length) return;
+  let sigText = null;
+  uplFile = null;
+  for (const f of files) {
+    if (f.name.endsWith('.sig')) {
+      const rd = new FileReader();
+      rd.onload = () => { document.getElementById('upl-sig').value = rd.result.trim(); };
+      rd.readAsText(f);
+    } else uplFile = f;
+  }
+  if (!uplFile) uplFile = files[0];
+  document.getElementById('upl-filename').textContent = uplFile.name + ' (' + fmtSize(uplFile.size) + ')';
+  detectUplType(uplFile.name);
+}
+
+(function initDropzone() {
+  const dz = document.getElementById('upl-drop');
+  ['dragover', 'dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+  dz.addEventListener('drop', e => onUplFile(e.dataTransfer.files));
+})();
+
+function uploadVersion() {
+  const version = document.getElementById('upl-version').value.trim();
+  const notes = document.getElementById('upl-notes').value.trim();
+  const signature = document.getElementById('upl-sig').value.trim();
+  const publish = document.getElementById('upl-publish').checked;
+  const platform = document.getElementById('upl-platform').value;
+  const file_type = document.getElementById('upl-filetype').value;
+  const statusEl = document.getElementById('upl-status');
+  const prog = document.getElementById('upl-progress');
+  const bar = document.getElementById('upl-bar');
+
+  if (!uplFile) { toast('Выберите файл', 'error'); return; }
+  if (!version) { toast('Укажите версию', 'error'); return; }
+  if (file_type.endsWith('updater') && !signature) { toast('Для updater нужна подпись из .sig файла', 'error'); return; }
+
+  const fd = new FormData();
+  fd.append('file', uplFile);
+  fd.append('version', version);
+  fd.append('notes', notes);
+  fd.append('platform', platform);
+  fd.append('file_type', file_type);
+  fd.append('signature', signature);
+  fd.append('publish', publish ? '1' : '0');
+  if (file_type === 'manager-updater') {
+    fd.append('channel', document.getElementById('upl-channel').value);
+    fd.append('rollout_percent', document.getElementById('upl-rollout').value || '100');
+  }
+
+  document.getElementById('upl-submit').disabled = true;
+  prog.style.display = 'block';
+  bar.style.width = '0%';
+  statusEl.textContent = 'Загрузка...';
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', BASE + '/upload');
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) {
+      const pct = Math.round(e.loaded / e.total * 100);
+      bar.style.width = pct + '%';
+      statusEl.textContent = `Загрузка: ${pct}%`;
+    }
+  };
+  xhr.onload = () => {
+    document.getElementById('upl-submit').disabled = false;
+    let d = {};
+    try { d = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status >= 200 && xhr.status < 300 && d.ok) {
+      statusEl.textContent = '';
+      closeModal('modal-upload');
+      toast(`Файл ${d.filename} загружен${publish ? ' и опубликован' : ''}`);
+      loadVersions();
+    } else {
+      statusEl.textContent = 'Ошибка: ' + (d.error || xhr.status);
+      statusEl.style.color = 'var(--red)';
+      bar.style.width = '0%';
+    }
+  };
+  xhr.onerror = () => {
+    document.getElementById('upl-submit').disabled = false;
+    statusEl.textContent = 'Ошибка сети при загрузке';
+    statusEl.style.color = 'var(--red)';
+  };
+  xhr.send(fd);
+}
+</script>
+
+<script>
+/* ── footprints ──────────────────────────────────────────── */
 async function loadFootprints() {
-  const domain = document.getElementById('fp-domain')?.value.trim() || '';
-  const view = document.getElementById('fp-view')?.value || 'list';
-  const url = '/footprints' + (domain ? '?domain=' + encodeURIComponent(domain) : '');
-  const { data } = await GET(url);
+  const view = document.getElementById('fp-view').value;
+  const domain = document.getElementById('fp-domain').value.trim();
   const tb = document.getElementById('fp-tbody');
   const thead = document.getElementById('fp-thead');
-  if (!data || !data.length) {
-    thead.innerHTML = '<tr><th>Домен</th><th>Тип хеша</th><th>Хеш</th><th>Токен юзера</th><th>Создан</th></tr>';
-    tb.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-text">Нет фингерпринтов</div></div></td></tr>';
-    return;
-  }
+  tb.innerHTML = `<tr><td colspan="6" style="padding:0">${skelRows(5)}</td></tr>`;
+
   if (view === 'domains') {
-    const map = {};
-    data.forEach(r => {
-      if (!map[r.shop_domain]) map[r.shop_domain] = { count: 0, types: new Set(), last: r.created_at };
-      map[r.shop_domain].count++;
-      map[r.shop_domain].types.add(r.hash_type);
-      if (r.created_at > map[r.shop_domain].last) map[r.shop_domain].last = r.created_at;
-    });
-    thead.innerHTML = '<tr><th>Домен</th><th>Кол-во хешей</th><th>Типы хешей</th><th>Последний</th></tr>';
-    tb.innerHTML = Object.entries(map)
-      .sort((a,b) => b[1].count - a[1].count)
-      .map(([dom, info]) => `
-        <tr>
-          <td onclick="document.getElementById('fp-domain').value='${dom}';document.getElementById('fp-view').value='list';loadFootprints()" style="cursor:pointer;color:var(--accent)">${dom}</td>
-          <td><span class="badge badge-purple">${info.count}</span></td>
-          <td style="font-size:12px;color:var(--muted)">${[...info.types].join(', ')}</td>
-          <td style="color:var(--muted);font-size:12px">${ago(info.last)}</td>
+    const { data } = await GET('/footprints?view=domains');
+    thead.innerHTML = '<tr><th>Домен</th><th>Кол-во хешей</th><th>Последний</th></tr>';
+    const list = data || [];
+    if (!list.length) {
+      tb.innerHTML = `<tr><td colspan="3" style="padding:0">${emptyState('fingerprint', 'Нет данных')}</td></tr>`;
+    } else {
+      tb.innerHTML = list.map(d => `
+        <tr style="cursor:pointer" onclick="document.getElementById('fp-domain').value='${escAttr(d.domain)}';document.getElementById('fp-view').value='list';loadFootprints()">
+          <td class="code">${esc(d.domain)}</td>
+          <td><span class="badge badge-purple">${d.count}</span></td>
+          <td style="color:var(--muted);font-size:12px">${fmtDate(d.last_at)}</td>
         </tr>
       `).join('');
+    }
   } else {
+    const path = '/footprints?limit=200' + (domain ? `&domain=${encodeURIComponent(domain)}` : '');
+    const { data } = await GET(path);
     thead.innerHTML = '<tr><th>Домен</th><th>Тип хеша</th><th>Хеш</th><th>Токен юзера</th><th>Создан</th></tr>';
-    tb.innerHTML = data.slice(0, 500).map(r => `
-      <tr>
-        <td style="cursor:pointer;color:var(--accent)" onclick="document.getElementById('fp-domain').value='${r.shop_domain}';loadFootprints()">${r.shop_domain || '—'}</td>
-        <td><span class="badge badge-purple">${r.hash_type || '—'}</span></td>
-        <td><span class="code" title="${r.hash}">${short(r.hash, 24)}</span></td>
-        <td><span class="code">${short(r.user_token, 16)}</span></td>
-        <td style="color:var(--muted);font-size:12px">${fmt(r.created_at)}</td>
-      </tr>
-    `).join('');
+    const list = data || [];
+    if (!list.length) {
+      tb.innerHTML = `<tr><td colspan="5" style="padding:0">${emptyState('fingerprint', 'Нет фингерпринтов')}</td></tr>`;
+    } else {
+      tb.innerHTML = list.map(f => `
+        <tr>
+          <td class="code">${esc(f.domain || '—')}</td>
+          <td><span class="badge badge-grey">${esc(f.hash_type || '—')}</span></td>
+          <td class="code" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.hash || '')}</td>
+          <td class="code" style="color:var(--muted)">${esc(f.user_token || '—')}</td>
+          <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(f.created_at)}</td>
+        </tr>
+      `).join('');
+    }
   }
+  renderIcons(tb);
 }
+
+/* ── connections / events ────────────────────────────────── */
+let connTimer = null;
 
 async function loadConnections() {
   const { data } = await GET('/connections');
   const el = document.getElementById('conn-list');
   const list = data.connections || [];
-  if (!list.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">🔌</div><div class="empty-text">Нет активных подключений</div></div>';
-    return;
-  }
-  el.innerHTML = list.map(c => `
+  if (!list.length) { el.innerHTML = emptyState('cable', 'Нет активных подключений'); renderIcons(el); return; }
+  el.innerHTML = `<div class="activity-list">` + list.map(c => `
     <div class="activity-item">
-      <span class="activity-dot pulse" style="background:var(--accent2)"></span>
-      <div>
-        <div class="activity-desc code">${c.socket_id}</div>
-        <div class="activity-time">${c.installation_id || 'неизвестно'}</div>
+      <span class="activity-dot pulse on"></span>
+      <div style="min-width:0">
+        <div class="activity-desc code" style="word-break:break-all">${esc(c.socket_id)}</div>
+        <div class="activity-time">${esc(c.installation_id || 'неизвестно')}</div>
       </div>
     </div>
-  `).join('');
+  `).join('') + '</div>';
 }
+
 async function loadEvents() {
   const { data } = await GET('/events');
   const el = document.getElementById('events-list');
   const events = data.events || [];
-  if (!events.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Нет событий</div></div>';
-    return;
-  }
-  el.innerHTML = events.map(e => `
+  if (!events.length) { el.innerHTML = emptyState('scroll-text', 'Нет событий'); renderIcons(el); return; }
+  el.innerHTML = `<div class="activity-list">` + events.map(e => `
     <div class="activity-item">
-      <span class="activity-dot" style="background:var(--accent)"></span>
-      <div>
-        <div class="activity-desc">${e.event || e.type || JSON.stringify(e)}</div>
-        <div class="activity-time">${e.ts ? ago(e.ts) : ''}</div>
+      <span class="activity-dot" style="background:var(--blue)"></span>
+      <div style="min-width:0">
+        <div class="activity-desc code">${esc(e.type || e.event || 'event')}</div>
+        <div class="activity-time">${fmtDate(e.created_at || e.ts)}</div>
       </div>
     </div>
-  `).join('');
+  `).join('') + '</div>';
 }
 
-function toggleConnAutoRefresh(enabled) {
-  if (connAutoRefreshTimer) { clearInterval(connAutoRefreshTimer); connAutoRefreshTimer = null; }
-  if (enabled) {
-    connAutoRefreshTimer = setInterval(() => { loadConnections(); loadEvents(); }, 5000);
-  }
+function toggleConnAutoRefresh(on) {
+  if (connTimer) { clearInterval(connTimer); connTimer = null; }
+  if (on) connTimer = setInterval(() => { loadConnections(); loadEvents(); }, 5000);
 }
 
+/* ── audit log ───────────────────────────────────────────── */
 async function loadAudit() {
-  const filter = document.getElementById('audit-filter')?.value || '';
   const tb = document.getElementById('audit-tbody');
-  try {
-    tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px"><div class="loader"></div></td></tr>';
-    const { data: events } = await GET('/events');
-    const evts = events?.events || [];
-    if (!evts.length) {
-      tb.innerHTML = '<tr><td colspan="3"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Нет записей аудита</div></div></td></tr>';
-      return;
-    }
-    tb.innerHTML = evts.map(e => `
-      <tr>
-        <td><span class="badge badge-purple">${e.event || e.type || 'событие'}</span></td>
-        <td style="font-size:12px;color:var(--muted);max-width:300px;word-break:break-all">${JSON.stringify(e).slice(0,120)}</td>
-        <td style="color:var(--muted);font-size:12px">${e.ts ? ago(e.ts) : '—'}</td>
-      </tr>
-    `).join('');
-  } catch(e) {
-    tb.innerHTML = `<tr><td colspan="3" style="color:var(--danger);padding:16px">${e.message}</td></tr>`;
+  tb.innerHTML = `<tr><td colspan="3" style="padding:0">${skelRows(6)}</td></tr>`;
+  const filter = document.getElementById('audit-filter').value;
+  const { data } = await GET('/audit');
+  let list = data.audit || [];
+  if (filter) list = list.filter(a => (a.action || '').includes(filter));
+  if (!list.length) {
+    tb.innerHTML = `<tr><td colspan="3" style="padding:0">${emptyState('clipboard-list', 'Журнал пуст')}</td></tr>`;
+    renderIcons(tb); return;
   }
+  tb.innerHTML = list.map(a => `
+    <tr>
+      <td><span class="badge badge-purple">${esc(a.action)}</span></td>
+      <td class="code" style="font-size:11.5px;max-width:460px;word-break:break-all">${esc(a.details || '')}</td>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(a.created_at)}</td>
+    </tr>
+  `).join('');
+  renderIcons(tb);
 }
 
-async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); toast('Скопировано!'); }
-  catch { toast('Ошибка копирования', 'error'); }
+/* ── misc ────────────────────────────────────────────────── */
+async function logout() {
+  await fetch(BASE + '/logout', { method: 'POST' });
+  location.href = BASE + '/login';
 }
 
-// CSV export links are plain navigations, so their URLs are bound here rather
-// than hardcoded — same reason as ADMIN_BASE.
-document.getElementById('lic-csv').href = API + '/licenses/export.csv';
-document.getElementById('inv-csv').href = API + '/invites/export.csv';
+document.getElementById('lic-csv').href = BASE + '/api/export?type=licenses';
+document.getElementById('inv-csv').href = BASE + '/api/export?type=invites';
 
-checkHealth();
-updateLiveBadge();
+renderIcons();
 loadDashboard();
-setInterval(checkHealth, 30000);
-setInterval(updateLiveBadge, 15000);
+checkServer();
+setInterval(checkServer, 15000);
+loadLiveCount();
+setInterval(loadLiveCount, 10000);
 </script>
 </body>
 </html>
