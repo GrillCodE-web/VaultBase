@@ -1330,3 +1330,36 @@ docs/REDESIGN_05_PLAN.md, scripts/**pycache**/.
 пушем (7256687). Чужой WIP (src/i18n/*, src/pages/Dashboard/tables.jsx,
 Cards.jsx, DashboardRedesigned.jsx, design-mockups/) не тронут, кодовый коммит
 собран строго по явным путям (7 файлов src-tauri).
+
+## 2026-08-30 — MGR-018 (этап B, добивка): выпил ImportModal @main
+
+**Контекст:** этап B был доведён в Cards.jsx/DashboardRedesigned ещё до прерывания
+прошлой сессии (кнопки/шорткаты/drag&drop убраны, empty-state и дашборд переведены
+на срезы `openSlices`), но без финализации: живой ImportModal.jsx, мёртвый стор/
+api/i18n-хвост, e2e-блок. Эта запись — добивка и коммит.
+
+**Сделано:**
+
+- Удалён `src/pages/Cards/ImportModal.jsx`; выпилены: `showImport/setShowImport`
+  (store/ui.js), `importCards/detectMapping` (api/cards.js), шорткаты cards
+  `create`/`import` (config/shortcuts.js — декларативный реестр для help-overlay).
+- i18n: 18 мёртвых ключей синхронно из en.js/ru.js (весь cc_import_* кроме
+  cc_import_done — он общий с ImportDropsModal/Proxies; quick_import_cc, btn_back,
+  cards_bad_expiry). Живые ключи этапа A (btn_fetch_slices, slices_empty_hint,
+  quick_fetch_slices) на месте.
+- e2e: блок «Импорт карт (ImportModal)» (5 тестов) убран из import-export.spec.js;
+  коммент в crud.spec.js обновлён. Мок import_cards в tauri-mock.js оставлен —
+  backend-команда ещё жива (см. ниже), мок может быть надмножеством.
+
+**Проверки:** eslint 0 errors (3 базовых warnings), vitest 337/337,
+audit_frontend 0 сирот / 0 фантомов. E2E не прогонялись (тяжёлые; блок согласован
+с удалённым UI).
+
+**Сознательно НЕ тронуто:** `import_cards`/`detect_mapping_preview`/`ADD_CARDS_MANUAL`
+в backend — внутри `import_cards` живёт `enforce_can_add_cards()` соседней сессии
+(MGR-019), удаление только после её мержа. Этапы C (прокси/email-срезы) и D
+(BIN-ключ у менеджера, share-ключи) не начинались; в чеклисте MGR-018 уже ✅ @main
+(флип 85b69ad соседней сессии) — при возобновлении C/D статус пересмотреть.
+
+**Коммит:** 9656f63 (10 файлов, +23/−611), запушен. Дерево: чужой WIP
+(tables.jsx, EOL-шум в .snap) и untracked по договорённости не тронуты.
