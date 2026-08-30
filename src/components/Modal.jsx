@@ -26,6 +26,8 @@ export function Modal({
   scroll = false,
   // REDESIGN-05-2: доп. класс тела (например убрать отступы у табличного тела)
   bodyClassName = '',
+  // REDESIGN-05-3: id заголовка (для aria-labelledby и e2e-селекторов вида #shop-modal-title)
+  titleId = 'modal-title',
 }) {
   const modalRef = useRef(null)
   const previouslyFocusedRef = useRef(null)
@@ -104,7 +106,7 @@ export function Modal({
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? 'modal-title' : undefined}
+        aria-labelledby={title ? titleId : undefined}
         className={`modal modal-enter${scroll ? ' modal-scroll' : ''}${
           className ? ` ${className}` : ''
         }`}
@@ -114,7 +116,7 @@ export function Modal({
         {(title || showCloseButton) && (
           <div className="modal-header">
             {title && (
-              <h2 id="modal-title" className="modal-header__title">
+              <h2 id={titleId} className="modal-header__title">
                 {title}
               </h2>
             )}

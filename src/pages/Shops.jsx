@@ -321,7 +321,14 @@ function ShopModal({ initial, onSave, onClose }) {
   }
 
   return (
-    <Modal isOpen onClose={onClose} size="500px" scroll title={initial ? 'Edit Shop' : 'New Shop'}>
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="500px"
+      scroll
+      title={initial ? 'Edit Shop' : 'New Shop'}
+      titleId="shop-modal-title"
+    >
       <div className="form-group">
         <label className="form-label">Shop Name *</label>
         <input
