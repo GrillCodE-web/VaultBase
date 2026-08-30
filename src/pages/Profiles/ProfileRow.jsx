@@ -35,8 +35,11 @@ export const ProfileRow = React.memo(
     rowDragLeave,
     rowDragEnd,
     rowDrop,
+    visibleCols,
   }) {
     const { t } = useLang()
+    // REDESIGN-05-4: скрытие колонок; без пропа — все (e2e/совместимость)
+    const show = id => !visibleCols || visibleCols.includes(id)
     const p = profile
     const hasDrops = p.drop_count > 0
     const rawStatus = p.card_status || (hasDrops ? 'in_use' : 'free')
@@ -64,96 +67,112 @@ export const ProfileRow = React.memo(
         onDragLeave={rowReorder ? rowDragLeave : undefined}
         onDrop={rowReorder ? e => rowDrop(e, p.id) : undefined}
       >
-        <td className="w-8" onClick={e => e.stopPropagation()}>
-          {rowReorder && (
-            <span
-              className="row-grip"
-              draggable
-              onDragStart={e => rowDragStart(e, p.id)}
-              onDragEnd={rowDragEnd}
-              title={t('row_drag_title')}
-              aria-label={t('row_drag_title')}
-            >
-              ⠿
-            </span>
-          )}
-          <input
-            type="checkbox"
-            checked={!!isChecked}
-            onChange={() => onToggleSelect?.(p.id)}
-            className="accent-accent"
-          />
-        </td>
-        <td className="text-12 text-muted">{isExpanded ? '▾' : '▸'}</td>
-        <td>
-          <span className="font-mono text-11 text-muted">{shortId(p.id)}</span>
-          {p.holder_masked && <div className="text-12">{p.holder_masked}</div>}
-        </td>
-        <td>
-          <span className="font-mono text-11">
-            {p.bin ? p.bin.slice(0, 4) : '••••'}••••{p.last4 || '????'}
-          </span>
-        </td>
-        <td className="text-11 text-text-2">{p.card_type || '—'}</td>
-        <td className="text-12 text-muted">{p.bank_name || '—'}</td>
-        <td className="text-12 text-muted">{p.country || '—'}</td>
-        <td>
-          <span className={`st ${cardStatusCss}`}>{rawStatus}</span>
-        </td>
-        <td
-          className="text-12 font-medium"
-          style={{ color: hasDrops ? 'var(--color-success)' : 'var(--color-warning)' }}
-        >
-          {p.drop_count}
-        </td>
-        <td className="text-12 text-muted">{p.order_count}</td>
-        <td
-          className="text-11 text-muted max-w-[110px] overflow-hidden text-ellipsis whitespace-nowrap"
-          title={p.notes ?? ''}
-        >
-          {p.notes || '—'}
-        </td>
-        <td className="text-11 text-muted whitespace-nowrap">{p.created_at?.slice(0, 10)}</td>
-        <td onClick={e => e.stopPropagation()}>
-          <div className="tbl-actions">
-            <button
-              className="btn btn-b btn-sm"
-              title={t('float_window')}
-              onClick={() => {
-                // FIX FE-H05: Log float window errors instead of silently ignoring
-                invoke('open_float_window', { profileId: p.id }).catch(e => {
-                  console.error('[ProfileRow] Failed to open float window:', e)
-                })
-              }}
-            >
-              {t('float_window')}
-            </button>
-            <button
-              className="btn btn-ghost btn-sm flex items-center gap-1"
-              title="New Order"
-              aria-label="Create new order for this profile"
-              onClick={onQuickOrder}
-            >
-              <ShoppingCart size={12} />
-            </button>
-
-            <ActionsMenu
-              items={[
-                { label: t('btn_copy'), icon: Copy, onClick: onCopyProfile },
-                { label: t('copy_billing'), icon: Copy, onClick: onCopyBilling },
-                { label: t('copy_shipping'), icon: Copy, onClick: onCopyShipping },
-                { divider: true },
-                {
-                  label: t('profile_duplicated').split(' ')[0] || 'Duplicate',
-                  icon: Layers,
-                  onClick: onDuplicate,
-                },
-                { divider: true },
-                { label: t('btn_delete'), icon: Trash2, onClick: onDelete, danger: true },
-              ]}
+        {show('select') && (
+          <td className="w-8" onClick={e => e.stopPropagation()}>
+            {rowReorder && (
+              <span
+                className="row-grip"
+                draggable
+                onDragStart={e => rowDragStart(e, p.id)}
+                onDragEnd={rowDragEnd}
+                title={t('row_drag_title')}
+                aria-label={t('row_drag_title')}
+              >
+                ⠿
+              </span>
+            )}
+            <input
+              type="checkbox"
+              checked={!!isChecked}
+              onChange={() => onToggleSelect?.(p.id)}
+              className="accent-accent"
             />
-          </div>
-        </td>
+          </td>
+        )}
+        {show('expand') && <td className="text-12 text-muted">{isExpanded ? '▾' : '▸'}</td>}
+        {show('profile') && (
+          <td>
+            <span className="font-mono text-11 text-muted">{shortId(p.id)}</span>
+            {p.holder_masked && <div className="text-12">{p.holder_masked}</div>}
+          </td>
+        )}
+        {show('card') && (
+          <td>
+            <span className="font-mono text-11">
+              {p.bin ? p.bin.slice(0, 4) : '••••'}••••{p.last4 || '????'}
+            </span>
+          </td>
+        )}
+        {show('type') && <td className="text-11 text-text-2">{p.card_type || '—'}</td>}
+        {show('bank') && <td className="text-12 text-muted">{p.bank_name || '—'}</td>}
+        {show('country') && <td className="text-12 text-muted">{p.country || '—'}</td>}
+        {show('status') && (
+          <td>
+            <span className={`st ${cardStatusCss}`}>{rawStatus}</span>
+          </td>
+        )}
+        {show('drops') && (
+          <td
+            className="text-12 font-medium"
+            style={{ color: hasDrops ? 'var(--color-success)' : 'var(--color-warning)' }}
+          >
+            {p.drop_count}
+          </td>
+        )}
+        {show('orders') && <td className="text-12 text-muted">{p.order_count}</td>}
+        {show('notes') && (
+          <td
+            className="text-11 text-muted max-w-[110px] overflow-hidden text-ellipsis whitespace-nowrap"
+            title={p.notes ?? ''}
+          >
+            {p.notes || '—'}
+          </td>
+        )}
+        {show('created') && (
+          <td className="text-11 text-muted whitespace-nowrap">{p.created_at?.slice(0, 10)}</td>
+        )}
+        {show('actions') && (
+          <td onClick={e => e.stopPropagation()}>
+            <div className="tbl-actions">
+              <button
+                className="btn btn-b btn-sm"
+                title={t('float_window')}
+                onClick={() => {
+                  // FIX FE-H05: Log float window errors instead of silently ignoring
+                  invoke('open_float_window', { profileId: p.id }).catch(e => {
+                    console.error('[ProfileRow] Failed to open float window:', e)
+                  })
+                }}
+              >
+                {t('float_window')}
+              </button>
+              <button
+                className="btn btn-ghost btn-sm flex items-center gap-1"
+                title="New Order"
+                aria-label="Create new order for this profile"
+                onClick={onQuickOrder}
+              >
+                <ShoppingCart size={12} />
+              </button>
+
+              <ActionsMenu
+                items={[
+                  { label: t('btn_copy'), icon: Copy, onClick: onCopyProfile },
+                  { label: t('copy_billing'), icon: Copy, onClick: onCopyBilling },
+                  { label: t('copy_shipping'), icon: Copy, onClick: onCopyShipping },
+                  { divider: true },
+                  {
+                    label: t('profile_duplicated').split(' ')[0] || 'Duplicate',
+                    icon: Layers,
+                    onClick: onDuplicate,
+                  },
+                  { divider: true },
+                  { label: t('btn_delete'), icon: Trash2, onClick: onDelete, danger: true },
+                ]}
+              />
+            </div>
+          </td>
+        )}
       </tr>
     )
   },
@@ -169,7 +188,9 @@ export const ProfileRow = React.memo(
       prev.isSelected === next.isSelected &&
       prev.isDeleting === next.isDeleting &&
       prev.isExpanded === next.isExpanded &&
-      prev.rowReorder === next.rowReorder
+      prev.rowReorder === next.rowReorder &&
+      // REDESIGN-05-4: массив видимых колонок — стабильная ссылка из стейта страницы
+      prev.visibleCols === next.visibleCols
     )
   }
 )

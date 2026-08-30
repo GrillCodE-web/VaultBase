@@ -38,8 +38,12 @@ export function ProfilesTable({
   onRefresh,
   onNavigate,
   onCreate,
+  visibleCols,
 }) {
   const { t } = useLang()
+  // REDESIGN-05-4: скрытие колонок; без пропа — все 13 (e2e/совместимость)
+  const show = id => !visibleCols || visibleCols.includes(id)
+  const colCount = visibleCols ? visibleCols.length : 13
   // UX-011: drag & drop строк — хэндлеры стабильны (ref + useCallback),
   // чтобы не ломать React.memo у ProfileRow
   const dragRowRef = useRef(null)
@@ -162,55 +166,79 @@ export function ProfilesTable({
           <table className="tbl">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
-                <th scope="col" className="bg-card w-8">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleSelectAll}
-                    className="accent-accent"
-                  />
-                </th>
-                <th scope="col" className="bg-card"></th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_profile')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_card')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_type')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_bank')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_country')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_status')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_drops')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_orders')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('cc_col_notes')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('prof_col_created')}
-                </th>
-                <th scope="col" className="bg-card">
-                  {t('cc_col_actions')}
-                </th>
+                {show('select') && (
+                  <th scope="col" className="bg-card w-8">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      className="accent-accent"
+                    />
+                  </th>
+                )}
+                {show('expand') && <th scope="col" className="bg-card"></th>}
+                {show('profile') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_profile')}
+                  </th>
+                )}
+                {show('card') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_card')}
+                  </th>
+                )}
+                {show('type') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_type')}
+                  </th>
+                )}
+                {show('bank') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_bank')}
+                  </th>
+                )}
+                {show('country') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_country')}
+                  </th>
+                )}
+                {show('status') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_status')}
+                  </th>
+                )}
+                {show('drops') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_drops')}
+                  </th>
+                )}
+                {show('orders') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_orders')}
+                  </th>
+                )}
+                {show('notes') && (
+                  <th scope="col" className="bg-card">
+                    {t('cc_col_notes')}
+                  </th>
+                )}
+                {show('created') && (
+                  <th scope="col" className="bg-card">
+                    {t('prof_col_created')}
+                  </th>
+                )}
+                {show('actions') && (
+                  <th scope="col" className="bg-card">
+                    {t('cc_col_actions')}
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody ref={tableBodyRef}>
-              {loading && profiles.length === 0 && <SkeletonRows count={6} cols={12} />}
+              {loading && profiles.length === 0 && <SkeletonRows count={6} cols={colCount} />}
               {profiles.length === 0 && !loading && (
                 <EmptyState
-                  colSpan={13}
+                  colSpan={colCount}
                   icon={<User size={38} />}
                   title={t('no_profiles')}
                   subtitle={t('new_profile')}
@@ -226,7 +254,7 @@ export function ProfilesTable({
                   {/* Spacer for virtual scroll offset */}
                   {rowVirtualizer.getVirtualItems().length > 0 && (
                     <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                      <td colSpan={13} className="p-0 border-none"></td>
+                      <td colSpan={colCount} className="p-0 border-none"></td>
                     </tr>
                   )}
 
@@ -245,6 +273,7 @@ export function ProfilesTable({
                         <ProfileRow
                           profile={p}
                           idx={idx}
+                          visibleCols={visibleCols}
                           isExpanded={isExpanded}
                           isDeleting={isDeleting}
                           isSelected={isSelected}
@@ -291,7 +320,7 @@ export function ProfilesTable({
                         />
                         {isExpanded && (
                           <tr key={`${p.id}-detail`}>
-                            <td colSpan={13} className="p-0">
+                            <td colSpan={colCount} className="p-0">
                               <ProfileDetailPanel
                                 profileId={p.id}
                                 onRefresh={onRefresh}
@@ -316,7 +345,7 @@ export function ProfilesTable({
                         }px`,
                       }}
                     >
-                      <td colSpan={13} className="p-0 border-none"></td>
+                      <td colSpan={colCount} className="p-0 border-none"></td>
                     </tr>
                   )}
                 </>

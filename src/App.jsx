@@ -8,6 +8,7 @@ import { SmartToastProvider, useToast } from './hooks/useSmartToast'
 import { ConfirmProvider } from './hooks/useConfirm'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { useIdleTimer } from './hooks/useIdleTimer'
+import { useSyncFreshness } from './hooks/useSyncFreshness.js'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { AppTour } from './components/AppTour'
@@ -23,6 +24,8 @@ import { isUnauthorizedError } from './utils/errorHandler.js'
 import { safeGetItem, safeSetItem } from './utils/localStorage'
 import { useOrdersStore } from './store/orders.js'
 import { useCardsStore } from './store/cards.js'
+import { useNotificationsStore } from './store/notifications.js'
+import { NotificationCenter } from './components/NotificationCenter.jsx'
 // SPRINT3-DAY2: Structured logging
 import { createLogger } from './utils/logger'
 // UX-012: нативные OS-уведомления (новая почта, статус посылки, ошибки sync)
@@ -170,12 +173,20 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     onSessionTimeout?.()
   }, [logout, onSessionTimeout, toast])
 
-  const { warningActive, remainingSeconds } = useIdleTimer({
+  const {
+    warningActive,
+    remainingSeconds,
+    deadline: idleDeadline,
+    reset: extendIdle,
+  } = useIdleTimer({
     onIdle: onSessionTimeout,
     timeoutMs: 30 * 60 * 1000,
     warningBeforeMs: 2 * 60 * 1000,
     enabled: !!currentUser && !!onSessionTimeout,
   })
+
+  // REDESIGN-05-4: «данные устарели» — последний sync старше 5 минут
+  const { stale: dataStale } = useSyncFreshness()
 
   // FIX P2-STATUS-01: WS sync connection status
   const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting, group_id? }
@@ -330,6 +341,13 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         if (notified !== update.version) {
           toastInfo((t('upd_available_toast') || 'Доступно обновление') + ` ${update.version}`, {
             groupKey: 'app_update',
+          })
+          // REDESIGN-05-4: доступное обновление — тоже в центр уведомлений
+          useNotificationsStore.getState().add({
+            key: `upd:${update.version}`,
+            kind: 'system',
+            severity: 'info',
+            title: `${t('upd_available_toast')} ${update.version}`,
           })
           try {
             sessionStorage.setItem(notifiedKey, update.version)
@@ -533,6 +551,13 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           t('notify_sync_failed_title'),
           t('notify_sync_failed_body', { message: String((p && p.message) || '').slice(0, 120) })
         )
+        // REDESIGN-05-4: sync-алерт в центр уведомлений
+        useNotificationsStore.getState().add({
+          kind: 'sync',
+          severity: 'error',
+          title: t('notify_sync_failed_title'),
+          body: String((p && p.message) || '').slice(0, 120),
+        })
       }),
     ])
       .then(fns => {
@@ -1303,6 +1328,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             <kbd className="topbar-kbd">⌘K</kbd>
           </button>
           <div className="topbar-right">
+            <NotificationCenter />
             <button
               className="topbar-ibtn"
               onClick={cycleTheme}
@@ -1465,12 +1491,36 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
               >
                 <span className={`live-dot${wsStatus.connected ? ' on' : ''}`} aria-hidden="true" />
                 <span className="sync-pill-label">
-                  {wsStatus.connected ? 'Sync' : wsStatus.connecting ? 'Sync…' : 'Offline'}
+                  {wsStatus.connected ? 'Sync' : wsStatus.connecting ? 'Sync...' : 'Offline'}
                 </span>
               </span>
             )}
+            {dataStale && (
+              <button
+                className="stale-pill"
+                onClick={handleSyncNow}
+                title={t('statusbar_stale_hint')}
+              >
+                {t('statusbar_stale')}
+              </button>
+            )}
           </div>
           <div className="statusbar-right">
+            {idleDeadline && (
+              <button
+                className="autolock-pill"
+                onClick={extendIdle}
+                title={t('statusbar_autolock_extend')}
+              >
+                🔒{' '}
+                {(() => {
+                  const left = Math.max(0, Math.ceil((idleDeadline - nowUtc.getTime()) / 1000))
+                  const mm = String(Math.floor(left / 60)).padStart(2, '0')
+                  const ss = String(left % 60).padStart(2, '0')
+                  return `${mm}:${ss}`
+                })()}
+              </button>
+            )}
             <span className="statusbar-clock" title={t('statusbar_utc')}>
               {nowUtc.toISOString().slice(11, 19)} {t('statusbar_utc')}
             </span>

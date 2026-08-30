@@ -168,8 +168,12 @@ export const OrderRow = React.memo(
     onTrackingUpdate,
     StatusMenuComponent,
     TimelineComponent,
+    visibleCols,
   }) {
     const { t } = useLang()
+    // REDESIGN-05-4: скрытие колонок; без пропа — все (e2e/совместимость)
+    const show = id => !visibleCols || visibleCols.includes(id)
+    const colCount = visibleCols ? visibleCols.length : 13
 
     const getBorderColor = () => {
       if (isSelected) return '2px solid var(--blue)'
@@ -192,115 +196,131 @@ export const OrderRow = React.memo(
             borderLeft: getBorderColor(),
           }}
         >
-          <td onClick={e => e.stopPropagation()}>
-            <label className="sr-only">
-              Select order {order.order_number || `#${order.id}`}
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={onToggleSelect}
-                aria-label={`Select order ${order.order_number || `#${order.id}`}`}
-              />
-            </label>
-          </td>
-          <td>
-            <span className="font-mono text-11">
-              {order.order_number || `#${order.id}`}
-              {order.order_number && <CopyNumberBtn value={order.order_number} />}
-            </span>
-          </td>
-          <td>
-            <div className="text-12">{order.holder_masked || '—'}</div>
-            <div className="font-mono text-10 text-muted">•••{order.last4 || '????'}</div>
-          </td>
-          <td>{order.shop_name || '—'}</td>
-          <td>
-            <div className="flex items-center gap-[2px]">
-              <span className={`st ${ORDER_STATUS_CSS[order.status] ?? 'st-archive'}`}>
-                {order.status}
+          {show('select') && (
+            <td onClick={e => e.stopPropagation()}>
+              <label className="sr-only">
+                Select order {order.order_number || `#${order.id}`}
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={onToggleSelect}
+                  aria-label={`Select order ${order.order_number || `#${order.id}`}`}
+                />
+              </label>
+            </td>
+          )}
+          {show('order_number') && (
+            <td>
+              <span className="font-mono text-11">
+                {order.order_number || `#${order.id}`}
+                {order.order_number && <CopyNumberBtn value={order.order_number} />}
               </span>
-              <NeedsAttentionBadge order={order} />
-            </div>
-          </td>
-          <td className="text-blue-t mono text-right whitespace-nowrap">
-            {order.total_amount != null ? `$${order.total_amount.toFixed(2)}` : '—'}
-          </td>
-          <td>
-            <InlineTrackingCell
-              orderId={order.id}
-              value={order.tracking_number}
-              onSaved={val => onTrackingUpdate?.(order.id, val)}
-            />
-          </td>
-          <td className="text-11 text-muted">{order.carrier ?? '—'}</td>
-          <td className="text-11 text-muted">{order.proxy_label ?? '—'}</td>
-          <td className="text-11 text-muted">{order.email_addr ?? '—'}</td>
-          <td
-            className="text-11 text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-            title={order.notes ?? ''}
-          >
-            {order.notes ?? '—'}
-          </td>
-          <td className="text-11 text-muted">{order.created_at?.slice(0, 10)}</td>
-          <td onClick={e => e.stopPropagation()}>
-            <div className="tbl-actions">
-              <div className="relative">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={e => {
-                    e.stopPropagation()
-                    onStatusMenuToggle()
-                  }}
-                  title={t('change_status')}
-                  aria-label={t('change_status')}
-                >
-                  Status
-                </button>
-                {showStatusMenu && StatusMenuComponent}
+            </td>
+          )}
+          {show('card') && (
+            <td>
+              <div className="text-12">{order.holder_masked || '—'}</div>
+              <div className="font-mono text-10 text-muted">•••{order.last4 || '????'}</div>
+            </td>
+          )}
+          {show('shop') && <td>{order.shop_name || '—'}</td>}
+          {show('status') && (
+            <td>
+              <div className="flex items-center gap-[2px]">
+                <span className={`st ${ORDER_STATUS_CSS[order.status] ?? 'st-archive'}`}>
+                  {order.status}
+                </span>
+                <NeedsAttentionBadge order={order} />
               </div>
-              <button
-                className="btn btn-ghost btn-sm"
-                title="Repeat this order"
-                onClick={e => {
-                  e.stopPropagation()
-                  onRepeat()
-                }}
-                aria-label="Repeat this order"
-              >
-                <RotateCcw size={12} />
-              </button>
-              {order.profile_id && (
+            </td>
+          )}
+          {show('amount') && (
+            <td className="text-blue-t mono text-right whitespace-nowrap">
+              {order.total_amount != null ? `$${order.total_amount.toFixed(2)}` : '—'}
+            </td>
+          )}
+          {show('tracking') && (
+            <td>
+              <InlineTrackingCell
+                orderId={order.id}
+                value={order.tracking_number}
+                onSaved={val => onTrackingUpdate?.(order.id, val)}
+              />
+            </td>
+          )}
+          {show('carrier') && <td className="text-11 text-muted">{order.carrier ?? '—'}</td>}
+          {show('proxy') && <td className="text-11 text-muted">{order.proxy_label ?? '—'}</td>}
+          {show('email') && <td className="text-11 text-muted">{order.email_addr ?? '—'}</td>}
+          {show('notes') && (
+            <td
+              className="text-11 text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+              title={order.notes ?? ''}
+            >
+              {order.notes ?? '—'}
+            </td>
+          )}
+          {show('date') && <td className="text-11 text-muted">{order.created_at?.slice(0, 10)}</td>}
+          {show('actions') && (
+            <td onClick={e => e.stopPropagation()}>
+              <div className="tbl-actions">
+                <div className="relative">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={e => {
+                      e.stopPropagation()
+                      onStatusMenuToggle()
+                    }}
+                    title={t('change_status')}
+                    aria-label={t('change_status')}
+                  >
+                    Status
+                  </button>
+                  {showStatusMenu && StatusMenuComponent}
+                </div>
                 <button
                   className="btn btn-ghost btn-sm"
-                  title="Open Float window"
+                  title="Repeat this order"
                   onClick={e => {
                     e.stopPropagation()
-                    // FIX FE-H05: Log float window errors instead of silently ignoring
-                    invoke('open_float_window', { profileId: order.profile_id }).catch(err => {
-                      console.error('[OrderRow] Failed to open float window:', err)
-                    })
+                    onRepeat()
                   }}
-                  aria-label="Open Float window"
+                  aria-label="Repeat this order"
                 >
-                  ⬡
+                  <RotateCcw size={12} />
                 </button>
-              )}
-              <button
-                className="btn btn-r btn-sm"
-                onClick={e => {
-                  e.stopPropagation()
-                  onDelete()
-                }}
-                aria-label={t('btn_delete')}
-              >
-                Del
-              </button>
-            </div>
-          </td>
+                {order.profile_id && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    title="Open Float window"
+                    onClick={e => {
+                      e.stopPropagation()
+                      // FIX FE-H05: Log float window errors instead of silently ignoring
+                      invoke('open_float_window', { profileId: order.profile_id }).catch(err => {
+                        console.error('[OrderRow] Failed to open float window:', err)
+                      })
+                    }}
+                    aria-label="Open Float window"
+                  >
+                    ⬡
+                  </button>
+                )}
+                <button
+                  className="btn btn-r btn-sm"
+                  onClick={e => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                  aria-label={t('btn_delete')}
+                >
+                  Del
+                </button>
+              </div>
+            </td>
+          )}
         </tr>
         {isExpanded && (
           <tr key={`${order.id}-timeline`}>
-            <td colSpan={13} className="p-[12px_16px_16px] bg-surface border-b border-border">
+            <td colSpan={colCount} className="p-[12px_16px_16px] bg-surface border-b border-border">
               {TimelineComponent}
             </td>
           </tr>
@@ -322,7 +342,9 @@ export const OrderRow = React.memo(
       prev.isSelected === next.isSelected &&
       prev.isDeleting === next.isDeleting &&
       prev.isExpanded === next.isExpanded &&
-      prev.showStatusMenu === next.showStatusMenu
+      prev.showStatusMenu === next.showStatusMenu &&
+      // REDESIGN-05-4: массив видимых колонок — стабильная ссылка из стейта страницы
+      prev.visibleCols === next.visibleCols
     )
   }
 )

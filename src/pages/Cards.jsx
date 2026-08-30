@@ -16,7 +16,7 @@ import { isInInputField } from '../config/shortcuts.js'
 import { DELETE_UNDO_WINDOW_MS, FLASH_HIGHLIGHT_MS } from '../constants/cards.js'
 import { CardFilters } from './Cards/CardFilters.jsx'
 import { CardTable } from './Cards/CardTable.jsx'
-import { ColumnPicker } from './Cards/ColumnPicker.jsx'
+import { ColumnPicker } from '../components/ColumnPicker.jsx'
 import { CardSidePanel } from './Cards/CardSidePanel.jsx'
 import { CardShopUsagePanel } from './Cards/CardShopUsagePanel.jsx'
 import { CardTimelinePanel } from './Cards/CardTimelinePanel.jsx'
@@ -60,6 +60,22 @@ const DEFAULT_COLS = [
   'card_number',
   'expiry',
   'holder',
+  'zip',
+  'city',
+  'state',
+  'country',
+  'phone',
+  'status',
+  'actions',
+]
+
+// «Carder view» — полный набор с CVV/Billing; сброс внутри ColumnPicker и внешняя кнопка
+const CARDER_COLS = [
+  'card_number',
+  'expiry',
+  'cvv',
+  'holder',
+  'billing',
   'zip',
   'city',
   'state',
@@ -684,23 +700,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
             {t('cc_group_by_bank')}
           </button>
           <button
-            onClick={() => {
-              const carderCols = [
-                'card_number',
-                'expiry',
-                'cvv',
-                'holder',
-                'billing',
-                'zip',
-                'city',
-                'state',
-                'country',
-                'phone',
-                'status',
-                'actions',
-              ]
-              setVisibleCols(carderCols)
-            }}
+            onClick={() => setVisibleCols(CARDER_COLS)}
             className="btn btn-ghost btn-sm"
             title={t('cards_carder_view') || 'Carder View'}
           >
@@ -721,9 +721,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
                 <ColumnPicker
                   visible={visibleCols}
                   allColumns={ALL_COLUMNS}
+                  defaultCols={CARDER_COLS}
                   t={t}
                   onChange={cols => setVisibleCols(cols)}
-                  onClose={() => setShowColPicker(false)}
                 />
               </>
             )}

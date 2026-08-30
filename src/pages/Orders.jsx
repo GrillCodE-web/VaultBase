@@ -15,6 +15,26 @@ import { OrdersTable } from './Orders/OrdersTable.jsx'
 import { CreateOrderModal } from './Orders/CreateOrderModal.jsx'
 import { RepeatOrderModal } from './Orders/RepeatOrderModal.jsx'
 import { useOrdersStore } from '../store/orders.js'
+import { usePersistedState } from '../hooks/usePersistedState.js'
+
+// REDESIGN-05-4 (порция 2): выбор колонок таблицы ордеров (localStorage).
+// select/actions всегда видимы и в пикер не попадают (lockedIds).
+const ORDER_COLUMNS = [
+  { id: 'select', label: '' },
+  { id: 'order_number', label: 'col_order_num' },
+  { id: 'card', label: 'section_card' },
+  { id: 'shop', label: 'col_shop' },
+  { id: 'status', label: 'cc_col_status' },
+  { id: 'amount', label: 'col_amount' },
+  { id: 'tracking', label: 'col_tracking' },
+  { id: 'carrier', label: 'carrier' },
+  { id: 'proxy', label: 'nav_proxies' },
+  { id: 'email', label: 'col_email' },
+  { id: 'notes', label: 'cc_col_notes' },
+  { id: 'date', label: 'col_date' },
+  { id: 'actions', label: 'cc_col_actions' },
+]
+const ORDER_DEFAULT_COLS = ORDER_COLUMNS.map(c => c.id)
 
 export default function OrderList({
   onNavigate: _onNavigate,
@@ -52,6 +72,7 @@ export default function OrderList({
   const [shopOptions, setShopOptions] = useState([])
   const [repeatOrder, setRepeatOrder] = useState(null)
   const [showBatchImport, setShowBatchImport] = useState(false)
+  const [visibleCols, setVisibleCols] = usePersistedState('orders_visible_cols', ORDER_DEFAULT_COLS)
 
   // CLEAN-002: открытие модалки по пропу openCreate — паттерн «adjust state
   // during render» (react.dev) вместо синхронного setState в useEffect
@@ -203,6 +224,9 @@ export default function OrderList({
         searchInput={searchInput}
         setSearchInput={setSearchInput}
         shopOptions={shopOptions}
+        columns={ORDER_COLUMNS}
+        visibleCols={visibleCols}
+        onColumnsChange={setVisibleCols}
       />
 
       {/* Bulk Action Panel */}
@@ -239,6 +263,7 @@ export default function OrderList({
         onUpdate={() => fetchOrders(true)}
         onPatchLocal={patchOrderLocal}
         onCreate={() => setShowCreate(true)}
+        visibleCols={visibleCols}
       />
 
       {/* Pagination */}

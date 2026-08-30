@@ -332,6 +332,50 @@
     color: var(--accent-fg);
   }
 
+  /* ── «Данные устарели» (REDESIGN-05-4): клик запускает sync ── */
+  .stale-pill {
+    background: var(--color-warning-bg);
+    border: 1px solid var(--yellow-border);
+    color: var(--yellow-t);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--t-fast);
+  }
+
+  .stale-pill:hover {
+    background: var(--yellow-border);
+  }
+
+  /* ── Авто-лок: обратный отсчёт, клик «продлить» ─────────── */
+  .autolock-pill {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color var(--t-fast);
+  }
+
+  .autolock-pill:hover {
+    color: var(--text);
+    border-color: var(--text-2);
+  }
+
   /* ── источник: layout/topbar-redesign.css ── */
 
   /* ═══════════════════════════════════════════════════════════

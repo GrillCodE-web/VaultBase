@@ -14,11 +14,32 @@ import { exportToCSV } from '../utils/csv.js'
 import { copyText } from '../utils/clipboard.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ProfileModal } from './Profiles/ProfileModal.jsx'
+import { ColumnPicker } from '../components/ColumnPicker.jsx'
 import { ProfileFilters } from './Profiles/ProfileFilters.jsx'
 import { ProfilesTable } from './Profiles/ProfilesTable.jsx'
 import { useRowOrder } from '../hooks/useRowOrder.js'
 import { QuickOrderModal } from './Profiles/QuickOrderModal.jsx'
 import { DuplicateProfilesModal } from './Profiles/DuplicateProfilesModal.jsx'
+import { usePersistedState } from '../hooks/usePersistedState.js'
+
+// REDESIGN-05-4 (порция 2): выбор колонок таблицы профилей (localStorage).
+// select/expand/actions всегда видимы и в пикер не попадают (lockedIds).
+const PROFILE_COLUMNS = [
+  { id: 'select', label: '' },
+  { id: 'expand', label: '' },
+  { id: 'profile', label: 'prof_col_profile' },
+  { id: 'card', label: 'prof_col_card' },
+  { id: 'type', label: 'prof_col_type' },
+  { id: 'bank', label: 'prof_col_bank' },
+  { id: 'country', label: 'prof_col_country' },
+  { id: 'status', label: 'prof_col_status' },
+  { id: 'drops', label: 'prof_col_drops' },
+  { id: 'orders', label: 'prof_col_orders' },
+  { id: 'notes', label: 'cc_col_notes' },
+  { id: 'created', label: 'prof_col_created' },
+  { id: 'actions', label: 'cc_col_actions' },
+]
+const PROFILE_DEFAULT_COLS = PROFILE_COLUMNS.map(c => c.id)
 
 export default function ProfileList({
   onNavigate,
@@ -36,6 +57,11 @@ export default function ProfileList({
   const [dupProfileGroups, setDupProfileGroups] = useState([])
   const [quickOrderProfile, setQuickOrderProfile] = useState(null)
   const [enrichProgress, setEnrichProgress] = useState(null)
+  const [visibleCols, setVisibleCols] = usePersistedState(
+    'profiles_visible_cols',
+    PROFILE_DEFAULT_COLS
+  )
+  const [showColPicker, setShowColPicker] = useState(false)
   const deleteTimersRef = useRef(new Map()) // FIX P2-1: Track delete timers for cleanup
   const fetchAbortRef = useRef(null) // FIX P2-3: AbortController for fetch cancellation
   const { toast } = usePremiumToast()
@@ -379,6 +405,29 @@ export default function ProfileList({
           <button className="btn btn-ghost btn-sm" onClick={handleFindDupProfiles}>
             {t('find_duplicates')}
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowColPicker(v => !v)}
+              className="btn btn-ghost btn-sm"
+              aria-label={t('cc_columns')}
+              aria-expanded={showColPicker}
+            >
+              {t('cc_columns')}
+            </button>
+            {showColPicker && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowColPicker(false)} />
+                <ColumnPicker
+                  visible={visibleCols}
+                  onChange={setVisibleCols}
+                  allColumns={PROFILE_COLUMNS}
+                  defaultCols={PROFILE_DEFAULT_COLS}
+                  lockedIds={['select', 'expand', 'actions']}
+                  t={t}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -434,6 +483,7 @@ export default function ProfileList({
         onRefresh={load}
         onNavigate={onNavigate}
         onCreate={() => setShowCreate(true)}
+        visibleCols={visibleCols}
       />
 
       {/* Pagination */}

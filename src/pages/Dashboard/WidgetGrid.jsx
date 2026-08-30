@@ -1,110 +1,105 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import ReactGridLayout, { WidthProvider } from 'react-grid-layout/legacy'
-import 'react-grid-layout/css/styles.css'
+import { useCallback, useEffect, useState } from 'react'
 import { usePersistedState } from '../../hooks/usePersistedState.js'
 
-const GridLayout = WidthProvider(ReactGridLayout)
-const ROW_HEIGHT = 30
-const MARGIN = 12
+const WIDTHS = [12, 8, 6, 4]
 
 /**
- * WidgetGrid — кастомизируемая сетка дашборда (UX-014, react-grid-layout).
+ * WidgetGrid — кастомизируемая сетка дашборда (REDESIGN-05-4, своя лёгкая
+ * сетка вместо react-grid-layout: −60kb бандла и чужой CSS).
  *
- * items: [{ id, defaultH, node }]. Порядок/ширины (x/y/w) персистятся в
- * localStorage (vb_ui_dashboard_layout_v1); высота (h) вычисляется из
- * реального контента через ResizeObserver — таблицы/чарты не клипаются.
- * Перетаскивание — только за грип .widget-grip, чтобы не ломать выделение
- * текста и кнопки внутри панелей.
+ * items: [{ id, defaultH, node }] (defaultH больше не используется — высота
+ * теперь авто по контенту, как делал ResizeObserver). Порядок и ширины
+ * персистятся в localStorage (vb_ui_dashboard_layout_v2): [{ i, w }] —
+ * позиция в массиве = визуальный порядок, w ∈ 12/8/6/4 колонок из 12.
+ * Перетаскивание — только за грип .widget-grip (HTML5 DnD), ширина —
+ * кнопкой .widget-width-btn (цикл 12→8→6→4). Кнопка «Сбросить раскладку»
+ * в шапке дашборда шлёт событие vb:reset-dash-layout.
  */
 export function WidgetGrid({ items }) {
-  const [saved, setSaved] = usePersistedState('dashboard_layout_v1', null)
-  const [heights, setHeights] = useState({})
-  // Кнопка «Сбросить раскладку» в шапке дашборда шлёт это событие
+  const [saved, setSaved] = usePersistedState('dashboard_layout_v2', null)
+  const [dragId, setDragId] = useState(null)
+
   useEffect(() => {
     const reset = () => setSaved(null)
     window.addEventListener('vb:reset-dash-layout', reset)
     return () => window.removeEventListener('vb:reset-dash-layout', reset)
   }, [setSaved])
-  // CLEAN-002: ref для onLayoutChange, чтобы не тащить saved в замыкание
-  const savedRef = useRef(saved)
-  useEffect(() => {
-    savedRef.current = saved
-  })
 
-  const handleHeight = useCallback((id, px) => {
-    const rows = Math.max(2, Math.ceil((px + MARGIN) / (ROW_HEIGHT + MARGIN)))
-    setHeights(prev => (prev[id] === rows ? prev : { ...prev, [id]: rows }))
-  }, [])
+  const savedArr = Array.isArray(saved) ? saved : []
+  const widthOf = useCallback(
+    id => savedArr.find(s => s.i === id)?.w ?? 12,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedArr — derived от saved
+    [saved]
+  )
+  const posOf = id => {
+    const i = savedArr.findIndex(s => s.i === id)
+    return i === -1 ? 9999 : i
+  }
+  const ordered = [...items].sort((a, b) => posOf(a.id) - posOf(b.id))
 
-  const layout = items.map((it, idx) => {
-    const s = Array.isArray(saved) ? saved.find(l => l.i === it.id) : null
-    return {
-      i: it.id,
-      x: s?.x ?? 0,
-      y: s?.y ?? idx,
-      w: s?.w ?? 12,
-      h: heights[it.id] ?? it.defaultH,
-      minH: 2,
-      minW: 3,
-    }
-  })
-
-  const handleLayoutChange = useCallback(
-    next => {
-      // Персистим только геометрию (x/y/w); h — авто по контенту.
-      // Запись — лишь когда геометрия реально изменилась (авто-высота
-      // тоже триггерит onLayoutChange, а петля нам не нужна).
-      const geom = next.map(({ i, x, y, w }) => ({ i, x, y, w }))
-      const cur = Array.isArray(savedRef.current) ? savedRef.current : []
-      const same =
-        cur.length === geom.length &&
-        cur.every(c => {
-          const n = geom.find(g => g.i === c.i)
-          return n && n.x === c.x && n.y === c.y && n.w === c.w
-        })
-      if (!same) setSaved(geom)
-    },
+  const persistAll = useCallback(
+    (idsInOrder, widths) => setSaved(idsInOrder.map(id => ({ i: id, w: widths(id) }))),
     [setSaved]
   )
 
+  const handleDrop = useCallback(
+    targetId => {
+      if (!dragId || dragId === targetId) return
+      const ids = ordered.map(it => it.id)
+      const from = ids.indexOf(dragId)
+      const to = ids.indexOf(targetId)
+      if (from === -1 || to === -1) return
+      ids.splice(to, 0, ids.splice(from, 1)[0])
+      persistAll(ids, widthOf)
+      setDragId(null)
+    },
+    [dragId, ordered, persistAll, widthOf]
+  )
+
+  const cycleWidth = useCallback(
+    id => {
+      const next = WIDTHS[(WIDTHS.indexOf(widthOf(id)) + 1) % WIDTHS.length]
+      persistAll(
+        ordered.map(it => it.id),
+        wid => (wid === id ? next : widthOf(wid))
+      )
+    },
+    [ordered, persistAll, widthOf]
+  )
+
   return (
-    <GridLayout
-      className="dashboard-grid"
-      layout={layout}
-      cols={12}
-      rowHeight={ROW_HEIGHT}
-      margin={[MARGIN, MARGIN]}
-      compactType="vertical"
-      draggableHandle=".widget-grip"
-      resizeHandles={['e', 'w']}
-      onLayoutChange={handleLayoutChange}
-    >
-      {items.map(it => (
-        <div key={it.id}>
-          <WidgetFrame id={it.id} onHeight={handleHeight}>
-            {it.node}
-          </WidgetFrame>
+    <div className="dashboard-grid">
+      {ordered.filter(Boolean).map(it => (
+        <div
+          key={it.id}
+          className={`widget-frame wspan-${widthOf(it.id)}${dragId === it.id ? ' dragging' : ''}`}
+          onDragOver={e => e.preventDefault()}
+          onDrop={() => handleDrop(it.id)}
+        >
+          <span
+            className="widget-grip"
+            draggable
+            onDragStart={e => {
+              setDragId(it.id)
+              e.dataTransfer.effectAllowed = 'move'
+            }}
+            onDragEnd={() => setDragId(null)}
+            aria-hidden="true"
+          >
+            ⠿
+          </span>
+          <button
+            type="button"
+            className="widget-width-btn"
+            onClick={() => cycleWidth(it.id)}
+            aria-hidden="true"
+            tabIndex={-1}
+          >
+            ↔
+          </button>
+          {it.node}
         </div>
       ))}
-    </GridLayout>
-  )
-}
-
-function WidgetFrame({ id, onHeight, children }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof window.ResizeObserver === 'undefined') return
-    const ro = new window.ResizeObserver(() => onHeight(id, el.scrollHeight))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [id, onHeight])
-  return (
-    <div ref={ref} className="widget-frame">
-      <span className="widget-grip" aria-hidden="true">
-        ⠿
-      </span>
-      {children}
     </div>
   )
 }

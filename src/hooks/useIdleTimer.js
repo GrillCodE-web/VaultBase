@@ -5,8 +5,10 @@ import { useEffect, useRef, useCallback, useState } from 'react'
  * Бездействие = нет mousemove / keydown / click / scroll / touchstart.
  * Если enabled=false — ничего не делает.
  *
- * Возвращает { warningActive, remainingSeconds } для показа предупреждения.
+ * Возвращает { warningActive, remainingSeconds, deadline, reset }.
  * Предупреждение появляется за warningBeforeMs до блокировки (по умолчанию 2 мин).
+ * deadline — ts момента блокировки (REDESIGN-05-4: отсчёт в статус-баре),
+ * reset — «продлить» (сброс таймеров, как при активности пользователя).
  */
 export function useIdleTimer({
   onIdle,
@@ -20,6 +22,7 @@ export function useIdleTimer({
   const onIdleRef = useRef(onIdle)
   const [warningActive, setWarningActive] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(0)
+  const [deadline, setDeadline] = useState(null)
 
   useEffect(() => {
     onIdleRef.current = onIdle
@@ -34,6 +37,8 @@ export function useIdleTimer({
   const reset = useCallback(() => {
     clearAllTimers()
     setWarningActive(false)
+    // REDESIGN-05-4: дедлайн авто-лока для обратного отсчёта в статус-баре
+    setDeadline(Date.now() + timeoutMs)
 
     if (warningBeforeMs > 0 && warningBeforeMs < timeoutMs) {
       warningTimerRef.current = setTimeout(() => {
@@ -51,6 +56,7 @@ export function useIdleTimer({
 
     timerRef.current = setTimeout(() => {
       setWarningActive(false)
+      setDeadline(null)
       onIdleRef.current?.()
     }, timeoutMs)
   }, [timeoutMs, warningBeforeMs, clearAllTimers])
@@ -69,5 +75,5 @@ export function useIdleTimer({
     }
   }, [enabled, reset, clearAllTimers])
 
-  return { warningActive, remainingSeconds }
+  return { warningActive, remainingSeconds, deadline: enabled ? deadline : null, reset }
 }

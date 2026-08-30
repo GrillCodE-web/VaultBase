@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { Info, AlertTriangle, XCircle, X } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { createLogger } from '../utils/logger'
+import { useNotificationsStore } from '../store/notifications.js'
 
 const logger = createLogger('NewsAlert')
 
@@ -25,7 +26,18 @@ export default function NewsAlert() {
   const load = useCallback(async () => {
     try {
       const r = await invoke('get_manager_news', { unreadOnly: true })
-      setNews((r?.news || []).slice(0, MAX_VISIBLE))
+      const list = (r?.news || []).slice(0, MAX_VISIBLE)
+      setNews(list)
+      // REDESIGN-05-4: копия в центр уведомлений; key дедупит между поллами
+      list.forEach(n =>
+        useNotificationsStore.getState().add({
+          key: `news:${n.id}`,
+          kind: 'news',
+          severity: n.severity,
+          title: n.title,
+          body: n.body,
+        })
+      )
     } catch (e) {
       logger.debug('news poll skipped:', e?.message ?? e)
     }

@@ -1,4 +1,12 @@
+import { useState } from 'react'
+import { Save, Trash2 } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
+import { usePersistedState } from '../../hooks/usePersistedState.js'
+import { ColumnPicker } from '../../components/ColumnPicker.jsx'
+
+function hasActiveFilter(f) {
+  return !!(f.status || f.shop_id || f.date_from || f.date_to || f.search)
+}
 
 export function OrderFilters({
   filter,
@@ -7,8 +15,16 @@ export function OrderFilters({
   searchInput,
   setSearchInput,
   shopOptions,
+  columns,
+  visibleCols,
+  onColumnsChange,
 }) {
   const { t } = useLang()
+  // REDESIGN-05-4 (порция 2): сохранённые фильтры-пресеты (localStorage), как у Cards
+  const [presets, setPresets] = usePersistedState('orders_filter_presets', [])
+  const [presetName, setPresetName] = useState('')
+  const [showPresetInput, setShowPresetInput] = useState(false)
+  const [showColPicker, setShowColPicker] = useState(false)
 
   const setFilterVal = (key, val) => {
     const f = { ...filter, [key]: val }
@@ -18,6 +34,20 @@ export function OrderFilters({
 
   const handleReset = () => {
     const f = { status: '', shop_id: null, date_from: '', date_to: '', search: '' }
+    setFilter(f)
+    load(1, f)
+  }
+
+  const savePreset = () => {
+    const name = presetName.trim()
+    if (!name || !hasActiveFilter(filter)) return
+    setPresets(prev => [...prev.filter(p => p.name !== name), { name, filter: { ...filter } }])
+    setPresetName('')
+    setShowPresetInput(false)
+  }
+
+  const loadPreset = preset => {
+    const f = { status: '', shop_id: null, date_from: '', date_to: '', ...preset.filter }
     setFilter(f)
     load(1, f)
   }
@@ -109,6 +139,92 @@ export function OrderFilters({
         onChange={e => setSearchInput(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && load(1, { ...filter, search: searchInput })}
       />
+      {presets.length > 0 && (
+        <select
+          value=""
+          onChange={e => {
+            const p = presets.find(x => x.name === e.target.value)
+            if (p) loadPreset(p)
+          }}
+          className="inline-select max-w-[120px]"
+          aria-label={t('cc_filter_presets')}
+        >
+          <option value="">{t('cc_filter_presets')}</option>
+          {presets.map(p => (
+            <option key={p.name} value={p.name}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      )}
+      {hasActiveFilter(filter) && !showPresetInput && (
+        <button
+          onClick={() => setShowPresetInput(true)}
+          className="btn btn-ghost btn-sm"
+          title={t('cc_save_filter')}
+          aria-label={t('cc_save_filter')}
+        >
+          <Save size={12} />
+        </button>
+      )}
+      {showPresetInput && (
+        <span className="flex items-center gap-1">
+          <input
+            className="search-box w-[100px]"
+            value={presetName}
+            onChange={e => setPresetName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && savePreset()}
+            placeholder={t('cc_preset_name')}
+            autoFocus
+          />
+          <button onClick={savePreset} className="btn btn-b btn-sm">
+            OK
+          </button>
+          <button
+            onClick={() => setShowPresetInput(false)}
+            aria-label="Close"
+            className="btn btn-ghost btn-sm"
+          >
+            ✕
+          </button>
+        </span>
+      )}
+      {presets.length > 0 && (
+        <button
+          onClick={() => {
+            const last = presets[presets.length - 1]
+            if (last) setPresets(prev => prev.filter(p => p.name !== last.name))
+          }}
+          className="btn btn-ghost btn-sm"
+          title={t('cc_delete_last_preset')}
+          aria-label={t('cc_delete_last_preset')}
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+      <div className="relative">
+        <button
+          onClick={() => setShowColPicker(v => !v)}
+          className="btn btn-ghost btn-sm"
+          aria-label={t('cc_columns')}
+          aria-expanded={showColPicker}
+        >
+          {t('cc_columns')}
+        </button>
+        {showColPicker && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setShowColPicker(false)} />
+            <ColumnPicker
+              visible={visibleCols}
+              onChange={onColumnsChange}
+              allColumns={columns}
+              defaultCols={columns.map(c => c.id)}
+              lockedIds={['select', 'actions']}
+              t={t}
+            />
+          </>
+        )}
+      </div>
       {(filter.status || filter.search || filter.date_from || filter.date_to || filter.shop_id) && (
         <button className="btn btn-ghost btn-sm" onClick={handleReset}>
           Reset

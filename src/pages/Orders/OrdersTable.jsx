@@ -11,11 +11,11 @@ import { ORDERS_OVERSCAN } from '../../constants/virtualization.js'
 import { recordRecentEntity } from '../../utils/recentEntities.js'
 
 /**
- * OrdersTable — выделенный компонент таблицы заказов
+ * OrdersTable вЂ” РІС‹РґРµР»РµРЅРЅС‹Р№ РєРѕРјРїРѕРЅРµРЅС‚ С‚Р°Р±Р»РёС†С‹ Р·Р°РєР°Р·РѕРІ
  *
- * ★ Insight: виртуализация, expandedId/statusMenuId UI-стейт и рендер строк
- * здесь, чтобы Orders.jsx остался только оркестрацией (store, фильтры, модалки).
- * Данные и обработчики приходят пропсами.
+ * в… Insight: РІРёСЂС‚СѓР°Р»РёР·Р°С†РёСЏ, expandedId/statusMenuId UI-СЃС‚РµР№С‚ Рё СЂРµРЅРґРµСЂ СЃС‚СЂРѕРє
+ * Р·РґРµСЃСЊ, С‡С‚РѕР±С‹ Orders.jsx РѕСЃС‚Р°Р»СЃСЏ С‚РѕР»СЊРєРѕ РѕСЂРєРµСЃС‚СЂР°С†РёРµР№ (store, С„РёР»СЊС‚СЂС‹, РјРѕРґР°Р»РєРё).
+ * Р”Р°РЅРЅС‹Рµ Рё РѕР±СЂР°Р±РѕС‚С‡РёРєРё РїСЂРёС…РѕРґСЏС‚ РїСЂРѕРїСЃР°РјРё.
  */
 export function OrdersTable({
   orders,
@@ -30,14 +30,18 @@ export function OrdersTable({
   onUpdate,
   onPatchLocal,
   onCreate,
+  visibleCols,
 }) {
   const { t } = useLang()
   const [statusMenuId, setStatusMenuId] = useState(null)
+  // REDESIGN-05-4: СЃРєСЂС‹С‚РёРµ РєРѕР»РѕРЅРѕРє; Р±РµР· РїСЂРѕРїР° вЂ” РІСЃРµ 13 (e2e/СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚СЊ)
+  const show = id => !visibleCols || visibleCols.includes(id)
+  const colCount = visibleCols ? visibleCols.length : 13
   const [expandedId, setExpandedId] = useState(null)
 
   // Virtual scrolling setup
   const parentRef = useRef(null)
-  // ★ Insight: overscan — ORDERS_OVERSCAN (constants/virtualization.js), CLEAN-010
+  // в… Insight: overscan вЂ” ORDERS_OVERSCAN (constants/virtualization.js), CLEAN-010
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns functions, safe to use
   const rowVirtualizer = useVirtualizer({
     count: orders.length,
@@ -66,35 +70,39 @@ export function OrdersTable({
       <table className="tbl">
         <thead>
           <tr>
-            <th scope="col">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleSelectAll}
-                className="accent-accent cursor-pointer"
-              />
-            </th>
-            <th scope="col">{t('col_order_num')}</th>
-            <th scope="col">
-              {t('cc_col_holder')} / {t('section_card')}
-            </th>
-            <th scope="col">{t('col_shop')}</th>
-            <th scope="col">{t('cc_col_status')}</th>
-            <th scope="col">{t('col_amount')}</th>
-            <th scope="col">{t('col_tracking')}</th>
-            <th scope="col">{t('carrier')}</th>
-            <th scope="col">{t('nav_proxies')}</th>
-            <th scope="col">{t('col_email')}</th>
-            <th scope="col">{t('cc_col_notes')}</th>
-            <th scope="col">{t('col_date')}</th>
-            <th scope="col"></th>
+            {show('select') && (
+              <th scope="col">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="accent-accent cursor-pointer"
+                />
+              </th>
+            )}
+            {show('order_number') && <th scope="col">{t('col_order_num')}</th>}
+            {show('card') && (
+              <th scope="col">
+                {t('cc_col_holder')} / {t('section_card')}
+              </th>
+            )}
+            {show('shop') && <th scope="col">{t('col_shop')}</th>}
+            {show('status') && <th scope="col">{t('cc_col_status')}</th>}
+            {show('amount') && <th scope="col">{t('col_amount')}</th>}
+            {show('tracking') && <th scope="col">{t('col_tracking')}</th>}
+            {show('carrier') && <th scope="col">{t('carrier')}</th>}
+            {show('proxy') && <th scope="col">{t('nav_proxies')}</th>}
+            {show('email') && <th scope="col">{t('col_email')}</th>}
+            {show('notes') && <th scope="col">{t('cc_col_notes')}</th>}
+            {show('date') && <th scope="col">{t('col_date')}</th>}
+            {show('actions') && <th scope="col"></th>}
           </tr>
         </thead>
         <tbody>
-          {loading && orders.length === 0 && <SkeletonRows count={6} cols={13} />}
+          {loading && orders.length === 0 && <SkeletonRows count={6} cols={colCount} />}
           {orders.length === 0 && !loading && (
             <EmptyState
-              colSpan={13}
+              colSpan={colCount}
               icon={<Package size={38} />}
               {...{ title: t('orders'), subtitle: t('new_order') }}
               action={
@@ -110,7 +118,7 @@ export function OrdersTable({
               {rowVirtualizer.getVirtualItems().length > 0 &&
                 rowVirtualizer.getVirtualItems()[0].start > 0 && (
                   <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                    <td colSpan={13} className="virtual-scroll-spacer" />
+                    <td colSpan={colCount} className="virtual-scroll-spacer" />
                   </tr>
                 )}
               {/* Render visible rows */}
@@ -120,13 +128,14 @@ export function OrdersTable({
                   <OrderRow
                     key={o.id}
                     order={o}
+                    visibleCols={visibleCols}
                     isSelected={selected.includes(o.id)}
                     isDeleting={deletingIds.includes(o.id)}
                     isExpanded={expandedId === o.id}
                     onToggleExpand={() => {
                       const next = expandedId === o.id ? null : o.id
                       setExpandedId(next)
-                      // REDESIGN-05-4: раскрытие ордера → «последние сущности» ⌘K
+                      // REDESIGN-05-4: СЂР°СЃРєСЂС‹С‚РёРµ РѕСЂРґРµСЂР° в†’ В«РїРѕСЃР»РµРґРЅРёРµ СЃСѓС‰РЅРѕСЃС‚РёВ» вЊK
                       if (next) {
                         recordRecentEntity({
                           type: 'order',
@@ -160,7 +169,7 @@ export function OrdersTable({
                     height: `${rowVirtualizer.getTotalSize() - (rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1]?.end || 0)}px`,
                   }}
                 >
-                  <td colSpan={13} className="virtual-scroll-spacer" />
+                  <td colSpan={colCount} className="virtual-scroll-spacer" />
                 </tr>
               )}
             </>

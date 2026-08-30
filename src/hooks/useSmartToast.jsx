@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, createContext, useContext } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
+import { useNotificationsStore } from '../store/notifications.js'
 
 const SmartToastContext = createContext(null)
 
@@ -104,6 +105,10 @@ export function SmartToastProvider({ children }) {
 
       // Auto-dismiss
       timers.current[id] = setTimeout(() => remove(id), duration)
+
+      // REDESIGN-05-4: копия в центр уведомлений (группируемые дубли не плодим —
+      // сюда попадает только первый тост группы)
+      useNotificationsStore.getState().add({ kind: 'toast', severity: type, title: message })
 
       return id
     },

@@ -3354,14 +3354,45 @@
   }
 }
 
-/* ── UX-014: кастомизируемая сетка виджетов дашборда (react-grid-layout) ── */
+/* ── UX-014 → REDESIGN-05-4: кастомизируемая сетка виджетов дашборда.
+     Своя лёгкая сетка (CSS grid 12 колонок) вместо react-grid-layout ── */
 .dashboard-grid {
-  position: relative;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.wspan-12 {
+  grid-column: span 12;
+}
+.wspan-8 {
+  grid-column: span 8;
+}
+.wspan-6 {
+  grid-column: span 6;
+}
+.wspan-4 {
+  grid-column: span 4;
+}
+
+@media (max-width: 1100px) {
+  .wspan-8,
+  .wspan-6 {
+    grid-column: span 12;
+  }
+  .wspan-4 {
+    grid-column: span 6;
+  }
 }
 
 .widget-frame {
   position: relative;
   height: 100%;
+}
+
+.widget-frame.dragging {
+  opacity: 0.5;
 }
 
 /* Грип перетаскивания виджета: виден при наведении, иначе мусорит в углу */
@@ -3382,13 +3413,31 @@
   transition: opacity var(--t-fast);
 }
 
-.widget-frame:hover .widget-grip {
+/* Кнопка ширины виджета (цикл 12→8→6→4) — рядом с грипом */
+.widget-width-btn {
+  position: absolute;
+  top: 4px;
+  right: 26px;
+  z-index: 2;
+  padding: 2px 4px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.widget-frame:hover .widget-grip,
+.widget-frame:hover .widget-width-btn {
   opacity: 0.7;
 }
 
-/* Плейсхолдер перетаскивания — в цветах темы вместо дефолтного красного RGL */
-.react-grid-item.react-grid-placeholder {
-  background: var(--accent) !important;
-  border-radius: var(--radius-md);
-  opacity: 0.25;
+.widget-grip:hover,
+.widget-width-btn:hover {
+  opacity: 1 !important;
 }
