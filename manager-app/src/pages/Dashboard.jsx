@@ -2,6 +2,18 @@ import { useEffect, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
 import { api, getWorkerSnapshots, fmtRelative } from '../api/server.js'
 
+const semKey = (v) => String(v).split(/[-+]/)[0].split('.').map((x) => parseInt(x, 10) || 0)
+
+function cmpVer(a, b) {
+  const x = semKey(a)
+  const y = semKey(b)
+  for (let i = 0; i < 3; i += 1) {
+    const d = (x[i] || 0) - (y[i] || 0)
+    if (d !== 0) return d
+  }
+  return 0
+}
+
 export default function Dashboard({ onSync }) {
   const { t, lang } = useLang()
   const [overview, setOverview] = useState(null)
@@ -45,6 +57,17 @@ export default function Dashboard({ onSync }) {
     return new Date(ow.hb_last_seen.replace(' ', 'T') + 'Z').getTime() >= cut
   }
 
+  const verCounts = {}
+  for (const s of snapshots) {
+    const v = (s.snapshot || {}).app_version
+    if (v) verCounts[v] = (verCounts[v] || 0) + 1
+  }
+  const vers = Object.keys(verCounts).sort((a, b) => cmpVer(b, a))
+  const latestVer = vers[0] || null
+  const outdatedCount = latestVer
+    ? vers.filter((v) => cmpVer(v, latestVer) < 0).reduce((n, v) => n + verCounts[v], 0)
+    : 0
+
   const cards = [
     ['workers_online', overview.workers_online, `${overview.workers_active}/${overview.workers_total}`, 'green'],
     ['overview_banned', overview.workers_banned, t('workers_total_hint', { n: overview.workers_total }), 'red'],
@@ -67,6 +90,24 @@ export default function Dashboard({ onSync }) {
           </div>
         ))}
       </div>
+
+      {latestVer && (
+        <div className="panel">
+          <h3>{t('version_drift_title')}</h3>
+          <div className="ver-strip">
+            {vers.map((v) => (
+              <span key={v} className={`tag mono ${cmpVer(v, latestVer) < 0 ? 'red' : 'green'}`}>
+                {v} × {verCounts[v]}
+              </span>
+            ))}
+            <span className="hint" style={{ marginLeft: 'auto' }}>
+              {outdatedCount > 0
+                ? t('version_drift_outdated', { n: outdatedCount, v: latestVer })
+                : t('version_drift_ok')}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="panel">
         <h3>{t('workers_health')}</h3>

@@ -4,7 +4,7 @@ import {
   Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { useLang } from '../hooks/useLang.jsx'
-import { getAnalytics } from '../api/server.js'
+import { getAnalytics, getFleetComparison, getFleetBinShop } from '../api/server.js'
 
 const STATUS_COLORS = {
   delivered: '#3ddc97',
@@ -25,6 +25,8 @@ export default function Analytics({ onSync }) {
   const [from, setFrom] = useState(isoDay(30))
   const [to, setTo] = useState(isoDay(0))
   const [data, setData] = useState(null)
+  const [fleet, setFleet] = useState(null)
+  const [heat, setHeat] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -32,8 +34,14 @@ export default function Analytics({ onSync }) {
     setBusy(true)
     setError('')
     try {
-      const res = await getAnalytics(from, to)
+      const [res, cmp, hm] = await Promise.all([
+        getAnalytics(from, to),
+        getFleetComparison(from, to),
+        getFleetBinShop(from, to),
+      ])
       setData(res)
+      setFleet(cmp)
+      setHeat(hm)
     } catch (e) {
       setError(String(e))
     } finally {
@@ -68,6 +76,21 @@ export default function Analytics({ onSync }) {
     setFrom(isoDay(days))
     setTo(isoDay(0))
   }
+
+  const heatMatrix = useMemo(() => {
+    if (!heat?.cells) return { bins: [], shops: [], map: {} }
+    const binTotals = {}
+    const shopTotals = {}
+    const map = {}
+    for (const c of heat.cells) {
+      binTotals[c.bin] = (binTotals[c.bin] || 0) + c.orders
+      shopTotals[c.shop] = (shopTotals[c.shop] || 0) + c.orders
+      map[`${c.bin}|${c.shop}`] = c
+    }
+    const bins = Object.entries(binTotals).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([b]) => b)
+    const shops = Object.entries(shopTotals).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([s]) => s)
+    return { bins, shops, map }
+  }, [heat])
 
   return (
     <div>
@@ -136,6 +159,33 @@ export default function Analytics({ onSync }) {
               <div className="hint">fail: {data.health.smtp_fail}</div>
             </div>
           </div>
+
+          {data.funnel && (
+            <div className="panel">
+              <h3>{t('funnel_title')}</h3>
+              <div className="funnel-row">
+                <div className="funnel-step">
+                  <div className="num">{data.funnel.taken}</div>
+                  <div className="lbl">{t('funnel_taken')}</div>
+                </div>
+                <div className="funnel-arrow">→ {data.funnel.used_rate}%</div>
+                <div className="funnel-step">
+                  <div className="num">{data.funnel.used}</div>
+                  <div className="lbl">{t('funnel_used')}</div>
+                </div>
+                <div className="funnel-arrow">→ {data.funnel.delivered_rate}%</div>
+                <div className="funnel-step">
+                  <div className="num accent">{data.funnel.delivered}</div>
+                  <div className="lbl">{t('funnel_delivered')}</div>
+                </div>
+                {data.rollup_months > 0 && (
+                  <span className="meta" style={{ marginLeft: 'auto', color: 'var(--text-3)', fontSize: 12 }}>
+                    {t('rollup_hint', { n: data.rollup_months })}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="split-2">
             <div className="panel">
@@ -249,35 +299,106 @@ export default function Analytics({ onSync }) {
             </div>
           </div>
 
-          <div className="split-2">
+          {fleet && fleet.workers.length > 0 && (
             <div className="panel">
-              <h3>{t('workers_table')}</h3>
+              <h3>{t('fleet_comparison')}</h3>
               <table className="data">
                 <thead>
                   <tr>
                     <th>{t('col_label')}</th>
-                    <th>{t('cards_taken_col')}</th>
+                    <th>{t('col_days')}</th>
                     <th>{t('orders_col')}</th>
-                    <th>{t('drops_col')}</th>
+                    <th>{t('delivery_rate')}</th>
+                    <th>{t('decline_ratio')}</th>
+                    <th>{t('col_revenue')}</th>
+                    <th>{t('cards_taken_col')}</th>
                     <th>{t('dead_ratio')}</th>
+                    <th>{t('drops_col')}</th>
+                    <th>{t('col_funnel')}</th>
+                    <th>{t('col_sla')}</th>
+                    <th>{t('app_version')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.by_worker.map((w) => (
+                  {fleet.workers.map((w) => (
                     <tr key={w.installation_id}>
                       <td>{w.label || w.installation_id.slice(0, 12)}</td>
-                      <td>{w.cards_taken}</td>
+                      <td>{w.days}</td>
                       <td>{w.orders}</td>
-                      <td>{w.drops_taken}</td>
+                      <td>
+                        <span className={`tag ${w.delivery_rate >= 70 ? 'green' : w.delivery_rate >= 40 ? 'amber' : 'red'}`}>
+                          {w.delivery_rate}%
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`tag ${w.decline_rate > 30 ? 'red' : w.decline_rate > 15 ? 'amber' : 'green'}`}>
+                          {w.decline_rate}%
+                        </span>
+                      </td>
+                      <td>{w.revenue}</td>
+                      <td>{w.cards_taken}</td>
                       <td>
                         <span className={`tag ${w.dead_ratio > 25 ? 'red' : w.dead_ratio > 10 ? 'amber' : 'green'}`}>
                           {w.dead_ratio}%
                         </span>
                       </td>
+                      <td>{w.drops}</td>
+                      <td className="mono">{w.funnel_used_rate}% → {w.funnel_delivered_rate}%</td>
+                      <td>{w.avg_hours_to_delivered ?? '—'}</td>
+                      <td className="mono">
+                        {w.app_version || '—'}
+                        {w.version_outdated && (
+                          <span className="tag red" style={{ marginLeft: 6 }}>{t('version_outdated')}</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          <div className="split-2">
+            <div className="panel">
+              <h3>{t('operators_title')}</h3>
+              {!fleet || fleet.operators.length === 0 ? (
+                <div className="empty">{t('no_data')}</div>
+              ) : (
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>{t('operator_col')}</th>
+                      <th>{t('orders_col')}</th>
+                      <th>{t('delivered_col')}</th>
+                      <th>{t('delivery_rate')}</th>
+                      <th>{t('decline_ratio')}</th>
+                      <th>{t('col_revenue')}</th>
+                      <th>{t('cards_taken_col')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fleet.operators.map((o) => (
+                      <tr key={o.name}>
+                        <td>{o.name}</td>
+                        <td>{o.orders}</td>
+                        <td>{o.delivered}</td>
+                        <td>
+                          <span className={`tag ${o.delivery_rate >= 70 ? 'green' : o.delivery_rate >= 40 ? 'amber' : 'red'}`}>
+                            {o.delivery_rate}%
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`tag ${o.decline_rate > 30 ? 'red' : o.decline_rate > 15 ? 'amber' : 'green'}`}>
+                            {o.decline_rate}%
+                          </span>
+                        </td>
+                        <td>{o.revenue}</td>
+                        <td>{o.cards_taken}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="panel">
@@ -304,6 +425,44 @@ export default function Analytics({ onSync }) {
               )}
             </div>
           </div>
+
+          {heat && heat.cells.length > 0 && (
+            <div className="panel">
+              <h3>{t('heatmap_title')}</h3>
+              <table className="data heat-table">
+                <thead>
+                  <tr>
+                    <th>{t('bin_col')}</th>
+                    {heatMatrix.shops.map((s) => (
+                      <th key={s} className="mono">{s}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {heatMatrix.bins.map((b) => (
+                    <tr key={b}>
+                      <td className="mono">{b}</td>
+                      {heatMatrix.shops.map((s) => {
+                        const c = heatMatrix.map[`${b}|${s}`]
+                        if (!c) return <td key={s} className="heat-empty">·</td>
+                        const cls = c.success_rate >= 70 ? 'heat-g' : c.success_rate >= 40 ? 'heat-a' : 'heat-r'
+                        return (
+                          <td key={s}>
+                            <span
+                              className={`heat-cell ${cls}`}
+                              title={`${c.bin} × ${c.shop}: ${c.orders} / ok ${c.ok} / declined ${c.declined}`}
+                            >
+                              {c.success_rate}%
+                            </span>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </div>
