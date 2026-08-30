@@ -1,6 +1,6 @@
 [package]
 name = "vaultbase-manager"
-version = "0.1.0"
+version = "0.2.0"
 description = "VaultBase Manager — encrypted supervision and control panel"
 edition = "2021"
 
