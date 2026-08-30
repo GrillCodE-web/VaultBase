@@ -904,3 +904,10 @@ cargo,rustc,make,perl` убивали ЧУЖИЕ сборки (exit=-1 без о
   сессия и отрицание наличия контейнера (как у любого решения без TPM/Secure Enclave).
 - Заодно убран дубль блоков «Сеть и синхронизация»/«Приложение», внесённый предыдущей правкой.
 - Проверки: все 36 локальных ссылок README валидны; блоки не дублируются (по 1 вхождению).
+
+## 2026-08-30 � @main � MGR-015: telemetry v2 ?
+
+- 7e4c59d: payload_version=2 + worker_sent_at + tz_offset_min (������ �� ��� � ���������); errors_by (imap/smtp/proxy/sync/order/other); smtp health �������� (sent_emails �� 24� > true, ����� TCP-�����, ��� �������� > null); daily smtp_ok = �������� sent_emails �� ����, smtp/proxy_fail = activity_log �� ���������; pool-������� (�������/���-BIN/������/������� lt30-30-60-gt60/unknown + proxy_blocked); by_user = orders.created_by + card_assignments (cards_taken); outbox (�������� v22: telemetry_outbox, ��� 60, replace �� (kind,date), flush �� 10 �� ������ daily / �� 5 �� heartbeat, 4xx > drop); backfill ����������� ���� (������ telemetry_last_daily_stats, ������ �����, �� 6/���); ��������� �������� � union events+log � ������� (card_id,status).
+- �����: 191 passed / 0 failed (+6: payload_v2, errors_by, smtp_health, by_user, outbox trim/replace, events-preferred).
+- ����������: ������������ ������ ��������� docs (a1d28d1) � ���������� ���, ������ ����� ����� ����.
+- ������: MGR-016 (������: worker_keys X25519, ����������� ��� ���������, ������ worker-�������� ���� � push, ������� �����) > MGR-017/018.
