@@ -254,6 +254,16 @@ mod tests {
         assert_eq!(config.app.profile, "production");
         assert!(!config.app.debug);
     }
+
+    #[test]
+    fn test_get_default_config_staging() {
+        // DEVOPS-002: staging = production-подобный профиль без debug.
+        let config = get_default_config("staging");
+        assert_eq!(config.app.profile, "staging");
+        assert!(!config.app.debug);
+        assert_eq!(config.security.pbkdf2_iterations, 600_000);
+    }
+
     
     #[test]
     fn test_validate_config_valid() {

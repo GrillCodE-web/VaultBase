@@ -21,6 +21,9 @@ VPS_PASS можно не задавать — тогда используетс�
     --dry-run     показать, что будет сделано, ничего не меняя
     --skip-nginx  не трогать конфиг nginx
     --no-rollback не откатываться при неудачном health-check (для отладки)
+
+Staging (DEVOPS-002): тот же скрипт с другими VPS_* (см. комментарий у констант
+ниже); nginx staging-хоста настраивается один раз вручную (--skip-nginx).
 """
 import argparse
 import os
@@ -37,10 +40,18 @@ except ImportError:
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-REMOTE_APP = "/opt/cc-sync-server"
-NGINX_CONF = "/etc/nginx/sites-enabled/otpmanager.conf"
-PM2_APP = "cc-sync-server"
-BASE_URL = "https://sec201-www.otpmanager.pro"
+# Адреса/имена берутся из окружения с боевыми дефолтами — один скрипт деплоит
+# и бой, и staging (DEVOPS-002), например:
+#   VPS_HOST=<staging> VPS_APP_DIR=/opt/cc-sync-server-staging \
+#   VPS_PM2_APP=cc-sync-server-staging VPS_BASE_URL=https://<staging-host> \
+#   VPS_HEALTH_PORT=3100 python scripts/deploy-server.py
+REMOTE_APP = os.environ.get("VPS_APP_DIR", "/opt/cc-sync-server")
+NGINX_CONF = os.environ.get(
+    "VPS_NGINX_CONF", "/etc/nginx/sites-enabled/otpmanager.conf"
+)
+PM2_APP = os.environ.get("VPS_PM2_APP", "cc-sync-server")
+BASE_URL = os.environ.get("VPS_BASE_URL", "https://sec201-www.otpmanager.pro")
+HEALTH_PORT = os.environ.get("VPS_HEALTH_PORT", "3000")
 
 # Что заливаем. Пути относительно cc-sync-server/.
 PUSH_FILES = ["package.json"]
@@ -197,7 +208,7 @@ def health(r):
     ok = True
     for path, expect in checks:
         _c, out = r.run(
-            f"curl -s -o /dev/null -w '%{{http_code}}' -m 10 http://127.0.0.1:3000{path}"
+            f"curl -s -o /dev/null -w '%{{http_code}}' -m 10 http://127.0.0.1:{HEALTH_PORT}{path}"
         )
         good = re.fullmatch(expect, out.strip()) is not None
         log(f"    {out.strip():>4}  {path}  {'OK' if good else 'ОШИБКА'}")

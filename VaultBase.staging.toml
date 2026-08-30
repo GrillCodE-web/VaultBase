@@ -30,6 +30,16 @@ catalog_update_interval = 3600
 # - Real server URLs from constants.rs
 # - Same background intervals as production
 
+# ─────────────────────────────────────────────────────
+# DEVOPS-002: как запустить клиент против staging-сервера.
+# Профиль берётся ТОЛЬКО debug-сборкой (release всегда production — DEVOPS-005).
+# PowerShell перед `npx tauri dev` (или `npm run tauri build -- --debug`):
+#   $env:VAULTBASE_PROFILE='staging'
+#   $env:VAULTBASE_CONFIG_DIR='<папка с этим TOML>'
+#   $env:VAULTBASE_SERVER_URL='https://<staging-host>'
+#   $env:VAULTBASE_SYNC_WS_URL='wss://<staging-host>/ws'   # если WS не выводится из базы
+# Подробности и серверная часть — docs/STAGING.md.
+
 [sentry]
 # DEVOPS-003: crash-reporting. Публичный DSN проекта Sentry (не секрет).
 # Пусто = выключено, приложение ничего не отправляет. Переопределяется env SENTRY_DSN.
