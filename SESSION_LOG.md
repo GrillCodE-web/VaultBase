@@ -1449,3 +1449,54 @@ scripts/**pycache**/. ВАЖНО: `git grep` в этой сессии показ
 - Проверки: server 136/136 — собственный прогон @main-2 на закоммиченном 4c1e40c; eslint 0 errors / vitest 337/337 / audit 0 сирот 0 фантомов — собственные прогоны на том же коде до коммита; cargo test 228/228 — прогон @main на e129790 (запись выше), сам не перепрогонял: дерево занято WIP 5B3 (orders.rs/_imap.rs/_orders.rs/background.rs/_migrations.rs/main.rs/models.rs, +764).
 - MGR-018 остаток НЕ начат сознательно: выпил pair-кодов/групп/NOSYNC требует правок main.rs (invoke_handler) и models.rs, 17track share — тоже регистрации команд; эти файлы + _migrations.rs сейчас содержат незакоммиченный WIP 5B3 — коммит по явному пути застейджил бы чужой WIP. Передано следующей сессии промтом (tmp/prompt-mgr018-rest.txt).
 - Опорные точки для добора MGR-018: pair/группы — commands/sync.rs:84-100 (5 команд), sync.rs:357-533 (SyncGroupClient), encryption.rs:257-402 (generate_pair_code/pair_code_hash + тесты), auth.rs:599-600, state.rs:262, main.rs:360, Settings.jsx:194/528/545/561/578 (UI групп живой, 112 упоминаний sync/group в файле); NOSYNC — sync.rs:533-559 (SEC-009 фильтр) + cards.rs:135; сервер — cc-sync-server: sync_pair_codes (database.js:129/205-207), POST /sync/group/join|pair (docs/API.md:597-598), admin/index.html:1043-1438; 17track share — по образцу stuffer_shared_*: constants.rs:25-26, tracking.rs:606, background.rs:814-841, контракт в slices.rs:459.
+
+---
+
+## 2026-08-31, ~02:30 — @main: REDESIGN-05-5B3 ✅ (трекинг-перебивка)
+
+**Сделано** (коммит `0d19084`, чеклист `e89cd11`):
+
+- миграция **v26**: `tracking_checkpoints` (история точек по заказу),
+  `orders.delivered_at`, триггер статусов аддитивно + `'received'`
+  (перебито дропом);
+- поллер `run_tracking_update` пишет checkpoints: прямые API (UPS/FedEx/USPS —
+  события + текущий статус; нормализация по описанию, USPS «Out for Delivery»
+  приезжает как in_transit) и 17track-фолбэк (маппинг гранулярных статусов);
+- **сигнал «перебивай»**: переход последнего checkpoint в
+  out_for_delivery/delivered → `order.rework_signal` в лог + emit
+  `rework_signal` (order_id/order_number/tracking/carrier/status);
+- **правило «delivered >24ч»**: cron `rework_overdue_reminder` (интервал как
+  у напоминаний, REMINDER_CHECK_INTERVAL_SECS) → emit `rework_overdue` +
+  `order.rework_overdue`; константа `REWORK_OVERDUE_HOURS=24`;
+- команды: `get_tracking_checkpoints`, `get_rework_candidates`,
+  `get_rework_alerts`, `suggest_tracking_links` (трек из письма → заказ:
+  high=order_number, low=домен→магазин; автоподстановки нет — apply через
+  существующий `update_order_tracking`), `complete_rework_session`
+  (perm CREATE_ORDERS; received→'received', остальные→'shipped'+заметка,
+  через update_order_status — история/automation сохраняются);
+- e2e-мок: стабы 5 команд.
+
+**Найденные грабли (для будущих сессий):**
+
+1. `filter_map(|r| r.ok())` молча роняет строки при NULL в не-Option поле —
+   в ReworkCandidate `last_checkpoint` стал `Option<String>` (ручной
+   delivered без checkpoints иначе пропадал из выборок).
+2. `order_status_history.changed_by` имеет FK на users.id + PRAGMA
+   foreign_keys=ON — в тестах передавать `changed_by=None`, иначе INSERT
+   истории молча падает.
+3. Колонки imap_messages: `body` (НЕ body_text), `folder` есть.
+4. `cargo test` полный ≈ 10–11 мин (PBKDF2-тесты); таргет-фильтр
+   `cargo test -- rework suggest normalize_checkpoint` — 2 мин. IDE
+   периодически запускает свой `cargo check` без env OPENSSL → висит на
+   локе: `Get-CimInstance Win32_Process -Filter "Name='cargo.exe'"` +
+   Stop-Process по PID (свой процесс не убивать — у него есть вывод в лог).
+
+**Проверки:** cargo test **238/238** (591с), cargo check --all-targets чист,
+node --check e2e-мок OK. Frontend-часть 05-5 (карточка-сигнал, блок
+дашборда, чеклист перебивки, календарь) — за @r, ей нужны события
+`rework_signal`/`rework_overdue` и 5 команд выше.
+
+**Дальше по потоку @main:** в 05-5 остался только 5B4 (E2E-чат,
+docs/CHAT_E2E.md уже лежит untracked — вероятно, набросок @r). Либо добор
+MGR-018: выпил pair-кодов/групп/NOSYNC (sync.rs/auth.rs/state.rs),
+17track share-ключи.
