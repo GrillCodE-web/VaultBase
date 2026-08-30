@@ -1941,111 +1941,111 @@
   }
 
   .st-pending {
-    background: rgba(234, 179, 8, 0.12);
-    border-color: rgba(234, 179, 8, 0.25);
+    background: var(--st-yellow-bg);
+    border-color: var(--st-yellow-border);
     color: var(--yellow-t);
   }
 
   .st-active {
-    background: rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.25);
+    background: var(--st-blue-bg);
+    border-color: var(--st-blue-border);
     color: var(--blue-t);
   }
 
   .st-delivered {
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.25);
+    background: var(--st-green-bg);
+    border-color: var(--st-green-border);
     color: var(--green-t);
   }
 
   .st-decline {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.25);
+    background: var(--st-red-bg);
+    border-color: var(--st-red-border);
     color: var(--red-t);
   }
 
   .st-cancelled {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.25);
+    background: var(--st-red-bg);
+    border-color: var(--st-red-border);
     color: var(--red-t);
   }
 
   .st-used {
-    background: rgba(168, 85, 247, 0.12);
-    border-color: rgba(168, 85, 247, 0.25);
+    background: var(--st-purple-bg);
+    border-color: var(--st-purple-border);
     color: var(--purple-t);
   }
 
   .st-clean {
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.25);
+    background: var(--st-green-bg);
+    border-color: var(--st-green-border);
     color: var(--green-t);
   }
 
   .st-blocked {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.25);
+    background: var(--st-red-bg);
+    border-color: var(--st-red-border);
     color: var(--red-t);
   }
 
   .st-archive {
-    background: rgba(107, 114, 128, 0.12);
-    border-color: rgba(107, 114, 128, 0.25);
+    background: var(--st-gray-bg);
+    border-color: var(--st-gray-border);
     color: var(--text-2);
   }
 
   .st-dead {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.25);
+    background: var(--st-red-bg);
+    border-color: var(--st-red-border);
     color: var(--red-t);
   }
 
   .st-transit {
-    background: rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.25);
+    background: var(--st-blue-bg);
+    border-color: var(--st-blue-border);
     color: var(--blue-t);
   }
 
   .st-free {
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.25);
+    background: var(--st-green-bg);
+    border-color: var(--st-green-border);
     color: var(--green-t);
   }
 
   .st-inuse {
-    background: rgba(245, 158, 11, 0.12);
-    border-color: rgba(245, 158, 11, 0.25);
+    background: var(--st-amber-bg);
+    border-color: var(--st-amber-border);
     color: var(--yellow-t);
   }
 
   .st-processing {
-    background: rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.25);
+    background: var(--st-blue-bg);
+    border-color: var(--st-blue-border);
     color: var(--blue-t);
   }
 
   .st-shipped {
-    background: rgba(14, 165, 233, 0.12);
-    border-color: rgba(14, 165, 233, 0.25);
+    background: var(--st-sky-bg);
+    border-color: var(--st-sky-border);
     color: var(--teal-t);
   }
 
   /* ── FEAT-012: live-тест пишущих методов (Settings → Stuffer) ── */
   .st-ok {
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.25);
+    background: var(--st-green-bg);
+    border-color: var(--st-green-border);
     color: var(--green-t);
   }
 
   .st-skipped {
-    background: rgba(234, 179, 8, 0.12);
-    border-color: rgba(234, 179, 8, 0.25);
+    background: var(--st-yellow-bg);
+    border-color: var(--st-yellow-border);
     color: var(--yellow-t);
   }
 
   .st-fail {
-    background: rgba(220, 38, 38, 0.12);
-    border-color: rgba(220, 38, 38, 0.25);
+    background: var(--st-red-bg);
+    border-color: var(--st-red-border);
     color: var(--red-t);
   }
 

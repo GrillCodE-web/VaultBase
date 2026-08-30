@@ -85,7 +85,7 @@ export function CountryHeatBar({ data }) {
                 color: 'var(--text-2)',
               }}
             >
-              {c.country || 'вЂ”'}
+              {c.country || '—'}
             </span>
             <div
               style={{
@@ -128,7 +128,7 @@ export function CountryHeatBar({ data }) {
                 color: 'var(--text-2)',
               }}
             >
-              {rate >= 0 ? `${rate}%` : 'вЂ”'}
+              {rate >= 0 ? `${rate}%` : '—'}
             </span>
           </div>
         )
@@ -203,7 +203,7 @@ export function SourceTable({ data }) {
         <tbody>
           {data.map(s => (
             <tr key={s.source}>
-              <td>{s.source || 'вЂ”'}</td>
+              <td>{s.source || '—'}</td>
               <td className="text-right">{formatNumber(s.total_cards)}</td>
               <td className="text-right text-green-t">{formatNumber(s.free_cards)}</td>
               <td className="text-right text-red-t">{formatNumber(s.dead_cards)}</td>
@@ -254,9 +254,9 @@ export function DomainTable({ data }) {
               <td className="text-right text-red-t">{formatNumber(d.dead_cards)}</td>
               <td className="text-right">
                 {d.quarantined_cards > 0 ? (
-                  <span className="quarantine-badge">вЏі {d.quarantined_cards}</span>
+                  <span className="quarantine-badge">⏳ {d.quarantined_cards}</span>
                 ) : (
-                  'вЂ”'
+                  '—'
                 )}
               </td>
               <td className="text-right">{formatNumber(d.total_orders)}</td>
@@ -294,7 +294,7 @@ export function BinPerfTable({ data }) {
           {data.map(b => (
             <tr key={b.bin}>
               <td className="mono text-[12px]">{b.bin}</td>
-              <td className="text-text-2">{b.bank_name || 'вЂ”'}</td>
+              <td className="text-text-2">{b.bank_name || '—'}</td>
               <td className="text-right">{b.total_orders}</td>
               <td className="text-right text-green-t">{b.delivered}</td>
               <td className="text-right text-red-t">{b.declined}</td>
@@ -364,7 +364,7 @@ export function ExpiringTable({ data, onNavigate }) {
                       Yes
                     </span>
                   ) : (
-                    <span className="text-muted">вЂ”</span>
+                    <span className="text-muted">—</span>
                   )}
                 </td>
               </tr>

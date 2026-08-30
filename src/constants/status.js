@@ -44,39 +44,40 @@ export const ORDER_STATUS = {
   FAILED: 'failed',
 }
 
+// REDESIGN-05-0: фоны — только токены --st-* (tokens.css — единственный источник).
 export const ORDER_STATUS_COLORS = {
   [ORDER_STATUS.PENDING]: {
-    bg: 'rgba(234, 179, 8, 0.1)',
+    bg: 'var(--st-yellow-bg)',
     text: 'var(--yellow-t)',
     label: 'Pending',
   },
   [ORDER_STATUS.PROCESSING]: {
-    bg: 'rgba(59, 130, 246, 0.1)',
+    bg: 'var(--st-blue-bg)',
     text: 'var(--blue-t)',
     label: 'Processing',
   },
   [ORDER_STATUS.SHIPPED]: {
-    bg: 'rgba(168, 85, 247, 0.1)',
+    bg: 'var(--st-purple-bg)',
     text: 'var(--purple-t)',
     label: 'Shipped',
   },
   [ORDER_STATUS.DELIVERED]: {
-    bg: 'rgba(34, 197, 94, 0.1)',
+    bg: 'var(--st-green-bg)',
     text: 'var(--green-t)',
     label: 'Delivered',
   },
   [ORDER_STATUS.CANCELLED]: {
-    bg: 'rgba(156, 163, 175, 0.1)',
+    bg: 'var(--st-gray-bg)',
     text: 'var(--text-2)',
     label: 'Cancelled',
   },
   [ORDER_STATUS.REFUNDED]: {
-    bg: 'rgba(251, 146, 60, 0.1)',
+    bg: 'var(--st-orange-bg)',
     text: 'var(--orange-t)',
     label: 'Refunded',
   },
   [ORDER_STATUS.FAILED]: {
-    bg: 'rgba(239, 68, 68, 0.1)',
+    bg: 'var(--st-red-bg)',
     text: 'var(--red-t)',
     label: 'Failed',
   },

@@ -298,10 +298,7 @@ function ProfileFloat() {
       <div className="float-header" data-tauri-drag-region>
         <div className="flex items-center justify-between" data-tauri-drag-region>
           <div data-tauri-drag-region className="min-w-0 overflow-hidden">
-            <span
-              className="font-semibold text-[13px] whitespace-nowrap"
-              data-tauri-drag-region
-            >
+            <span className="font-semibold text-[13px] whitespace-nowrap" data-tauri-drag-region>
               {profile.holder_name || t('section_card')}
             </span>
             {card && <span className="text-muted ml-2 text-[11px]">••{card.last4}</span>}
@@ -666,7 +663,7 @@ purgeCacheOnVersionChange().then(reloading => {
   ReactDOM.createRoot(document.getElementById('root')).render(
     <FloatErrorBoundary>
       <LangProvider>
-        {/* Р‘РµР· SmartToastProvider usePremiumToast РІ ProfileFloat РїР°РґР°РµС‚
+        {/* Без SmartToastProvider usePremiumToast в ProfileFloat падает
             (useSmartToast вне контекста) — float-окно показывало
             "Unexpected error" вместо карточки профиля. */}
         <SmartToastProvider>

@@ -2982,6 +2982,9 @@
 
   /* ── Filters Container ──────────────────────────────────── */
   .filters {
+    /* REDESIGN-05-0: position: relative — якорь для .filters::before
+       (акцент-полоса 1px), иначе она липла к ближайшему позиционированному предку */
+    position: relative;
     display: flex;
     gap: 12px;
     align-items: center;
@@ -3653,7 +3656,7 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background: rgba(11, 15, 22, 0.82);
+    background: var(--float-state-bg);
     gap: 40px;
   }
 
@@ -3677,7 +3680,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    border: 2px solid rgba(59, 130, 246, 0.3);
+    border: 2px solid var(--float-spinner-track);
     border-top-color: var(--blue);
     animation: spin 0.8s linear infinite;
   }
@@ -3688,7 +3691,7 @@
     gap: 1px;
     padding: var(--sp-2) var(--sp-3);
     margin: var(--sp-2) var(--sp-3) 0;
-    background: rgba(13, 17, 26, 0.65);
+    background: var(--float-tabs-bg);
     border-radius: var(--r-md);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -3731,14 +3734,9 @@
     color: var(--color-error);
   }
 
-  /* Float copy button copied state */
-  .float-copy.copied {
-    color: var(--color-success);
-  }
-
   /* Float quick order form */
   .float-quick-order {
-    background: var(--surface, #1f2429);
+    background: var(--surface);
     border-radius: var(--r-md);
     padding: var(--sp-2);
   }
@@ -3751,8 +3749,10 @@
 
   /* Float order row */
   .float-order-row {
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 8px;
+    /* --hover-row: тематический полупрозрачный фон строки
+       (бывший rgba(255,255,255,0.04) был невидим в светлой теме) */
+    background: var(--hover-row);
+    border-radius: var(--r-md);
     padding: var(--sp-2) 10px;
     border: 1px solid var(--border);
     gap: var(--sp-1);
@@ -3761,7 +3761,7 @@
   /* Float status select */
   .float-status-select {
     border: 1px solid var(--border);
-    background: var(--surface, #1f2429);
+    background: var(--surface);
     color: var(--text);
   }
 
@@ -3769,11 +3769,6 @@
   .btn-disabled {
     opacity: 0.35;
     cursor: not-allowed;
-  }
-
-  /* Copy button with dynamic color */
-  .float-copy.copied {
-    color: #4ade80 !important;
   }
 
   /* ── источник: components/table-redesign.css ── */

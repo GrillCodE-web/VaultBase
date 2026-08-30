@@ -614,7 +614,7 @@
     height: 8px;
     border-radius: 50%;
     background: var(--green);
-    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 8px var(--live-dot-glow);
     animation: none;
   }
 
