@@ -233,7 +233,7 @@ managerRouter.post('/cards/issued/revoke', (req, res) => {
   }
   const placeholders = ids.map(() => '?').join(',');
   const info = getDb().prepare(`
-    UPDATE issued_card_slices SET status = 'revoked'
+    UPDATE issued_card_slices SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP
     WHERE status IN ('pending','delivered') AND id IN (${placeholders})
   `).run(...ids);
   if (info.changes > 0) {

@@ -305,6 +305,31 @@ router.post('/workers/:iid/policy', (req, res) => {
       updated_at = CURRENT_TIMESTAMP
   `).run({ iid, updated_by: req.installationId, ...next });
 
+  // MGR-019: жизненный цикл ключей/срезов при бане. Бан отзывает все
+  // pending/delivered срезы воркера с пометкой revoked_reason='worker_banned'
+  // (выданные срезы считаем скомпрометированными — назад в пул). Снятие бана
+  // перевыпускает ТОЛЬКО срезы, отозванные именно баном, — ручные revoke
+  // менеджера (revoked_reason IS NULL) не трогаем.
+  if ((cur.banned ?? 0) !== 1 && next.banned === 1) {
+    const r = db.prepare(`
+      UPDATE issued_card_slices
+      SET status='revoked', revoked_at=CURRENT_TIMESTAMP, revoked_reason='worker_banned'
+      WHERE target_iid = ? AND status IN ('pending','delivered')
+    `).run(iid);
+    if (r.changes > 0) {
+      audit(req.installationId, 'worker_ban_revoked_slices', { installation_id: iid, count: r.changes });
+    }
+  } else if (cur.banned === 1 && next.banned !== 1) {
+    const r = db.prepare(`
+      UPDATE issued_card_slices
+      SET status='pending', revoked_at=NULL, revoked_reason=NULL, delivered_at=NULL, acked_at=NULL
+      WHERE target_iid = ? AND status='revoked' AND revoked_reason='worker_banned'
+    `).run(iid);
+    if (r.changes > 0) {
+      audit(req.installationId, 'worker_unban_reissued_slices', { installation_id: iid, count: r.changes });
+    }
+  }
+
   audit(req.installationId, 'manager_policy_set', { installation_id: iid, policy: next });
   notifyWorker(req, iid, { type: 'policy_update' });
   res.json({ ok: true, policy: getPolicy(db, iid) });

@@ -480,6 +480,17 @@ function migrate(db) {
       PRAGMA user_version = 18;
     `);
   }
+
+  // MGR-019: жизненный цикл worker_keys. Причина отзыва среза — бан воркера
+  // отзывает с 'worker_banned', снятие бана перевыпускает ТОЛЬКО их;
+  // ручные revoke менеджера (reason IS NULL) не затрагиваются.
+  if (ver < 19) {
+    db.exec(`
+      ALTER TABLE issued_card_slices ADD COLUMN revoked_at DATETIME;
+      ALTER TABLE issued_card_slices ADD COLUMN revoked_reason TEXT;
+      PRAGMA user_version = 19;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

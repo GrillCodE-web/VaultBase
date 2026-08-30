@@ -322,3 +322,32 @@ test('policy: квота карт/день ограничивает выдачу
   });
   assert.equal(ok.status, 201);
 });
+
+test('policy: бан отзывает срезы воркера, снятие бана перевыпускает только их', async () => {
+  const mk = (tag) => ({ card_hash: `hash-ban-${tag}`, sealed_data: `sealed-ban-000000${tag}` });
+  await req('POST', '/manager/api/cards/issue', MGR_TOKEN, { target_iid: WRK_IID, slices: [mk('a'), mk('b')] });
+
+  // ручной revoke одного среза ДО бана — не должен воскреснуть после unban
+  const before = await req('GET', `/manager/api/cards/issued?target_iid=${WRK_IID}`, MGR_TOKEN);
+  const mineA = before.json.slices.find((s) => s.card_hash === 'hash-ban-a');
+  const manual = await req('POST', '/manager/api/cards/issued/revoke', MGR_TOKEN, { ids: [mineA.id] });
+  assert.equal(manual.status, 200);
+
+  // бан: pending/delivered срезы отзываются с причиной
+  const ban = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { banned: true, banned_reason: 'test' });
+  assert.equal(ban.status, 200);
+  const duringBan = await req('GET', `/manager/api/cards/issued?target_iid=${WRK_IID}&status=pending`, MGR_TOKEN);
+  assert.equal(duringBan.json.slices.length, 0, 'при бане pending-срезов нет');
+
+  // снятие бана: перевыпускаются только срезы с revoked_reason='worker_banned'
+  const unban = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { banned: false });
+  assert.equal(unban.status, 200);
+  const after = await req('GET', `/manager/api/cards/issued?target_iid=${WRK_IID}&status=pending`, MGR_TOKEN);
+  const hashes = after.json.slices.map((s) => s.card_hash);
+  assert.ok(hashes.includes('hash-ban-b'), 'срез b перевыпущен');
+  assert.ok(!hashes.includes('hash-ban-a'), 'ручной revoke не воскрес');
+
+  // чистим за собой, чтобы не влиять на квотные тесты ниже
+  const ids = after.json.slices.map((s) => s.id);
+  if (ids.length) await req('POST', '/manager/api/cards/issued/revoke', MGR_TOKEN, { ids });
+});
