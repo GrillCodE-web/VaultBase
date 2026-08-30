@@ -1165,3 +1165,10 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
 - **Свободно дальше:** MGR-020 (умный слой: аномалии dual-baseline, прогноз
   выгорания пула, действия дня), DEVOPS-002 (staging), SEC-014 (локальные alert'ы
   воркера), BUG-010 (cleanup ghost-карточек).
+
+## 2026-08-30 — ✅ @main — MGR-021 кросс-верификация (59d0445/d32b7d7)
+
+- **MGR-021 закрыта параллельной сессией** (claim ba45ba7 → 59d0445 + d32b7d7): retention-engine на сервере (stats_reports 45д / hb_history 30д, env `TELEMETRY_RETENTION_DAYS`/`HB_HISTORY_RETENTION_DAYS`, min 7), golden-контракт payload v2 у воркера, матрица совместимости v1/v99 у менеджера. staging-полигон — вне объёма (DEVOPS-002, ⬜).
+- **Моя верификация недостающего:** сервер npm test **110/110** (вкл. 4 новых retention, идемпотентность и нетронутый worker_heartbeats); manager полный **36/36** (87.9s); воркер ПОЛНЫЙ cargo test **194/194** (363.8s, вкл. golden payload v2) — в отчёте d32b7d7 воркер-прогон не фигурировал, закрыто.
+- **Верифицированный код == закоммиченный:** содержимое 59d0445 совпадает с разобранным WIP (retention-engine 49 строк, тесты 79, telemetry.rs +53/+88), стык с 0fb9ceb (rollups) не конфликтует.
+- Параллельная сессия уже клеймлет **MGR-020** (7e249e0, insights.rs в работе) — её WIP не тронут.
