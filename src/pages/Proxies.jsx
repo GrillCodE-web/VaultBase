@@ -5,7 +5,6 @@ import {
   Shield,
   Plus,
   RefreshCw,
-  X,
   Upload,
   Eye,
   EyeOff,
@@ -27,7 +26,7 @@ import { buildPageNumbers, DEFAULT_PAGE_SIZE, getTotalPages } from '../utils/pag
 import { STATUS_COLORS, getDeliveryRateColor } from '../constants/colors'
 import { PROXIES_OVERSCAN } from '../constants/virtualization.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
-import { useEscapeKey } from '../hooks/useEscapeKey.js'
+import { Modal } from '../components/Modal.jsx'
 import { useAuth } from '../hooks/useAuth'
 import ProxiesUpanelTab from './Proxies/upanel'
 
@@ -68,17 +67,9 @@ function StatusBadge({ proxy, healthStatus }) {
 }
 
 function UsageStatsModal({ onClose }) {
-  useEscapeKey(onClose)
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const { toast } = usePremiumToast()
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false // FIX P1-17: Prevent state update on unmounted component
@@ -102,82 +93,75 @@ function UsageStatsModal({ onClose }) {
 
   const rateColor = rate => getDeliveryRateColor(rate)
 
+  // REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
   return (
-    <div className="modal-overlay">
-      <div
-        className="modal w-modal-md"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="proxy-stats-title"
-      >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="proxy-stats-title" className="modal-title flex items-center gap-2">
-            <BarChart2 size={15} /> Proxy Usage Stats
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={16} />
-          </button>
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="md"
+      title={
+        <span className="flex items-center gap-2">
+          <BarChart2 size={15} /> Proxy Usage Stats
+        </span>
+      }
+      footer={
+        <button onClick={onClose} className="btn btn-ghost btn-sm">
+          Close
+        </button>
+      }
+    >
+      {loading && (
+        <div className="text-center p-8 text-muted text-[13px]">
+          <Loader2 size={18} className="animate-spin inline-block mb-2" />
+          <div>Loading stats...</div>
         </div>
+      )}
 
-        {loading && (
-          <div className="text-center p-8 text-muted text-[13px]">
-            <Loader2 size={18} className="animate-spin inline-block mb-2" />
-            <div>Loading stats...</div>
-          </div>
-        )}
+      {!loading && (!stats || stats.length === 0) && (
+        <div className="text-center p-8 text-muted text-[13px]">
+          No proxy usage data found. Assign proxies to orders to see stats here.
+        </div>
+      )}
 
-        {!loading && (!stats || stats.length === 0) && (
-          <div className="text-center p-8 text-muted text-[13px]">
-            No proxy usage data found. Assign proxies to orders to see stats here.
-          </div>
-        )}
-
-        {!loading && stats && stats.length > 0 && (
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th scope="col">Proxy ID</th>
-                <th scope="col">Total Orders</th>
-                <th scope="col">Success</th>
-                <th scope="col">Declined</th>
-                <th scope="col">Success Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.map(s => {
-                const rate =
-                  s.total_orders > 0 ? Math.round((s.success_count / s.total_orders) * 100) : 0
-                const color = rateColor(rate)
-                return (
-                  <tr key={s.proxy_id}>
-                    <td className="mono text-[11px]">#{s.proxy_id}</td>
-                    <td>{s.total_orders}</td>
-                    <td className="text-success">{s.success_count}</td>
-                    <td className="text-error">{s.decline_count}</td>
-                    <td>
-                      <span className="font-semibold" style={{ color }}>
-                        {rate}%
+      {!loading && stats && stats.length > 0 && (
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th scope="col">Proxy ID</th>
+              <th scope="col">Total Orders</th>
+              <th scope="col">Success</th>
+              <th scope="col">Declined</th>
+              <th scope="col">Success Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stats.map(s => {
+              const rate =
+                s.total_orders > 0 ? Math.round((s.success_count / s.total_orders) * 100) : 0
+              const color = rateColor(rate)
+              return (
+                <tr key={s.proxy_id}>
+                  <td className="mono text-[11px]">#{s.proxy_id}</td>
+                  <td>{s.total_orders}</td>
+                  <td className="text-success">{s.success_count}</td>
+                  <td className="text-error">{s.decline_count}</td>
+                  <td>
+                    <span className="font-semibold" style={{ color }}>
+                      {rate}%
+                    </span>
+                    {rate < 40 && (
+                      <span className="ml-2 text-[10px] inline-flex items-center gap-[3px] text-error">
+                        <AlertTriangle size={10} /> High decline rate — consider replacing
                       </span>
-                      {rate < 40 && (
-                        <span className="ml-2 text-[10px] inline-flex items-center gap-[3px] text-error">
-                          <AlertTriangle size={10} /> High decline rate — consider replacing
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-
-        <div className="mt-4 text-right">
-          <button onClick={onClose} className="btn btn-ghost btn-sm">
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </Modal>
   )
 }
 
@@ -215,8 +199,8 @@ const EMPTY_PROXY = {
   notes: '',
 }
 
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
 function ProxyModal({ initial, onSave, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const [form, setForm] = useState(
     initial
@@ -252,123 +236,101 @@ function ProxyModal({ initial, onSave, onClose }) {
   }
 
   // Scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
   return (
-    <div className="modal-overlay">
-      <div
-        className="modal w-modal-sm"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="proxy-modal-title"
-      >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="proxy-modal-title" className="modal-title">
-            {isEdit ? 'Edit Proxy' : 'Add Proxy'}
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex flex-col gap-3.5">
-          {/* Host + Port */}
-          <div className="grid grid-cols-[2fr_1fr] gap-2.5">
-            <div className="form-group">
-              <label className="form-label">Host *</label>
-              <input
-                value={form.host}
-                onChange={set('host')}
-                placeholder="proxy.example.com"
-                className="form-input mono"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Port *</label>
-              <input
-                type="number"
-                value={form.port}
-                onChange={set('port')}
-                placeholder="8080"
-                className="form-input mono"
-              />
-            </div>
-          </div>
-
-          {/* Type */}
+    <Modal isOpen onClose={onClose} size="sm" title={isEdit ? 'Edit Proxy' : 'Add Proxy'}>
+      <div className="flex flex-col gap-3.5">
+        {/* Host + Port */}
+        <div className="grid grid-cols-[2fr_1fr] gap-2.5">
           <div className="form-group">
-            <label className="form-label">Type</label>
-            <div className="flex gap-1">
-              {['http', 'socks5', 'socks4', 'pptp'].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setForm(f => ({ ...f, proxy_type: t }))}
-                  className={`btn btn-sm mono flex-1 ${form.proxy_type === t ? 'btn-b' : 'btn-ghost'}`}
-                >
-                  {t.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Auth */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="form-group">
-              <label className="form-label">Username</label>
-              <input
-                value={form.username}
-                onChange={set('username')}
-                placeholder="user"
-                className="form-input mono"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <PasswordField value={form.password} onChange={set('password')} />
-            </div>
-          </div>
-
-          {/* Label + Notes */}
-          <div className="form-group">
-            <label className="form-label">Label</label>
+            <label className="form-label">Host *</label>
             <input
-              value={form.label}
-              onChange={set('label')}
-              placeholder="Residential US"
-              className="form-input"
+              value={form.host}
+              onChange={set('host')}
+              placeholder="proxy.example.com"
+              className="form-input mono"
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Notes</label>
-            <textarea
-              value={form.notes}
-              onChange={set('notes')}
-              rows={2}
-              className="form-input resize-none"
+            <label className="form-label">Port *</label>
+            <input
+              type="number"
+              value={form.port}
+              onChange={set('port')}
+              placeholder="8080"
+              className="form-input mono"
             />
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={!valid || loading}
-            className="btn btn-b w-full"
-            style={{ opacity: !valid || loading ? 0.4 : 1 }}
-          >
-            {loading ? t('email_saving') : isEdit ? t('btn_save') : t('add_proxy')}
-          </button>
         </div>
+
+        {/* Type */}
+        <div className="form-group">
+          <label className="form-label">Type</label>
+          <div className="flex gap-1">
+            {['http', 'socks5', 'socks4', 'pptp'].map(t => (
+              <button
+                key={t}
+                onClick={() => setForm(f => ({ ...f, proxy_type: t }))}
+                className={`btn btn-sm mono flex-1 ${form.proxy_type === t ? 'btn-b' : 'btn-ghost'}`}
+              >
+                {t.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Auth */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="form-group">
+            <label className="form-label">Username</label>
+            <input
+              value={form.username}
+              onChange={set('username')}
+              placeholder="user"
+              className="form-input mono"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <PasswordField value={form.password} onChange={set('password')} />
+          </div>
+        </div>
+
+        {/* Label + Notes */}
+        <div className="form-group">
+          <label className="form-label">Label</label>
+          <input
+            value={form.label}
+            onChange={set('label')}
+            placeholder="Residential US"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Notes</label>
+          <textarea
+            value={form.notes}
+            onChange={set('notes')}
+            rows={2}
+            className="form-input resize-none"
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={!valid || loading}
+          className="btn btn-b w-full"
+          style={{ opacity: !valid || loading ? 0.4 : 1 }}
+        >
+          {loading ? t('email_saving') : isEdit ? t('btn_save') : t('add_proxy')}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }
 
 // ─── Import modal ─────────────────────────────────────────────
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
 function ImportModal({ onDone, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const [raw, setRaw] = useState('')
   const [result, setResult] = useState(null)
@@ -389,92 +351,69 @@ function ImportModal({ onDone, onClose }) {
     }
   }
 
-  // Scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
   return (
-    <div className="modal-overlay">
-      <div
-        className="modal w-modal-md"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="import-proxies-title"
-      >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="import-proxies-title" className="modal-title">
-            Import Proxies
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex flex-col gap-3.5">
-          {!result ? (
-            <>
-              <div className="bg-surface border rounded-md p-[10px_14px] text-[11px] text-muted mono">
-                <div className="font-semibold mb-1.5 text-text-2">Supported formats:</div>
-                <div>host:port:user:pass</div>
-                <div>socks5://user:pass@host:port</div>
-                <div>http://host:port</div>
-              </div>
-              <textarea
-                value={raw}
-                onChange={e => setRaw(e.target.value)}
-                rows={10}
-                placeholder={
-                  '192.168.1.1:8080:user:pass\nsocks5://user:pass@proxy.com:1080\nhttp://10.0.0.1:3128'
-                }
-                className="form-input mono resize-none text-[12px]"
-              />
-              <button
-                onClick={handleImport}
-                disabled={!raw.trim() || loading}
-                className="btn btn-b w-full"
-                style={{ opacity: !raw.trim() || loading ? 0.4 : 1 }}
-              >
-                {loading ? t('proxy_importing') : t('import_proxies') + ' →'}
-              </button>
-            </>
-          ) : (
-            <div className="flex flex-col gap-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-success-bg border border-success-bg rounded-[10px] p-4 text-center">
-                  <div className="text-[28px] font-bold text-success">{result.parsed}</div>
-                  <div className="text-[11px] text-muted mt-1">{t('cc_import_done')}</div>
-                </div>
-                <div className="bg-warning-bg border border-warning-bg rounded-[10px] p-4 text-center">
-                  <div className="text-[28px] font-bold text-warning">{result.skipped}</div>
-                  <div className="text-[11px] text-muted mt-1">{t('profiles_skipped')}</div>
-                </div>
-              </div>
-              {result.errors?.length > 0 && (
-                <div className="bg-surface border rounded-md p-2.5 max-h-[120px] overflow-y-auto">
-                  {result.errors.map((e, i) => (
-                    <div key={i} className="mono text-[11px] py-[2px] text-error">
-                      {e}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  onDone()
-                  onClose()
-                }}
-                className="btn btn-g w-full"
-              >
-                Done
-              </button>
+    <Modal isOpen onClose={onClose} size="md" title="Import Proxies">
+      <div className="flex flex-col gap-3.5">
+        {!result ? (
+          <>
+            <div className="bg-surface border rounded-md p-[10px_14px] text-[11px] text-muted mono">
+              <div className="font-semibold mb-1.5 text-text-2">Supported formats:</div>
+              <div>host:port:user:pass</div>
+              <div>socks5://user:pass@host:port</div>
+              <div>http://host:port</div>
             </div>
-          )}
-        </div>
+            <textarea
+              value={raw}
+              onChange={e => setRaw(e.target.value)}
+              rows={10}
+              placeholder={
+                '192.168.1.1:8080:user:pass\nsocks5://user:pass@proxy.com:1080\nhttp://10.0.0.1:3128'
+              }
+              className="form-input mono resize-none text-[12px]"
+            />
+            <button
+              onClick={handleImport}
+              disabled={!raw.trim() || loading}
+              className="btn btn-b w-full"
+              style={{ opacity: !raw.trim() || loading ? 0.4 : 1 }}
+            >
+              {loading ? t('proxy_importing') : t('import_proxies') + ' →'}
+            </button>
+          </>
+        ) : (
+          <div className="flex flex-col gap-3.5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-success-bg border border-success-bg rounded-[10px] p-4 text-center">
+                <div className="text-[28px] font-bold text-success">{result.parsed}</div>
+                <div className="text-[11px] text-muted mt-1">{t('cc_import_done')}</div>
+              </div>
+              <div className="bg-warning-bg border border-warning-bg rounded-[10px] p-4 text-center">
+                <div className="text-[28px] font-bold text-warning">{result.skipped}</div>
+                <div className="text-[11px] text-muted mt-1">{t('profiles_skipped')}</div>
+              </div>
+            </div>
+            {result.errors?.length > 0 && (
+              <div className="bg-surface border rounded-md p-2.5 max-h-[120px] overflow-y-auto">
+                {result.errors.map((e, i) => (
+                  <div key={i} className="mono text-[11px] py-[2px] text-error">
+                    {e}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => {
+                onDone()
+                onClose()
+              }}
+              className="btn btn-g w-full"
+            >
+              Done
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }
 

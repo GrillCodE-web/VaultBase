@@ -13,7 +13,6 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle,
-  X,
   Globe,
 } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
@@ -22,11 +21,11 @@ import { useConfirm } from '../hooks/useConfirm'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { ImapFolderTree, ImapEmailList, ImapMessageViewer } from './Imap/components/index.js'
 import { ImapDomainRoutes } from './Imap/components/ImapDomainRoutes.jsx'
-import { useEscapeKey } from '../hooks/useEscapeKey.js'
+import { Modal } from '../components/Modal.jsx'
 
 // ─── IMAP Account Modal ─────────────────────────────────────────────────────
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
 function AccountModal({ account, onSave, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const [form, setForm] = useState({
     label: account?.label ?? '',
@@ -88,134 +87,120 @@ function AccountModal({ account, onSave, onClose }) {
     }
   }
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal w-modal-md"
-        onClick={e => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="modal-title">
-            {account ? t('imap_edit_account') : t('imap_add_account')}
-          </h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
-            <input
-              type="text"
-              value={form.login}
-              onChange={e => handleLoginChange(e.target.value)}
-              placeholder="you@company.com"
-              className="form-input"
-              autoFocus
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="form-group">
-              <label className="form-label">Label</label>
-              <input
-                type="text"
-                value={form.label}
-                onChange={e => set('label', e.target.value)}
-                placeholder="Work Email"
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Host</label>
-              <input
-                type="text"
-                value={form.host}
-                onChange={e => set('host', e.target.value)}
-                placeholder="imap.gmail.com"
-                className="form-input"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="form-group">
-              <label className="form-label">Port</label>
-              <input
-                type="number"
-                value={form.port}
-                onChange={e => set('port', Number(e.target.value))}
-                placeholder="993"
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Poll (sec)</label>
-              <input
-                type="number"
-                value={form.poll_interval}
-                onChange={e => set('poll_interval', Number(e.target.value))}
-                placeholder="60"
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {isEdit ? t('imap_leave_blank') : t('imap_app_password')}
-              </label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={e => set('password', e.target.value)}
-                placeholder="••••••••"
-                className="form-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        {testResult && (
-          <div
-            className={`mt-4 p-3 rounded-lg text-sm flex items-center gap-2 ${
-              testResult.ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
-            }`}
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="md"
+      title={account ? t('imap_edit_account') : t('imap_add_account')}
+      footer={
+        <>
+          <button
+            onClick={handleTest}
+            disabled={testing}
+            className="btn btn-primary btn-sm mr-auto"
           >
-            {testResult.ok ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-            {testResult.msg}
-          </div>
-        )}
-
-        <div className="flex gap-2 mt-6 pt-4 border-t border-border">
-          <button onClick={handleTest} disabled={testing} className="btn btn-primary btn-sm">
             {testing ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle size={14} />}
             {t('btn_test')}
           </button>
-          <div className="flex-1" />
           <button onClick={onClose} className="btn btn-ghost btn-sm">
             {t('btn_cancel')}
           </button>
           <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
             {saving ? t('email_saving') : t('btn_save')}
           </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="form-group">
+          <label className="form-label">Email Address</label>
+          <input
+            type="text"
+            value={form.login}
+            onChange={e => handleLoginChange(e.target.value)}
+            placeholder="you@company.com"
+            className="form-input"
+            autoFocus
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="form-group">
+            <label className="form-label">Label</label>
+            <input
+              type="text"
+              value={form.label}
+              onChange={e => set('label', e.target.value)}
+              placeholder="Work Email"
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Host</label>
+            <input
+              type="text"
+              value={form.host}
+              onChange={e => set('host', e.target.value)}
+              placeholder="imap.gmail.com"
+              className="form-input"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="form-group">
+            <label className="form-label">Port</label>
+            <input
+              type="number"
+              value={form.port}
+              onChange={e => set('port', Number(e.target.value))}
+              placeholder="993"
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Poll (sec)</label>
+            <input
+              type="number"
+              value={form.poll_interval}
+              onChange={e => set('poll_interval', Number(e.target.value))}
+              placeholder="60"
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">
+              {isEdit ? t('imap_leave_blank') : t('imap_app_password')}
+            </label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={e => set('password', e.target.value)}
+              placeholder="••••••••"
+              className="form-input"
+            />
+          </div>
         </div>
       </div>
-    </div>
+
+      {testResult && (
+        <div
+          className={`mt-4 p-3 rounded-lg text-sm flex items-center gap-2 ${
+            testResult.ok ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
+          }`}
+        >
+          {testResult.ok ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+          {testResult.msg}
+        </div>
+      )}
+    </Modal>
   )
 }
 
 // ─── Compose Modal ──────────────────────────────────────────────────────────
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
 function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onClose, onSent }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const [form, setForm] = useState({
@@ -256,83 +241,19 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
     }
   }
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal w-modal-lg"
-        onClick={e => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="modal-title flex items-center gap-2">
-            <PenSquare size={18} />
-            Compose Email
-          </h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="form-group">
-            <label className="form-label">From</label>
-            <select
-              value={form.smtp_config_id ?? ''}
-              onChange={e => set('smtp_config_id', Number(e.target.value))}
-              className="form-input"
-            >
-              {smtpConfigs.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.label} ({c.login})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">To</label>
-            <input
-              type="text"
-              value={form.to}
-              onChange={e => set('to', e.target.value)}
-              placeholder="recipient@example.com"
-              className="form-input"
-              autoFocus
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Subject</label>
-            <input
-              type="text"
-              value={form.subject}
-              onChange={e => set('subject', e.target.value)}
-              className="form-input"
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Message</label>
-            <textarea
-              value={form.body}
-              onChange={e => set('body', e.target.value)}
-              rows={10}
-              className="form-input resize-vertical font-mono text-sm"
-              placeholder="Write your message..."
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 mt-6 pt-4 border-t border-border">
-          <div className="flex-1" />
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="lg"
+      title={
+        <span className="flex items-center gap-2">
+          <PenSquare size={18} />
+          Compose Email
+        </span>
+      }
+      footer={
+        <>
           <button onClick={onClose} className="btn btn-ghost btn-sm">
             Cancel
           </button>
@@ -340,9 +261,59 @@ function ComposeModal({ smtpConfigs, defaultTo, defaultSubject, defaultBody, onC
             {sending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
             {sending ? 'Sending...' : 'Send Email'}
           </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="form-group">
+          <label className="form-label">From</label>
+          <select
+            value={form.smtp_config_id ?? ''}
+            onChange={e => set('smtp_config_id', Number(e.target.value))}
+            className="form-input"
+          >
+            {smtpConfigs.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.label} ({c.login})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">To</label>
+          <input
+            type="text"
+            value={form.to}
+            onChange={e => set('to', e.target.value)}
+            placeholder="recipient@example.com"
+            className="form-input"
+            autoFocus
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Subject</label>
+          <input
+            type="text"
+            value={form.subject}
+            onChange={e => set('subject', e.target.value)}
+            className="form-input"
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Message</label>
+          <textarea
+            value={form.body}
+            onChange={e => set('body', e.target.value)}
+            rows={10}
+            className="form-input resize-vertical font-mono text-sm"
+            placeholder="Write your message..."
+          />
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
