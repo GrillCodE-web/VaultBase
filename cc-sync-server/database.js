@@ -385,6 +385,46 @@ function migrate(db) {
     db.exec(`ALTER TABLE worker_policies ADD COLUMN wipe INTEGER NOT NULL DEFAULT 0;`);
     db.pragma('user_version = 15');
   }
+
+  // MGR-016: архитектура «воркер = потребитель». Карты создаёт ТОЛЬКО
+  // менеджер и раздаёт воркерам запечатанными срезами (X25519-пубключ
+  // воркера — зеркало manager_keys). Легаси-группы/pair-коды гасятся:
+  // существующие члены продолжают синкаться, новые группы создать нельзя.
+  // issued_card_slices — очередь доставки: сервер хранит только шифротекст.
+  if (ver < 16) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS worker_keys (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        installation_id  TEXT NOT NULL,
+        pubkey           TEXT NOT NULL,
+        key_type         TEXT NOT NULL DEFAULT 'x25519',
+        label            TEXT DEFAULT '',
+        is_active        INTEGER NOT NULL DEFAULT 1,
+        created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+        revoked_at       DATETIME
+      );
+      CREATE INDEX IF NOT EXISTS idx_worker_keys_active ON worker_keys(is_active, id);
+
+      ALTER TABLE sync_cards ADD COLUMN issued_by TEXT NOT NULL DEFAULT 'worker';
+      ALTER TABLE sync_groups ADD COLUMN is_deprecated INTEGER NOT NULL DEFAULT 0;
+
+      CREATE TABLE IF NOT EXISTS issued_card_slices (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        card_hash    TEXT NOT NULL,
+        target_iid   TEXT NOT NULL,
+        sealed_data  TEXT NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','ack','revoked')),
+        issued_by    TEXT,
+        created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        delivered_at DATETIME,
+        acked_at     DATETIME,
+        UNIQUE(card_hash, target_iid)
+      );
+      CREATE INDEX IF NOT EXISTS idx_issued_slices_target ON issued_card_slices(target_iid, status);
+
+      PRAGMA user_version = 16;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

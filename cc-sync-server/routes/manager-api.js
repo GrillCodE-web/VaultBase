@@ -525,6 +525,22 @@ router.delete('/priorities/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Worker keys (MGR-016: X25519-пубключи для запечатывания срезов карт) ─────
+
+// GET /workers/keys — активные публичключи воркеров. Менеджер запечатывает
+// срез карт именно этим ключом; выдача через POST /cards/issue (worker-cards).
+router.get('/workers/keys', (req, res) => {
+  const rows = getDb().prepare(`
+    SELECT k.id, k.installation_id, k.pubkey, k.key_type, k.label, k.created_at,
+           l.label AS worker_label
+    FROM worker_keys k
+    LEFT JOIN licenses l ON l.installation_id = k.installation_id
+    WHERE k.is_active = 1
+    ORDER BY k.id DESC
+  `).all();
+  res.json({ keys: rows });
+});
+
 // ── Manager keys (E2E sealed envelopes) ───────────────────────────────────────
 
 router.get('/keys', (req, res) => {

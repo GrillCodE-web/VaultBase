@@ -14,7 +14,7 @@
 
 const crypto = require('crypto');
 const { getDb, hashToken, isKillSwitchOn, isWsNonceRequired } = require('./database');
-const { applyCardPush, MAX_CARDS_PER_BATCH } = require('./card-push');
+const { applyCardPush, CardCreateForbiddenError, MAX_CARDS_PER_BATCH } = require('./card-push');
 const { registerViolation, isBanned, makeWindowCounter, pruneViolations, _clearViolationsForTest } = require('./rate-limit');
 
 // Map: installation_id → WebSocket
@@ -247,8 +247,14 @@ module.exports = function initWsTauri(wss, io) {
 
         let updated;
         try {
-          updated = applyCardPush(getDb(), ws.groupId, ws.installationId, cards);
+          // MGR-016: воркер — потребитель, создание карт запрещено (только
+          // обновления статусов существующих карт; новые раздаёт менеджер).
+          updated = applyCardPush(getDb(), ws.groupId, ws.installationId, cards, { allowCreate: false });
         } catch (e) {
+          if (e instanceof CardCreateForbiddenError) {
+            send(ws, { type: 'error', error: 'cards_import_disabled' });
+            return;
+          }
           console.error('[ws-tauri] card push transaction failed:', e.message);
           send(ws, { type: 'error', error: 'push_failed' });
           return;

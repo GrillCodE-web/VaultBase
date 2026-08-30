@@ -137,3 +137,46 @@ test('applyCardPush: a failing batch rolls back atomically', () => {
   // The first (valid) row must not survive the rolled-back transaction.
   assert.equal(db.get(GET_ONE, 'hash-aaaa', 'g1'), undefined);
 });
+
+// ── MGR-016: воркер = потребитель, каналы без allowCreate ────────────────────
+
+test('allowCreate:false throws cards_import_disabled for an unknown card', () => {
+  const db = makeDb();
+  assert.throws(
+    () => applyCardPush(db, 'g1', 'inst-1', [{ card_hash: 'hash-aaaa', status: 'free' }], { allowCreate: false }),
+    (e) => e.code === 'cards_import_disabled' && Array.isArray(e.hashes) && e.hashes.length === 1
+  );
+  assert.equal(db.get(GET_ONE, 'hash-aaaa', 'g1'), undefined);
+});
+
+test('allowCreate:false still allows status updates of existing cards', () => {
+  const db = makeDb();
+  applyCardPush(db, 'g1', 'inst-1', [{ card_hash: 'hash-aaaa', status: 'free', notes: 'old' }]);
+  const written = applyCardPush(db, 'g1', 'inst-2', [{ card_hash: 'hash-aaaa', status: 'in_use' }], { allowCreate: false });
+  assert.deepEqual(written, [{ card_hash: 'hash-aaaa', status: 'in_use' }]);
+  const row = db.get(GET_ONE, 'hash-aaaa', 'g1');
+  assert.equal(row.status, 'in_use');
+  assert.equal(row.updated_by, 'inst-2');
+});
+
+test('allowCreate:false rejects the whole batch when any card is new', () => {
+  const db = makeDb();
+  applyCardPush(db, 'g1', 'inst-1', [{ card_hash: 'hash-aaaa', status: 'free', notes: 'keep' }]);
+  assert.throws(
+    () => applyCardPush(db, 'g1', 'inst-2', [
+      { card_hash: 'hash-aaaa', status: 'dead', notes: 'legit update' },
+      { card_hash: 'hash-new1', status: 'in_use' },
+    ], { allowCreate: false }),
+    (e) => e.code === 'cards_import_disabled' && e.hashes.length === 1 && e.hashes[0] === 'hash-new1'
+  );
+  // Ни обновление существующей, ни вставка новой не должны примениться.
+  const row = db.get(GET_ONE, 'hash-aaaa', 'g1');
+  assert.equal(row.status, 'free');
+  assert.equal(row.notes, 'keep');
+});
+
+test('allowCreate is opt-in: default remains create-allowed (legacy admin channel)', () => {
+  const db = makeDb();
+  const written = applyCardPush(db, 'g1', 'inst-1', [{ card_hash: 'hash-aaaa', status: 'free' }]);
+  assert.equal(written.length, 1);
+});

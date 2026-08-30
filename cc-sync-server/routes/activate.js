@@ -37,10 +37,18 @@ function deriveActivationKey(installation_id, challenge) {
 
 // POST /activate
 router.post('/', activateLimiter, (req, res) => {
-  const { installation_id, challenge, activation_key } = req.body || {};
+  const { installation_id, challenge, activation_key, worker_pubkey } = req.body || {};
 
   if (!installation_id || !challenge || !activation_key) {
     return res.status(400).json({ error: 'missing_fields' });
+  }
+
+  // MGR-016: воркер может сразу прислать X25519-пубключ (менеджер запечатает
+  // для него срезы карт). Отсутствие ключа — не ошибка (легаси-клиенты);
+  // кривой формат — ошибка активации, чтобы клиент не считал ключ зарегистрированным.
+  if (worker_pubkey !== undefined
+      && (typeof worker_pubkey !== 'string' || !/^[0-9a-fA-F]{64}$/.test(worker_pubkey))) {
+    return res.status(400).json({ error: 'worker_pubkey_invalid' });
   }
 
   const db = getDb();
@@ -77,6 +85,27 @@ router.post('/', activateLimiter, (req, res) => {
       'UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE installation_id = ?'
     ).run(installation_id);
     return res.status(409).json({ error: 'already_activated' });
+  }
+
+  // MGR-016: сохраняем публичключ воркера, если он пришёл с активацией.
+  // Один активный ключ на установку (прошлый отзывается). Регистрация
+  // best-effort: сбой не срывает активацию — ключ можно зарегистрировать
+  // позже через POST /sync/worker-key/register.
+  if (worker_pubkey) {
+    try {
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE worker_keys SET is_active = 0, revoked_at = CURRENT_TIMESTAMP
+          WHERE installation_id = ? AND is_active = 1
+        `).run(installation_id);
+        db.prepare('INSERT INTO worker_keys (installation_id, pubkey, label) VALUES (?, ?, ?)')
+          .run(installation_id, worker_pubkey.toLowerCase(), 'activation');
+      })();
+      db.prepare('INSERT INTO audit_log (action, details) VALUES (?, ?)')
+        .run('worker_key_register', JSON.stringify({ installation_id, source: 'activation' }));
+    } catch (e) {
+      console.error('[activate] worker key registration failed:', e.message);
+    }
   }
 
   return res.json({ token, role: row.role || 'operator' });

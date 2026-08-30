@@ -34,6 +34,19 @@ function sanitizeCard(card) {
 }
 
 /**
+ * Error thrown when a push channel is not allowed to create cards
+ * (MGR-016: воркер = потребитель, карты создаёт только менеджер).
+ * The HTTP layer maps it to 403 cards_import_disabled.
+ */
+class CardCreateForbiddenError extends Error {
+  constructor(hashes) {
+    super('card creation is disabled on this channel');
+    this.code = 'cards_import_disabled';
+    this.hashes = hashes;
+  }
+}
+
+/**
  * Apply a batch of card updates atomically.
  *
  * The conflict resolver uses monotonic status weights (higher always wins), so a
@@ -42,9 +55,14 @@ function sanitizeCard(card) {
  * better-sqlite3 transaction. Transactions are synchronous: nothing inside the
  * transaction callback may await.
  *
+ * @param {object} [opts]
+ * @param {boolean} [opts.allowCreate=true] when false, the batch must only
+ *   update cards that already exist in this group (worker channels after
+ *   MGR-016); a batch containing an unknown card_hash is rejected whole.
  * @returns {Array<{card_hash: string, status: string}>} rows that were written
  */
-function applyCardPush(db, groupId, installationId, cards) {
+function applyCardPush(db, groupId, installationId, cards, opts = {}) {
+  const allowCreate = opts.allowCreate !== false;
   const cur = weightExpr('status');
   const inc = weightExpr('excluded.status');
   const stmt = db.prepare(`
@@ -59,10 +77,17 @@ function applyCardPush(db, groupId, installationId, cards) {
   `);
 
   return db.transaction(() => {
+    const rows = cards.map(sanitizeCard).filter(Boolean);
+    if (!allowCreate && rows.length > 0) {
+      const placeholders = rows.map(() => '?').join(',');
+      const known = new Set(db.prepare(
+        `SELECT card_hash FROM sync_cards WHERE group_id = ? AND card_hash IN (${placeholders})`
+      ).all(groupId, ...rows.map(r => r.card_hash)).map(r => r.card_hash));
+      const missing = [...new Set(rows.map(r => r.card_hash))].filter(h => !known.has(h));
+      if (missing.length > 0) throw new CardCreateForbiddenError(missing);
+    }
     const written = [];
-    for (const card of cards) {
-      const row = sanitizeCard(card);
-      if (!row) continue;
+    for (const row of rows) {
       stmt.run(row.card_hash, groupId, row.encrypted_data, row.status, row.notes, installationId);
       written.push({ card_hash: row.card_hash, status: row.status });
     }
@@ -78,4 +103,5 @@ module.exports = {
   weightExpr,
   sanitizeCard,
   applyCardPush,
+  CardCreateForbiddenError,
 };

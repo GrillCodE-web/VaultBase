@@ -85,6 +85,10 @@ app.use('/version',   require('./routes/version'));
 app.use('/update',    require('./routes/update'));
 app.use('/invite',    require('./routes/invite'));
 app.use('/sync',      require('./routes/sync'));
+// MGR-016: ключи воркеров (X25519) и доставка запечатанных срезов карт
+const workerCards = require('./routes/worker-cards');
+app.use('/manager/api', workerCards.managerRouter);
+app.use('/sync',        workerCards.workerRouter);
 // SEC-019: CSP violation reports from Tauri clients (see tauri.conf.json report-uri)
 app.use('/csp-report', require('./routes/csp-report'));
 
