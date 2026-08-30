@@ -1104,3 +1104,27 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
 - **Верификация:** воркер cargo test **193/193** (вкл. новые SLA/bin_shop и изолированные wipe-тесты); manager-app cargo test **34/34** (первый параллельный прогон упал на линковке — файл был залочен параллельным cargo из IDE; после перезапуска зелёный, затем повторно зелёный и в последовательном (169.5s), и в параллельном (46.2s) режиме). Один плавающий фейл `rollup_reports_squashes_old_month_and_no_double_count` (revenue Null) в первом прогоне не воспроизвёлся в двух контрольных — в изоляции и в полном наборе; причина не установлена, тест наблюдается.
 - **SEC-хвост прошлой сессии:** тесты wipe переведены на ядро `wipe_local_data_in` с временными каталогами — cargo test больше не может стереть реальные `%LOCALAPPDATA%\VaultBase\backups\logs`.
 - **Осталось (за UI-сессией):** таблица fleet-comparison в Analytics, воронка/дрейф на дашборде менеджера, i18n-ключи — фронт; контракт-тесты телеметрии MGR-021.
+
+## 2026-08-30 — ✅ @main — MGR-022 (UI): все 6 дыр закрыты, чеклист → ✅
+
+- **Worktree:** `manager-work`, ветка `main`. UI-слой поверх бэкенда 0fb9ceb.
+- **Analytics.jsx:** загрузка Promise.all(getAnalytics, getFleetComparison,
+  getFleetBinShop); панель воронки (funnel_taken → funnel_used → funnel_delivered
+  с used_rate/delivered_rate и rollup_hint при rollup_months>0); таблица
+  «Сравнение воркеров» (days/orders/delivery_rate/decline_rate/revenue/cards/
+  dead_ratio/drops/воронка/avg_hours_to_delivered/версия + тег version_outdated);
+  «Рейтинг операторов» из fleet.operators; флотовая теплокарта BIN×шоп
+  (мемо-матрица top 12 BIN × 8 шопов, ячейки heat-g/a/r по success_rate).
+- **Dashboard.jsx:** полоса «Дрейф версий» — группировка снапшотов по
+  app_version, semver-сортировка (cmpVer), красные теги устаревших, сводка
+  version_drift_outdated / version_drift_ok.
+- **i18n:** +17 ключей в en.js и ru.js (паритет 1:1; прежняя асимметрия
+  `yes_1` доэтапная, не трогал). Покрытие t() в обеих страницах — 65/65.
+- **manager.css:** блоки .funnel-row/.funnel-step/.funnel-arrow, .heat-*,
+  .ver-strip — на существующих токенах (--green-bg/--amber-bg/--red-bg и т.д.).
+- **Проверки:** eslint 0 errors; vite build ✓ (669 модулей, 20.7s);
+  бэкенд — воркер 193/193, менеджер 34/34 (см. запись 0fb9ceb выше).
+- **Чужой WIP не тронут:** design-mockups/, docs/CHAT_E2E.md,
+  docs/REDESIGN_05_PLAN.md, scripts/**pycache**/ остаются untracked.
+- **Осталось:** контракт-тесты телеметрии (golden payload_version) — часть
+  MGR-021, свободна; серверная retention конвертов — тоже MGR-021.
