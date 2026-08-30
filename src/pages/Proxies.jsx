@@ -315,12 +315,7 @@ function ProxyModal({ initial, onSave, onClose }) {
           />
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={!valid || loading}
-          className="btn btn-b w-full"
-          style={{ opacity: !valid || loading ? 0.4 : 1 }}
-        >
+        <button onClick={handleSave} disabled={!valid || loading} className="btn btn-b w-full">
           {loading ? t('email_saving') : isEdit ? t('btn_save') : t('add_proxy')}
         </button>
       </div>
@@ -375,7 +370,6 @@ function ImportModal({ onDone, onClose }) {
               onClick={handleImport}
               disabled={!raw.trim() || loading}
               className="btn btn-b w-full"
-              style={{ opacity: !raw.trim() || loading ? 0.4 : 1 }}
             >
               {loading ? t('proxy_importing') : t('import_proxies') + ' →'}
             </button>
@@ -757,10 +751,7 @@ export default function ProxyList() {
                 onClick={handleTestAll}
                 disabled={testingAll || proxies.length === 0}
               >
-                <RefreshCw
-                  size={13}
-                  style={{ animation: testingAll ? 'spin 1s linear infinite' : 'none' }}
-                />
+                <RefreshCw size={13} className={testingAll ? 'animate-spin' : ''} />
                 {testingAll
                   ? `${t('btn_test')} ${testAllProgress.current}/${testAllProgress.total}…`
                   : t('proxy_test_all')}
@@ -770,10 +761,7 @@ export default function ProxyList() {
                 onClick={handleCheckNow}
                 disabled={checkingHealth || proxies.length === 0}
               >
-                <Wifi
-                  size={13}
-                  style={{ animation: checkingHealth ? 'spin 1s linear infinite' : 'none' }}
-                />
+                <Wifi size={13} className={checkingHealth ? 'animate-spin' : ''} />
                 {checkingHealth ? 'Checking…' : 'Check Now'}
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => setModal('stats')}>
@@ -940,7 +928,7 @@ export default function ProxyList() {
                       >
                         <table className="tbl mb-0">
                           <tbody>
-                            <tr style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
+                            <tr className={proxy.is_blocked ? 'opacity-60' : ''}>
                               <td className="text-secondary">
                                 {proxy.label || '—'}
                                 {boundShop && (
@@ -978,7 +966,7 @@ export default function ProxyList() {
                                       <Loader2 size={12} className="animate-spin" />
                                     ) : testResults[proxy.id] === true ||
                                       testResults[proxy.id] === 'online' ? (
-                                      <Wifi size={12} style={{ color: STATUS_COLORS.success }} />
+                                      <Wifi size={12} className="text-success" />
                                     ) : testResults[proxy.id] === false ||
                                       testResults[proxy.id] === 'failed' ? (
                                       <WifiOff size={12} className="text-red-t" />
@@ -1058,7 +1046,7 @@ export default function ProxyList() {
                       if (rawResult === false || rawResult === 'failed') healthStatus = 'offline'
                       const boundShop = proxyBindings[proxy.id] || null
                       return (
-                        <tr key={proxy.id} style={{ opacity: proxy.is_blocked ? 0.6 : 1 }}>
+                        <tr key={proxy.id} className={proxy.is_blocked ? 'opacity-60' : ''}>
                           <td className="text-secondary">
                             {proxy.label || '—'}
                             {boundShop && (
@@ -1095,7 +1083,7 @@ export default function ProxyList() {
                                   <Loader2 size={12} className="animate-spin" />
                                 ) : testResults[proxy.id] === true ||
                                   testResults[proxy.id] === 'online' ? (
-                                  <Wifi size={12} style={{ color: STATUS_COLORS.success }} />
+                                  <Wifi size={12} className="text-success" />
                                 ) : testResults[proxy.id] === false ||
                                   testResults[proxy.id] === 'failed' ? (
                                   <WifiOff size={12} className="text-red-t" />

@@ -2,7 +2,7 @@
 import { formatCurrency, formatNumber } from '../../utils/formatting'
 import { getDeliveryRateColor, getExpiryColor } from '../../constants/colors'
 
-// в”Ђв”Ђв”Ђ Analytics tables в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Analytics tables ─────────────────────────────────────────
 
 export function RateBadge({ rate }) {
   return (
@@ -330,7 +330,7 @@ export function ExpiringTable({ data, onNavigate }) {
       </div>
       <div className="text-right mt-2">
         <button onClick={() => onNavigate && onNavigate('cards')} className="btn btn-ghost btn-sm">
-          View all expiring в†’
+          View all expiring →
         </button>
       </div>
     </div>

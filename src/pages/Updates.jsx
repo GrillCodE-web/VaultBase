@@ -340,8 +340,7 @@ export default function Updates() {
           style={{ background: bannerBg, border: `1px solid ${bannerBdr}` }}
         >
           <div
-            className="flex items-center justify-between"
-            style={{ marginBottom: downloadState === 'downloading' ? 8 : 0 }}
+            className={`flex items-center justify-between${downloadState === 'downloading' ? ' mb-2' : ''}`}
           >
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <span className="text-sm font-semibold shrink-0" style={{ color: bannerColor }}>
@@ -386,8 +385,8 @@ export default function Updates() {
           {downloadState === 'downloading' && (
             <div className="h-1 rounded overflow-hidden bg-color-info-bg">
               <div
-                className="h-full rounded transition-all"
-                style={{ width: `${downloadProgress}%`, backgroundColor: 'var(--blue-t)' }}
+                className="h-full rounded transition-all bg-blue-t"
+                style={{ width: `${downloadProgress}%` }}
               />
             </div>
           )}
@@ -396,10 +395,7 @@ export default function Updates() {
 
       {/* ── Already up to date ─────────────────────────────── */}
       {!updateAvailable && !loading && (
-        <div
-          className="text-xs text-muted mb-3 px-3.5 py-1.5 bg-color-success-bg rounded-md"
-          style={{ border: '1px solid var(--color-success-bg)' }}
-        >
+        <div className="text-xs text-muted mb-3 px-3.5 py-1.5 bg-color-success-bg rounded-md border border-success-bg">
           ✓ {t('upd_current_version')} v{currentVersion}
         </div>
       )}

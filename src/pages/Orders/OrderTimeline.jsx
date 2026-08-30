@@ -34,7 +34,7 @@ export function OrderTimeline({ status, updatedAt }) {
               key={step}
               className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : 'flex-0'}`}
             >
-              <div className="flex flex-col items-center gap-0\.5">
+              <div className="flex flex-col items-center gap-0.5">
                 <div
                   className={`rounded-full shrink-0 transition-all duration-200 timeline-status-dot ${
                     isCurrent ? 'timeline-status-dot-current' : ''

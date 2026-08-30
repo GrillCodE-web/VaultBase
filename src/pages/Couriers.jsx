@@ -337,19 +337,18 @@ export default function Couriers({ activeTab, onNavigate }) {
   if (stufferReady === false) {
     return (
       <div className="content">
-        <div className="empty-state" style={{ paddingTop: 64 }}>
+        <div className="empty-state pt-16">
           <div className="empty-state-icon empty-state-icon--lg">
             <Truck />
           </div>
           <div className="empty-state-title">Stuffer не подключён</div>
-          <div className="empty-state-text" style={{ maxWidth: 380 }}>
+          <div className="empty-state-text max-w-[380px]">
             Курьеры и посылки берутся из внешнего сервиса Stuffer. Укажите API-ключ в настройках,
             чтобы раздел заработал.
           </div>
           {hasPerm('manage_couriers') && (
             <button
-              className="btn btn-primary btn-sm"
-              style={{ marginTop: 16 }}
+              className="btn btn-primary btn-sm mt-4"
               onClick={() => onNavigate?.('settings')}
             >
               <SettingsIcon size={14} /> Открыть настройки

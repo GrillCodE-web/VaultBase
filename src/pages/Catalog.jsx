@@ -17,14 +17,8 @@ function ScoreBadge({ score }) {
   const risk = score >= 80 ? RISK_COLORS.low : score >= 50 ? RISK_COLORS.medium : RISK_COLORS.high
   return (
     <span
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        padding: '2px 7px',
-        borderRadius: 4,
-        background: risk.bg,
-        color: risk.color,
-      }}
+      className="text-11 font-bold px-[7px] py-0.5 rounded-md"
+      style={{ background: risk.bg, color: risk.color }}
     >
       {score}
     </span>
@@ -36,13 +30,7 @@ function ScoreBadge({ score }) {
 function CategoryBadge({ category }) {
   if (!category) return <span className="text-muted">—</span>
   return (
-    <span
-      className="text-10 font-semibold px-[7px] py-[2px] rounded"
-      style={{
-        background: STATUS_COLORS.infoBg,
-        color: STATUS_COLORS.info,
-      }}
-    >
+    <span className="text-10 font-semibold px-[7px] py-[2px] rounded bg-info-bg text-info">
       {category}
     </span>
   )
@@ -220,7 +208,7 @@ function ItemsTab() {
               <EmptyState colSpan={7} icon={<BookOpen size={38} />} title="No items found" />
             ) : (
               items.map(item => (
-                <tr key={item.id} style={{ opacity: item.stop ? 0.5 : 1 }}>
+                <tr key={item.id} className={item.stop ? 'opacity-50' : ''}>
                   <td>
                     <input
                       type="checkbox"
@@ -279,12 +267,7 @@ function ItemsTab() {
             {Array.from({ length: Math.min(pages, 7) }, (_, i) => i + 1).map(p => (
               <button
                 key={p}
-                className="btn btn-ghost btn-sm"
-                style={
-                  p === page
-                    ? { background: 'var(--accent)', color: 'var(--text)', border: 'none' }
-                    : undefined
-                }
+                className={`btn btn-ghost btn-sm${p === page ? ' bg-accent text-text border-none' : ''}`}
                 onClick={() => {
                   setPage(p)
                   load(p, search)
@@ -439,7 +422,7 @@ function ShopsTab() {
               <EmptyState colSpan={7} icon={<BookOpen size={38} />} title="No shops found" />
             ) : (
               shops.map(shop => (
-                <tr key={shop.id} style={{ opacity: shop.excluded ? 0.5 : 1 }}>
+                <tr key={shop.id} className={shop.excluded ? 'opacity-50' : ''}>
                   <td>
                     <span className="font-mono text-12">{shop.domain}</span>
                   </td>
@@ -452,14 +435,7 @@ function ShopsTab() {
                   <td>
                     {priorities[shop.domain] > 0 ? (
                       <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: '2px 7px',
-                          borderRadius: 4,
-                          background: 'var(--accent-dim)',
-                          color: 'var(--accent-text)',
-                        }}
+                        className="text-11 font-bold px-[7px] py-0.5 rounded-md bg-[var(--accent-dim)] text-[var(--accent-text)]"
                         title={`Manager priority weight: ${priorities[shop.domain]}`}
                       >
                         ★ {priorities[shop.domain]}
@@ -474,11 +450,8 @@ function ShopsTab() {
                   <td>
                     {shop.fraud_level ? (
                       <span
+                        className="text-10 font-semibold px-[7px] py-0.5 rounded-md"
                         style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: '2px 7px',
-                          borderRadius: 4,
                           background: RISK_COLORS[shop.fraud_level]?.bg || RISK_COLORS.low.bg,
                           color: RISK_COLORS[shop.fraud_level]?.color || RISK_COLORS.low.color,
                         }}
@@ -530,12 +503,7 @@ function ShopsTab() {
             {Array.from({ length: Math.min(pages, 7) }, (_, i) => i + 1).map(p => (
               <button
                 key={p}
-                className="btn btn-ghost btn-sm"
-                style={
-                  p === page
-                    ? { background: 'var(--accent)', color: 'var(--text)', border: 'none' }
-                    : undefined
-                }
+                className={`btn btn-ghost btn-sm${p === page ? ' bg-accent text-text border-none' : ''}`}
                 onClick={() => {
                   setPage(p)
                   load(p, search)

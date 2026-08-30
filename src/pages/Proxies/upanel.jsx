@@ -172,12 +172,7 @@ function ConnectionModal({ initial, onSave, onClose }) {
           />
           {t('upanel_is_active')}
         </label>
-        <button
-          onClick={handleSave}
-          disabled={!valid || loading}
-          className="btn btn-b w-full"
-          style={{ opacity: !valid || loading ? 0.4 : 1 }}
-        >
+        <button onClick={handleSave} disabled={!valid || loading} className="btn btn-b w-full">
           {loading ? t('email_saving') : isEdit ? t('btn_save') : t('upanel_add_connection')}
         </button>
       </div>
@@ -464,8 +459,7 @@ export default function ProxiesUpanelTab() {
                   setPage(1)
                   setSelectedId(Number(e.target.value) || null)
                 }}
-                className="form-input"
-                style={{ width: 'auto', minWidth: 180 }}
+                className="form-input w-auto min-w-[180px]"
                 aria-label={t('upanel_select_connection')}
               >
                 {connections.map(c => (
@@ -533,10 +527,8 @@ export default function ProxiesUpanelTab() {
                 {connections.map(c => (
                   <tr
                     key={c.id}
-                    style={{
-                      opacity: c.is_active ? 1 : 0.6,
-                      fontWeight: c.id === selectedId ? 600 : undefined,
-                    }}
+                    className={c.is_active ? '' : 'opacity-60'}
+                    style={{ fontWeight: c.id === selectedId ? 600 : undefined }}
                   >
                     <td className="text-secondary">{c.name}</td>
                     <td className="mono text-11 text-muted">{c.base_url}</td>
@@ -589,8 +581,7 @@ export default function ProxiesUpanelTab() {
               {statsEntries.slice(0, 8).map(([k, v]) => (
                 <span
                   key={k}
-                  className="mono text-10 px-2 py-[2px] rounded-[6px]"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                  className="mono text-10 px-2 py-[2px] rounded-[6px] bg-surface border border-border"
                 >
                   {k}: <span className="text-text">{String(v)}</span>
                 </span>
@@ -600,12 +591,7 @@ export default function ProxiesUpanelTab() {
 
           {/* Filters */}
           <div className="panel p-3 mb-3">
-            <div
-              className="grid gap-2"
-              style={{
-                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-              }}
-            >
+            <div className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
               <div className="form-group">
                 <label className="form-label">{t('upanel_filter_country')}</label>
                 <input
@@ -757,12 +743,9 @@ export default function ProxiesUpanelTab() {
                       <td className="mono text-11 text-muted">{s.mtu ?? '—'}</td>
                       <td>
                         <span
-                          className="mono text-10 px-2 py-[2px] rounded-[6px]"
-                          style={{
-                            color: (s.fraud_score ?? 0) >= 70 ? 'var(--red-t)' : 'var(--yellow-t)',
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                          }}
+                          className={`mono text-10 px-2 py-[2px] rounded-[6px] bg-surface border border-border ${
+                            (s.fraud_score ?? 0) >= 70 ? 'text-red-t' : 'text-yellow-t'
+                          }`}
                         >
                           {s.fraud_score ?? '—'}
                         </span>
@@ -771,9 +754,7 @@ export default function ProxiesUpanelTab() {
                       <td className="text-11 text-muted">
                         {s.updated_at ? timeAgo(s.updated_at) : '—'}
                       </td>
-                      <td className="text-11 text-muted" style={{ maxWidth: 160 }}>
-                        {s.notes || '—'}
-                      </td>
+                      <td className="text-11 text-muted max-w-[160px]">{s.notes || '—'}</td>
                       <td>
                         <div className="tbl-actions">
                           <button

@@ -99,7 +99,7 @@ function SuggestionBadge({ s }) {
   const lvl = s.level || 'info'
   return (
     <div
-      className="flex items-start gap-2 px-2\.5 py-1\.5 rounded-md text-12"
+      className="flex items-start gap-2 px-2.5 py-1.5 rounded-md text-12"
       style={{
         background: bgMap[lvl] || bgMap.info,
         color: colorMap[lvl] || colorMap.info,
@@ -370,7 +370,7 @@ function ShopModal({ initial, onSave, onClose }) {
             <label
               key={f.key}
               onClick={toggle(f.key)}
-              className="flex items-center gap-2\.5 p-[9px_12px] rounded-md cursor-pointer transition-all"
+              className="flex items-center gap-2.5 p-[9px_12px] rounded-md cursor-pointer transition-all"
               style={{
                 border: form[f.key] ? `1px solid ${f.color}40` : '1px solid var(--border)',
                 background: form[f.key] ? f.bg : 'transparent',

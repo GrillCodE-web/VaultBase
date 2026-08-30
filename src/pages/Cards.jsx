@@ -782,7 +782,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
               {t('cc_mark_dead')}
             </button>
             {enrichProgress ? (
-              <span className="text-12 text-muted inline-flex items-center gap-1\.5">
+              <span className="text-12 text-muted inline-flex items-center gap-1.5">
                 <RefreshCw size={12} className="animate-spin" />
                 {enrichProgress.done} / {enrichProgress.total}
               </span>

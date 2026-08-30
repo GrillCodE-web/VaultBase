@@ -1054,7 +1054,7 @@ export default function Settings() {
                   className="btn btn-sm btn-ghost"
                 >
                   {stufferTesting ? (
-                    <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                    <RefreshCw size={14} className="animate-spin" />
                   ) : (
                     <Activity size={14} />
                   )}
@@ -1160,7 +1160,7 @@ export default function Settings() {
               style={{ opacity: exportingBackup ? 0.6 : 1 }}
             >
               {exportingBackup ? (
-                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                <RefreshCw size={13} className="animate-spin" />
               ) : (
                 <Download size={13} />
               )}
@@ -1187,11 +1187,7 @@ export default function Settings() {
               disabled={seeding}
               className="btn btn-ghost btn-sm"
             >
-              {seeding ? (
-                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-              ) : (
-                <Database size={13} />
-              )}
+              {seeding ? <RefreshCw size={13} className="animate-spin" /> : <Database size={13} />}
               {seeding ? t('msg_loading') : t('settings_seed_btn')}
             </button>
           </div>
@@ -1214,8 +1210,7 @@ export default function Settings() {
             <div>
               {wsStatus === null ? (
                 <span className="st st-pending">
-                  <RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} />{' '}
-                  Connecting…
+                  <RefreshCw size={10} className="animate-spin" /> Connecting…
                 </span>
               ) : wsStatus.connected ? (
                 <span className="st st-active">
@@ -1223,8 +1218,7 @@ export default function Settings() {
                 </span>
               ) : wsStatus.connecting ? (
                 <span className="st st-pending">
-                  <RefreshCw size={10} style={{ animation: 'spin 1s linear infinite' }} />{' '}
-                  Connecting…
+                  <RefreshCw size={10} className="animate-spin" /> Connecting…
                 </span>
               ) : (
                 <span className="st st-dead">
@@ -1317,8 +1311,7 @@ export default function Settings() {
           </div>
           {syncGroup === null ? (
             <div className="text-muted text-12 flex items-center gap-1.5">
-              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />{' '}
-              {t('msg_loading')}
+              <RefreshCw size={14} className="animate-spin" /> {t('msg_loading')}
             </div>
           ) : syncGroup === false ? (
             <div>
@@ -1360,9 +1353,7 @@ export default function Settings() {
                       disabled={syncGroupLoading || !newGroupName.trim()}
                       className="btn btn-b btn-sm"
                     >
-                      {syncGroupLoading ? (
-                        <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                      ) : null}
+                      {syncGroupLoading ? <RefreshCw size={13} className="animate-spin" /> : null}
                       Create
                     </button>
                   </div>
@@ -1391,9 +1382,7 @@ export default function Settings() {
                       disabled={syncGroupLoading || joinCode.length < 6}
                       className="btn btn-b btn-sm"
                     >
-                      {syncGroupLoading ? (
-                        <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                      ) : null}
+                      {syncGroupLoading ? <RefreshCw size={13} className="animate-spin" /> : null}
                       Join
                     </button>
                   </div>
@@ -1463,14 +1452,7 @@ export default function Settings() {
             </div>
           ) : (
             <div className="flex items-center gap-2 text-12">
-              <RefreshCw
-                size={13}
-                className="shrink-0"
-                style={{
-                  animation: 'spin 1s linear infinite',
-                  color: 'var(--blue-t)',
-                }}
-              />
+              <RefreshCw size={13} className="shrink-0 animate-spin text-blue-t" />
               <span className="text-muted">Syncing catalog from server…</span>
             </div>
           )}
@@ -1532,7 +1514,7 @@ export default function Settings() {
                 className="btn btn-r btn-sm"
               >
                 {savingOwnPw ? (
-                  <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                  <RefreshCw size={13} className="animate-spin" />
                 ) : (
                   <Shield size={13} />
                 )}
@@ -1569,7 +1551,7 @@ export default function Settings() {
             />
             <button onClick={loadAuditLog} disabled={auditLoading} className="btn btn-b btn-sm">
               {auditLoading ? (
-                <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                <RefreshCw size={13} className="animate-spin" />
               ) : (
                 <RefreshCw size={13} />
               )}
