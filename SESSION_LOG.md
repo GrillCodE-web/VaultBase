@@ -1396,3 +1396,47 @@ audit_frontend 0 сирот / 0 фантомов. E2E не прогонялис�
 - **Чужое не тронуто:** backend (`src-tauri/**`, `cc-sync-server/**`), WIP @main
   в manager-work. Локальный шум snapshots.test.jsx.snap (CRLF, пустой дифф) в
   коммиты не включён.
+
+---
+
+## 2026-08-31, ~01:00 — @main: MGR-018 (этапы C/D, воркер+фронт) + REDESIGN-05-5B1/5B2 (воркер)
+
+Поднята оборванная вахта @main-2 (обрыв 2026-08-30 ~15:53): весь её WIP
+(MGR-018 C/D воркер+фронт, 5B1/5B2 воркер) найден целым в дереве, недобран
+коммитом b7a6ba6.
+
+**Состояние при подъёме:** WIP не компилился — 4 ошибки (3× `log_event` с
+`Some(id)` i64 вместо `Some(&id.to_string())` в `_profiles.rs:669/708/744`;
+`?` внутри Option-замыкания в `stuffer.rs` — переписано на match). Исправлено.
+Плюс доделка: три новые команды slices (`proxy_slices_fetch`,
+`email_slices_fetch`, `config_shares_fetch`) не были зарегистрированы в
+`main.rs` — зарегистрированы (все 8 новых команд теперь в invoke_handler).
+
+**Закоммичено:** `e129790` (21 файл, +1553/−304) — срезы прокси/email
+(managed_mode-гейт, дедуп, asset_pool_links, миграция v25), выпил import_cards
+(команда/parse_cards/перм ADD_CARDS_MANUAL/e2e-мок, PERMISSIONS.md 19→18),
+share-ключи stuffer (config_shares_fetch + WS config_shared, read-only
+Settings, stuffer_config_managed), BIN-enrich у менеджера (bin_enrich_managed),
+пул карт pool.rs (5B1-воркер, миграция v24 card_pool_links), панель воркеров
+group_panel.rs + cron group_stats_publish 5 мин (5B2-воркер).
+Чеклист: `1884726` — 5B1/5B2 → ✅ @main (сервер был 21fe31d/2c211b7).
+
+**Проверки:** cargo check 0 ошибок (1-я попытка 12 мин висела на локе
+зависшего IDE-cargo — убит 19140/21988, далее чисто), cargo test 228/228
+(518с; было 215, +13 новых из slices/pool/group_panel), eslint 0 errors
+(4 baseline-warning), vitest 337/337 + повтор src/utils 120/120 после
+prettier-хука, audit_frontend чист. НЕ запущено: полный e2e (не затронут
+кроме мока), серверные тесты (server не трогал).
+
+**MGR-018 остаётся 🔄 @main:** закрыты этапы A–D, осталось: выпил
+групп/pair-кодов/NOSYNC из воркера (sync.rs/auth.rs/state.rs —
+`git grep -i pair_code|sync_group|NOSYNC`) и 17track share-ключи от
+менеджера (по образцу stuffer_shared_*).
+
+**Не моё, не трогал:** snapshots.test.jsx.snap (EOL-шум @r), untracked
+design-mockups/, docs/CHAT_E2E.md, docs/REDESIGN_05_PLAN.md,
+scripts/**pycache**/. ВАЖНО: `git grep` в этой сессии показал `commands/sync.rs`
+с pair_code — он в дереве есть, не путать с выпиленным pair-UI.
+
+**Дальше по потоку @main:** REDESIGN-05-5B3 (трекинг-поллер) или 5B4
+(E2E-чат) — оба ⬜; либо добор MGR-018 (выпил pair-кодов/групп/NOSYNC).
