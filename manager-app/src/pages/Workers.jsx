@@ -11,6 +11,19 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
   const [quotaOrders, setQuotaOrders] = useState(worker.quota_orders_day ?? '')
   const [minVersion, setMinVersion] = useState(worker.min_version || '')
   const [exempt, setExempt] = useState(worker.version_exempt === 1)
+  const [canAddCards, setCanAddCards] = useState(worker.can_add_cards === 1)
+  const [paused, setPaused] = useState(worker.paused === 1)
+  const [cooldown, setCooldown] = useState(worker.decline_cooldown_minutes ?? '')
+  const [maxProfiles, setMaxProfiles] = useState(worker.max_profiles ?? '')
+  const [maxDrops, setMaxDrops] = useState(worker.max_drops ?? '')
+  const [blacklist, setBlacklist] = useState(() => {
+    try {
+      const arr = JSON.parse(worker.shop_blacklist || '[]')
+      return Array.isArray(arr) ? arr.join(', ') : ''
+    } catch {
+      return ''
+    }
+  })
   const [perms, setPerms] = useState(() => {
     try {
       return worker.permissions_override
@@ -47,6 +60,14 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
       quota_orders_day: quotaOrders === '' ? null : Number(quotaOrders),
       min_version: minVersion.trim() || null,
       version_exempt: exempt,
+      can_add_cards: canAddCards,
+      paused,
+      decline_cooldown_minutes: cooldown === '' ? null : Number(cooldown),
+      max_profiles: maxProfiles === '' ? null : Number(maxProfiles),
+      max_drops: maxDrops === '' ? null : Number(maxDrops),
+      shop_blacklist: blacklist.trim()
+        ? blacklist.split(',').map((d) => d.trim()).filter(Boolean)
+        : null,
     }
     try {
       const r = await api('POST', `/manager/api/workers/${worker.installation_id}/policy`, body)
@@ -63,10 +84,55 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
     }
   }
 
+  const applyPreset = async (name) => {
+    setBusy(true)
+    setError('')
+    try {
+      const r = await api('POST', `/manager/api/workers/${worker.installation_id}/policy`, { preset: name })
+      if (r.status !== 200) {
+        setError(`${t('err_policy_validation')} (${r.body?.error || r.status})`)
+        return
+      }
+      const p = r.body?.policy || {}
+      setBanned(p.banned === 1)
+      setReason(p.banned_reason || '')
+      setBanUntil('')
+      setQuotaCards(p.quota_cards_day ?? '')
+      setQuotaOrders(p.quota_orders_day ?? '')
+      setMinVersion(p.min_version || '')
+      setExempt(p.version_exempt === 1)
+      setCanAddCards(p.can_add_cards === 1)
+      setPaused(p.paused === 1)
+      setCooldown(p.decline_cooldown_minutes ?? '')
+      setMaxProfiles(p.max_profiles ?? '')
+      setMaxDrops(p.max_drops ?? '')
+      try {
+        const arr = JSON.parse(p.shop_blacklist || '[]')
+        setBlacklist(Array.isArray(arr) ? arr.join(', ') : '')
+      } catch {
+        setBlacklist('')
+      }
+      onChanged()
+    } catch (e) {
+      setError(`${t('err_generic')} (${e})`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <h3>{t('policy_title')} — {worker.label || worker.installation_id.slice(0, 12)}</h3>
+
+        <div className="field">
+          <label>{t('policy_preset')}</label>
+          <div className="btn-row">
+            <button className="btn small" disabled={busy} onClick={() => applyPreset('novice')}>{t('policy_preset_novice')}</button>
+            <button className="btn small" disabled={busy} onClick={() => applyPreset('trusted')}>{t('policy_preset_trusted')}</button>
+            <button className="btn small" disabled={busy} onClick={() => applyPreset('probation')}>{t('policy_preset_probation')}</button>
+          </div>
+        </div>
 
         <div className="field">
           <label>{t('policy_ban')}</label>
@@ -118,6 +184,41 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
             )}
           </div>
         )}
+
+        <div className="field-row">
+          <div className="field">
+            <label>{t('policy_paused')}</label>
+            <button className="btn" onClick={() => setPaused(!paused)}>
+              {paused ? t('yes') : t('no')}
+            </button>
+          </div>
+          <div className="field">
+            <label>{t('policy_can_add_cards')}</label>
+            <button className="btn" onClick={() => setCanAddCards(!canAddCards)}>
+              {canAddCards ? t('yes') : t('no')}
+            </button>
+          </div>
+        </div>
+
+        <div className="field-row">
+          <div className="field">
+            <label>{t('policy_cooldown')}</label>
+            <input type="number" min="0" value={cooldown} onChange={(e) => setCooldown(e.target.value)} placeholder="—" />
+          </div>
+          <div className="field">
+            <label>{t('policy_max_profiles')}</label>
+            <input type="number" min="0" value={maxProfiles} onChange={(e) => setMaxProfiles(e.target.value)} placeholder="—" />
+          </div>
+          <div className="field">
+            <label>{t('policy_max_drops')}</label>
+            <input type="number" min="0" value={maxDrops} onChange={(e) => setMaxDrops(e.target.value)} placeholder="—" />
+          </div>
+        </div>
+
+        <div className="field">
+          <label>{t('policy_shop_blacklist')}</label>
+          <input className="mono" value={blacklist} onChange={(e) => setBlacklist(e.target.value)} placeholder="shop1.com, shop2.net" />
+        </div>
 
         <div className="field-row">
           <div className="field">
@@ -401,6 +502,9 @@ export default function Workers({ navParams }) {
                           : isOnline(w.hb_last_seen)
                             ? <span className="tag green">{t('status_online')}</span>
                             : <span className="tag red">{t('status_offline')}</span>}
+                      {w.paused === 1 && w.is_active !== 0 && !banned && (
+                        <span className="tag amber" style={{ marginLeft: 6 }}>{t('status_paused')}</span>
+                      )}
                     </td>
                     <td>{fmtRelative(w.hb_last_seen || w.last_seen, lang)}</td>
                     <td>

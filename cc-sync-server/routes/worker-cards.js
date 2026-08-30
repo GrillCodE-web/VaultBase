@@ -84,6 +84,34 @@ managerRouter.post('/cards/issue', (req, res) => {
   const hasKey = db.prepare('SELECT 1 FROM worker_keys WHERE installation_id = ? AND is_active = 1').get(target_iid);
   if (!hasKey) return res.status(409).json({ error: 'worker_key_not_registered' });
 
+  // MGR-019: пауза воркера — срезы не выдаются. Закреплённое у воркера
+  // остаётся; менеджер может забрать в пул через /cards/issued/revoke.
+  const pol = db.prepare('SELECT paused, banned, ban_until FROM worker_policies WHERE installation_id = ?').get(target_iid);
+  if (pol && pol.banned === 1 && (pol.ban_until === null || pol.ban_until > new Date().toISOString())) {
+    return res.status(403).json({ error: 'worker_banned' });
+  }
+  if (pol && pol.paused === 1) {
+    return res.status(403).json({ error: 'worker_paused' });
+  }
+
+  // MGR-019: квота карт/день — жёсткий потолок выдачи за сутки (UTC).
+  // quota_cards_day = NULL → без лимита; 0 → сегодня больше не выдаём.
+  const quota = db.prepare('SELECT quota_cards_day FROM worker_policies WHERE installation_id = ?').get(target_iid);
+  if (quota && quota.quota_cards_day !== null) {
+    const issuedToday = db.prepare(`
+      SELECT COUNT(*) AS n FROM issued_card_slices
+      WHERE target_iid = ? AND created_at >= datetime('now','start of day')
+        AND status != 'revoked'
+    `).get(target_iid).n;
+    if (issuedToday + slices.length > quota.quota_cards_day) {
+      return res.status(429).json({
+        error: 'quota_cards_exceeded',
+        quota: quota.quota_cards_day,
+        issued_today: issuedToday,
+      });
+    }
+  }
+
   db.transaction(() => {
     const stmt = db.prepare(`
       INSERT INTO issued_card_slices (card_hash, target_iid, sealed_data, status, issued_by, created_at)

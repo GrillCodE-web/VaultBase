@@ -462,6 +462,24 @@ function migrate(db) {
       PRAGMA user_version = 17;
     `);
   }
+
+  // MGR-019: расширенные политики воркера. can_add_cards — жёсткий запрет
+  // создания карт (дублирует allowCreate:false на sync-слое, но видим
+  // менеджеру и воркеру как политика). paused — воркеру не выдаются срезы,
+  // закреплённое остаётся. decline_cooldown_minutes — окно тишины после
+  // деклайна. max_profiles/max_drops — лимиты сущностей. shop_blacklist —
+  // JSON-массив доменов шопов, выключенных для воркера.
+  if (ver < 18) {
+    db.exec(`
+      ALTER TABLE worker_policies ADD COLUMN can_add_cards INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE worker_policies ADD COLUMN paused INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE worker_policies ADD COLUMN decline_cooldown_minutes INTEGER;
+      ALTER TABLE worker_policies ADD COLUMN max_profiles INTEGER;
+      ALTER TABLE worker_policies ADD COLUMN max_drops INTEGER;
+      ALTER TABLE worker_policies ADD COLUMN shop_blacklist TEXT;
+      PRAGMA user_version = 18;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

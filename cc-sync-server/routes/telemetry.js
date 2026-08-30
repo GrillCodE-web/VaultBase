@@ -34,7 +34,8 @@ function getPolicy(db, iid) {
   const row = db.prepare(`
     SELECT banned, banned_reason, ban_until, permissions_override,
            quota_cards_day, quota_orders_day, min_version, version_exempt,
-           force_logout, wipe, updated_by, updated_at
+           force_logout, wipe, can_add_cards, paused, decline_cooldown_minutes,
+           max_profiles, max_drops, shop_blacklist, updated_by, updated_at
     FROM worker_policies WHERE installation_id = ?
   `).get(iid);
   return row || {
@@ -48,6 +49,12 @@ function getPolicy(db, iid) {
     version_exempt: 0,
     force_logout: 0,
     wipe: 0,
+    can_add_cards: 0,
+    paused: 0,
+    decline_cooldown_minutes: null,
+    max_profiles: null,
+    max_drops: null,
+    shop_blacklist: null,
     updated_by: null,
     updated_at: null,
   };

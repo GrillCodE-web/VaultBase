@@ -630,3 +630,67 @@ test('remote wipe: manager sets flag, worker sees it in policy, ack clears it', 
   ).get().n;
   assert.ok(audited >= 1, `expected audited remote wipe, got ${audited}`);
 });
+
+// ── MGR-019: расширенные политики ────────────────────────────────────────────
+
+test('policy: новые поля (can_add_cards/paused/cooldown/limits/shop_blacklist) сохраняются и возвращаются', async () => {
+  const r = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, {
+    can_add_cards: false,
+    paused: false,
+    decline_cooldown_minutes: 90,
+    max_profiles: 7,
+    max_drops: 3,
+    shop_blacklist: ['Evil-Shop.com', 'bad.example', 'bad.example'],
+  });
+  assert.equal(r.status, 200);
+  const p = r.json.policy;
+  assert.equal(p.can_add_cards, 0);
+  assert.equal(p.paused, 0);
+  assert.equal(p.decline_cooldown_minutes, 90);
+  assert.equal(p.max_profiles, 7);
+  assert.equal(p.max_drops, 3);
+  assert.deepEqual(JSON.parse(p.shop_blacklist), ['evil-shop.com', 'bad.example'], 'домены нормализованы и дедуплицированы');
+
+  // воркер видит политику через /api/telemetry/policy
+  const wp = await req('GET', '/api/telemetry/policy', WRK_TOKEN);
+  assert.equal(wp.json.policy.decline_cooldown_minutes, 90);
+  assert.equal(wp.json.policy.max_profiles, 7);
+  assert.deepEqual(JSON.parse(wp.json.policy.shop_blacklist), ['evil-shop.com', 'bad.example']);
+
+  // сброс обратно в null
+  const reset = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, {
+    decline_cooldown_minutes: null, max_profiles: null, max_drops: null, shop_blacklist: null,
+  });
+  assert.equal(reset.json.policy.decline_cooldown_minutes, null);
+  assert.equal(reset.json.policy.shop_blacklist, null);
+});
+
+test('policy: пресеты novice/trusted/probation раскрываются на сервере', async () => {
+  const bad = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { preset: 'nope' });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.json.error, 'preset_invalid');
+
+  const novice = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { preset: 'novice' });
+  assert.equal(novice.status, 200);
+  assert.equal(novice.json.policy.quota_cards_day, 10);
+  assert.equal(novice.json.policy.decline_cooldown_minutes, 60);
+  assert.equal(novice.json.policy.max_profiles, 5);
+
+  // пресет + точечное переопределение тем же запросом
+  const novicePlus = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { preset: 'novice', max_profiles: 9 });
+  assert.equal(novicePlus.json.policy.max_profiles, 9);
+  assert.equal(novicePlus.json.policy.quota_cards_day, 10, 'остальные поля пресета сохранились');
+
+  const trusted = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { preset: 'trusted' });
+  assert.equal(trusted.json.policy.quota_cards_day, null);
+  assert.equal(trusted.json.policy.decline_cooldown_minutes, null);
+
+  const probation = await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { preset: 'probation' });
+  assert.equal(probation.json.policy.quota_cards_day, 3);
+  assert.equal(probation.json.policy.decline_cooldown_minutes, 180);
+
+  // вернуть дефолт
+  await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { preset: 'trusted' });
+});
+
+

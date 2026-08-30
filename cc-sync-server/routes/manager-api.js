@@ -41,24 +41,47 @@ function normalizeIsoToDb(value) {
   return t;
 }
 
+const POLICY_DEFAULTS = {
+  banned: 0,
+  banned_reason: null,
+  ban_until: null,
+  permissions_override: null,
+  quota_cards_day: null,
+  quota_orders_day: null,
+  min_version: null,
+  version_exempt: 0,
+  force_logout: 0,
+  wipe: 0,
+  can_add_cards: 0,
+  paused: 0,
+  decline_cooldown_minutes: null,
+  max_profiles: null,
+  max_drops: null,
+  shop_blacklist: null,
+};
+
 function getPolicy(db, iid) {
   const row = db.prepare('SELECT * FROM worker_policies WHERE installation_id = ?').get(iid);
-  return row || {
-    installation_id: iid,
-    banned: 0,
-    banned_reason: null,
-    ban_until: null,
-    permissions_override: null,
-    quota_cards_day: null,
-    quota_orders_day: null,
-    min_version: null,
-    version_exempt: 0,
-    force_logout: 0,
-    wipe: 0,
-    updated_by: null,
-    updated_at: null,
-  };
+  return row || { installation_id: iid, ...POLICY_DEFAULTS, updated_by: null, updated_at: null };
 }
+
+// MGR-019: пресеты политик. Применяются через тот же POST /policy — сервер
+// раскрывает preset в конкретный набор полей; менеджеру не нужно знать
+// детали каждого флага. null = «не ограничено».
+const POLICY_PRESETS = {
+  novice: {
+    can_add_cards: 0, paused: 0, quota_cards_day: 10, quota_orders_day: 20,
+    decline_cooldown_minutes: 60, max_profiles: 5, max_drops: 5, min_version: null,
+  },
+  trusted: {
+    can_add_cards: 0, paused: 0, quota_cards_day: null, quota_orders_day: null,
+    decline_cooldown_minutes: null, max_profiles: null, max_drops: null, min_version: null,
+  },
+  probation: {
+    can_add_cards: 0, paused: 0, quota_cards_day: 3, quota_orders_day: 5,
+    decline_cooldown_minutes: 180, max_profiles: 2, max_drops: 2, min_version: null,
+  },
+};
 
 // ── Overview ──────────────────────────────────────────────────────────────────
 
@@ -113,7 +136,8 @@ router.get('/workers', (req, res) => {
            hb.last_seen AS hb_last_seen, hb.envelope AS hb_envelope, hb.key_id AS hb_key_id,
            hb.received_at AS hb_received_at,
            p.banned, p.banned_reason, p.ban_until, p.permissions_override,
-           p.quota_cards_day, p.quota_orders_day, p.min_version, p.version_exempt, p.force_logout, p.wipe
+           p.quota_cards_day, p.quota_orders_day, p.min_version, p.version_exempt, p.force_logout, p.wipe,
+           p.can_add_cards, p.paused, p.decline_cooldown_minutes, p.max_profiles, p.max_drops, p.shop_blacklist
     FROM licenses l
     LEFT JOIN worker_heartbeats hb ON hb.installation_id = l.installation_id
     LEFT JOIN worker_policies p ON p.installation_id = l.installation_id
@@ -143,7 +167,21 @@ router.post('/workers/:iid/policy', (req, res) => {
     min_version: cur.min_version,
     version_exempt: cur.version_exempt,
     force_logout: cur.force_logout,
+    can_add_cards: cur.can_add_cards,
+    paused: cur.paused,
+    decline_cooldown_minutes: cur.decline_cooldown_minutes,
+    max_profiles: cur.max_profiles,
+    max_drops: cur.max_drops,
+    shop_blacklist: cur.shop_blacklist,
   };
+
+  // MGR-019: пресет раскрывается первым, поверх него можно передать точечные
+  // поля тем же запросом (banned/paused/...). Неизвестный пресет — 400.
+  if (b.preset !== undefined) {
+    const p = POLICY_PRESETS[b.preset];
+    if (!p) return res.status(400).json({ error: 'preset_invalid', presets: Object.keys(POLICY_PRESETS) });
+    Object.assign(next, p);
+  }
 
   if (b.banned !== undefined) {
     if (typeof b.banned !== 'boolean') return res.status(400).json({ error: 'banned_must_be_boolean' });
@@ -201,14 +239,52 @@ router.post('/workers/:iid/policy', (req, res) => {
     if (typeof b.force_logout !== 'boolean') return res.status(400).json({ error: 'force_logout_must_be_boolean' });
     next.force_logout = b.force_logout ? 1 : 0;
   }
+  // MGR-019: новые поля политик
+  for (const f of ['can_add_cards', 'paused']) {
+    if (b[f] !== undefined) {
+      if (typeof b[f] !== 'boolean') return res.status(400).json({ error: `${f}_must_be_boolean` });
+      next[f] = b[f] ? 1 : 0;
+    }
+  }
+  for (const f of ['decline_cooldown_minutes', 'max_profiles', 'max_drops']) {
+    if (b[f] !== undefined) {
+      if (b[f] === null) {
+        next[f] = null;
+      } else {
+        const n = Number(b[f]);
+        if (!Number.isInteger(n) || n < 0 || n > 100000) return res.status(400).json({ error: `${f}_invalid` });
+        next[f] = n;
+      }
+    }
+  }
+  if (b.shop_blacklist !== undefined) {
+    if (b.shop_blacklist === null) {
+      next.shop_blacklist = null;
+    } else {
+      if (!Array.isArray(b.shop_blacklist) || b.shop_blacklist.length > 200) {
+        return res.status(400).json({ error: 'shop_blacklist_invalid' });
+      }
+      const clean = [];
+      for (const d of b.shop_blacklist) {
+        if (typeof d !== 'string' || !/^[a-z0-9][a-z0-9.-]{0,252}$/i.test(d)) {
+          return res.status(400).json({ error: 'shop_blacklist_domain_invalid' });
+        }
+        clean.push(d.toLowerCase());
+      }
+      next.shop_blacklist = JSON.stringify([...new Set(clean)]);
+    }
+  }
 
   db.prepare(`
     INSERT INTO worker_policies (installation_id, banned, banned_reason, ban_until,
       permissions_override, quota_cards_day, quota_orders_day, min_version,
-      version_exempt, force_logout, updated_by, updated_at)
+      version_exempt, force_logout, can_add_cards, paused,
+      decline_cooldown_minutes, max_profiles, max_drops, shop_blacklist,
+      updated_by, updated_at)
     VALUES (@iid, @banned, @banned_reason, @ban_until, @permissions_override,
       @quota_cards_day, @quota_orders_day, @min_version, @version_exempt,
-      @force_logout, @updated_by, CURRENT_TIMESTAMP)
+      @force_logout, @can_add_cards, @paused, @decline_cooldown_minutes,
+      @max_profiles, @max_drops, @shop_blacklist, @updated_by, CURRENT_TIMESTAMP)
     ON CONFLICT(installation_id) DO UPDATE SET
       banned = excluded.banned,
       banned_reason = excluded.banned_reason,
@@ -219,6 +295,12 @@ router.post('/workers/:iid/policy', (req, res) => {
       min_version = excluded.min_version,
       version_exempt = excluded.version_exempt,
       force_logout = excluded.force_logout,
+      can_add_cards = excluded.can_add_cards,
+      paused = excluded.paused,
+      decline_cooldown_minutes = excluded.decline_cooldown_minutes,
+      max_profiles = excluded.max_profiles,
+      max_drops = excluded.max_drops,
+      shop_blacklist = excluded.shop_blacklist,
       updated_by = excluded.updated_by,
       updated_at = CURRENT_TIMESTAMP
   `).run({ iid, updated_by: req.installationId, ...next });

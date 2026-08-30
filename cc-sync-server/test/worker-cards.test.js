@@ -275,3 +275,50 @@ test('audit trail records key registrations and card issues', () => {
   assert.ok((byAction.worker_key_register || 0) >= 1);
   assert.ok((byAction.manager_cards_issue || 0) >= 1);
 });
+
+// ── MGR-019: политики воркера на выдаче ──────────────────────────────────────
+
+test('policy: пауза блокирует выдачу срезов (worker_paused), revoke продолжает работать', async () => {
+  const slice = { card_hash: 'hash-pause-1', sealed_data: 'sealed-pause-0000001' };
+  const okIssue = await req('POST', '/manager/api/cards/issue', MGR_TOKEN, { target_iid: WRK_IID, slices: [slice] });
+  assert.equal(okIssue.status, 201, `issue до паузы: ${okIssue.text}`);
+
+  await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { paused: true });
+  const paused = await req('POST', '/manager/api/cards/issue', MGR_TOKEN, {
+    target_iid: WRK_IID, slices: [{ card_hash: 'hash-pause-2', sealed_data: 'sealed-pause-0000002' }],
+  });
+  assert.equal(paused.status, 403);
+  assert.equal(paused.json.error, 'worker_paused');
+
+  // revoke (забрать в пул) паузой не блокируется
+  const list = await req('GET', `/manager/api/cards/issued?target_iid=${WRK_IID}`, MGR_TOKEN);
+  const mine = list.json.slices.find(s => s.card_hash === 'hash-pause-1');
+  assert.ok(mine, 'срез hash-pause-1 виден менеджеру');
+  const revoke = await req('POST', '/manager/api/cards/issued/revoke', MGR_TOKEN, { ids: [mine.id] });
+  assert.equal(revoke.status, 200);
+
+  await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { paused: false });
+  const unpaused = await req('POST', '/manager/api/cards/issue', MGR_TOKEN, {
+    target_iid: WRK_IID, slices: [{ card_hash: 'hash-pause-2', sealed_data: 'sealed-pause-0000002' }],
+  });
+  assert.equal(unpaused.status, 201);
+});
+
+test('policy: квота карт/день ограничивает выдачу (quota_cards_exceeded)', async () => {
+  // квота 0: сегодня уже что-то выдавалось ранее тестов — любая выдача сверх 0 запрещена
+  await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { quota_cards_day: 0 });
+  const over = await req('POST', '/manager/api/cards/issue', MGR_TOKEN, {
+    target_iid: WRK_IID, slices: [{ card_hash: 'hash-quota-1', sealed_data: 'sealed-quota-0000001' }],
+  });
+  assert.equal(over.status, 429);
+  assert.equal(over.json.error, 'quota_cards_exceeded');
+  assert.equal(over.json.quota, 0);
+  assert.ok(over.json.issued_today >= 0);
+
+  // снять квоту — выдача снова проходит
+  await req('POST', `/manager/api/workers/${WRK_IID}/policy`, MGR_TOKEN, { quota_cards_day: null });
+  const ok = await req('POST', '/manager/api/cards/issue', MGR_TOKEN, {
+    target_iid: WRK_IID, slices: [{ card_hash: 'hash-quota-1', sealed_data: 'sealed-quota-0000001' }],
+  });
+  assert.equal(ok.status, 201);
+});
