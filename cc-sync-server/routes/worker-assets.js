@@ -22,7 +22,9 @@ const MAX_SLICES_PER_ISSUE = 200;
 const MAX_SEALED_LEN = 16 * 1024;
 const MAX_ASSET_HASH_LEN = 128;
 const ASSET_KINDS = ['proxy', 'email'];
-const CONFIG_KINDS = ['stuffer'];
+// MGR-018 (этап E2): + 'track17' — share-ключ 17track от менеджера (воркер
+// применяет его в приоритете над локальным tracking_api_key).
+const CONFIG_KINDS = ['stuffer', 'track17'];
 const SLICE_STATUSES = ['pending', 'delivered', 'ack', 'revoked'];
 
 const managerRouter = express.Router();

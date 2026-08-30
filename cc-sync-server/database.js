@@ -603,6 +603,35 @@ function migrate(db) {
       PRAGMA user_version = 22;
     `);
   }
+
+  // MGR-018 (этап E2): share-ключи 17track от менеджера. CHECK kind
+  // расширяется ('stuffer' → + 'track17'); SQLite не умеет ALTER CHECK —
+  // пересборка таблицы с копированием строк.
+  if (ver < 23) {
+    db.exec(`
+      CREATE TABLE worker_config_shares_new (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind         TEXT NOT NULL CHECK (kind IN ('stuffer','track17')),
+        target_iid   TEXT NOT NULL,
+        sealed_data  TEXT NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','ack','revoked')),
+        issued_by    TEXT,
+        created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        delivered_at DATETIME,
+        acked_at     DATETIME,
+        revoked_at   DATETIME,
+        UNIQUE(kind, target_iid)
+      );
+      INSERT INTO worker_config_shares_new
+        (id, kind, target_iid, sealed_data, status, issued_by, created_at, delivered_at, acked_at, revoked_at)
+        SELECT id, kind, target_iid, sealed_data, status, issued_by, created_at, delivered_at, acked_at, revoked_at
+        FROM worker_config_shares;
+      DROP TABLE worker_config_shares;
+      ALTER TABLE worker_config_shares_new RENAME TO worker_config_shares;
+
+      PRAGMA user_version = 23;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

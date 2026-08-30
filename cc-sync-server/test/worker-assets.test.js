@@ -241,3 +241,39 @@ test('audit trail фиксирует issue и share', () => {
   assert.ok((byAction.manager_assets_issue || 0) >= 1);
   assert.ok((byAction.manager_config_share || 0) >= 1);
 });
+
+// ── MGR-018 (этап E2): share-ключи 17track ───────────────────────────────────
+
+test('config share track17: выдача → доставка → ack; kind независим от stuffer', async () => {
+  const share = await req('POST', '/manager/api/config/share', MGR_TOKEN, {
+    target_iid: WRK_IID, kind: 'track17', sealed_data: 'sealed-track17-key-v1',
+  });
+  assert.equal(share.status, 201);
+  assert.equal(share.json.kind, 'track17');
+
+  const fetched = await req('GET', '/sync/config/shares?kind=track17', WRK_TOKEN);
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.json.shares.length, 1);
+  assert.equal(fetched.json.shares[0].kind, 'track17');
+  assert.equal(fetched.json.shares[0].sealed_data, 'sealed-track17-key-v1');
+
+  // слоты (kind, target_iid) независимы: track17 не затирает stuffer-конверт
+  const stufferShare = await req('POST', '/manager/api/config/share', MGR_TOKEN, {
+    target_iid: WRK_IID, kind: 'stuffer', sealed_data: 'sealed-stuffer-key-v4',
+  });
+  assert.equal(stufferShare.status, 201);
+  const all = await req('GET', '/sync/config/shares', WRK_TOKEN);
+  assert.equal(all.json.shares.length, 2);
+
+  const track17only = await req('GET', '/sync/config/shares?kind=track17', WRK_TOKEN);
+  const ack = await req('POST', '/sync/config/shares/ack', WRK_TOKEN, {
+    ids: [track17only.json.shares[0].id],
+  });
+  assert.equal(ack.json.acked, 1);
+  const afterAck = await req('GET', '/sync/config/shares?kind=track17', WRK_TOKEN);
+  assert.equal(afterAck.json.shares.length, 0);
+
+  const managerView = await req('GET', `/manager/api/config/shares?kind=track17&target_iid=${WRK_IID}`, MGR_TOKEN);
+  assert.equal(managerView.json.shares.length, 1);
+  assert.equal(managerView.json.shares[0].status, 'ack');
+});
