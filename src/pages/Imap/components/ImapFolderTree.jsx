@@ -26,7 +26,7 @@ export function ImapFolderTree({
   return (
     <div className="w-[220px] shrink-0 border-r flex flex-col overflow-y-auto bg-surface">
       <div className="p-[10px_12px] border-b flex justify-between items-center">
-        <span className="text-[12px] font-semibold text-muted">ACCOUNTS</span>
+        <span className="text-12 font-semibold text-muted">ACCOUNTS</span>
         <button
           onClick={onAddImap}
           className="btn btn-ghost btn-sm p-[2px_6px]"
@@ -45,13 +45,13 @@ export function ImapFolderTree({
           }`}
         >
           <Inbox size={13} className="shrink-0 text-blue" />
-          <span className="text-[12px] flex-1 font-semibold">All Inboxes</span>
+          <span className="text-12 flex-1 font-semibold">All Inboxes</span>
           {allUnread > 0 && <span className="unread-badge">{allUnread}</span>}
         </div>
       )}
 
       {accounts.length === 0 && (
-        <div className="p-[20px_12px] text-center text-[12px] text-muted">
+        <div className="p-[20px_12px] text-center text-12 text-muted">
           No accounts
           <br />
           <button onClick={onAddImap} className="btn btn-g btn-sm mt-2">
@@ -91,7 +91,7 @@ export function ImapFolderTree({
                 size={13}
                 className={`shrink-0 folder-icon ${acc.is_active ? 'active' : 'inactive'}`}
               />
-              <span className="text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+              <span className="text-12 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                 {acc.label}
               </span>
               {failCount > 0 && (
@@ -108,7 +108,7 @@ export function ImapFolderTree({
             {expanded && (
               <div className="pl-2">
                 {loadingFolders[acc.id] ? (
-                  <div className="p-[6px_12px] text-[11px] text-muted">{t('msg_loading')}</div>
+                  <div className="p-[6px_12px] text-11 text-muted">{t('msg_loading')}</div>
                 ) : folders.length === 0 ? (
                   ['INBOX'].map(f => (
                     <ImapFolderRow

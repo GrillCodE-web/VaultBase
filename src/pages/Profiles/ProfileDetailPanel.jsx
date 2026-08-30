@@ -174,7 +174,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
         <div className="p-5 border-r border-border">
           <div className="flex items-center gap-2 mb-4">
             <CreditCard size={14} className="text-blue-t" />
-            <span className="text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="text-10 uppercase tracking-[0.1em] text-muted">
               {t('section_card')}
             </span>
           </div>
@@ -194,9 +194,9 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
               [t('cc_col_status'), card.status || '—'],
             ].map(([label, val]) => (
               <div key={label} className="flex items-center justify-between">
-                <span className="text-[11px] text-muted">{label}</span>
+                <span className="text-11 text-muted">{label}</span>
                 <span
-                  className="text-[12px] mono"
+                  className="text-12 mono"
                   style={{
                     color:
                       label === t('cc_col_status')
@@ -212,7 +212,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
           {/* Notes */}
           <div className="pt-4 mt-4 border-t border-border">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] text-muted">{t('cc_col_notes')}</span>
+              <span className="text-11 text-muted">{t('cc_col_notes')}</span>
               {!editNotes && (
                 <button
                   onClick={() => setEditNotes(true)}
@@ -229,7 +229,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full box-border bg-surface border rounded p-\[8px_12px\] text-[12px] text-text outline-none resize-none"
+                  className="w-full box-border bg-surface border rounded p-\[8px_12px\] text-12 text-text outline-none resize-none"
                 />
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setEditNotes(false)} className="btn btn-ghost btn-sm">
@@ -241,7 +241,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                 </div>
               </div>
             ) : (
-              <p className="text-[12px] text-muted italic m-0">{notes || t('no_notes')}</p>
+              <p className="text-12 text-muted italic m-0">{notes || t('no_notes')}</p>
             )}
           </div>
         </div>
@@ -251,7 +251,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <MapPin size={14} className="text-green-t" />
-              <span className="text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="text-10 uppercase tracking-[0.1em] text-muted">
                 {t('section_shipping')}
               </span>
             </div>
@@ -294,7 +294,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
 
           <div className="flex flex-col gap-2 max-h-[288px] overflow-y-auto pr-1">
             {drops.length === 0 && !addingDrop && (
-              <div className="text-center py-6 text-muted text-[12px]">
+              <div className="text-center py-6 text-muted text-12">
                 <MapPin size={24} className="block opacity-30 mx-auto mb-2" />
                 No shipping addresses
               </div>
@@ -321,16 +321,16 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                           {drop.is_primary && (
                             <Star size={11} className="text-green-t fill-green-t shrink-0" />
                           )}
-                          <span className="text-[12px] font-medium text-text overflow-hidden text-ellipsis whitespace-nowrap">
+                          <span className="text-12 font-medium text-text overflow-hidden text-ellipsis whitespace-nowrap">
                             {drop.recipient_name}
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted leading-[1.5] m-0">
+                        <p className="text-11 text-muted leading-[1.5] m-0">
                           {drop.address}, {drop.city}
                           {drop.state ? `, ${drop.state}` : ''} {drop.zip}, {drop.country}
                         </p>
                         {drop.phone && (
-                          <p className="text-[11px] text-muted mt-0.5 mb-0">{drop.phone}</p>
+                          <p className="text-11 text-muted mt-0.5 mb-0">{drop.phone}</p>
                         )}
                       </div>
                       <div className="flex gap-1 shrink-0">
@@ -371,7 +371,7 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Package size={14} className="text-blue-t" />
-              <span className="text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="text-10 uppercase tracking-[0.1em] text-muted">
                 {t('section_orders')}
               </span>
             </div>
@@ -383,14 +383,14 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
             </button>
           </div>
           {ltvData && (
-            <div className="text-[11px] text-muted mb-2.5 mono">
+            <div className="text-11 text-muted mb-2.5 mono">
               LTV: ${Number(ltvData.total).toFixed(2)} | {ltvData.orders} orders | Avg $
               {Number(ltvData.avg).toFixed(2)}
             </div>
           )}
           <div className="flex flex-col max-h-[288px] overflow-y-auto pr-1">
             {orders.length === 0 && (
-              <div className="text-center py-6 text-muted text-[12px]">
+              <div className="text-center py-6 text-muted text-12">
                 <Package size={24} className="block opacity-30 mx-auto mb-2" />
                 No orders yet
               </div>
@@ -402,17 +402,17 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                     <span className={`st ${ORDER_STATUS_CSS[o.status] ?? 'st-archive'}`}>
                       {o.status}
                     </span>
-                    <span className="text-[12px] text-text">{o.shop_name || '—'}</span>
+                    <span className="text-12 text-text">{o.shop_name || '—'}</span>
                   </div>
                   {o.tracking_number && (
-                    <p className="text-[10px] font-mono text-muted m-0">{o.tracking_number}</p>
+                    <p className="text-10 font-mono text-muted m-0">{o.tracking_number}</p>
                   )}
                 </div>
                 <div className="text-right">
                   {o.total_amount != null && (
-                    <p className="text-[12px] text-text m-0">${o.total_amount.toFixed(2)}</p>
+                    <p className="text-12 text-text m-0">${o.total_amount.toFixed(2)}</p>
                   )}
-                  <p className="text-[10px] text-muted m-0">{o.created_at?.slice(0, 10)}</p>
+                  <p className="text-10 text-muted m-0">{o.created_at?.slice(0, 10)}</p>
                 </div>
               </div>
             ))}

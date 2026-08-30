@@ -168,7 +168,7 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
                 {badge.label}
               </span>
             )}
-            <span className="mono text-[12px]">{displayNum}</span>
+            <span className="mono text-12">{displayNum}</span>
             {!rev && canReveal && (
               <button
                 onClick={e => {
@@ -356,7 +356,7 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
         <td className="text-text-2">
           {card.card_type || '—'}
           {card.card_level && (
-            <span className="ml-1 text-[11px] text-muted manrope">{card.card_level}</span>
+            <span className="ml-1 text-11 text-muted manrope">{card.card_level}</span>
           )}
         </td>
       )}
@@ -470,8 +470,8 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
         <td onClick={e => e.stopPropagation()}>
           {(() => {
             const h = getCardHealth(card)
-            if (!h) return <span className="text-muted text-[11px] manrope">—</span>
-            return <span className={`st ${h.cls} text-[10px] manrope`}>{h.label}</span>
+            if (!h) return <span className="text-muted text-11 manrope">—</span>
+            return <span className={`st ${h.cls} text-10 manrope`}>{h.label}</span>
           })()}
         </td>
       )}
@@ -485,15 +485,15 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
 
       {/* Created */}
       {visibleCols.includes('created') && (
-        <td className="text-muted text-[11px] whitespace-nowrap mono">{card.created_at}</td>
+        <td className="text-muted text-11 whitespace-nowrap mono">{card.created_at}</td>
       )}
 
       {/* Email / IP / email_cc */}
       {visibleCols.includes('email_cc') && (
-        <td className="text-[11px] text-text-2 manrope">{rev?.email || '—'}</td>
+        <td className="text-11 text-text-2 manrope">{rev?.email || '—'}</td>
       )}
       {visibleCols.includes('ip') && (
-        <td className="text-[11px] text-text-2 mono">
+        <td className="text-11 text-text-2 mono">
           {rev?.ip_address || card.ip_address ? (
             <span className="ip-badge" title="IP address from log">
               🌐 {rev?.ip_address || card.ip_address}

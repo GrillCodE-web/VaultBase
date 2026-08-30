@@ -110,13 +110,13 @@ export function ImapDomainRoutes({ accounts, onClose, onError }) {
         </div>
 
         {routes.length === 0 ? (
-          <div className="text-center text-[12px] text-muted py-6">{t('imap_domain_empty')}</div>
+          <div className="text-center text-12 text-muted py-6">{t('imap_domain_empty')}</div>
         ) : (
           <div className="flex flex-col">
             {routes.map(r => (
               <div
                 key={r.domain}
-                className="flex items-center gap-2 py-2 border-b border-border last:border-b-0 text-[12px]"
+                className="flex items-center gap-2 py-2 border-b border-border last:border-b-0 text-12"
               >
                 <span className="font-semibold text-text">{r.domain}</span>
                 <ArrowRight size={12} className="text-muted shrink-0" />

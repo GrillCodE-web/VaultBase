@@ -37,7 +37,7 @@ function CategoryBadge({ category }) {
   if (!category) return <span className="text-muted">—</span>
   return (
     <span
-      className="text-[10px] font-semibold px-[7px] py-[2px] rounded"
+      className="text-10 font-semibold px-[7px] py-[2px] rounded"
       style={{
         background: STATUS_COLORS.infoBg,
         color: STATUS_COLORS.info,
@@ -177,7 +177,7 @@ function ItemsTab() {
           onChange={e => handleSearch(e.target.value)}
           placeholder="Search by name or ASIN…"
         />
-        <span className="text-[12px] text-muted ml-1">{total} items</span>
+        <span className="text-12 text-muted ml-1">{total} items</span>
         {selected.size > 0 && (
           <button className="btn btn-r btn-sm" onClick={handleDeleteSelected}>
             Delete {selected.size} selected
@@ -230,10 +230,10 @@ function ItemsTab() {
                     />
                   </td>
                   <td>
-                    <span className="font-medium text-[13px]">{item.name}</span>
+                    <span className="font-medium text-13">{item.name}</span>
                   </td>
                   <td>
-                    <span className="font-mono text-muted text-[11px]">{item.asin || '—'}</span>
+                    <span className="font-mono text-muted text-11">{item.asin || '—'}</span>
                   </td>
                   <td className="font-mono">
                     {item.price != null ? `$${item.price.toFixed(2)}` : '—'}
@@ -260,7 +260,7 @@ function ItemsTab() {
 
       {/* Pagination */}
       {pages > 1 && (
-        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted">
+        <div className="flex items-center justify-between mt-2.5 text-11 text-muted">
           <span>
             Showing {items.length} of {total}
           </span>
@@ -415,7 +415,7 @@ function ShopsTab() {
           onChange={e => handleSearch(e.target.value)}
           placeholder="Search by domain…"
         />
-        <span className="text-[12px] text-muted ml-1">{total} shops</span>
+        <span className="text-12 text-muted ml-1">{total} shops</span>
       </div>
 
       {/* Table */}
@@ -441,7 +441,7 @@ function ShopsTab() {
               shops.map(shop => (
                 <tr key={shop.id} style={{ opacity: shop.excluded ? 0.5 : 1 }}>
                   <td>
-                    <span className="font-mono text-[12px]">{shop.domain}</span>
+                    <span className="font-mono text-12">{shop.domain}</span>
                   </td>
                   <td>
                     <CategoryBadge category={shop.category} />
@@ -469,7 +469,7 @@ function ShopsTab() {
                     )}
                   </td>
                   <td>
-                    <span className="text-[13px]">{shop.ship_us ? '✓' : '✗'}</span>
+                    <span className="text-13">{shop.ship_us ? '✓' : '✗'}</span>
                   </td>
                   <td>
                     {shop.fraud_level ? (
@@ -511,7 +511,7 @@ function ShopsTab() {
 
       {/* Pagination */}
       {pages > 1 && (
-        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted">
+        <div className="flex items-center justify-between mt-2.5 text-11 text-muted">
           <span>
             Showing {shops.length} of {total}
           </span>

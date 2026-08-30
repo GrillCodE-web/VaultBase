@@ -14,7 +14,7 @@ export function RateBadge({ rate }) {
 
 export function BanksTable({ data }) {
   const { t } = useLang()
-  if (!data?.length) return <p className="text-[11px] text-muted py-2">{t('msg_no_data')}</p>
+  if (!data?.length) return <p className="text-11 text-muted py-2">{t('msg_no_data')}</p>
   return (
     <div className="overflow-x-auto">
       <table className="tbl w-full">
@@ -139,7 +139,7 @@ export function CountryHeatBar({ data }) {
 
 export function CountryTable({ data }) {
   const { t } = useLang()
-  if (!data?.length) return <p className="text-[11px] text-muted py-2">{t('msg_no_data')}</p>
+  if (!data?.length) return <p className="text-11 text-muted py-2">{t('msg_no_data')}</p>
   return (
     <div>
       <CountryHeatBar data={data} />
@@ -181,7 +181,7 @@ export function CountryTable({ data }) {
 
 export function SourceTable({ data }) {
   const { t } = useLang()
-  if (!data?.length) return <p className="text-[11px] text-muted py-2">{t('msg_no_data')}</p>
+  if (!data?.length) return <p className="text-11 text-muted py-2">{t('msg_no_data')}</p>
   return (
     <div className="overflow-x-auto">
       <table className="tbl w-full">
@@ -223,7 +223,7 @@ export function SourceTable({ data }) {
 // P2-DOMAIN: Domain Statistics Table
 export function DomainTable({ data }) {
   const { t } = useLang()
-  if (!data?.length) return <p className="text-[11px] text-muted py-2">{t('msg_no_data')}</p>
+  if (!data?.length) return <p className="text-11 text-muted py-2">{t('msg_no_data')}</p>
   return (
     <div className="overflow-x-auto">
       <table className="tbl w-full">
@@ -275,7 +275,7 @@ export function DomainTable({ data }) {
 export function BinPerfTable({ data }) {
   const { t } = useLang()
   if (!data?.length)
-    return <p className="text-[11px] text-muted py-2">{t('dash_not_enough_data_yet')}</p>
+    return <p className="text-11 text-muted py-2">{t('dash_not_enough_data_yet')}</p>
   return (
     <div className="overflow-x-auto">
       <table className="tbl w-full">
@@ -293,7 +293,7 @@ export function BinPerfTable({ data }) {
         <tbody>
           {data.map(b => (
             <tr key={b.bin}>
-              <td className="mono text-[12px]">{b.bin}</td>
+              <td className="mono text-12">{b.bin}</td>
               <td className="text-text-2">{b.bank_name || '—'}</td>
               <td className="text-right">{b.total_orders}</td>
               <td className="text-right text-green-t">{b.delivered}</td>
@@ -317,8 +317,7 @@ export function BinPerfTable({ data }) {
 
 export function ExpiringTable({ data, onNavigate }) {
   const { t } = useLang()
-  if (!data?.length)
-    return <p className="text-[11px] text-muted py-2">{t('dashboard_no_expiring')}</p>
+  if (!data?.length) return <p className="text-11 text-muted py-2">{t('dashboard_no_expiring')}</p>
   return (
     <div>
       <div className="overflow-x-auto">

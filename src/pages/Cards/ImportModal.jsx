@@ -205,13 +205,13 @@ export function ImportModal({ onClose, onImported, initialRaw = '' }) {
         {/* Step 1 */}
         {step === 1 && (
           <div className="flex flex-col gap-3.5">
-            <p className="text-muted text-[12px] m-0">{t('cc_import_step1_hint')}</p>
+            <p className="text-muted text-12 m-0">{t('cc_import_step1_hint')}</p>
             <textarea
               value={raw}
               onChange={e => setRaw(e.target.value)}
               placeholder="4111111111111111|12/26|123|JOHN SMITH|john@example.com..."
               rows={10}
-              className="form-input font-mono resize-none text-[12px]"
+              className="form-input font-mono resize-none text-12"
             />
             <div className="form-group">
               <label className="form-label">{t('cc_import_source_label')}</label>
@@ -259,7 +259,7 @@ export function ImportModal({ onClose, onImported, initialRaw = '' }) {
         {/* Step 2 — preview with expiry validation highlight */}
         {step === 2 && preview && (
           <div className="flex flex-col gap-3.5">
-            <p className="text-muted text-[12px] m-0">{t('cc_import_step2_hint')}</p>
+            <p className="text-muted text-12 m-0">{t('cc_import_step2_hint')}</p>
             <div className="panel p-0 overflow-x-auto">
               <table className="tbl">
                 <thead>
@@ -324,16 +324,16 @@ export function ImportModal({ onClose, onImported, initialRaw = '' }) {
         {/* Step 3 — mapping */}
         {step === 3 && preview && (
           <div className="flex flex-col gap-2.5">
-            <p className="text-muted text-[12px] m-0">{t('cc_import_step3_hint')}</p>
+            <p className="text-muted text-12 m-0">{t('cc_import_step3_hint')}</p>
             {Array.from({ length: colCount }).map((_, ci) => (
               <div
                 key={ci}
                 className="flex items-center gap-[10px] p-[10px_12px] bg-surface rounded-[7px] border border-border"
               >
-                <div className="w-[22px] h-[22px] rounded-[5px] bg-border flex items-center justify-center text-[11px] text-muted flex-shrink-0">
+                <div className="w-[22px] h-[22px] rounded-[5px] bg-border flex items-center justify-center text-11 text-muted flex-shrink-0">
                   {ci + 1}
                 </div>
-                <div className="flex-1 font-mono text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap">
+                <div className="flex-1 font-mono text-11 text-muted overflow-hidden text-ellipsis whitespace-nowrap">
                   {preview.preview_rows[0]?.[ci] ?? '—'}
                 </div>
                 <select
@@ -362,10 +362,8 @@ export function ImportModal({ onClose, onImported, initialRaw = '' }) {
                   border: '1px solid var(--color-success-bg)',
                 }}
               >
-                <p className="text-green-t font-semibold text-[13px] mb-[6px]">
-                  {t('cc_import_done')}
-                </p>
-                <div className="flex gap-5 text-[12px] text-muted">
+                <p className="text-green-t font-semibold text-13 mb-[6px]">{t('cc_import_done')}</p>
+                <div className="flex gap-5 text-12 text-muted">
                   <span>
                     ✓ {t('imported')}: <strong className="text-green-t">{result.imported}</strong>
                   </span>

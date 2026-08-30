@@ -36,7 +36,7 @@ export function LoadingOverlay({ message = 'Loading...' }) {
       }}
     >
       <LoadingSpinner size={32} label={message} />
-      {message && <div className="text-text-2 text-[14px]">{message}</div>}
+      {message && <div className="text-text-2 text-14">{message}</div>}
     </div>
   )
 }
@@ -77,7 +77,7 @@ export function ProgressBar({ progress = 0, showLabel = false }) {
         />
       </div>
       {showLabel && (
-        <div className="mt-1 text-[11px] text-text-3 text-right">{Math.round(progress)}%</div>
+        <div className="mt-1 text-11 text-text-3 text-right">{Math.round(progress)}%</div>
       )}
     </div>
   )

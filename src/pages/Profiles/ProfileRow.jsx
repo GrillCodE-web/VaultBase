@@ -87,19 +87,19 @@ export const ProfileRow = React.memo(
             className="accent-accent"
           />
         </td>
-        <td className="text-[12px] text-muted">{isExpanded ? '▾' : '▸'}</td>
+        <td className="text-12 text-muted">{isExpanded ? '▾' : '▸'}</td>
         <td>
-          <span className="font-mono text-[11px] text-muted">{shortId(p.id)}</span>
-          {p.holder_masked && <div className="text-[12px]">{p.holder_masked}</div>}
+          <span className="font-mono text-11 text-muted">{shortId(p.id)}</span>
+          {p.holder_masked && <div className="text-12">{p.holder_masked}</div>}
         </td>
         <td>
-          <span className="font-mono text-[11px]">
+          <span className="font-mono text-11">
             {p.bin ? p.bin.slice(0, 4) : '••••'}••••{p.last4 || '????'}
           </span>
         </td>
-        <td className="text-[11px] text-text-2">{p.card_type || '—'}</td>
-        <td className="text-[12px] text-muted">{p.bank_name || '—'}</td>
-        <td className="text-[12px] text-muted">{p.country || '—'}</td>
+        <td className="text-11 text-text-2">{p.card_type || '—'}</td>
+        <td className="text-12 text-muted">{p.bank_name || '—'}</td>
+        <td className="text-12 text-muted">{p.country || '—'}</td>
         <td>
           <span className={`st ${cardStatusCss}`}>{rawStatus}</span>
         </td>
@@ -112,14 +112,14 @@ export const ProfileRow = React.memo(
         >
           {p.drop_count}
         </td>
-        <td className="text-[12px] text-muted">{p.order_count}</td>
+        <td className="text-12 text-muted">{p.order_count}</td>
         <td
-          className="text-[11px] text-muted max-w-[110px] overflow-hidden text-ellipsis whitespace-nowrap"
+          className="text-11 text-muted max-w-[110px] overflow-hidden text-ellipsis whitespace-nowrap"
           title={p.notes ?? ''}
         >
           {p.notes || '—'}
         </td>
-        <td className="text-[11px] text-muted whitespace-nowrap">{p.created_at?.slice(0, 10)}</td>
+        <td className="text-11 text-muted whitespace-nowrap">{p.created_at?.slice(0, 10)}</td>
         <td onClick={e => e.stopPropagation()}>
           <div className="tbl-actions">
             <button

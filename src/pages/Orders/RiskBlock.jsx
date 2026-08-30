@@ -16,7 +16,7 @@ export function RiskBlock({ result, loading }) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border text-[12px] text-muted">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border text-12 text-muted">
         <div className="rounded-full shrink-0 w-3 h-3 border-[1.5px] border-border-hi border-t-text-2 animate-spin" />
         {t('risk_checking')}
       </div>
@@ -74,7 +74,7 @@ export function RiskBlock({ result, loading }) {
     >
       <button
         onClick={() => result.warnings?.length && setOpen(o => !o)}
-        className={`flex items-center justify-between w-full px-3 py-2 text-[12px] bg-transparent border-none text-text ${
+        className={`flex items-center justify-between w-full px-3 py-2 text-12 bg-transparent border-none text-text ${
           result.warnings?.length ? 'cursor-pointer' : 'cursor-default'
         }`}
       >
@@ -101,7 +101,7 @@ export function RiskBlock({ result, loading }) {
             {c.label}
           </span>
           {result.offline && (
-            <span className="flex items-center gap-1 text-[11px] risk-offline-text">
+            <span className="flex items-center gap-1 text-11 risk-offline-text">
               <Wifi size={11} /> {t('license_offline')}
             </span>
           )}
@@ -118,7 +118,7 @@ export function RiskBlock({ result, loading }) {
           {result.warnings.map((w, i) => (
             <div
               key={i}
-              className={`flex items-start gap-2 px-3 py-2 text-[12px] ${
+              className={`flex items-start gap-2 px-3 py-2 text-12 ${
                 i < result.warnings.length - 1 ? 'border-b border-border' : ''
               }`}
             >

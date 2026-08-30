@@ -126,7 +126,7 @@ export function ActionsMenu({ items = [], align = 'right' }) {
                     btnRef.current?.focus()
                   }
                 }}
-                className={`actions-menu-item w-full p-[7px_12px] border-none bg-transparent text-left cursor-pointer text-[12px] flex items-center gap-2 ${item.danger ? 'text-red-t' : 'text-text'} ${focusedIndex === i ? 'bg-hover' : ''}`}
+                className={`actions-menu-item w-full p-[7px_12px] border-none bg-transparent text-left cursor-pointer text-12 flex items-center gap-2 ${item.danger ? 'text-red-t' : 'text-text'} ${focusedIndex === i ? 'bg-hover' : ''}`}
               >
                 {Icon && <Icon size={14} className="icon-sm flex-shrink-0 opacity-80" />}
                 {item.label}

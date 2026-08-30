@@ -264,7 +264,7 @@ export default function CommandPalette({ onClose, onNavigate, actions = [], navI
             </div>
           )}
           {!q && flat.length === 0 && (
-            <div className="search-empty text-[11px]">{t('app_type_to_search')}</div>
+            <div className="search-empty text-11">{t('app_type_to_search')}</div>
           )}
         </div>
 

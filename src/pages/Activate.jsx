@@ -106,7 +106,7 @@ export default function Activate({ onActivated }) {
           <div className="auth-logo-icon activate border">
             <ShieldCheck size={28} />
           </div>
-          <h1 className="auth-title text-[18px]">{t('activate_title') || 'Activation Required'}</h1>
+          <h1 className="auth-title text-18">{t('activate_title') || 'Activation Required'}</h1>
           <p className="auth-sub">
             {t('activate_subtitle') || 'This copy of VaultBase must be activated.'}
           </p>
@@ -114,11 +114,11 @@ export default function Activate({ onActivated }) {
 
         {/* Installation Code Block */}
         <div className="bg-inset border rounded-[10px] p-4 mb-5">
-          <p className="text-[11px] text-muted mb-3">
+          <p className="text-11 text-muted mb-3">
             {t('activate_your_code') || 'Your installation code:'}
           </p>
           <div className="flex items-center gap-3 mb-3">
-            <span className="flex-1 text-center text-[18px] mono font-bold tracking-widest select-all activation-code-display">
+            <span className="flex-1 text-center text-18 mono font-bold tracking-widest select-all activation-code-display">
               {challengeCode || t('msg_loading')}
             </span>
             <button
@@ -136,9 +136,9 @@ export default function Activate({ onActivated }) {
           </div>
           {installationId && (
             <div className="border-t pt-[10px]">
-              <p className="text-[11px] text-muted mb-[6px]">Installation ID:</p>
+              <p className="text-11 text-muted mb-[6px]">Installation ID:</p>
               <div className="flex items-center gap-2">
-                <span className="mono flex-1 text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap select-all">
+                <span className="mono flex-1 text-11 text-muted overflow-hidden text-ellipsis whitespace-nowrap select-all">
                   {installationId}
                 </span>
                 <button onClick={handleCopyId} className="btn btn-ghost btn-sm shrink-0">
@@ -150,7 +150,7 @@ export default function Activate({ onActivated }) {
         </div>
 
         {/* Instruction */}
-        <p className="text-[13px] text-center mb-5 leading-[1.6] text-text-2">
+        <p className="text-13 text-center mb-5 leading-[1.6] text-text-2">
           {t('activate_instruction') ||
             'Send this code to your administrator to receive an activation key.'}
         </p>
@@ -181,9 +181,9 @@ export default function Activate({ onActivated }) {
               onBlur={e => (e.target.style.borderColor = error ? 'var(--red)' : 'var(--border)')}
             />
           </div>
-          {error && <p className="mt-[6px] text-[11px] text-red">{error}</p>}
+          {error && <p className="mt-[6px] text-11 text-red">{error}</p>}
           {success && (
-            <p className="mt-[6px] text-[11px] text-success font-medium">
+            <p className="mt-[6px] text-11 text-success font-medium">
               {t('activate_success') || 'Activated! Loading...'}
             </p>
           )}

@@ -139,7 +139,7 @@ exports[`ProgressBar snapshots > half with label 1`] = `
     />
   </div>
   <div
-    class="mt-1 text-[11px] text-text-3 text-right"
+    class="mt-1 text-11 text-text-3 text-right"
   >
     50
     %

@@ -122,7 +122,7 @@ function InlineTrackingCell({ orderId, value, onSaved }) {
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          className="input input-sm font-mono text-[10px] w-28"
+          className="input input-sm font-mono text-10 w-28"
           placeholder="tracking #"
           disabled={saving}
         />
@@ -143,7 +143,7 @@ function InlineTrackingCell({ orderId, value, onSaved }) {
 
   return (
     <div className="flex items-center gap-1 group" onClick={e => e.stopPropagation()}>
-      <span className="font-mono text-[10px] text-muted">{value ?? '—'}</span>
+      <span className="font-mono text-10 text-muted">{value ?? '—'}</span>
       <button
         className="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 transition-opacity"
         onClick={startEdit}
@@ -216,14 +216,14 @@ export const OrderRow = React.memo(
             </label>
           </td>
           <td>
-            <span className="font-mono text-[11px]">
+            <span className="font-mono text-11">
               {order.order_number || `#${order.id}`}
               {order.order_number && <CopyNumberBtn value={order.order_number} />}
             </span>
           </td>
           <td>
-            <div className="text-[12px]">{order.holder_masked || '—'}</div>
-            <div className="font-mono text-[10px] text-muted">•••{order.last4 || '????'}</div>
+            <div className="text-12">{order.holder_masked || '—'}</div>
+            <div className="font-mono text-10 text-muted">•••{order.last4 || '????'}</div>
           </td>
           <td>{order.shop_name || '—'}</td>
           <td>
@@ -244,16 +244,16 @@ export const OrderRow = React.memo(
               onSaved={val => onTrackingUpdate?.(order.id, val)}
             />
           </td>
-          <td className="text-[11px] text-muted">{order.carrier ?? '—'}</td>
-          <td className="text-[11px] text-muted">{order.proxy_label ?? '—'}</td>
-          <td className="text-[11px] text-muted">{order.email_addr ?? '—'}</td>
+          <td className="text-11 text-muted">{order.carrier ?? '—'}</td>
+          <td className="text-11 text-muted">{order.proxy_label ?? '—'}</td>
+          <td className="text-11 text-muted">{order.email_addr ?? '—'}</td>
           <td
-            className="text-[11px] text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+            className="text-11 text-muted max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
             title={order.notes ?? ''}
           >
             {order.notes ?? '—'}
           </td>
-          <td className="text-[11px] text-muted">{order.created_at?.slice(0, 10)}</td>
+          <td className="text-11 text-muted">{order.created_at?.slice(0, 10)}</td>
           <td onClick={e => e.stopPropagation()}>
             <div className="tbl-actions">
               <div className="relative">

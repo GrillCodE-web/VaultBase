@@ -1208,9 +1208,7 @@ export default function Settings() {
             <div className="setting-info">
               <div className="setting-title">Server connection</div>
               {wsStatus?.group_id && (
-                <div className="setting-desc mono text-[10px]">
-                  {wsStatus.group_id.slice(0, 20)}…
-                </div>
+                <div className="setting-desc mono text-10">{wsStatus.group_id.slice(0, 20)}…</div>
               )}
             </div>
             <div>
@@ -1241,7 +1239,7 @@ export default function Settings() {
               <div className="setting-desc">Queued for sync when connected</div>
             </div>
             <span
-              className="text-[12px] mono"
+              className="text-12 mono"
               style={{ color: unsyncedCount > 0 ? STATUS_COLORS.warning : 'var(--muted)' }}
             >
               {unsyncedCount}
@@ -1318,7 +1316,7 @@ export default function Settings() {
             Sync Groups
           </div>
           {syncGroup === null ? (
-            <div className="text-muted text-[12px] flex items-center gap-1.5">
+            <div className="text-muted text-12 flex items-center gap-1.5">
               <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />{' '}
               {t('msg_loading')}
             </div>
@@ -1406,10 +1404,10 @@ export default function Settings() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="font-semibold text-[13px]">
+                  <div className="font-semibold text-13">
                     {syncGroup.group_name || 'Sync Group'}
                   </div>
-                  <div className="text-muted text-[11px] font-mono">
+                  <div className="text-muted text-11 font-mono">
                     {syncGroup.group_id?.slice(0, 16)}...
                   </div>
                 </div>
@@ -1430,14 +1428,14 @@ export default function Settings() {
               </div>
               {generatedCode && (
                 <div className="mt-2 p-2 rounded-lg bg-surface border">
-                  <div className="text-[11px] text-muted mb-1">
+                  <div className="text-11 text-muted mb-1">
                     Share this code with your partner (valid 15 min):
                   </div>
-                  <div className="font-mono text-[16px] font-bold tracking-widest text-center py-1 text-accent">
+                  <div className="font-mono text-16 font-bold tracking-widest text-center py-1 text-accent">
                     {generatedCode.split(' ')[0]}
                   </div>
                   {generatedCode.includes('expires') && (
-                    <div className="text-[10px] text-muted text-center">
+                    <div className="text-10 text-muted text-center">
                       {generatedCode.split('(')[1]?.replace(')', '')}
                     </div>
                   )}
@@ -1456,7 +1454,7 @@ export default function Settings() {
         </div>
         <div className="flex flex-col gap-3">
           {catalogStats && (catalogStats.items > 0 || catalogStats.shops > 0) ? (
-            <div className="flex items-center gap-2 text-[12px]">
+            <div className="flex items-center gap-2 text-12">
               <CheckCircle size={13} className="text-success shrink-0" />
               <span className="text-text">
                 Catalog: <strong>{catalogStats.items.toLocaleString()}</strong> items,{' '}
@@ -1464,7 +1462,7 @@ export default function Settings() {
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-[12px]">
+            <div className="flex items-center gap-2 text-12">
               <RefreshCw
                 size={13}
                 className="shrink-0"
@@ -1476,7 +1474,7 @@ export default function Settings() {
               <span className="text-muted">Syncing catalog from server…</span>
             </div>
           )}
-          <div className="text-[11px] text-dim">
+          <div className="text-11 text-dim">
             Catalog is downloaded automatically on first run and kept in sync in real-time.
           </div>
         </div>
@@ -1489,7 +1487,7 @@ export default function Settings() {
           {t('settings_tour_title')}
         </div>
         <div className="flex flex-col gap-3">
-          <div className="text-[11px] text-dim">{t('settings_tour_hint')}</div>
+          <div className="text-11 text-dim">{t('settings_tour_hint')}</div>
           <div>
             <button
               className="btn btn-ghost btn-sm"
@@ -1582,14 +1580,14 @@ export default function Settings() {
           {/* Активные сессии */}
           {onlineSessions.length > 0 && (
             <div className="mb-4">
-              <div className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">
+              <div className="text-11 font-semibold text-muted uppercase tracking-wide mb-2">
                 Активные сессии
               </div>
               <div className="flex flex-col gap-1">
                 {onlineSessions.map(s => (
                   <div
                     key={s.session_id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-surface border text-[12px]"
+                    className="flex items-center justify-between p-2 rounded-lg bg-surface border text-12"
                   >
                     <div>
                       <span className="font-semibold">{s.username}</span>
@@ -1610,11 +1608,9 @@ export default function Settings() {
 
           {/* Лог событий */}
           {auditLog === null ? (
-            <div className="text-muted text-[12px]">
-              Нажмите «Загрузить» для просмотра аудит-лога
-            </div>
+            <div className="text-muted text-12">Нажмите «Загрузить» для просмотра аудит-лога</div>
           ) : auditLog.length === 0 ? (
-            <div className="text-muted text-[12px]">Событий не найдено</div>
+            <div className="text-muted text-12">Событий не найдено</div>
           ) : (
             <div className="overflow-auto max-h-[400px]">
               <table className="tbl w-full">
@@ -1629,14 +1625,12 @@ export default function Settings() {
                 <tbody>
                   {auditLog.map((row, i) => (
                     <tr key={i}>
-                      <td className="mono text-[11px] whitespace-nowrap">{row.created_at}</td>
+                      <td className="mono text-11 whitespace-nowrap">{row.created_at}</td>
                       <td>{row.username || row.user_id}</td>
                       <td>
-                        <span className="st st-pending text-[10px]">{row.action_type}</span>
+                        <span className="st st-pending text-10">{row.action_type}</span>
                       </td>
-                      <td className="text-muted text-[11px] max-w-[300px] truncate">
-                        {row.details}
-                      </td>
+                      <td className="text-muted text-11 max-w-[300px] truncate">{row.details}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1646,7 +1640,7 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="text-center py-3 pb-1 text-muted text-[11px]">VaultBase v0.1.0</div>
+      <div className="text-center py-3 pb-1 text-muted text-11">VaultBase v0.1.0</div>
     </div>
   )
 }

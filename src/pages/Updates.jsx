@@ -76,13 +76,13 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
           <div className="text-sm font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
             {item.description ?? item.event_type ?? '(no description)'}
           </div>
-          <div className="text-[11px] text-muted mt-0.5">
+          <div className="text-11 text-muted mt-0.5">
             {label}
             {item.entity_type ? ` · ${item.entity_type}` : ''}
             {item.entity_id ? ` #${item.entity_id}` : ''}
           </div>
         </div>
-        <div className="font-mono text-[11px] text-muted shrink-0">
+        <div className="font-mono text-11 text-muted shrink-0">
           {relativeTime(item.created_at, t)}
         </div>
       </div>
@@ -114,7 +114,7 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
 
       {typeKey === 'cancelled' && (
         <div className="cancel-box">
-          <div className="text-[12px] text-red-t mb-2">{t('upd_cancel_note')}</div>
+          <div className="text-12 text-red-t mb-2">{t('upd_cancel_note')}</div>
           <div className="flex gap-1">
             <button className="btn btn-o btn-sm btn-icon" aria-label={t('upd_rebid')}>
               <RefreshCw size={12} /> {t('upd_rebid')}
@@ -132,7 +132,7 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
       {typeKey === 'delivered' && (
         <div className="status-row flex items-center gap-2">
           <span className="st st-delivered">{t('status_delivered')}</span>
-          <span className="text-[11px] text-muted">→ {t('upd_auto_updated')}</span>
+          <span className="text-11 text-muted">→ {t('upd_auto_updated')}</span>
           <button className="btn btn-o btn-sm btn-icon ml-auto" aria-label={t('upd_rebid')}>
             <RefreshCw size={12} /> {t('upd_rebid')}
           </button>
@@ -311,7 +311,7 @@ export default function Updates() {
         <div>
           <div className="ph-title">
             {t('updates_title')}
-            <span className="text-muted text-[14px] font-normal"> {t('upd_while_you_slept')}</span>
+            <span className="text-muted text-14 font-normal"> {t('upd_while_you_slept')}</span>
           </div>
           <div className="ph-sub">{t('upd_imap_monitors')}</div>
         </div>
@@ -351,7 +351,7 @@ export default function Updates() {
                 {isBeta ? t('upd_optional_update') : t('upd_recommended_update')}
               </span>
               {updateAvailable.body && (
-                <span className="text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap">
+                <span className="text-11 text-muted overflow-hidden text-ellipsis whitespace-nowrap">
                   {updateAvailable.body}
                 </span>
               )}
@@ -363,14 +363,12 @@ export default function Updates() {
                 </button>
               )}
               {downloadState === 'downloading' && (
-                <span className="text-[12px] text-muted">
+                <span className="text-12 text-muted">
                   {t('upd_downloading')} {downloadProgress}%
                 </span>
               )}
               {downloadState === 'installed' && (
-                <span className="text-[12px] text-muted">
-                  {t('upd_installing') || 'Устанавливаю…'}
-                </span>
+                <span className="text-12 text-muted">{t('upd_installing') || 'Устанавливаю…'}</span>
               )}
               {/* Dismiss — snoozes for this session */}
               {downloadState !== 'downloading' && (

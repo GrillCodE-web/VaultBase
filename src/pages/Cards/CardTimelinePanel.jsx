@@ -34,15 +34,15 @@ export function CardTimelinePanel({ cardId, onClose }) {
       className="timeline-panel-container"
     >
       <div className="flex items-center justify-between mb-4">
-        <div className="font-semibold text-[13px]">Card Timeline</div>
+        <div className="font-semibold text-13">Card Timeline</div>
         <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Close">
           <X size={13} />
         </button>
       </div>
       {events === null ? (
-        <div className="text-muted text-[12px]">{t('msg_loading')}</div>
+        <div className="text-muted text-12">{t('msg_loading')}</div>
       ) : events.length === 0 ? (
-        <div className="text-muted text-[12px]">No history for this card yet.</div>
+        <div className="text-muted text-12">No history for this card yet.</div>
       ) : (
         <div className="timeline-panel">
           {events.map((ev, i) => (

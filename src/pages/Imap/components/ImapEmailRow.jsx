@@ -8,19 +8,19 @@ export const ImapEmailRow = React.memo(function ImapEmailRow({ msg, ActionBadge 
     <>
       <div className="flex justify-between items-start gap-1">
         <div
-          className={`text-[12px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
+          className={`text-12 flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
             msg.is_read ? 'message-subject-read' : 'message-subject-unread'
           }`}
         >
           {msg.from_email?.replace(/<.*>/, '').trim() || '(unknown)'}
         </div>
-        <div className="text-[10px] text-muted shrink-0">
+        <div className="text-10 text-muted shrink-0">
           {msg.received_at ? new Date(msg.received_at).toLocaleDateString() : ''}
         </div>
       </div>
 
       <div
-        className={`text-[12px] overflow-hidden text-ellipsis whitespace-nowrap mt-0.5 ${
+        className={`text-12 overflow-hidden text-ellipsis whitespace-nowrap mt-0.5 ${
           msg.is_read ? 'message-subject-read' : 'message-subject-unread'
         }`}
       >
@@ -31,7 +31,7 @@ export const ImapEmailRow = React.memo(function ImapEmailRow({ msg, ActionBadge 
         <div className="flex gap-1 mt-[3px] flex-wrap">
           {msg.action_taken && <ActionBadge action={msg.action_taken} />}
           {msg.extracted_order_number && (
-            <span className="text-[10px] text-blue-t">#{msg.extracted_order_number}</span>
+            <span className="text-10 text-blue-t">#{msg.extracted_order_number}</span>
           )}
         </div>
       )}

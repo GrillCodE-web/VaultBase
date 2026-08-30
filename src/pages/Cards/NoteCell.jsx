@@ -37,14 +37,14 @@ export const NoteCell = React.memo(
               setEditing(false)
             }
           }}
-          className="form-input text-[11px] py-[2px] px-[6px] w-full"
+          className="form-input text-11 py-[2px] px-[6px] w-full"
         />
       )
     }
     return (
       <span
         onDoubleClick={() => setEditing(true)}
-        className="text-muted text-[11px] cursor-text block max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+        className="text-muted text-11 cursor-text block max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
         title={displayValue || '—'}
       >
         {displayValue || '—'}

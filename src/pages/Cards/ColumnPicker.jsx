@@ -7,7 +7,7 @@ export function ColumnPicker({ visible, onChange, _onClose, allColumns, t }) {
     >
       <p className="ptitle mb-2 pl-1">{t('cc_columns')}</p>
       <button
-        className="btn btn-ghost btn-sm w-full mb-2 text-[11px]"
+        className="btn btn-ghost btn-sm w-full mb-2 text-11"
         onClick={() =>
           onChange([
             'card_number',

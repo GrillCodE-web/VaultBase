@@ -680,11 +680,11 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
         <div>
           <div className="ph-title">
             CC{' '}
-            <span className="text-muted text-[14px] font-normal" aria-live="polite">
+            <span className="text-muted text-14 font-normal" aria-live="polite">
               {total.toLocaleString()} {t('nav_cards')}
             </span>
             {freeTotal > 0 && (
-              <span className="text-[12px] text-green-t font-normal ml-2" aria-live="polite">
+              <span className="text-12 text-green-t font-normal ml-2" aria-live="polite">
                 · {freeTotal.toLocaleString()} {t('status_free')}
               </span>
             )}
@@ -794,7 +794,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
       {/* Expiring soon banner */}
       {activeTab === 'expiring' && (
-        <div className="text-[12px] text-yellow-t rounded-md mb-2 py-2 px-3 bg-warning border-warning">
+        <div className="text-12 text-yellow-t rounded-md mb-2 py-2 px-3 bg-warning border-warning">
           {t('cards_expiring_banner')}
         </div>
       )}
@@ -806,7 +806,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           role="status"
           aria-live="polite"
         >
-          <span className="text-accent font-semibold text-[12px]">
+          <span className="text-accent font-semibold text-12">
             {selected.length} {t('selected')}
           </span>
           <div className="flex gap-1 flex-wrap">
@@ -820,7 +820,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
               {t('cc_mark_dead')}
             </button>
             {enrichProgress ? (
-              <span className="text-[12px] text-muted inline-flex items-center gap-1\.5">
+              <span className="text-12 text-muted inline-flex items-center gap-1\.5">
                 <RefreshCw size={12} className="animate-spin" />
                 {enrichProgress.done} / {enrichProgress.total}
               </span>
@@ -858,7 +858,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
           <button
             onClick={() => clearSelection()}
             aria-label="Clear selection"
-            className="ml-auto bg-transparent border-none text-muted cursor-pointer text-[14px]"
+            className="ml-auto bg-transparent border-none text-muted cursor-pointer text-14"
           >
             ✕
           </button>
@@ -933,7 +933,7 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted">
+        <div className="flex items-center justify-between mt-2.5 text-11 text-muted">
           <span>
             {t('pag_showing')} {from}–{to} {t('pag_of')} {total}
           </span>

@@ -98,7 +98,7 @@ function CardHealth({ card, orderCount }) {
   }
 
   return (
-    <div className="flex items-center text-muted gap-5 text-[11px]">
+    <div className="flex items-center text-muted gap-5 text-11">
       <span className={className}>{icon}</span>
       <span className={className}>{label}</span>
       {orderCount > 0 && (
@@ -258,7 +258,7 @@ function ProfileFloat() {
     return (
       <div className="float-state float-locked">
         <Lock size={28} className="text-muted" />
-        <span className="text-[12px]">{t('auth_err_locked')}</span>
+        <span className="text-12">{t('auth_err_locked')}</span>
       </div>
     )
   }
@@ -266,7 +266,7 @@ function ProfileFloat() {
   if (!profileId) {
     return (
       <div className="float-state float-waiting">
-        <span className="text-[12px]">{t('float_waiting')}</span>
+        <span className="text-12">{t('float_waiting')}</span>
       </div>
     )
   }
@@ -298,10 +298,10 @@ function ProfileFloat() {
       <div className="float-header" data-tauri-drag-region>
         <div className="flex items-center justify-between" data-tauri-drag-region>
           <div data-tauri-drag-region className="min-w-0 overflow-hidden">
-            <span className="font-semibold text-[13px] whitespace-nowrap" data-tauri-drag-region>
+            <span className="font-semibold text-13 whitespace-nowrap" data-tauri-drag-region>
               {profile.holder_name || t('section_card')}
             </span>
-            {card && <span className="text-muted ml-2 text-[11px]">••{card.last4}</span>}
+            {card && <span className="text-muted ml-2 text-11">••{card.last4}</span>}
           </div>
           <div className="flex items-center gap-6" data-tauri-drag-region="false">
             <RiskBadge level={profile.risk_level} />
@@ -430,9 +430,7 @@ function ProfileFloat() {
               </button>
             </>
           ) : (
-            <div className="text-center text-muted mt-8 text-[12px]">
-              No drop address configured
-            </div>
+            <div className="text-center text-muted mt-8 text-12">No drop address configured</div>
           ))}
 
         {/* F1: Recent Orders tab */}
@@ -441,7 +439,7 @@ function ProfileFloat() {
             {/* Quick Order inline form */}
             <div className="flex justify-end mb-6">
               <button
-                className="btn btn-g btn-s text-[10px] p-[2px_8px]"
+                className="btn btn-g btn-s text-10 p-[2px_8px]"
                 onClick={() => {
                   setShowQuickOrder(v => !v)
                   setQuickUrl('')
@@ -453,7 +451,7 @@ function ProfileFloat() {
             {showQuickOrder && (
               <div className="float-quick-order rounded mb-8 p-[8px]">
                 <input
-                  className="inp text-[11px] mb-[4px]"
+                  className="inp text-11 mb-[4px]"
                   placeholder="Shop URL..."
                   value={quickUrl}
                   onChange={e => setQuickUrl(e.target.value)}
@@ -483,9 +481,9 @@ function ProfileFloat() {
                   }}
                   autoFocus
                 />
-                <div className="text-muted text-[10px]">Press Enter to create</div>
+                <div className="text-muted text-10">Press Enter to create</div>
                 <button
-                  className="float-cancel-btn text-muted cursor-pointer text-[10px]"
+                  className="float-cancel-btn text-muted cursor-pointer text-10"
                   onClick={() => setShowQuickOrder(false)}
                 >
                   Cancel
@@ -493,7 +491,7 @@ function ProfileFloat() {
               </div>
             )}
             {recentOrders.length === 0 ? (
-              <div className="text-center text-muted mt-8 text-[12px]">No orders yet</div>
+              <div className="text-center text-muted mt-8 text-12">No orders yet</div>
             ) : (
               <div className="flex flex-col gap-6">
                 {recentOrders.map(order => (
@@ -505,11 +503,11 @@ function ProfileFloat() {
                     className="float-order-row flex flex-col cursor-pointer"
                   >
                     <div className="flex justify-between items-center">
-                      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium text-[12px]">
+                      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium text-12">
                         {order.shop_name ?? `Shop #${order.shop_id}`}
                       </span>
                       <div className="flex items-center flex-shrink-0 gap-4">
-                        <span className={`st ${ORDER_STATUS_CSS[order.status] ?? ''} text-[10px]`}>
+                        <span className={`st ${ORDER_STATUS_CSS[order.status] ?? ''} text-10`}>
                           {order.status}
                         </span>
                         {/* F2: Quick status change dropdown */}
@@ -528,7 +526,7 @@ function ProfileFloat() {
                               toastErr(String(err))
                             }
                           }}
-                          className="float-status-select text-[10px] rounded cursor-pointer p-[1px_4px]"
+                          className="float-status-select text-10 rounded cursor-pointer p-[1px_4px]"
                           onClick={e => e.stopPropagation()}
                         >
                           {[
@@ -546,7 +544,7 @@ function ProfileFloat() {
                         </select>
                       </div>
                     </div>
-                    <div className="flex justify-between text-muted text-[11px]">
+                    <div className="flex justify-between text-muted text-11">
                       <span>{fmtDate(order.created_at)}</span>
                       {order.tracking_number && (
                         <span className="mono">{order.tracking_number.slice(0, 16)}</span>
@@ -573,7 +571,7 @@ function ProfileFloat() {
       {/* ── Footer actions ── */}
       <div className="float-footer">
         <button
-          className="btn btn-ghost btn-sm text-[10px] p-[4px_8px]"
+          className="btn btn-ghost btn-sm text-10 p-[4px_8px]"
           onClick={() =>
             invoke('open_main_window_page', { page: 'orders' }).catch(e => {
               console.error('[float] Failed to open main window:', e)

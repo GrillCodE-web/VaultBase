@@ -102,7 +102,7 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
         </>
       }
     >
-      <div className="text-[13px] text-text-2 mb-4 leading-normal">
+      <div className="text-13 text-text-2 mb-4 leading-normal">
         Repeat order for <strong className="text-text">{shopLabel}</strong>
         {itemLabel !== '—' && (
           <>
@@ -116,7 +116,7 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
       <div className="form-group">
         <label className="form-label">Select Profile</label>
         {loadingProfiles ? (
-          <div className="text-[12px] text-muted py-2">Loading profiles…</div>
+          <div className="text-12 text-muted py-2">Loading profiles…</div>
         ) : (
           <select
             value={selectedProfileId}

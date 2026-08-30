@@ -22,15 +22,15 @@ export function CardShopUsagePanel({ cardId, onClose }) {
   return (
     <div role="dialog" aria-modal="true" aria-label="Card shop usage" className="shop-usage-panel">
       <div className="flex items-center justify-between mb-4">
-        <div className="font-semibold text-[13px]">Shops Used</div>
+        <div className="font-semibold text-13">Shops Used</div>
         <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Close">
           <X size={13} />
         </button>
       </div>
       {shops === null ? (
-        <div className="text-muted text-[12px]">{t('msg_loading')}</div>
+        <div className="text-muted text-12">{t('msg_loading')}</div>
       ) : shops.length === 0 ? (
-        <div className="text-muted text-[12px]">No orders for this card yet.</div>
+        <div className="text-muted text-12">No orders for this card yet.</div>
       ) : (
         <div className="flex flex-col gap-2">
           {shops.map(s => (

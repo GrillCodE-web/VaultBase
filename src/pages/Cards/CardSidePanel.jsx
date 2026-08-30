@@ -132,12 +132,12 @@ export function CardSidePanel({
             <button
               onClick={onClose}
               aria-label="Close panel"
-              className="bg-transparent border-none text-muted cursor-pointer text-[16px] p-0 leading-none"
+              className="bg-transparent border-none text-muted cursor-pointer text-16 p-0 leading-none"
             >
               ✕
             </button>
-            <span className="text-[12px] font-semibold text-text">{t('section_card')}</span>
-            <span className="text-[10px] text-muted">
+            <span className="text-12 font-semibold text-text">{t('section_card')}</span>
+            <span className="text-10 text-muted">
               {idx + 1} / {cards.length}
             </span>
           </div>
@@ -166,7 +166,7 @@ export function CardSidePanel({
           <div className="flex items-center gap-2 mb-2">
             {badge && (
               <span
-                className="p-[2px_7px] rounded-[5px] text-[10px] font-bold mono"
+                className="p-[2px_7px] rounded-[5px] text-10 font-bold mono"
                 style={{
                   background: badge.bg,
                   color: badge.color,
@@ -175,11 +175,11 @@ export function CardSidePanel({
                 {badge.label}
               </span>
             )}
-            {card.country && <span className="text-[14px]">{countryFlag(card.country)}</span>}
+            {card.country && <span className="text-14">{countryFlag(card.country)}</span>}
             <span className={`st ${statusCls}`}>{statusLabel}</span>
             {(card.orders_count ?? 0) > 0 && (
               <span
-                className="text-[10px] mono"
+                className="text-10 mono"
                 style={{
                   color:
                     (card.orders_count ?? 0) >= BURN_COUNT_HIGH
@@ -194,7 +194,7 @@ export function CardSidePanel({
               </span>
             )}
           </div>
-          <div className="mono text-[15px] font-bold text-text tracking-[0.05em] mb-1">
+          <div className="mono text-15 font-bold text-text tracking-[0.05em] mb-1">
             {displayNum}
           </div>
           <div className="flex gap-2 mt-2.5">
@@ -271,16 +271,16 @@ export function CardSidePanel({
             />
             {/* Usage history */}
             <div className="h-px bg-border my-1.5" />
-            <div className="text-[10px] uppercase tracking-wider text-muted mb-1.5 mt-2">
+            <div className="text-10 uppercase tracking-wider text-muted mb-1.5 mt-2">
               {t('usage_history') || 'Usage History'}
               {(card.orders_count ?? 0) > 0 && (
                 <span className="ml-1.5 text-text normal-case">({card.orders_count} total)</span>
               )}
             </div>
             {ordersLoading ? (
-              <div className="text-[11px] text-muted py-1">{t('msg_loading')}</div>
+              <div className="text-11 text-muted py-1">{t('msg_loading')}</div>
             ) : recentOrders.length === 0 ? (
-              <div className="text-[11px] text-muted py-1">
+              <div className="text-11 text-muted py-1">
                 {t('no_orders_for_card') || 'No orders yet'}
               </div>
             ) : (
@@ -288,7 +288,7 @@ export function CardSidePanel({
                 {recentOrders.map(o => (
                   <div
                     key={o.id}
-                    className="flex items-center justify-between py-[3px] px-[6px] rounded bg-surface text-[11px]"
+                    className="flex items-center justify-between py-[3px] px-[6px] rounded bg-surface text-11"
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className={`st ${ORDER_STATUS_CSS[o.status] ?? 'st-archive'} shrink-0`}>
@@ -300,7 +300,7 @@ export function CardSidePanel({
                       {o.total_amount != null && (
                         <span className="text-blue-t mono">${o.total_amount.toFixed(2)}</span>
                       )}
-                      <span className="text-muted text-[10px]">{o.created_at?.slice(0, 10)}</span>
+                      <span className="text-muted text-10">{o.created_at?.slice(0, 10)}</span>
                     </div>
                   </div>
                 ))}

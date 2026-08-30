@@ -19,11 +19,9 @@ export function ProfileHoverCard({ profile: p, rect }) {
       }}
     >
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="font-mono text-text text-[13px] font-medium">
-          ••••-{p.last4 || '????'}
-        </span>
+        <span className="font-mono text-text text-13 font-medium">••••-{p.last4 || '????'}</span>
         <span
-          className="text-[10px] py-\[1px\] px-1.5 rounded-sm"
+          className="text-10 py-\[1px\] px-1.5 rounded-sm"
           style={{
             background: p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)',
             border: `1px solid ${p.drop_count > 0 ? 'var(--color-success-bg)' : 'var(--color-warning-bg)'}`,
@@ -33,13 +31,13 @@ export function ProfileHoverCard({ profile: p, rect }) {
           {p.drop_count > 0 ? t('profile_ready') : t('profile_no_drop')}
         </span>
       </div>
-      {p.holder_masked && <div className="text-muted text-[12px] mb-1">{p.holder_masked}</div>}
+      {p.holder_masked && <div className="text-muted text-12 mb-1">{p.holder_masked}</div>}
       <div className="flex flex-wrap gap-1.5">
-        {p.bin && <span className="text-muted text-[11px] font-mono">BIN {p.bin}</span>}
-        {p.bank_name && <span className="text-[11px] text-muted">· {p.bank_name}</span>}
+        {p.bin && <span className="text-muted text-11 font-mono">BIN {p.bin}</span>}
+        {p.bank_name && <span className="text-11 text-muted">· {p.bank_name}</span>}
       </div>
       {p.drop_count !== undefined && (
-        <div className="mt-\[5px\] text-muted text-[11px]">
+        <div className="mt-\[5px\] text-muted text-11">
           {p.drop_count} drop{p.drop_count !== 1 ? 's' : ''}
         </div>
       )}

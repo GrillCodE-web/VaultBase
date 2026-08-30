@@ -74,7 +74,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
     >
       <div className="flex flex-col gap-3">
         <div>
-          <label className="text-[11px] text-muted">Shop URL or Domain</label>
+          <label className="text-11 text-muted">Shop URL or Domain</label>
           <div className="flex gap-1.5 mt-1">
             <input
               className="inp flex-1"
@@ -98,7 +98,7 @@ export function QuickOrderModal({ profile, onClose, onCreated }) {
         </div>
 
         {shop && (
-          <div className="p-[8px_12px] bg-[var(--surface)] rounded text-[12px] flex items-center gap-2">
+          <div className="p-[8px_12px] bg-[var(--surface)] rounded text-12 flex items-center gap-2">
             <span style={{ color: shop.is_new ? 'var(--accent)' : 'var(--text)' }}>
               {shop.is_new ? '✦ New shop:' : '✔ Found:'} <strong>{shop.domain}</strong>
             </span>

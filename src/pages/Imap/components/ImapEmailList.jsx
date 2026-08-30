@@ -60,8 +60,8 @@ export function ImapEmailList({
   return (
     <div className="w-[300px] shrink-0 border-r flex flex-col overflow-y-auto">
       <div className="p-[8px_12px] border-b bg-card flex items-center gap-1.5">
-        <span className="text-[12px] font-semibold flex-1">{selectedFolder}</span>
-        <span className="text-[11px] text-muted">{msgTotal} msgs</span>
+        <span className="text-12 font-semibold flex-1">{selectedFolder}</span>
+        <span className="text-11 text-muted">{msgTotal} msgs</span>
         <button
           onClick={() =>
             selectedAccount &&
@@ -82,7 +82,7 @@ export function ImapEmailList({
           defaultValue={msgSearch}
           ref={searchRef}
           onChange={handleSearchChange}
-          className="flex-1 border-none bg-transparent outline-none text-[12px] text-text min-w-0"
+          className="flex-1 border-none bg-transparent outline-none text-12 text-text min-w-0"
         />
       </div>
 
@@ -94,7 +94,7 @@ export function ImapEmailList({
               <button
                 key={r.domain}
                 onClick={() => applyDomainFilter(active ? '' : r.domain)}
-                className={`px-2 py-[2px] rounded-full text-[11px] border transition-colors ${
+                className={`px-2 py-[2px] rounded-full text-11 border transition-colors ${
                   active
                     ? 'bg-accent text-white border-accent'
                     : 'bg-transparent text-muted border-border hover:bg-hover'
@@ -115,10 +115,10 @@ export function ImapEmailList({
           ))}
         </div>
       ) : messages.length === 0 ? (
-        <div className="p-[40px_16px] text-center text-[12px] text-muted">
+        <div className="p-[40px_16px] text-center text-12 text-muted">
           <Mail size={30} className="opacity-[0.3] mb-2" />
           <div>No messages in {selectedFolder}</div>
-          <div className="text-[11px] mt-1 text-dim">Click Check Now to fetch</div>
+          <div className="text-11 mt-1 text-dim">Click Check Now to fetch</div>
         </div>
       ) : (
         <div ref={parentRef} className="flex-1 overflow-auto">
@@ -171,7 +171,7 @@ export function ImapEmailList({
               >
                 ← Prev
               </button>
-              <span className="text-[12px] text-muted self-center">
+              <span className="text-12 text-muted self-center">
                 {msgPage} / {totalPages}
               </span>
               <button

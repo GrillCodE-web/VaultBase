@@ -61,7 +61,7 @@ function EntityBadge({ type }) {
   const Icon = ENTITY_ICONS[type] ?? Settings
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold mono"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-10 font-semibold mono"
       style={{
         backgroundColor: cfg.bg,
         color: cfg.text,
@@ -222,14 +222,14 @@ export default function ActivityLog() {
               {loading && entries.length === 0 ? <SkeletonRows count={8} cols={4} /> : null}
               {entries.map((e, i) => (
                 <tr key={e.id ?? i}>
-                  <td className="pl-4 text-muted text-[11px] whitespace-nowrap mono">
+                  <td className="pl-4 text-muted text-11 whitespace-nowrap mono">
                     {e.created_at ? new Date(e.created_at).toLocaleString() : '—'}
                   </td>
                   <td>
                     <EntityBadge type={e.entity_type} />
                   </td>
-                  <td className="text-blue-t text-[11px] font-mono">{e.event_type}</td>
-                  <td className="text-text text-[12px] max-w-[400px] overflow-hidden text-ellipsis whitespace-nowrap">
+                  <td className="text-blue-t text-11 font-mono">{e.event_type}</td>
+                  <td className="text-text text-12 max-w-[400px] overflow-hidden text-ellipsis whitespace-nowrap">
                     {e.description}
                   </td>
                 </tr>
@@ -240,7 +240,7 @@ export default function ActivityLog() {
       </div>
 
       {pages > 1 && (
-        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted">
+        <div className="flex items-center justify-between mt-2.5 text-11 text-muted">
           <span>
             {t('log_page')} {page} {t('log_of')} {pages}
           </span>

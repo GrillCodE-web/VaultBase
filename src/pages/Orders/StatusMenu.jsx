@@ -82,7 +82,7 @@ export function StatusMenu({ order, onUpdate, onClose }) {
           <button
             key={s}
             onClick={() => handleStatus(s)}
-            className="w-full text-left px-3 py-2 text-[12px] text-text-2 bg-transparent border-none cursor-pointer flex items-center gap-2"
+            className="w-full text-left px-3 py-2 text-12 text-text-2 bg-transparent border-none cursor-pointer flex items-center gap-2"
           >
             <span
               className="status-menu-dot rounded-full shrink-0"

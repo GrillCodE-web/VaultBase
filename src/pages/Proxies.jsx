@@ -43,7 +43,7 @@ function TypeBadge({ type }) {
   const cfg = colorMap[type] || { color: 'var(--muted)', bg: 'var(--surface)' }
   return (
     <span
-      className="mono text-[10px] px-2 py-[2px] rounded-[6px]"
+      className="mono text-10 px-2 py-[2px] rounded-[6px]"
       style={{
         color: cfg.color,
         background: cfg.bg,
@@ -111,14 +111,14 @@ function UsageStatsModal({ onClose }) {
       }
     >
       {loading && (
-        <div className="text-center p-8 text-muted text-[13px]">
+        <div className="text-center p-8 text-muted text-13">
           <Loader2 size={18} className="animate-spin inline-block mb-2" />
           <div>Loading stats...</div>
         </div>
       )}
 
       {!loading && (!stats || stats.length === 0) && (
-        <div className="text-center p-8 text-muted text-[13px]">
+        <div className="text-center p-8 text-muted text-13">
           No proxy usage data found. Assign proxies to orders to see stats here.
         </div>
       )}
@@ -141,7 +141,7 @@ function UsageStatsModal({ onClose }) {
               const color = rateColor(rate)
               return (
                 <tr key={s.proxy_id}>
-                  <td className="mono text-[11px]">#{s.proxy_id}</td>
+                  <td className="mono text-11">#{s.proxy_id}</td>
                   <td>{s.total_orders}</td>
                   <td className="text-success">{s.success_count}</td>
                   <td className="text-error">{s.decline_count}</td>
@@ -150,7 +150,7 @@ function UsageStatsModal({ onClose }) {
                       {rate}%
                     </span>
                     {rate < 40 && (
-                      <span className="ml-2 text-[10px] inline-flex items-center gap-[3px] text-error">
+                      <span className="ml-2 text-10 inline-flex items-center gap-[3px] text-error">
                         <AlertTriangle size={10} /> High decline rate — consider replacing
                       </span>
                     )}
@@ -356,7 +356,7 @@ function ImportModal({ onDone, onClose }) {
       <div className="flex flex-col gap-3.5">
         {!result ? (
           <>
-            <div className="bg-surface border rounded-md p-[10px_14px] text-[11px] text-muted mono">
+            <div className="bg-surface border rounded-md p-[10px_14px] text-11 text-muted mono">
               <div className="font-semibold mb-1.5 text-text-2">Supported formats:</div>
               <div>host:port:user:pass</div>
               <div>socks5://user:pass@host:port</div>
@@ -369,7 +369,7 @@ function ImportModal({ onDone, onClose }) {
               placeholder={
                 '192.168.1.1:8080:user:pass\nsocks5://user:pass@proxy.com:1080\nhttp://10.0.0.1:3128'
               }
-              className="form-input mono resize-none text-[12px]"
+              className="form-input mono resize-none text-12"
             />
             <button
               onClick={handleImport}
@@ -384,18 +384,18 @@ function ImportModal({ onDone, onClose }) {
           <div className="flex flex-col gap-3.5">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-success-bg border border-success-bg rounded-[10px] p-4 text-center">
-                <div className="text-[28px] font-bold text-success">{result.parsed}</div>
-                <div className="text-[11px] text-muted mt-1">{t('cc_import_done')}</div>
+                <div className="text-28 font-bold text-success">{result.parsed}</div>
+                <div className="text-11 text-muted mt-1">{t('cc_import_done')}</div>
               </div>
               <div className="bg-warning-bg border border-warning-bg rounded-[10px] p-4 text-center">
-                <div className="text-[28px] font-bold text-warning">{result.skipped}</div>
-                <div className="text-[11px] text-muted mt-1">{t('profiles_skipped')}</div>
+                <div className="text-28 font-bold text-warning">{result.skipped}</div>
+                <div className="text-11 text-muted mt-1">{t('profiles_skipped')}</div>
               </div>
             </div>
             {result.errors?.length > 0 && (
               <div className="bg-surface border rounded-md p-2.5 max-h-[120px] overflow-y-auto">
                 {result.errors.map((e, i) => (
-                  <div key={i} className="mono text-[11px] py-[2px] text-error">
+                  <div key={i} className="mono text-11 py-[2px] text-error">
                     {e}
                   </div>
                 ))}
@@ -483,20 +483,20 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
           {currentBinding && (
             <button
               onClick={handleUnbind}
-              className="w-full text-left p-[8px_12px] text-[11px] bg-transparent border-none border-b cursor-pointer text-error"
+              className="w-full text-left p-[8px_12px] text-11 bg-transparent border-none border-b cursor-pointer text-error"
             >
               Unbind from {currentBinding.name || currentBinding.domain}
             </button>
           )}
           {shops.length === 0 && (
-            <div className="p-[8px_12px] text-[11px] text-muted">Loading shops…</div>
+            <div className="p-[8px_12px] text-11 text-muted">Loading shops…</div>
           )}
           {shops.map(s => (
             <button
               key={s.id}
               onClick={() => handleBind(s)}
               disabled={loading}
-              className="w-full text-left p-[8px_12px] text-[11px] text-text-2 bg-transparent border-none border-b cursor-pointer"
+              className="w-full text-left p-[8px_12px] text-11 text-text-2 bg-transparent border-none border-b cursor-pointer"
             >
               {s.name || s.domain}
             </button>
@@ -949,7 +949,7 @@ export default function ProxyList() {
                                   </span>
                                 )}
                               </td>
-                              <td className="mono text-[11px] text-muted">
+                              <td className="mono text-11 text-muted">
                                 {proxy.host}
                                 <span className="text-border">:</span>
                                 {proxy.port}
@@ -960,10 +960,8 @@ export default function ProxyList() {
                               <td>
                                 <StatusBadge proxy={proxy} healthStatus={healthStatus} />
                               </td>
-                              <td className="text-[11px] text-muted">{usedInLabel(proxy)}</td>
-                              <td className="text-[11px] text-muted">
-                                {timeAgo(proxy.last_checked)}
-                              </td>
+                              <td className="text-11 text-muted">{usedInLabel(proxy)}</td>
+                              <td className="text-11 text-muted">{timeAgo(proxy.last_checked)}</td>
                               <td>
                                 <div className="tbl-actions">
                                   <button
@@ -1069,7 +1067,7 @@ export default function ProxyList() {
                               </span>
                             )}
                           </td>
-                          <td className="mono text-[11px] text-muted">
+                          <td className="mono text-11 text-muted">
                             {proxy.host}
                             <span className="text-border">:</span>
                             {proxy.port}
@@ -1080,8 +1078,8 @@ export default function ProxyList() {
                           <td>
                             <StatusBadge proxy={proxy} healthStatus={healthStatus} />
                           </td>
-                          <td className="text-[11px] text-muted">{usedInLabel(proxy)}</td>
-                          <td className="text-[11px] text-muted">{timeAgo(proxy.last_checked)}</td>
+                          <td className="text-11 text-muted">{usedInLabel(proxy)}</td>
+                          <td className="text-11 text-muted">{timeAgo(proxy.last_checked)}</td>
                           <td>
                             <div className="tbl-actions">
                               <button
@@ -1147,7 +1145,7 @@ export default function ProxyList() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-3">
-              <span className="text-[11px] text-muted">{total} proxies</span>
+              <span className="text-11 text-muted">{total} proxies</span>
               <div className="flex gap-1">
                 {buildPageNumbers(page, totalPages).map((p, idx) =>
                   p === '…' ? (

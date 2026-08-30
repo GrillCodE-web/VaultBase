@@ -32,9 +32,7 @@ export function DropForm({ initial, onSave, onCancel }) {
       <div className="grid grid-cols-2 gap-3">
         {fields.map(([key, label, span]) => (
           <div key={key} className={span === 2 ? 'col-span-full' : ''}>
-            <label className="block text-[10px] uppercase tracking-wide text-muted mb-1">
-              {label}
-            </label>
+            <label className="block text-10 uppercase tracking-wide text-muted mb-1">{label}</label>
             <input value={form[key]} onChange={set(key)} className="form-input w-full box-border" />
           </div>
         ))}

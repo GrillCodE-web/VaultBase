@@ -51,12 +51,12 @@ export function OrderTimeline({ status, updatedAt }) {
                   }}
                 />
                 <span
-                  className={`text-[10px] whitespace-nowrap ${isFuture ? 'text-muted' : 'text-text-2'} ${isCurrent ? 'font-semibold' : 'font-normal'}`}
+                  className={`text-10 whitespace-nowrap ${isFuture ? 'text-muted' : 'text-text-2'} ${isCurrent ? 'font-semibold' : 'font-normal'}`}
                 >
                   {step}
                 </span>
                 {isCurrent && updatedAt && (
-                  <span className="text-[9px] text-muted whitespace-nowrap">
+                  <span className="text-9 text-muted whitespace-nowrap">
                     {updatedAt.slice(0, 10)}
                   </span>
                 )}

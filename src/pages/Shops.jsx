@@ -49,7 +49,7 @@ function ShopRiskBadge({ shopId }) {
 
 function FlagPills({ shop }) {
   const active = getActiveShopFlags(shop)
-  if (!active.length) return <span className="text-[12px] text-muted">—</span>
+  if (!active.length) return <span className="text-12 text-muted">—</span>
   return (
     <div className="flex flex-wrap gap-1">
       {active.map(f => (
@@ -99,7 +99,7 @@ function SuggestionBadge({ s }) {
   const lvl = s.level || 'info'
   return (
     <div
-      className="flex items-start gap-2 px-2\.5 py-1\.5 rounded-md text-[12px]"
+      className="flex items-start gap-2 px-2\.5 py-1\.5 rounded-md text-12"
       style={{
         background: bgMap[lvl] || bgMap.info,
         color: colorMap[lvl] || colorMap.info,
@@ -383,9 +383,9 @@ function ShopModal({ initial, onSave, onClose }) {
                   border: form[f.key] ? '1px solid var(--accent-hover)' : '1px solid var(--border)',
                 }}
               >
-                {form[f.key] && <span className="text-white text-[10px] font-bold">✓</span>}
+                {form[f.key] && <span className="text-white text-10 font-bold">✓</span>}
               </div>
-              <span className="text-[12px] text-muted">{f.label}</span>
+              <span className="text-12 text-muted">{f.label}</span>
             </label>
           ))}
         </div>
@@ -453,7 +453,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
   }
 
   if (loading) {
-    return <div className="p-5 text-center text-muted text-[12px]">{t('msg_loading')}</div>
+    return <div className="p-5 text-center text-muted text-12">{t('msg_loading')}</div>
   }
   if (!detail) return null
 
@@ -537,7 +537,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
             </div>
           </div>
           {products.length === 0 ? (
-            <div className="text-center py-6 text-muted text-[12px]">No products catalogued</div>
+            <div className="text-center py-6 text-muted text-12">No products catalogued</div>
           ) : (
             <div className="panel p-0 overflow-x-auto">
               <table className="tbl">
@@ -619,7 +619,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
         <div>
           <p className="ptitle mb-2">Recent Orders</p>
           {recent_orders.length === 0 ? (
-            <div className="text-center py-6 text-muted text-[12px]">No orders yet</div>
+            <div className="text-center py-6 text-muted text-12">No orders yet</div>
           ) : (
             <div className="flex flex-col">
               {recent_orders.map(o => {
@@ -631,7 +631,7 @@ function ShopDetailPanel({ shopId, onNavigate }) {
                   <div key={o.id} className="flex items-center justify-between py-2 border-b">
                     <div className="flex items-center gap-2">
                       <span
-                        className="text-[10px] px-[7px] py-[2px] rounded-[20px]"
+                        className="text-10 px-[7px] py-[2px] rounded-[20px]"
                         style={{
                           background: sc.bg,
                           color: sc.text,
@@ -640,16 +640,16 @@ function ShopDetailPanel({ shopId, onNavigate }) {
                         {o.status}
                       </span>
                       {o.tracking_number && (
-                        <span className="text-[10px] font-mono text-muted max-w-[100px] overflow-hidden text-ellipsis">
+                        <span className="text-10 font-mono text-muted max-w-[100px] overflow-hidden text-ellipsis">
                           {o.tracking_number}
                         </span>
                       )}
                     </div>
                     <div className="text-right">
                       {o.total_amount != null && (
-                        <p className="text-[12px] text-muted m-0">${o.total_amount.toFixed(2)}</p>
+                        <p className="text-12 text-muted m-0">${o.total_amount.toFixed(2)}</p>
                       )}
-                      <p className="text-[10px] text-muted m-0">{o.created_at?.slice(0, 10)}</p>
+                      <p className="text-10 text-muted m-0">{o.created_at?.slice(0, 10)}</p>
                     </div>
                   </div>
                 )
@@ -789,7 +789,7 @@ export default function ShopList({ onNavigate }) {
         <div>
           <div className="ph-title">
             <Store size={14} /> {t('shops')}{' '}
-            <span className="text-muted text-[14px] font-normal">
+            <span className="text-muted text-14 font-normal">
               {total} {t('shops_count')}
             </span>
           </div>
@@ -832,7 +832,7 @@ export default function ShopList({ onNavigate }) {
                 <span className="stat-bar-value" style={{ color }}>
                   {val}
                 </span>
-                <span className="text-[11px] text-muted">{label}</span>
+                <span className="text-11 text-muted">{label}</span>
               </div>
             ))}
           </>
@@ -842,7 +842,7 @@ export default function ShopList({ onNavigate }) {
       {/* Bulk actions toolbar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 p-[8px_12px] bg-card-hi border-hi rounded-md mb-2">
-          <span className="text-[12px] text-text-2 font-semibold">{selected.size} selected</span>
+          <span className="text-12 text-text-2 font-semibold">{selected.size} selected</span>
           <button
             className="btn btn-r btn-sm"
             onClick={async () => {
@@ -975,14 +975,14 @@ export default function ShopList({ onNavigate }) {
                               className="cb"
                             />
                           </td>
-                          <td className="text-center text-muted text-[12px]">
+                          <td className="text-center text-muted text-12">
                             <span>›</span>
                           </td>
                           <td>
-                            <b className="text-[13px]">{shop.name}</b>
+                            <b className="text-13">{shop.name}</b>
                           </td>
                           <td>
-                            <span className="font-mono text-[11px] text-muted">{shop.domain}</span>
+                            <span className="font-mono text-11 text-muted">{shop.domain}</span>
                           </td>
                           <td className="text-dim-or-muted">{shop.category || '—'}</td>
                           <td>
@@ -1013,7 +1013,7 @@ export default function ShopList({ onNavigate }) {
                               const color = getDeliveryRateColor(pct)
                               return (
                                 <span
-                                  className="font-semibold text-[12px]"
+                                  className="font-semibold text-12"
                                   style={{ color }}
                                   title={pct < 30 ? 'Low delivery rate' : undefined}
                                 >
@@ -1022,7 +1022,7 @@ export default function ShopList({ onNavigate }) {
                               )
                             })()}
                           </td>
-                          <td className="mono text-[11px]">
+                          <td className="mono text-11">
                             {(() => {
                               const wl = winLossMap[shop.id]
                               if (!wl) return <span className="text-muted">—</span>
@@ -1133,7 +1133,7 @@ export default function ShopList({ onNavigate }) {
                           className="cb"
                         />
                       </td>
-                      <td className="text-center text-muted text-[12px]">
+                      <td className="text-center text-muted text-12">
                         <span
                           className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
                         >
@@ -1141,10 +1141,10 @@ export default function ShopList({ onNavigate }) {
                         </span>
                       </td>
                       <td>
-                        <b className="text-[13px]">{shop.name}</b>
+                        <b className="text-13">{shop.name}</b>
                       </td>
                       <td>
-                        <span className="font-mono text-[11px] text-muted">{shop.domain}</span>
+                        <span className="font-mono text-11 text-muted">{shop.domain}</span>
                       </td>
                       <td className={shop.category ? 'text-dim' : 'text-muted'}>
                         {shop.category || '—'}
@@ -1177,7 +1177,7 @@ export default function ShopList({ onNavigate }) {
                           const color = getDeliveryRateColor(pct)
                           return (
                             <span
-                              className="font-semibold text-[12px]"
+                              className="font-semibold text-12"
                               style={{ color }}
                               title={pct < 30 ? 'Low delivery rate' : undefined}
                             >
@@ -1186,7 +1186,7 @@ export default function ShopList({ onNavigate }) {
                           )
                         })()}
                       </td>
-                      <td className="mono text-[11px]">
+                      <td className="mono text-11">
                         {(() => {
                           const wl = winLossMap[shop.id]
                           if (!wl) return <span className="text-muted">—</span>
@@ -1244,7 +1244,7 @@ export default function ShopList({ onNavigate }) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted">
+        <div className="flex items-center justify-between mt-2.5 text-11 text-muted">
           <span>
             {t('pag_showing')} {total}
           </span>

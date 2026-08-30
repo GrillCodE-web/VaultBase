@@ -139,7 +139,7 @@ function ConnectionModal({ initial, onSave, onClose }) {
             placeholder={DEFAULT_BASE_URL}
             className="form-input mono"
           />
-          <div className="text-[10px] text-muted mt-1">{t('upanel_base_url_hint')}</div>
+          <div className="text-10 text-muted mt-1">{t('upanel_base_url_hint')}</div>
         </div>
         <div className="form-group">
           <label className="form-label">{t('upanel_api_token')}</label>
@@ -160,11 +160,11 @@ function ConnectionModal({ initial, onSave, onClose }) {
               {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
             </button>
           </div>
-          <div className="text-[10px] text-muted mt-1">
+          <div className="text-10 text-muted mt-1">
             {isEdit ? t('upanel_token_keep_hint') : t('upanel_api_token_hint')}
           </div>
         </div>
-        <label className="flex items-center gap-2 text-[12px] cursor-pointer">
+        <label className="flex items-center gap-2 text-12 cursor-pointer">
           <input
             type="checkbox"
             checked={form.is_active}
@@ -223,13 +223,13 @@ function CredsModal({ title, data, onClose }) {
   return (
     <Modal isOpen onClose={onClose} size="sm" title={title}>
       <div className="flex flex-col gap-1.5">
-        {rows.length === 0 && <div className="text-[12px] text-muted text-center py-4">—</div>}
+        {rows.length === 0 && <div className="text-12 text-muted text-center py-4">—</div>}
         {rows.map(([k, v]) => {
           const isPass = /pass|secret|token/i.test(k)
           return (
             <div key={k} className="flex items-center gap-2 border-b border-border py-1.5">
-              <div className="text-[11px] text-muted w-[100px] shrink-0 mono">{k}</div>
-              <div className="flex-1 text-[12px] mono" style={{ wordBreak: 'break-all' }}>
+              <div className="text-11 text-muted w-[100px] shrink-0 mono">{k}</div>
+              <div className="flex-1 text-12 mono" style={{ wordBreak: 'break-all' }}>
                 {isPass && !visible ? '••••••••' : String(v)}
               </div>
               {isPass && (
@@ -501,7 +501,7 @@ export default function ProxiesUpanelTab() {
 
       {/* Connections table (masked tokens, statuses) */}
       {connLoading ? (
-        <div className="panel p-4 text-[12px] text-muted">…</div>
+        <div className="panel p-4 text-12 text-muted">…</div>
       ) : connections.length === 0 ? (
         <div className="panel p-0">
           <EmptyState
@@ -539,8 +539,8 @@ export default function ProxiesUpanelTab() {
                     }}
                   >
                     <td className="text-secondary">{c.name}</td>
-                    <td className="mono text-[11px] text-muted">{c.base_url}</td>
-                    <td className="mono text-[11px] text-muted">{c.token_preview || '—'}</td>
+                    <td className="mono text-11 text-muted">{c.base_url}</td>
+                    <td className="mono text-11 text-muted">{c.token_preview || '—'}</td>
                     <td>
                       <span
                         className={`st ${
@@ -555,7 +555,7 @@ export default function ProxiesUpanelTab() {
                         {t(`upanel_status_${c.last_check_status || 'unknown'}`)}
                       </span>
                     </td>
-                    <td className="text-[11px] text-muted">
+                    <td className="text-11 text-muted">
                       {c.last_check_at ? timeAgo(c.last_check_at) : '—'}
                     </td>
                     <td>
@@ -589,7 +589,7 @@ export default function ProxiesUpanelTab() {
               {statsEntries.slice(0, 8).map(([k, v]) => (
                 <span
                   key={k}
-                  className="mono text-[10px] px-2 py-[2px] rounded-[6px]"
+                  className="mono text-10 px-2 py-[2px] rounded-[6px]"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                 >
                   {k}: <span className="text-text">{String(v)}</span>
@@ -731,7 +731,7 @@ export default function ProxiesUpanelTab() {
                 <tbody>
                   {listLoading && items.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="text-center text-muted py-4 text-[12px]">
+                      <td colSpan={11} className="text-center text-muted py-4 text-12">
                         …
                       </td>
                     </tr>
@@ -749,15 +749,15 @@ export default function ProxiesUpanelTab() {
                   )}
                   {items.map((s, i) => (
                     <tr key={s.id ?? i}>
-                      <td className="mono text-[11px] text-muted">{s.id ?? '—'}</td>
-                      <td className="mono text-[11px]">{s.country ?? '—'}</td>
-                      <td className="text-[11px] text-muted">{s.state ?? '—'}</td>
-                      <td className="text-[11px] text-muted">{s.city ?? '—'}</td>
-                      <td className="mono text-[11px]">{s.ip ?? '—'}</td>
-                      <td className="mono text-[11px] text-muted">{s.mtu ?? '—'}</td>
+                      <td className="mono text-11 text-muted">{s.id ?? '—'}</td>
+                      <td className="mono text-11">{s.country ?? '—'}</td>
+                      <td className="text-11 text-muted">{s.state ?? '—'}</td>
+                      <td className="text-11 text-muted">{s.city ?? '—'}</td>
+                      <td className="mono text-11">{s.ip ?? '—'}</td>
+                      <td className="mono text-11 text-muted">{s.mtu ?? '—'}</td>
                       <td>
                         <span
-                          className="mono text-[10px] px-2 py-[2px] rounded-[6px]"
+                          className="mono text-10 px-2 py-[2px] rounded-[6px]"
                           style={{
                             color: (s.fraud_score ?? 0) >= 70 ? 'var(--red-t)' : 'var(--yellow-t)',
                             background: 'var(--surface)',
@@ -767,11 +767,11 @@ export default function ProxiesUpanelTab() {
                           {s.fraud_score ?? '—'}
                         </span>
                       </td>
-                      <td className="mono text-[11px] text-muted">{s.takes_count ?? '—'}</td>
-                      <td className="text-[11px] text-muted">
+                      <td className="mono text-11 text-muted">{s.takes_count ?? '—'}</td>
+                      <td className="text-11 text-muted">
                         {s.updated_at ? timeAgo(s.updated_at) : '—'}
                       </td>
-                      <td className="text-[11px] text-muted" style={{ maxWidth: 160 }}>
+                      <td className="text-11 text-muted" style={{ maxWidth: 160 }}>
                         {s.notes || '—'}
                       </td>
                       <td>
@@ -807,7 +807,7 @@ export default function ProxiesUpanelTab() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-3">
-              <span className="text-[11px] text-muted">{total}</span>
+              <span className="text-11 text-muted">{total}</span>
               <div className="flex items-center gap-1">
                 <button
                   className="btn btn-ghost btn-sm"
@@ -816,7 +816,7 @@ export default function ProxiesUpanelTab() {
                 >
                   ←
                 </button>
-                <span className="text-[11px] text-muted px-2">
+                <span className="text-11 text-muted px-2">
                   {t('upanel_page_of', { page, n: totalPages })}
                 </span>
                 <button

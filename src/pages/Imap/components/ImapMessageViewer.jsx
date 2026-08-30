@@ -7,7 +7,7 @@ import { ActionBadge } from './ImapActionBadge'
 export function ImapMessageViewer({ message, onReply, onMarkRead, onDelete, onArchive }) {
   if (!message) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted text-[13px]">
+      <div className="flex-1 flex items-center justify-center text-muted text-13">
         <div className="text-center opacity-50">
           <Mail size={40} className="mb-2" />
           <div>Select a message to read</div>
@@ -22,10 +22,10 @@ export function ImapMessageViewer({ message, onReply, onMarkRead, onDelete, onAr
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
       <div className="p-[12px_16px] border-b bg-card">
-        <div className="text-[14px] font-semibold mb-2 leading-[1.3]">
+        <div className="text-14 font-semibold mb-2 leading-[1.3]">
           {message.subject || '(no subject)'}
         </div>
-        <div className="flex flex-col gap-[3px] text-[12px] text-muted">
+        <div className="flex flex-col gap-[3px] text-12 text-muted">
           <div>
             <span className="text-dim">From:</span> {message.from_email}
           </div>
@@ -39,12 +39,12 @@ export function ImapMessageViewer({ message, onReply, onMarkRead, onDelete, onAr
             <div className="flex gap-1.5 items-center">
               {message.action_taken && <ActionBadge action={message.action_taken} />}
               {message.extracted_order_number && (
-                <span className="text-[11px] text-blue-t">
+                <span className="text-11 text-blue-t">
                   <Package size={10} className="inline mr-0.5" />#{message.extracted_order_number}
                 </span>
               )}
               {message.extracted_tracking && (
-                <span className="mono text-[11px] text-muted">{message.extracted_tracking}</span>
+                <span className="mono text-11 text-muted">{message.extracted_tracking}</span>
               )}
             </div>
           </div>
@@ -91,12 +91,12 @@ export function ImapMessageViewer({ message, onReply, onMarkRead, onDelete, onAr
               title="email-body"
             />
           ) : (
-            <pre className="p-4 text-[13px] whitespace-pre-wrap break-word m-0 text-text font-inherit">
+            <pre className="p-4 text-13 whitespace-pre-wrap break-word m-0 text-text font-inherit">
               {message.body}
             </pre>
           )
         ) : (
-          <div className="p-4 text-[12px] text-muted">No body content</div>
+          <div className="p-4 text-12 text-muted">No body content</div>
         )}
       </div>
     </div>

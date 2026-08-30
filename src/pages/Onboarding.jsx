@@ -72,8 +72,8 @@ export default function Onboarding({ onComplete, onNavigate }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-10 gap-8 bg-bg">
       <div className="text-center">
-        <h1 className="text-[28px] font-bold mb-2 text-text">Welcome to VaultBase</h1>
-        <p className="text-muted text-[14px]">Complete these steps to get started</p>
+        <h1 className="text-28 font-bold mb-2 text-text">Welcome to VaultBase</h1>
+        <p className="text-muted text-14">Complete these steps to get started</p>
       </div>
 
       <div className="w-full max-w-[480px] bg-surface rounded-xl overflow-hidden border">
@@ -84,7 +84,7 @@ export default function Onboarding({ onComplete, onNavigate }) {
             style={{ width: `${(completedCount / STEPS.length) * 100}%` }}
           />
         </div>
-        <div className="p-[12px_20px] text-[12px] text-muted border-b">
+        <div className="p-[12px_20px] text-12 text-muted border-b">
           Setup: {completedCount}/{STEPS.length} steps
         </div>
 
@@ -108,8 +108,8 @@ export default function Onboarding({ onComplete, onNavigate }) {
                 )}
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-[14px] mb-0.5 text-text">{step.title}</div>
-                <div className="text-[12px] text-muted">{step.desc}</div>
+                <div className="font-semibold text-14 mb-0.5 text-text">{step.title}</div>
+                <div className="text-12 text-muted">{step.desc}</div>
               </div>
               {!done && (
                 <div className="flex gap-2">
@@ -139,7 +139,7 @@ export default function Onboarding({ onComplete, onNavigate }) {
       )}
       {!allDone && (
         <button
-          className="text-muted bg-transparent border-none cursor-pointer text-[13px]"
+          className="text-muted bg-transparent border-none cursor-pointer text-13"
           onClick={onComplete}
         >
           Skip setup

@@ -442,8 +442,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
                 {profileResults.map(p => (
                   <button key={p.id} onClick={() => selectProfile(p)} className="dropdown-btn">
                     <div className="flex items-center justify-between">
-                      <span className="text-[13px] text-text">{p.holder_masked || '—'}</span>
-                      <div className="flex items-center gap-2 text-[12px] text-muted">
+                      <span className="text-13 text-text">{p.holder_masked || '—'}</span>
+                      <div className="flex items-center gap-2 text-12 text-muted">
                         <span className="font-mono">···{p.last4}</span>
                         <span>{p.bank_name || ''}</span>
                         <span
@@ -506,8 +506,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
                     className="dropdown-btn"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[13px] text-text">{s.name || s.domain}</span>
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                      <span className="text-13 text-text">{s.name || s.domain}</span>
+                      <div className="flex items-center gap-1.5 text-11 text-muted">
                         {s._fromCatalog && <span className="badge-catalog">catalog</span>}
                         {s.domain && !s._fromCatalog && <span className="mono">{s.domain}</span>}
                         {s.score > 0 && (
@@ -542,7 +542,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
               </div>
               {smartSuggs?.length > 0 && (
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-muted">
+                  <div className="flex items-center gap-1 text-10 uppercase tracking-widest text-muted">
                     <Sparkles size={11} /> Smart Suggestions
                   </div>
                   {smartSuggs.map((s, i) => (
@@ -558,9 +558,9 @@ export function CreateOrderModal({ onCreated, onClose }) {
         <div>
           <label className="form-label">3. Shipping Address</label>
           {!profileId ? (
-            <div className="text-muted text-[12px] italic">{t('orders_select_profile_first')}</div>
+            <div className="text-muted text-12 italic">{t('orders_select_profile_first')}</div>
           ) : drops.length === 0 ? (
-            <div className="text-muted text-[12px] italic">{t('orders_profile_no_drops')}</div>
+            <div className="text-muted text-12 italic">{t('orders_profile_no_drops')}</div>
           ) : (
             <div className="flex flex-col gap-1.5">
               {drops.map(d => (
@@ -573,11 +573,11 @@ export function CreateOrderModal({ onCreated, onClose }) {
                     {dropId === d.id && <div className="radio-dot" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 text-[12px]">
+                    <div className="flex items-center gap-1.5 text-12">
                       <span className="text-text font-medium">{d.recipient_name}</span>
                       {d.is_primary && <span className="badge-mini">primary</span>}
                     </div>
-                    <div className="text-[11px] text-muted">
+                    <div className="text-11 text-muted">
                       {d.address}, {d.city}
                       {d.state ? `, ${d.state}` : ''} {d.zip}, {d.country}
                     </div>
@@ -630,7 +630,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
                   value={customEmail}
                   onChange={e => setCustomEmail(e.target.value)}
                   placeholder="user@example.com"
-                  className="form-input p-[8px_12px] text-[13px]"
+                  className="form-input p-[8px_12px] text-13"
                 />
               )}
             </div>
@@ -705,7 +705,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
               {/* Load template */}
               {templates.length > 0 && (
                 <div className="relative template-group">
-                  <button className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer">
+                  <button className="flex items-center gap-1 text-12 text-muted bg-transparent border-none cursor-pointer">
                     <FolderOpen size={12} /> Templates
                   </button>
                   <div className="template-dropdown-menu">
@@ -724,7 +724,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
               )}
               <button
                 onClick={() => setShowSaveTemplate(true)}
-                className="flex items-center gap-1 text-[12px] text-muted bg-transparent border-none cursor-pointer"
+                className="flex items-center gap-1 text-12 text-muted bg-transparent border-none cursor-pointer"
               >
                 <Save size={12} /> Save Template
               </button>
@@ -764,16 +764,12 @@ export function CreateOrderModal({ onCreated, onClose }) {
                           }}
                           className="dropdown-btn-sm flex justify-between items-center"
                         >
-                          <span className="text-[12px] text-text text-truncate flex-1 mr-2">
+                          <span className="text-12 text-text text-truncate flex-1 mr-2">
                             {ci.name}
                           </span>
                           <div className="flex gap-1.5 items-center shrink-0">
-                            {ci.asin && (
-                              <span className="text-[10px] mono text-muted">{ci.asin}</span>
-                            )}
-                            {ci.price && (
-                              <span className="text-[11px] text-green-t">${ci.price}</span>
-                            )}
+                            {ci.asin && <span className="text-10 mono text-muted">{ci.asin}</span>}
+                            {ci.price && <span className="text-11 text-green-t">${ci.price}</span>}
                           </div>
                         </button>
                       ))}
@@ -818,7 +814,7 @@ export function CreateOrderModal({ onCreated, onClose }) {
               <Plus size={12} /> Add Item
             </button>
             {total > 0 && (
-              <div className="text-[12px] text-gray-t">
+              <div className="text-12 text-gray-t">
                 Total: <span className="text-text text-mono-medium">${total.toFixed(2)}</span>
               </div>
             )}

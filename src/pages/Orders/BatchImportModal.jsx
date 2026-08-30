@@ -125,7 +125,7 @@ export function BatchImportModal({ onCreated, onClose }) {
     >
       {!result ? (
         <div className="flex flex-col gap-4">
-          <div className="bg-surface border border-border rounded-lg p-[10px_14px] text-[11px] text-muted mono">
+          <div className="bg-surface border border-border rounded-lg p-[10px_14px] text-11 text-muted mono">
             <div className="font-semibold mb-1 text-text-2">CSV format:</div>
             <div>profile_id,shop_id,item_name,item_sku,amount</div>
           </div>
@@ -136,7 +136,7 @@ export function BatchImportModal({ onCreated, onClose }) {
               type="file"
               accept=".csv"
               onChange={handleFile}
-              className="form-input p-[7px_12px] text-[12px] cursor-pointer"
+              className="form-input p-[7px_12px] text-12 cursor-pointer"
             />
           </div>
 
@@ -167,7 +167,7 @@ export function BatchImportModal({ onCreated, onClose }) {
               aria-valuemin={0}
               aria-valuemax={progress.total}
             >
-              <div className="flex justify-between text-[11px] text-muted mb-1">
+              <div className="flex justify-between text-11 text-muted mb-1">
                 <span>
                   {progress.done} / {progress.total}
                 </span>
@@ -197,7 +197,7 @@ export function BatchImportModal({ onCreated, onClose }) {
               <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.success }}>
                 {result.created}
               </div>
-              <div className="text-[11px] text-muted mt-1">Created</div>
+              <div className="text-11 text-muted mt-1">Created</div>
             </div>
             <div
               style={{
@@ -211,7 +211,7 @@ export function BatchImportModal({ onCreated, onClose }) {
               <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.error }}>
                 {result.failed}
               </div>
-              <div className="text-[11px] text-muted mt-1">Failed</div>
+              <div className="text-11 text-muted mt-1">Failed</div>
             </div>
           </div>
         </div>

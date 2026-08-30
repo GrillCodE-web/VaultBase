@@ -105,7 +105,7 @@ function Spinner() {
     <div className="min-h-screen flex items-center justify-center bg-bg">
       <div className="spinner-container">
         <div className="spinner" />
-        <span className="text-[13px] text-muted">Loading…</span>
+        <span className="text-13 text-muted">Loading…</span>
       </div>
     </div>
   )

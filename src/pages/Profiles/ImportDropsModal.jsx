@@ -88,16 +88,16 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
       <div>
         {step === 1 && (
           <div className="flex flex-col gap-4">
-            <p className="text-[13px] text-muted m-0">
+            <p className="text-13 text-muted m-0">
               Paste raw drop data below. Supported delimiters:{' '}
-              <code className="text-blue-t text-[11px] font-mono">| , ; TAB</code>
+              <code className="text-blue-t text-11 font-mono">| , ; TAB</code>
             </p>
             <textarea
               value={raw}
               onChange={e => setRaw(e.target.value)}
               rows={12}
               placeholder="John Doe | 123 Main St | New York | NY | 10001 | US | +1-555-0100"
-              className="w-full box-border bg-surface border rounded-md p-\[12px_16px\] text-[13px] text-text mono outline-none resize-none"
+              className="w-full box-border bg-surface border rounded-md p-\[12px_16px\] text-13 text-text mono outline-none resize-none"
             />
             <button
               onClick={handlePreview}
@@ -112,7 +112,7 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
 
         {step === 2 && preview && (
           <div className="flex flex-col gap-4">
-            <p className="text-[13px] text-muted m-0">
+            <p className="text-13 text-muted m-0">
               Map columns to drop fields. First row shown as example.
             </p>
             <div className="overflow-x-auto rounded-md border border-border">
@@ -128,7 +128,7 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
                             m[i] = e.target.value
                             setMapping(m)
                           }}
-                          className="bg-surface border text-text rounded py-\[5px\] px-\[10px\] text-[12px] outline-none"
+                          className="bg-surface border text-text rounded py-\[5px\] px-\[10px\] text-12 outline-none"
                         >
                           {DROP_COLUMNS.map(c => (
                             <option key={c} value={c}>
@@ -178,18 +178,18 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[var(--color-success-bg)] border-[var(--color-success-bg)] rounded-[10px] p-4 text-center">
-                <div className="text-[32px] font-bold text-green-t">{result.imported}</div>
-                <div className="text-[12px] text-muted mt-1">{t('cc_import_done')}</div>
+                <div className="text-32 font-bold text-green-t">{result.imported}</div>
+                <div className="text-12 text-muted mt-1">{t('cc_import_done')}</div>
               </div>
               <div className="bg-warning-yellow border-warning-yellow rounded-[10px] p-4 text-center">
-                <div className="text-[32px] font-bold text-yellow-t">{result.skipped}</div>
-                <div className="text-[12px] text-muted mt-1">{t('profiles_skipped')}</div>
+                <div className="text-32 font-bold text-yellow-t">{result.skipped}</div>
+                <div className="text-12 text-muted mt-1">{t('profiles_skipped')}</div>
               </div>
             </div>
             {result.errors?.length > 0 && (
               <div className="bg-surface rounded-[10px] border p-3 max-h-[160px] overflow-y-auto">
                 {result.errors.map((e, i) => (
-                  <div key={i} className="text-[12px] text-red-t font-mono py-[2px]">
+                  <div key={i} className="text-12 text-red-t font-mono py-[2px]">
                     {e}
                   </div>
                 ))}

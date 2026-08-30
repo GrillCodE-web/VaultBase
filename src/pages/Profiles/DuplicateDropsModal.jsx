@@ -18,7 +18,7 @@ export function DuplicateDropsModal({ groups, onClose }) {
         <span className="flex items-center gap-2">
           <SearchCode size={18} className="text-yellow-t" />
           {t('duplicate_drops')}
-          <span className="ml-2 text-[11px] bg-warning text-[var(--color-warning)] py-0.5 px-2 rounded-[20px]">
+          <span className="ml-2 text-11 bg-warning text-[var(--color-warning)] py-0.5 px-2 rounded-[20px]">
             {groups.length} groups
           </span>
         </span>
@@ -36,18 +36,18 @@ export function DuplicateDropsModal({ groups, onClose }) {
         ) : (
           groups.map((group, gi) => (
             <div key={gi} className="border-warning-yellow rounded-[10px] overflow-hidden">
-              <div className="bg-warning p-[8px_16px] text-[12px] text-[var(--color-warning)] font-medium border-b-[var(--color-warning-bg)]">
+              <div className="bg-warning p-[8px_16px] text-12 text-[var(--color-warning)] font-medium border-b-[var(--color-warning-bg)]">
                 {group[0].address}, {group[0].city}, {group[0].country} — {group.length} duplicates
               </div>
               {group.map(d => (
                 <div key={d.id} className="duplicate-list-item">
                   <div>
-                    <span className="text-[13px] text-text">{d.recipient_name}</span>
-                    <span className="text-[11px] text-muted ml-2">
+                    <span className="text-13 text-text">{d.recipient_name}</span>
+                    <span className="text-11 text-muted ml-2">
                       profile: {shortId(d.profile_id)}
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono text-muted">{d.phone || '—'}</span>
+                  <span className="text-11 font-mono text-muted">{d.phone || '—'}</span>
                 </div>
               ))}
             </div>

@@ -259,7 +259,7 @@ export default function Login({ onUnlocked }) {
           {/* Requirements (setup only) */}
           {mode === 'setup' && (
             <div className="auth-reqs form-group">
-              <p className="text-[11px] text-muted mb-2">{t('auth_req_title')}</p>
+              <p className="text-11 text-muted mb-2">{t('auth_req_title')}</p>
               <div className="grid grid-cols-2 gap-1">
                 <Req met={reqs.length} label={t('auth_req_length')} />
                 <Req met={reqs.upper} label={t('auth_req_upper')} />

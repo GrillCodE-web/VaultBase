@@ -257,9 +257,9 @@ export function ProfileModal({ onCreated, onClose }) {
           />
           <div className="card-selection-list">
             {cardsLoading ? (
-              <div className="p-4 text-center text-muted text-[12px]">Loading…</div>
+              <div className="p-4 text-center text-muted text-12">Loading…</div>
             ) : filtered.length === 0 ? (
-              <div className="p-4 text-center text-muted text-[12px]">{t('no_free_cards')}</div>
+              <div className="p-4 text-center text-muted text-12">{t('no_free_cards')}</div>
             ) : (
               filtered.map(c => (
                 <div
@@ -278,22 +278,16 @@ export function ProfileModal({ onCreated, onClose }) {
                 >
                   <div className="flex items-center gap-2">
                     {c.card_type && (
-                      <span className="text-[10px] text-muted uppercase font-semibold">
+                      <span className="text-10 text-muted uppercase font-semibold">
                         {c.card_type}
                       </span>
                     )}
-                    <span className="font-mono text-[12px] text-text">
-                      ●●●● {c.last4 || '????'}
-                    </span>
-                    {c.expiry_date && (
-                      <span className="text-[11px] text-muted">{c.expiry_date}</span>
-                    )}
+                    <span className="font-mono text-12 text-text">●●●● {c.last4 || '????'}</span>
+                    {c.expiry_date && <span className="text-11 text-muted">{c.expiry_date}</span>}
                   </div>
                   <div className="flex gap-2 items-center">
-                    {c.bank_name && <span className="text-[11px] text-muted">{c.bank_name}</span>}
-                    {c.country && (
-                      <span className="text-[10px] font-mono text-muted">{c.country}</span>
-                    )}
+                    {c.bank_name && <span className="text-11 text-muted">{c.bank_name}</span>}
+                    {c.country && <span className="text-10 font-mono text-muted">{c.country}</span>}
                     {cardId === String(c.id) && <Check size={13} className="text-blue-t" />}
                   </div>
                 </div>
@@ -342,13 +336,13 @@ export function ProfileModal({ onCreated, onClose }) {
           </datalist>
           {/* UX-018: feedback — какой email будет привязан к профилю */}
           {emailId && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-green-t">
+            <div className="flex items-center gap-1.5 mt-1.5 text-11 text-green-t">
               <Check size={12} className="icon-no-shrink" />
               <span>{t('email_will_be_linked', { email: emailInput })}</span>
             </div>
           )}
           {!emailId && emailInput.trim() && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted">
+            <div className="flex items-center gap-1.5 mt-1.5 text-11 text-muted">
               <X size={12} className="icon-no-shrink" />
               <span>{t('email_not_in_pool')}</span>
             </div>

@@ -291,8 +291,8 @@ export default function DashboardRedesigned({ onNavigate }) {
           <div className="empty-state-icon-box">
             <Download size={20} className="text-muted" />
           </div>
-          <p className="text-[13px] font-semibold text-text mb-1.5">{t('msg_no_data')}</p>
-          <p className="text-[11px] text-muted mb-4">{t('dashboard_empty_hint')}</p>
+          <p className="text-13 font-semibold text-text mb-1.5">{t('msg_no_data')}</p>
+          <p className="text-11 text-muted mb-4">{t('dashboard_empty_hint')}</p>
           <button
             className="btn btn-b"
             onClick={() => onNavigate?.('cards', { openImport: true })}
@@ -322,7 +322,7 @@ export default function DashboardRedesigned({ onNavigate }) {
               onChange={e => setFrom(e.target.value)}
               className="inline-select-sm"
             />
-            <span className="text-[11px] text-muted">→</span>
+            <span className="text-11 text-muted">→</span>
             <input
               type="date"
               value={to}
@@ -461,7 +461,7 @@ export default function DashboardRedesigned({ onNavigate }) {
                 <div className="panel">
                   <div className="ptitle">
                     {t('chart_title')}
-                    <div className="flex text-[11px] gap-4">
+                    <div className="flex text-11 gap-4">
                       <span className="flex items-center gap-1">
                         <span
                           className="inline-block rounded-sm w-3 h-0.5"
@@ -487,7 +487,7 @@ export default function DashboardRedesigned({ onNavigate }) {
                 <div className="panel">
                   <div className="ptitle">
                     {t('heatmap_title')}
-                    <div className="flex text-[10px] gap-2">
+                    <div className="flex text-10 gap-2">
                       {[
                         { color: HEATMAP_COLORS.high, label: '≥50%', colorVar: '--green-t' },
                         { color: HEATMAP_COLORS.medium, label: '20–50%', colorVar: '--yellow-t' },
@@ -530,14 +530,14 @@ export default function DashboardRedesigned({ onNavigate }) {
                       onClick={() => onNavigate?.('orders')}
                     >
                       <div className="flex-1">
-                        <div className="text-[12px] flex items-center gap-1.5">
+                        <div className="text-12 flex items-center gap-1.5">
                           {o.order_number} <span className={`st st-${o.status}`}>{o.status}</span>
                         </div>
-                        <div className="text-[10px] text-muted mt-0.5">
+                        <div className="text-10 text-muted mt-0.5">
                           {o.shop_name} · {o.created_at?.slice(0, 10)}
                         </div>
                       </div>
-                      <div className="mono text-[11px] text-blue-t">
+                      <div className="mono text-11 text-blue-t">
                         ${o.amount ?? o.total_amount ?? 0}
                       </div>
                     </div>

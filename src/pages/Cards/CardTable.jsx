@@ -213,7 +213,7 @@ export function CardTable({
         <tr>
           <td
             colSpan={99}
-            className="bg-surface text-muted text-[10px] font-bold border-b uppercase tracking-wide py-[5px] px-2.5"
+            className="bg-surface text-muted text-10 font-bold border-b uppercase tracking-wide py-[5px] px-2.5"
           >
             {bank} · {groupCards.length} {t('cards')} ·{' '}
             {groupCards.filter(c => c.status === 'free').length} {t('status_free')}
@@ -350,7 +350,7 @@ export function CardTable({
                   >
                     <span className="flex items-center gap-1">
                       {c.id !== 'actions' && (
-                        <span className="text-muted text-[9px] leading-1 col-grip">⠿</span>
+                        <span className="text-muted text-9 leading-1 col-grip">⠿</span>
                       )}
                       {t(c.label)}
                     </span>

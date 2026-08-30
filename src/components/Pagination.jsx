@@ -10,13 +10,13 @@ export function Pagination({ page, totalPages, total, onPageChange, label = '' }
   if (totalPages <= 1) return null
   return (
     <div className="flex items-center justify-between mt-3">
-      <span className="text-[12px] text-muted">
+      <span className="text-12 text-muted">
         {total} {label}
       </span>
       <div className="flex gap-1">
         {buildPageNumbers(page, totalPages).map((p, i) =>
           p === '...' ? (
-            <span key={`ellipsis-${i}`} className="px-2 py-1 text-[12px] text-muted">
+            <span key={`ellipsis-${i}`} className="px-2 py-1 text-12 text-muted">
               ...
             </span>
           ) : (

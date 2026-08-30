@@ -18,7 +18,7 @@ export function DuplicateProfilesModal({ groups, onClose }) {
         <span className="flex items-center gap-2">
           <Layers size={18} className="text-orange-t" />
           {t('duplicate_profiles')}
-          <span className="ml-2 text-[11px] bg-warning text-[var(--orange)] py-0.5 px-2 rounded-[20px]">
+          <span className="ml-2 text-11 bg-warning text-[var(--orange)] py-0.5 px-2 rounded-[20px]">
             {groups.length} groups
           </span>
         </span>
@@ -39,13 +39,13 @@ export function DuplicateProfilesModal({ groups, onClose }) {
               key={gi}
               className="border-[var(--color-warning-bg)] rounded-[10px] overflow-hidden"
             >
-              <div className="bg-warning p-[8px_16px] text-[12px] text-[var(--orange)] font-medium border-b-[var(--color-warning-bg)]">
+              <div className="bg-warning p-[8px_16px] text-12 text-[var(--orange)] font-medium border-b-[var(--color-warning-bg)]">
                 Card {group[0].bin}••••{group[0].last4} — {group.length} profiles
               </div>
               {group.map(p => (
                 <div key={p.id} className="duplicate-list-item">
-                  <span className="text-[12px] font-mono text-text">{shortId(p.id)}</span>
-                  <span className="text-[11px] text-muted">
+                  <span className="text-12 font-mono text-text">{shortId(p.id)}</span>
+                  <span className="text-11 text-muted">
                     {p.drop_count} drops · {p.order_count} orders
                   </span>
                 </div>

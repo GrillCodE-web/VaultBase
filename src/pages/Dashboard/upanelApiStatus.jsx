@@ -67,7 +67,7 @@ export function UpanelApiStatusWidget() {
     <div className="panel">
       <div className="ptitle">
         {t('upanel_widget_title')}
-        <span className="text-[11px] text-muted">
+        <span className="text-11 text-muted">
           {t('upanel_widget_online', { online: onlineCount, total: rows.length })}
         </span>
         <button className="btn btn-ghost btn-sm" onClick={checkAll} disabled={checking}>
@@ -79,13 +79,13 @@ export function UpanelApiStatusWidget() {
         {rows.map(r => (
           <div key={r.id} className="flex items-center border-b py-1.5 gap-2">
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] truncate">{r.name}</div>
-              <div className="text-[10px] text-muted mono truncate">{r.base_url}</div>
+              <div className="text-12 truncate">{r.name}</div>
+              <div className="text-10 text-muted mono truncate">{r.base_url}</div>
             </div>
-            <div className="text-[10px] text-muted w-[64px] text-right mono">
+            <div className="text-10 text-muted w-[64px] text-right mono">
               {r.latency != null ? t('upanel_latency_ms', { n: r.latency }) : '—'}
             </div>
-            <div className="text-[10px] text-muted w-[64px] text-right">
+            <div className="text-10 text-muted w-[64px] text-right">
               {r.when ? timeAgo(r.when) : '—'}
             </div>
             <span className={`st ${STATUS_CLASS[r.status] || 'st-pending'}`}>

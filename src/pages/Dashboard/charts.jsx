@@ -19,7 +19,7 @@ export { PERIODS } from './periods.js'
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-card border border-border-hi rounded-md px-3 py-2 text-[11px]">
+    <div className="bg-card border border-border-hi rounded-md px-3 py-2 text-11">
       <div className="font-semibold text-text mb-1">{label}</div>
       <div className="text-blue-t">Revenue: {formatCurrency(payload[0]?.value ?? 0)}</div>
       <div className="text-green-t">Profit: {formatCurrency(payload[1]?.value ?? 0)}</div>
@@ -32,7 +32,7 @@ export function RevenueChart({ data }) {
     return (
       <div className="flex flex-col items-center justify-center text-muted gap-2 h-[240px]">
         <AlertTriangle size={20} className="text-border-hi opacity-50" />
-        <span className="text-[12px]">No orders in this period</span>
+        <span className="text-12">No orders in this period</span>
       </div>
     )
   }
@@ -100,7 +100,7 @@ export function Heatmap({ data, onCellClick }) {
   const { t } = useLang()
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center text-muted text-[12px] h-[80px]">
+      <div className="flex items-center justify-center text-muted text-12 h-[80px]">
         {t('dash_not_enough_data')}
       </div>
     )
@@ -121,11 +121,11 @@ export function Heatmap({ data, onCellClick }) {
             {/* Угловая ячейка пустая: подпись «Bank ↓ / Shop →» при узкой
                 колонке банков (max-width:0) переползала на соседний заголовок
                 и слипалась с ним. Оси и так понятны из заголовка панели. */}
-            <th className="text-left text-muted font-medium text-[10px] pb-1 pr-2" />
+            <th className="text-left text-muted font-medium text-10 pb-1 pr-2" />
             {shops.map(s => (
               <th
                 key={s}
-                className="text-text-2 text-[10px] font-medium overflow-hidden text-ellipsis whitespace-nowrap pb-1 px-1"
+                className="text-text-2 text-10 font-medium overflow-hidden text-ellipsis whitespace-nowrap pb-1 px-1"
                 title={s}
               >
                 {s.length > 14 ? s.slice(0, 14) + '...' : s}

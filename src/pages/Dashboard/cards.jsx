@@ -18,7 +18,7 @@ export function CollapsePanel({ title, id, collapsed, onToggle, children }) {
         onClick={() => onToggle(id)}
         className="w-full flex items-center justify-between bg-transparent border-none cursor-pointer px-4 py-3"
       >
-        <span className="text-[13px] font-semibold text-text-2">{title}</span>
+        <span className="text-13 font-semibold text-text-2">{title}</span>
         <ChevronRight
           size={14}
           className={`text-muted shrink-0 transition-transform duration-200 ${collapsed ? '' : 'rotate-90'}`}
