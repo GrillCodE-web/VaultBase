@@ -10,6 +10,7 @@ const AUTH_PATH = path.join(__dirname, '..', 'auth.js');
  */
 function withEnv(env, fn) {
   const saved = { ...process.env };
+  for (const k of ['ADMIN_USER', 'ADMIN_PASS', 'SESSION_SECRET']) delete process.env[k];
   Object.assign(process.env, env);
   delete require.cache[require.resolve(AUTH_PATH)];
   try {
