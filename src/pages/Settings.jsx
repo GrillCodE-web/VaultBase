@@ -14,9 +14,6 @@ import {
   Lock,
   Wifi,
   WifiOff,
-  Users,
-  UserPlus,
-  Copy,
   LogOut,
   CheckCircle,
   Bell,
@@ -71,15 +68,6 @@ export default function Settings() {
   const { theme, setTheme } = useTheme()
   const { currentUser, isAdmin, hasPerm } = useAuth()
 
-  const [syncGroup, setSyncGroup] = useState(null) // null = loading, false = no group, object = group info
-  const [syncGroupLoading, setSyncGroupLoading] = useState(false)
-  const [joinCode, setJoinCode] = useState('')
-  const [newGroupName, setNewGroupName] = useState('')
-  const [showCreateGroup, setShowCreateGroup] = useState(false)
-  const [showJoinGroup, setShowJoinGroup] = useState(false)
-  const [generatingCode, setGeneratingCode] = useState(false)
-  const [generatedCode, setGeneratedCode] = useState(null)
-
   const [binApiKey, setBinApiKey] = useState('')
   const [binApiKeySet, setBinApiKeySet] = useState(false)
   const [binApiSaved, setBinApiSaved] = useState(false)
@@ -96,7 +84,7 @@ export default function Settings() {
   const [accUrl, setAccUrl] = useState('')
   const [accSaving, setAccSaving] = useState(false)
   const [exportingBackup, setExportingBackup] = useState(false)
-  const [wsStatus, setWsStatus] = useState(null) // { connected, connecting, group_id? }
+  const [wsStatus, setWsStatus] = useState(null) // { connected, connecting }
   const [changingPw, setChangingPw] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   // Смена пароля оператора (своего аккаунта)
@@ -190,16 +178,6 @@ export default function Settings() {
         if (!cancelled) setPanicSet(!!v)
       }),
     ])
-    // Network call deferred — doesn't block initial render
-    invoke('sync_get_group_status')
-      .then(s => {
-        if (!cancelled) setSyncGroup(s.in_group ? s : false)
-      })
-      .catch(e => {
-        console.error('[Settings] Failed to get sync group status:', e)
-        if (!cancelled) setSyncGroup(false)
-      })
-
     // Listen for catalog sync and WS connection status
     const u1 = listen('catalog_synced', () => {
       invoke('get_catalog_stats')
@@ -518,70 +496,6 @@ export default function Settings() {
       toastErr(t('settings_restore_failed') + ': ' + getErrorMessage(error))
     } finally {
       setRestoring(false)
-    }
-  }
-
-  const handleCreateGroup = async () => {
-    if (!newGroupName.trim()) return
-    setSyncGroupLoading(true)
-    try {
-      const info = await invoke('sync_create_group', { name: newGroupName.trim() })
-      setSyncGroup({ in_group: true, group_id: info.group_id, group_name: info.name })
-      setShowCreateGroup(false)
-      setNewGroupName('')
-      toastOk('Sync group created!')
-    } catch (e) {
-      const error = handleError(e, 'Settings.handleCreateGroup')
-      toastErr(getErrorMessage(error))
-    } finally {
-      setSyncGroupLoading(false)
-    }
-  }
-
-  const handleJoinGroup = async () => {
-    if (!joinCode.trim()) return
-    setSyncGroupLoading(true)
-    try {
-      const info = await invoke('sync_join_group', { pairCode: joinCode.trim().toUpperCase() })
-      setSyncGroup({ in_group: true, group_id: info.group_id, group_name: info.name })
-      setShowJoinGroup(false)
-      setJoinCode('')
-      toastOk('Joined sync group!')
-    } catch (e) {
-      const error = handleError(e, 'Settings.handleJoinGroup')
-      toastErr(getErrorMessage(error))
-    } finally {
-      setSyncGroupLoading(false)
-    }
-  }
-
-  const handleGeneratePairCode = async () => {
-    setGeneratingCode(true)
-    try {
-      const code = await invoke('sync_create_pair_code')
-      setGeneratedCode(code)
-    } catch (e) {
-      const error = handleError(e, 'Settings.handleGenerateCode')
-      toastErr(getErrorMessage(error))
-    } finally {
-      setGeneratingCode(false)
-    }
-  }
-
-  const handleLeaveGroup = async () => {
-    const ok = await confirm(
-      'Leave sync group? You will lose access to shared cards.',
-      'Leave Group'
-    )
-    if (!ok) return
-    try {
-      await invoke('sync_disconnect')
-      setSyncGroup(false)
-      setGeneratedCode(null)
-      toastOk('Left sync group')
-    } catch (e) {
-      const error = handleError(e, 'Settings.handleLeaveGroup')
-      toastErr(getErrorMessage(error))
     }
   }
 
@@ -1213,9 +1127,6 @@ export default function Settings() {
           <div className="setting-row">
             <div className="setting-info">
               <div className="setting-title">Server connection</div>
-              {wsStatus?.group_id && (
-                <div className="setting-desc mono text-10">{wsStatus.group_id.slice(0, 20)}…</div>
-              )}
             </div>
             <div>
               {wsStatus === null ? (
@@ -1309,137 +1220,6 @@ export default function Settings() {
                   Change Password
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sync Groups */}
-        <div className="panel col-span-full">
-          <div className="ptitle">
-            <Users size={13} className="inline mr-1.5" />
-            Sync Groups
-          </div>
-          {syncGroup === null ? (
-            <div className="text-muted text-12 flex items-center gap-1.5">
-              <RefreshCw size={14} className="animate-spin" /> {t('msg_loading')}
-            </div>
-          ) : syncGroup === false ? (
-            <div>
-              <div className="setting-desc mb-3">
-                Share cards with other users. Create a group and share the pair code, or join with
-                someone else&apos;s code.
-              </div>
-              {!showCreateGroup && !showJoinGroup && (
-                <div className="flex gap-2">
-                  <button onClick={() => setShowCreateGroup(true)} className="btn btn-b btn-sm">
-                    <UserPlus size={13} />
-                    Create Group
-                  </button>
-                  <button onClick={() => setShowJoinGroup(true)} className="btn btn-ghost btn-sm">
-                    Join with code
-                  </button>
-                </div>
-              )}
-              {showCreateGroup && (
-                <div className="flex flex-col gap-2 mt-2">
-                  <input
-                    type="text"
-                    value={newGroupName}
-                    onChange={e => setNewGroupName(e.target.value)}
-                    placeholder="Group name"
-                    className="form-input"
-                    maxLength={64}
-                    onKeyDown={e => e.key === 'Enter' && handleCreateGroup()}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowCreateGroup(false)}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      {t('btn_cancel')}
-                    </button>
-                    <button
-                      onClick={handleCreateGroup}
-                      disabled={syncGroupLoading || !newGroupName.trim()}
-                      className="btn btn-b btn-sm"
-                    >
-                      {syncGroupLoading ? <RefreshCw size={13} className="animate-spin" /> : null}
-                      Create
-                    </button>
-                  </div>
-                </div>
-              )}
-              {showJoinGroup && (
-                <div className="flex flex-col gap-2 mt-2">
-                  <input
-                    type="text"
-                    value={joinCode}
-                    onChange={e => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder="Enter 6-char pair code (e.g. AB3C7X)"
-                    className="form-input font-mono"
-                    maxLength={6}
-                    onKeyDown={e => e.key === 'Enter' && handleJoinGroup()}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowJoinGroup(false)}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      {t('btn_cancel')}
-                    </button>
-                    <button
-                      onClick={handleJoinGroup}
-                      disabled={syncGroupLoading || joinCode.length < 6}
-                      className="btn btn-b btn-sm"
-                    >
-                      {syncGroupLoading ? <RefreshCw size={13} className="animate-spin" /> : null}
-                      Join
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="font-semibold text-13">
-                    {syncGroup.group_name || 'Sync Group'}
-                  </div>
-                  <div className="text-muted text-11 font-mono">
-                    {syncGroup.group_id?.slice(0, 16)}...
-                  </div>
-                </div>
-                <button onClick={handleLeaveGroup} className="btn btn-r btn-sm">
-                  <LogOut size={12} />
-                  Leave
-                </button>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={handleGeneratePairCode}
-                  disabled={generatingCode}
-                  className="btn btn-ghost btn-sm"
-                >
-                  <Copy size={12} />
-                  {generatingCode ? 'Generating...' : 'Get Pair Code'}
-                </button>
-              </div>
-              {generatedCode && (
-                <div className="mt-2 p-2 rounded-lg bg-surface border">
-                  <div className="text-11 text-muted mb-1">
-                    Share this code with your partner (valid 15 min):
-                  </div>
-                  <div className="font-mono text-16 font-bold tracking-widest text-center py-1 text-accent">
-                    {generatedCode.split(' ')[0]}
-                  </div>
-                  {generatedCode.includes('expires') && (
-                    <div className="text-10 text-muted text-center">
-                      {generatedCode.split('(')[1]?.replace(')', '')}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>
