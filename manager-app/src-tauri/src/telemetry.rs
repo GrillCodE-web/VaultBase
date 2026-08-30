@@ -1056,7 +1056,7 @@ pub(crate) struct DayStats {
 }
 
 impl DayStats {
-    fn add(&mut self, o: &DayStats) {
+    pub(crate) fn add(&mut self, o: &DayStats) {
         self.orders += o.orders;
         self.delivered += o.delivered;
         self.declined += o.declined;

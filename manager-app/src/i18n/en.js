@@ -252,6 +252,13 @@ export const dict = {
   ins_investigate_delivery_hint: 'delivery {value}% vs baseline {baseline}% ({date})',
   ins_investigate_volume: 'Volume drop: {name}',
   ins_investigate_volume_hint: 'orders {value} vs baseline {baseline} ({date})',
+  days14: '14 days',
+  days90: '90 days',
+  night_title: 'Night summary — {date}',
+  night_vs_baseline: 'deltas vs trailing {n}-day average',
+  night_spark_orders: 'Orders, 14 days',
+  night_spark_delivered: 'Delivered, 14 days',
+  alert_goto_worker: 'Open worker',
 
   news_title: 'Published news',
   news_create: 'Create news',

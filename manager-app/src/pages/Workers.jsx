@@ -239,7 +239,7 @@ function WorkerStats({ iid }) {
   )
 }
 
-export default function Workers() {
+export default function Workers({ navParams }) {
   const { t, lang } = useLang()
   const [workers, setWorkers] = useState(null)
   const [snapshots, setSnapshots] = useState({})
@@ -267,6 +267,13 @@ export default function Workers() {
   }
 
   useEffect(load, [])
+
+  // MGR-020: диплинк из алертов/действий — сразу открыть карточку воркера
+  useEffect(() => {
+    if (!workers || !navParams?.focus) return
+    const w = workers.find((x) => x.installation_id === navParams.focus)
+    if (w) setSelected(w)
+  }, [workers, navParams?.focus])
 
   const rows = useMemo(() => {
     if (!workers) return []

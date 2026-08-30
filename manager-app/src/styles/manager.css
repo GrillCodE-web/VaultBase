@@ -814,3 +814,28 @@ textarea.code {
   font-size: 13px;
   margin-bottom: 4px;
 }
+
+/* ── MGR-020: ночная сводка + спарклайны ──────────────────────── */
+
+.night-row {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.night-item .value {
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+.night-item .label {
+  color: var(--text-3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+.sparkline {
+  display: block;
+}

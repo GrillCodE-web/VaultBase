@@ -251,6 +251,13 @@ export const dict = {
   ins_investigate_delivery_hint: 'доставка {value}% против базы {baseline}% ({date})',
   ins_investigate_volume: 'Просадка объёма: {name}',
   ins_investigate_volume_hint: 'заказов {value} против базы {baseline} ({date})',
+  days14: '14 дней',
+  days90: '90 дней',
+  night_title: 'Ночная сводка — {date}',
+  night_vs_baseline: 'дельты против среднего за {n} дн.',
+  night_spark_orders: 'Заказы, 14 дней',
+  night_spark_delivered: 'Доставлено, 14 дней',
+  alert_goto_worker: 'К воркеру',
 
   news_title: 'Опубликованные новости',
   news_create: 'Создать новость',

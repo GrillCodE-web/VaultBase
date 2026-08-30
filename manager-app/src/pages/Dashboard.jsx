@@ -14,6 +14,33 @@ function cmpVer(a, b) {
   return 0
 }
 
+function Sparkline({ values, color, width = 140, height = 32 }) {
+  if (!values || values.length < 2) return null
+  const max = Math.max(...values, 1)
+  const step = width / (values.length - 1)
+  const pts = values
+    .map((v, i) => `${(i * step).toFixed(1)},${(height - 3 - (v / max) * (height - 6)).toFixed(1)}`)
+    .join(' ')
+  return (
+    <svg width={width} height={height} className="sparkline" aria-hidden="true">
+      <polyline points={pts} fill="none" stroke={color || 'var(--accent)'} strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function DeltaChip({ value, unit, invert }) {
+  if (value == null) return null
+  const good = invert ? value < 0 : value > 0
+  const flat = value === 0
+  const cls = flat ? 'gray' : good ? 'green' : 'red'
+  const sign = value > 0 ? '+' : ''
+  return (
+    <span className={`tag ${cls}`} style={{ marginLeft: 8 }}>
+      {sign}{value}{unit || '%'}
+    </span>
+  )
+}
+
 export default function Dashboard({ onSync, onNavigate }) {
   const { t, lang } = useLang()
   const [overview, setOverview] = useState(null)
@@ -93,6 +120,61 @@ export default function Dashboard({ onSync, onNavigate }) {
           </div>
         ))}
       </div>
+
+      {insights?.night_summary && (
+        <div className="panel">
+          <h3>{t('night_title', { date: insights.night_summary.date })}</h3>
+          <div className="night-row">
+            <div className="night-item">
+              <div className="value">
+                {insights.night_summary.orders}
+                <DeltaChip value={insights.night_summary.delta_orders_pct} />
+              </div>
+              <div className="label">{t('orders_total')}</div>
+            </div>
+            <div className="night-item">
+              <div className="value">
+                {insights.night_summary.delivered}
+                <DeltaChip value={insights.night_summary.delta_delivered_pct} />
+              </div>
+              <div className="label">{t('delivered_col')}</div>
+            </div>
+            <div className="night-item">
+              <div className="value">
+                {insights.night_summary.decline_rate}%
+                <DeltaChip value={insights.night_summary.delta_decline_pp} unit=" п.п." invert />
+              </div>
+              <div className="label">{t('decline_ratio')}</div>
+            </div>
+            <div className="night-item">
+              <div className="value">
+                {insights.night_summary.cards_taken}
+              </div>
+              <div className="label">{t('cards_taken_col')}</div>
+            </div>
+            <div className="night-item">
+              <div className="value">
+                {insights.night_summary.dead_ratio}%
+                <DeltaChip value={insights.night_summary.delta_dead_pp} unit=" п.п." invert />
+              </div>
+              <div className="label">{t('dead_ratio')}</div>
+            </div>
+            <div className="night-item">
+              <Sparkline values={(insights.fleet_daily || []).map((d) => d.orders)} />
+              <div className="label">{t('night_spark_orders')}</div>
+            </div>
+            <div className="night-item">
+              <Sparkline values={(insights.fleet_daily || []).map((d) => d.delivered)} color="var(--green)" />
+              <div className="label">{t('night_spark_delivered')}</div>
+            </div>
+          </div>
+          {insights.night_summary.baseline_days > 0 && (
+            <div className="hint" style={{ marginTop: 8 }}>
+              {t('night_vs_baseline', { n: insights.night_summary.baseline_days })}
+            </div>
+          )}
+        </div>
+      )}
 
       {latestVer && (
         <div className="panel">

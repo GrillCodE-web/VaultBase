@@ -29,6 +29,11 @@ const PAGES = {
 export default function Shell({ appState, onLock }) {
   const { t, lang, setLang } = useLang()
   const [page, setPage] = useState('dashboard')
+  const [navParams, setNavParams] = useState({})
+  const navigate = (p, params) => {
+    setNavParams(params || {})
+    setPage(p)
+  }
   const [alertsNew, setAlertsNew] = useState(0)
   const [syncInfo, setSyncInfo] = useState('')
   const [syncing, setSyncing] = useState(false)
@@ -174,7 +179,7 @@ export default function Shell({ appState, onLock }) {
           <div className="meta mono">{appState.role || 'manager'}</div>
         </div>
         <div className="content">
-          <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={setPage} />
+          <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={navigate} navParams={navParams} />
         </div>
       </div>
     </div>

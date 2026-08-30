@@ -112,7 +112,15 @@ pub fn insights(db: &Database) -> Result<Value, String> {
     let mut fl_decline: Vec<f64> = Vec::new();
     let mut fl_dead: Vec<f64> = Vec::new();
     let mut fl_delivery: Vec<f64> = Vec::new();
+    // флотовые ряды по дням: date → агрегаты (для спарклайнов и ночной сводки)
+    let mut fleet_by_date: std::collections::BTreeMap<String, DayStats> = Default::default();
     for (_, _, days) in &workers {
+        for row in days {
+            fleet_by_date
+                .entry(row.date.clone())
+                .or_default()
+                .add(&row.d);
+        }
         if let Some(last) = days.first() {
             if last.d.orders >= MIN_VOLUME {
                 fl_decline.push(pct(last.d.declined, last.d.orders));
@@ -309,12 +317,67 @@ pub fn insights(db: &Database) -> Result<Value, String> {
         da.partial_cmp(&dbb).unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    // ── флотовый ряд (спарклайны) и ночная сводка (вчера vs база 7д) ──
+    let series: Vec<(&String, &DayStats)> = fleet_by_date.iter().rev().take(14).collect();
+    let fleet_daily: Vec<Value> = series
+        .iter()
+        .rev()
+        .map(|(date, d)| json!({
+            "date": date,
+            "orders": d.orders,
+            "delivered": d.delivered,
+            "declined": d.declined,
+            "cards_taken": d.cards_taken,
+            "cards_dead": d.cards_dead,
+        }))
+        .collect();
+
+    let night_summary = match series.first() {
+        Some((date, last)) => {
+            let base: Vec<&DayStats> = series.iter().skip(1).take(7).map(|(_, d)| *d).collect();
+            let base_avg = |f: &dyn Fn(&DayStats) -> f64| -> Option<f64> {
+                if base.is_empty() {
+                    return None;
+                }
+                Some(base.iter().map(|d| f(d)).sum::<f64>() / base.len() as f64)
+            };
+            let delta = |now: f64, b: Option<f64>| -> Value {
+                match b {
+                    Some(v) if v > 0.0 => json!(r1((now - v) / v * 100.0)),
+                    _ => Value::Null,
+                }
+            };
+            let base_orders = base_avg(&|d: &DayStats| d.orders as f64);
+            let base_delivered = base_avg(&|d: &DayStats| d.delivered as f64);
+            let base_decline = base_avg(&|d: &DayStats| pct(d.declined, d.orders));
+            let base_dead = base_avg(&|d: &DayStats| pct(d.cards_dead, d.cards_taken));
+            json!({
+                "date": date,
+                "orders": last.orders,
+                "delivered": last.delivered,
+                "declined": last.declined,
+                "decline_rate": r1(pct(last.declined, last.orders)),
+                "cards_taken": last.cards_taken,
+                "cards_dead": last.cards_dead,
+                "dead_ratio": r1(pct(last.cards_dead, last.cards_taken)),
+                "baseline_days": base.len(),
+                "delta_orders_pct": delta(last.orders as f64, base_orders),
+                "delta_delivered_pct": delta(last.delivered as f64, base_delivered),
+                "delta_decline_pp": base_decline.map(|b| r1(pct(last.declined, last.orders) - b)),
+                "delta_dead_pp": base_dead.map(|b| r1(pct(last.cards_dead, last.cards_taken) - b)),
+            })
+        }
+        None => Value::Null,
+    };
+
     Ok(json!({
         "ok": true,
         "workers_evaluated": workers.len(),
         "anomalies": anomalies,
         "pool_forecast": forecast,
         "actions": actions,
+        "fleet_daily": fleet_daily,
+        "night_summary": night_summary,
         "fleet_baseline": {
             "decline_rate": fleet_decline.map(r1),
             "dead_ratio": fleet_dead.map(r1),
@@ -488,6 +551,65 @@ mod tests {
         assert_eq!(r["anomalies"].as_array().unwrap().len(), 0);
         assert_eq!(r["actions"].as_array().unwrap().len(), 0);
         assert!(r["fleet_baseline"]["decline_rate"].is_null());
+    }
+
+    #[test]
+    fn fleet_daily_series_and_night_summary() {
+        let (_dir, db) = temp_db();
+        // 8 дней по 2 воркера: стабильная база 10 заказов/день на флот
+        for i in 0..8 {
+            let date = (chrono::Local::now() - chrono::Duration::days(i))
+                .format("%Y-%m-%d")
+                .to_string();
+            for (iid, extra) in [("w1", 0), ("w2", 0)] {
+                let _ = extra;
+                insert_report(
+                    &db, iid, iid, &date,
+                    r#"{"orders":{"total":5,"by_status":{"delivered":4,"declined":1}},
+                        "cards":{"taken":4,"used":4,"dead":0}}"#,
+                );
+            }
+        }
+        // последний день поднимем вдвое для w1 → флот 15 вместо 10
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        db.conn
+            .execute(
+                "UPDATE reports SET payload = ?1 WHERE installation_id = 'w1' AND report_date = ?2",
+                rusqlite::params![
+                    r#"{"orders":{"total":10,"by_status":{"delivered":9,"declined":1}},
+                        "cards":{"taken":8,"used":8,"dead":0}}"#,
+                    today
+                ],
+            )
+            .unwrap();
+
+        let r = insights(&db).unwrap();
+        let daily = r["fleet_daily"].as_array().unwrap();
+        assert_eq!(daily.len(), 8, "все 8 дней флота: {}", daily.len());
+        // хронологический порядок: старые → новые
+        assert!(daily[0]["date"].as_str().unwrap() < daily[7]["date"].as_str().unwrap());
+        assert_eq!(daily[7]["orders"], 15);
+        assert_eq!(daily[0]["orders"], 10);
+
+        let ns = &r["night_summary"];
+        assert_eq!(ns["date"], today);
+        assert_eq!(ns["orders"], 15);
+        assert_eq!(ns["delivered"], 13);
+        assert_eq!(ns["baseline_days"], 7);
+        // 15 против 10 → +50%; delivered 13 против 8 → +62.5%
+        assert_eq!(ns["delta_orders_pct"], 50.0);
+        assert_eq!(ns["delta_delivered_pct"], 62.5);
+        // деклайн: 2/15≈13.3% против базы 2/10=20% → -6.7 п.п.; мёртвых 0 против 0
+        assert_eq!(ns["delta_decline_pp"], -6.7);
+        assert_eq!(ns["delta_dead_pp"], 0.0);
+    }
+
+    #[test]
+    fn night_summary_null_without_reports() {
+        let (_dir, db) = temp_db();
+        let r = insights(&db).unwrap();
+        assert!(r["night_summary"].is_null());
+        assert_eq!(r["fleet_daily"].as_array().unwrap().len(), 0);
     }
 
     #[test]

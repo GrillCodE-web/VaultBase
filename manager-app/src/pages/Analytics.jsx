@@ -96,9 +96,15 @@ export default function Analytics({ onSync }) {
     <div>
       <div className="toolbar">
         <div className="seg">
-          <button onClick={() => setPeriod(1)}>{t('days1')}</button>
-          <button onClick={() => setPeriod(7)}>{t('days7')}</button>
-          <button className={from === isoDay(30) ? 'active' : ''} onClick={() => setPeriod(30)}>{t('days30')}</button>
+          {[[1, 'days1'], [7, 'days7'], [14, 'days14'], [30, 'days30'], [90, 'days90']].map(([n, key]) => (
+            <button
+              key={n}
+              className={from === isoDay(n) && to === isoDay(0) ? 'active' : ''}
+              onClick={() => setPeriod(n)}
+            >
+              {t(key)}
+            </button>
+          ))}
         </div>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="btn" />
         <span className="meta">→</span>

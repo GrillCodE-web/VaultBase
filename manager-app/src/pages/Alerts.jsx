@@ -4,7 +4,7 @@ import { api, evaluateAlerts, fmtDateTime, getLocalAlerts, localAlertAction } fr
 
 const STATUSES = ['all', 'new', 'ack', 'closed']
 
-export default function Alerts({ onAlertsChanged }) {
+export default function Alerts({ onAlertsChanged, onNavigate }) {
   const { t } = useLang()
   const [alerts, setAlerts] = useState(null)
   const [status, setStatus] = useState('all')
@@ -93,6 +93,15 @@ export default function Alerts({ onAlertsChanged }) {
                     </span>
                   </td>
                   <td>
+                    {a.installation_id && onNavigate && (
+                      <button
+                        className="btn small"
+                        title={a.installation_id}
+                        onClick={() => onNavigate('workers', { focus: a.installation_id })}
+                      >
+                        {t('alert_goto_worker')}
+                      </button>
+                    )}{' '}
                     {a.status === 'new' && (
                       <button className="btn small" onClick={() => act(a, 'ack')}>{t('alert_ack')}</button>
                     )}{' '}
