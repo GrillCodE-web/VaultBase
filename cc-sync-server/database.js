@@ -425,6 +425,43 @@ function migrate(db) {
       PRAGMA user_version = 16;
     `);
   }
+
+  // DEVOPS-006: release_files имела UNIQUE(version, file_type) — БЕЗ платформы.
+  // Заливка одного релиза под 3 ОС перезаписывала одну и ту же строку, и в
+  // /update выживал последний залитый артефакт (по факту Linux): Windows- и
+  // macOS-клиенты обновлений не видели. Пересоздаём таблицу с
+  // UNIQUE(version, file_type, platform). Старые строки переносим как есть —
+  // дубликатов (version,file_type,platform) в них быть не может, т.к. старый
+  // ключ был строже.
+  if (ver < 17) {
+    db.exec(`
+      CREATE TABLE release_files_v17 (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        version         TEXT NOT NULL,
+        file_type       TEXT NOT NULL DEFAULT 'updater',
+        platform        TEXT DEFAULT 'darwin-aarch64',
+        download_url    TEXT,
+        signature       TEXT,
+        file_size       INTEGER,
+        notes           TEXT DEFAULT '',
+        is_published    INTEGER DEFAULT 0,
+        published_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+        channel         TEXT NOT NULL DEFAULT 'stable',
+        rollout_percent INTEGER NOT NULL DEFAULT 100,
+        UNIQUE(version, file_type, platform)
+      );
+      INSERT OR IGNORE INTO release_files_v17
+        (version, file_type, platform, download_url, signature, file_size, notes,
+         is_published, published_at, channel, rollout_percent)
+        SELECT version, file_type, platform, download_url, signature, file_size, notes,
+               is_published, published_at, channel, rollout_percent
+        FROM release_files;
+      DROP TABLE release_files;
+      ALTER TABLE release_files_v17 RENAME TO release_files;
+
+      PRAGMA user_version = 17;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

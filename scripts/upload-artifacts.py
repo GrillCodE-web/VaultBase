@@ -9,6 +9,15 @@
     python3 scripts/upload-artifacts.py --dir artifacts --version 2.5.1 \
         --notes "Автосборка v2.5.1" --publish
 
+Режим менеджера (VaultBase Manager, CI-теги mgr-v*):
+
+    python3 scripts/upload-artifacts.py --dir artifacts --app manager \
+        --version 0.2.0 --publish [--channel beta] [--rollout 25]
+
+Заливает ТОЛЬКО updater-артефакты как file_type=manager-updater: инсталлеры
+для ручной загрузки на сервер не идут (менеджер не раздаётся с публичной
+страницы воркера), а /update?app=manager читает ровно этот тип.
+
 Окружение (в код ничего не зашивается):
     SERVER_URL   https://sec201-www.otpmanager.pro
     ADMIN_PATH   /ghostadmin/1asfd-54-local
@@ -121,10 +130,11 @@ def multipart(fields, filepath):
     return boundary, body
 
 
-def upload(art, version, notes, publish, user, pw):
+def upload(art, version, notes, publish, user, pw, channel="stable", rollout=100):
     fields = {"version": version, "notes": notes, "platform": art["platform"],
               "file_type": art["file_type"], "signature": art["signature"],
-              "publish": "1" if publish else "0"}
+              "publish": "1" if publish else "0",
+              "channel": channel, "rollout_percent": str(rollout)}
     boundary, body = multipart(fields, art["path"])
     auth = base64.b64encode(f"{user}:{pw}".encode()).decode()
     req = urllib.request.Request(
@@ -148,20 +158,37 @@ def main():
     ap.add_argument("--notes", default="")
     ap.add_argument("--publish", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--app", choices=["worker", "manager"], default="worker",
+                    help="worker — воркер (по умолчанию); manager — VaultBase Manager")
+    ap.add_argument("--channel", choices=["stable", "beta"], default="stable",
+                    help="канал релиза (staged rollout менеджера)")
+    ap.add_argument("--rollout", type=int, default=100,
+                    help="процент флота для staged rollout менеджера (0..100)")
     a = ap.parse_args()
 
     arts = collect(a.dir)
     if not arts:
         sys.exit(f"В {a.dir} не найдено ни одного распознанного артефакта")
 
+    if a.app == "manager":
+        # Менеджер заливает ТОЛЬКО updater-артефакты под своим file_type:
+        # инсталлеры для ручной загрузки на сервер не идут (менеджер не
+        # раздаётся с публичной страницы воркера), а ветка /update?app=manager
+        # читает ровно file_type='manager-updater'.
+        arts = [{**x, "file_type": "manager-updater"} for x in arts if x["file_type"] == "updater"]
+        if not arts:
+            sys.exit(f"В {a.dir} нет updater-артефактов менеджера (.app.tar.gz / .msi / .AppImage)")
+    elif a.channel != "stable" or a.rollout != 100:
+        sys.exit("--channel/--rollout имеют смысл только с --app manager")
+
     print(f"Найдено артефактов: {len(arts)}")
     for x in arts:
         mb = os.path.getsize(x["path"]) / 1048576
-        mark = "подписан" if x["signature"] else ("БЕЗ ПОДПИСИ" if x["file_type"] == "updater" else "—")
+        mark = "подписан" if x["signature"] else ("БЕЗ ПОДПИСИ" if x["file_type"].endswith("updater") else "—")
         print(f"  {x['file_type']:20} {x['platform']:18} {mb:7.1f} MB  {mark}  {os.path.basename(x['path'])}")
 
     # Апдейтер без подписи Tauri молча отвергнет — лучше упасть здесь.
-    unsigned = [x for x in arts if x["file_type"] == "updater" and not x["signature"]]
+    unsigned = [x for x in arts if x["file_type"].endswith("updater") and not x["signature"]]
     if unsigned and not a.dry_run:
         sys.exit("Есть updater-артефакты без .sig — задайте TAURI_SIGNING_PRIVATE_KEY при сборке")
 
@@ -175,9 +202,11 @@ def main():
     user = os.environ.get("ADMIN_USER", "admin")
 
     print(f"\nЗаливаю в {SERVER_URL}{ADMIN_PATH}/upload")
+    if a.app == "manager":
+        print(f"  app=manager, канал={a.channel}, rollout={a.rollout}%")
     ok = 0
     for x in arts:
-        res = upload(x, a.version, a.notes, a.publish, user, pw)
+        res = upload(x, a.version, a.notes, a.publish, user, pw, a.channel, a.rollout)
         if res.get("ok"):
             ok += 1
             print(f"  OK   {res['filename']} ({res['file_size_mb']} MB)")

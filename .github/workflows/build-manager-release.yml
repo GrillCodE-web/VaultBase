@@ -1,0 +1,163 @@
+name: Build Manager Release
+
+# Отдельный пайплайн второго приложения (VaultBase Manager): версии у него
+# свои (mgr-v0.2.0), ключ подписи свой, артефакты уходят на сервер как
+# file_type=manager-updater и обслуживаются веткой /update?app=manager
+# со staged rollout (channel/rollout_percent меняются из manager-app).
+
+on:
+  push:
+    tags:
+      - 'mgr-v*'
+  workflow_dispatch:
+    inputs:
+      publish_to_panel:
+        description: 'Залить сборки в админ-панель после успеха'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: build-manager-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows — MSVC toolchain, produces .msi + .exe (NSIS)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows-x64
+            bundles: msi,nsis,updater
+
+          # Linux — Ubuntu 22.04, produces .deb + .AppImage
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: linux-x64
+            bundles: deb,appimage,updater
+
+          # macOS Apple Silicon — produces .dmg (M1/M2/M3/M4)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            label: macos-arm64
+            bundles: dmg,app,updater
+
+    name: Build Manager · ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: manager-app/package-lock.json
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: manager-app/src-tauri
+          cache-on-failure: true
+
+      - name: Install Linux deps
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config
+
+      - name: Install npm deps
+        working-directory: manager-app
+        run: npm ci
+
+      - name: Build Tauri (manager-app)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ОТДЕЛЬНЫЙ ключ подписи менеджера (не воркерский), см. docs/RELEASE.md §9.
+          # Сгенерирован: npx tauri signer generate -w .secrets/vaultbase-manager-updater.key
+          # Содержимое положить в Secrets как TAURI_SIGNING_PRIVATE_KEY_MANAGER.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_MANAGER }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: manager-app
+          tagName: ${{ github.ref_name }}
+          releaseName: VaultBase Manager ${{ github.ref_name }}
+          releaseBody: |
+            Автоматическая сборка VaultBase Manager ${{ github.ref_name }}
+
+            **Файлы:**
+            - Windows x64: `.msi` (MSI installer) / `_x64-setup.exe` (NSIS)
+            - Linux x64: `.deb` (Debian/Ubuntu) / `.AppImage` (универсальный)
+            - macOS Apple Silicon (M1/M2/M3/M4): `.dmg`
+          releaseDraft: false
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: manager-${{ matrix.label }}
+          path: |
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.zip
+            manager-app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
+          if-no-files-found: warn
+          retention-days: 30
+
+  # Публикация стартует только когда собрались ВСЕ платформы — на сервере не
+  # появляется полурелиз. Заливаются только updater-артефакты (менеджер не
+  # раздаётся с публичной страницы загрузки воркера).
+  publish:
+    name: Публикация менеджера в панель
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.publish_to_panel }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Скачать все артефакты
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Список собранного
+        run: find artifacts -type f | sort
+
+      - name: Залить в админ-панель
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
+          ADMIN_PATH: ${{ secrets.ADMIN_PATH }}
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
+        run: |
+          python3 scripts/upload-artifacts.py \
+            --dir artifacts \
+            --app manager \
+            --version "${GITHUB_REF_NAME#mgr-v}" \
+            --notes "Автоматическая сборка Manager ${GITHUB_REF_NAME}" \
+            --publish

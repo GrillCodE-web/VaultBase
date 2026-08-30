@@ -1,14 +1,15 @@
 # Выпуск версий VaultBase
 
-**Обновлено:** 2026-08-07
+**Обновлено:** 2026-08-30
 
 Как собрать прод-версию, опубликовать её и как это работает у пользователя.
+Воркер — теги `v*`, менеджер (VaultBase Manager) — теги `mgr-v*` (см. §9).
 
 ---
 
 ## 1. Быстрый путь: всё через GitHub Actions
 
-Один тег — четыре платформы (Windows, Linux, macOS ARM, macOS Intel) и
+Один тег — три платформы (Windows, Linux, macOS Apple Silicon) и
 автоматическая заливка в панель.
 
 ```bash
@@ -19,18 +20,19 @@ git tag v2.5.2 && git push origin v2.5.2
 ```
 
 Дальше `.github/workflows/build-release.yml` сам:
-собирает 4 таргета → подписывает → создаёт черновик GitHub Release →
+собирает 3 таргета → подписывает → создаёт GitHub Release →
 job `publish` заливает всё в админ-панель.
 
 ### Секреты репозитория (без них не заработает)
 
-| Секрет                               | Что                                         | Обязателен                                       |
-| ------------------------------------ | ------------------------------------------- | ------------------------------------------------ |
-| `TAURI_SIGNING_PRIVATE_KEY`          | содержимое `.secrets/vaultbase-updater.key` | да — без него нет `.sig` и авто-апдейт не примут |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | пароль ключа (у нас пустой)                 | нет                                              |
-| `SERVER_URL`                         | `https://sec201-www.otpmanager.pro`         | для job `publish`                                |
-| `ADMIN_PATH`                         | путь админки                                | для job `publish`                                |
-| `ADMIN_USER` / `ADMIN_PASS`          | креды панели                                | для job `publish`                                |
+| Секрет                               | Что                                                 | Обязателен                                                  |
+| ------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------- |
+| `TAURI_SIGNING_PRIVATE_KEY`          | содержимое `.secrets/vaultbase-updater.key`         | да — без него нет `.sig` и авто-апдейт не примут            |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | пароль ключа (у нас пустой)                         | нет                                                         |
+| `TAURI_SIGNING_PRIVATE_KEY_MANAGER`  | содержимое `.secrets/vaultbase-manager-updater.key` | только для workflow менеджера (`build-manager-release.yml`) |
+| `SERVER_URL`                         | `https://sec201-www.otpmanager.pro`                 | для job `publish`                                           |
+| `ADMIN_PATH`                         | путь админки                                        | для job `publish`                                           |
+| `ADMIN_USER` / `ADMIN_PASS`          | креды панели                                        | для job `publish`                                           |
 
 Добавить: `Settings → Secrets and variables → Actions → New repository secret`.
 
@@ -118,6 +120,14 @@ https://sec201-www.otpmanager.pro/update?current_version={{current_version}}
 Раньше отдавалась одна платформа из `versions`, из-за чего обновлялась ровно
 одна ОС, а остальным Tauri отвечал «нет подходящей платформы».
 
+> ⚠️ Миграция БД v17 (DEVOPS-006): раньше `release_files` имела
+> `UNIQUE(version, file_type)` — БЕЗ платформы. Заливка одного релиза под 3 ОС
+> перезаписывала одну строку, и в `platforms{}` выживала последняя залитая ОС
+> (по факту Linux): Windows/macOS-клиенты обновлений не видели. Сейчас ключ —
+> `UNIQUE(version, file_type, platform)`, upsert в `upload.js` — по тройке
+> `(version, file_type, platform)`. Требуется деплой сервера
+> (`scripts/deploy-server.py`): до него на проде баг жив.
+
 ---
 
 ## 5. Ключ подписи
@@ -172,19 +182,46 @@ curl -s -o /dev/null -w "%{http_code}\n" "$B/update?current_version=2.5.1"
 
 ## 8. Файлы
 
-| Файл                                  | Роль                                                        |
-| ------------------------------------- | ----------------------------------------------------------- |
-| `.github/workflows/build-release.yml` | сборка 4 платформ + публикация                              |
-| `scripts/release.py`                  | полный цикл локально: версия → сборка → заливка → CHANGELOG |
-| `scripts/publish-release.py`          | публикация по SSH (без пароля панели)                       |
-| `scripts/upload-artifacts.py`         | публикация по HTTP (для CI)                                 |
-| `scripts/deploy-server.py`            | деплой самого сервера с бэкапом и откатом                   |
-| `cc-sync-server/routes/update.js`     | эндпоинт авто-обновления                                    |
-| `cc-sync-server/routes/upload.js`     | приём артефактов в панель                                   |
+| Файл                                          | Роль                                                        |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `.github/workflows/build-release.yml`         | сборка воркера (3 ОС) + публикация                          |
+| `.github/workflows/build-manager-release.yml` | сборка менеджера (теги `mgr-v*`, 3 ОС) + публикация         |
+| `scripts/release.py`                          | полный цикл локально: версия → сборка → заливка → CHANGELOG |
+| `scripts/publish-release.py`                  | публикация по SSH (без пароля панели)                       |
+| `scripts/upload-artifacts.py`                 | публикация по HTTP (для CI; `--app manager` для менеджера)  |
+| `scripts/deploy-server.py`                    | деплой самого сервера с бэкапом и откатом                   |
+| `cc-sync-server/routes/update.js`             | эндпоинт авто-обновления (воркер + `?app=manager`)          |
+| `cc-sync-server/routes/upload.js`             | приём артефактов в панель                                   |
 
 ---
 
-## 9. Релиз manager-app (MGR-009)
+## 9. Релиз manager-app (MGR-009 + DEVOPS-006)
+
+### CI (основной способ)
+
+Отдельный workflow `.github/workflows/build-manager-release.yml` со **своими
+тегами** (версии менеджера независимы от воркерских):
+
+```bash
+git tag mgr-v0.2.0 && git push origin mgr-v0.2.0
+```
+
+CI собирает те же 3 ОС (Windows x64 / Linux x64 / macOS Apple Silicon) из
+каталога `manager-app/`, подписывает **менеджерским** ключом, кладёт файлы в
+GitHub Release и заливает updater-артефакты на сервер как
+`file_type=manager-updater` (канал stable, rollout 100%). Инсталлеры для
+ручной загрузки на сервер не заливаются — менеджер не раздаётся с публичной
+страницы воркера. Для `workflow_dispatch` заливка на сервер включается
+галочкой `publish_to_panel`.
+
+Требуемый секрет: `TAURI_SIGNING_PRIVATE_KEY_MANAGER` (содержимое
+`.secrets/vaultbase-manager-updater.key`, пароль пустой).
+
+Локальный эквивалент: `scripts/release.py --app manager --version 0.2.0`
+(бамп версий в `manager-app/`, сборка, заливка; `--channel beta --rollout 25`
+для постепенного роллаута).
+
+### Ключ подписи
 
 Отдельный пайплайн и **отдельный ключ подписи** (не воркерский):
 

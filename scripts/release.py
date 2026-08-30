@@ -26,6 +26,9 @@
     python scripts/release.py --version 2.5.2 --notes "Починили синхронизацию"
     python scripts/release.py --version 2.5.2 --platforms win --dry-run
     python scripts/release.py --skip-build --publish      # залить уже собранное
+
+Менеджер (VaultBase Manager, каталог manager-app/, свои версии и ключ подписи):
+    python scripts/release.py --app manager --version 0.2.0 --platforms win --publish
 """
 import argparse
 import base64
@@ -52,6 +55,13 @@ VERSION_FILES = [
     ("package.json", r'("version":\s*)"(?P<v>[\d.]+)"'),
     ("src-tauri/Cargo.toml", r'(?m)^(version\s*=\s*)"(?P<v>[\d.]+)"'),
     ("src-tauri/tauri.conf.json", r'("version":\s*)"(?P<v>[\d.]+)"'),
+]
+
+# У менеджера свои версии (0.x) и свой ключ подписи — воркерские файлы не трогаем.
+VERSION_FILES_MANAGER = [
+    ("manager-app/package.json", r'("version":\s*)"(?P<v>[\d.]+)"'),
+    ("manager-app/src-tauri/Cargo.toml", r'(?m)^(version\s*=\s*)"(?P<v>[\d.]+)"'),
+    ("manager-app/src-tauri/tauri.conf.json", r'("version":\s*)"(?P<v>[\d.]+)"'),
 ]
 
 # platform-строки должны совпадать с тем, что ждёт Tauri в platforms{} ответа /update.
@@ -85,9 +95,9 @@ def die(m):
     sys.exit(f"ОШИБКА: {m}")
 
 
-def read_versions():
+def read_versions(files):
     found = {}
-    for rel, pat in VERSION_FILES:
+    for rel, pat in files:
         p = os.path.join(ROOT, rel)
         m = re.search(pat, open(p, encoding="utf-8").read())
         if not m:
@@ -96,8 +106,8 @@ def read_versions():
     return found
 
 
-def set_version(new):
-    for rel, pat in VERSION_FILES:
+def set_version(files, new):
+    for rel, pat in files:
         p = os.path.join(ROOT, rel)
         s = open(p, encoding="utf-8").read()
         s = re.sub(pat, lambda m: f'{m.group(1)}"{new}"', s, count=1)
@@ -119,7 +129,7 @@ def run(cmd, cwd=ROOT, env=None, timeout=3600):
     return p.stdout
 
 
-def build(platform, key_path):
+def build(platform, key_path, app="worker"):
     env = {}
     if key_path and os.path.isfile(key_path):
         env["TAURI_SIGNING_PRIVATE_KEY_PATH"] = key_path
@@ -127,23 +137,25 @@ def build(platform, key_path):
     else:
         log("  ! ключа подписи нет — апдейтер не примет такую сборку")
 
+    app_dir = os.path.join(ROOT, "manager-app") if app == "manager" else ROOT
+
     if platform == "win":
         env["PATH"] = "/c/msys64/mingw64/bin:" + os.environ.get("PATH", "")
-        run("npx tauri build --bundles msi,nsis", env=env)
+        run("npx tauri build --bundles msi,nsis", cwd=app_dir, env=env)
     elif platform == "linux":
         # Сборка внутри WSL: Linux-бандлы нельзя собрать из Windows напрямую.
         keyenv = ""
         if key_path and os.path.isfile(key_path):
             wsl_key = run(f'wsl wslpath -a "{key_path}"').strip()
             keyenv = f'TAURI_SIGNING_PRIVATE_KEY_PATH="{wsl_key}" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" '
-        wsl_root = run(f'wsl wslpath -a "{ROOT}"').strip()
+        wsl_root = run(f'wsl wslpath -a "{app_dir}"').strip()
         run(f'wsl bash -lc "cd \'{wsl_root}\' && {keyenv}npx tauri build --bundles deb,appimage"',
             timeout=5400)
 
 
-def find_artifacts(platform, version):
+def find_artifacts(platform, version, app="worker"):
     cfg = TARGETS[platform]
-    base = os.path.join(ROOT, cfg["bundle_dir"])
+    base = os.path.join(ROOT, "manager-app" if app == "manager" else "", cfg["bundle_dir"])
     if not os.path.isdir(base):
         log(f"  ! нет каталога сборки {base}")
         return []
@@ -185,10 +197,11 @@ def multipart(fields, filepath):
     return boundary, body
 
 
-def upload(art, version, notes, publish, user, pw):
+def upload(art, version, notes, publish, user, pw, channel="stable", rollout=100):
     fields = {"version": version, "notes": notes, "platform": art["platform"],
               "file_type": art["file_type"], "signature": art["signature"],
-              "publish": "1" if publish else "0"}
+              "publish": "1" if publish else "0",
+              "channel": channel, "rollout_percent": str(rollout)}
     boundary, body = multipart(fields, art["path"])
     auth = base64.b64encode(f"{user}:{pw}".encode()).decode()
     req = urllib.request.Request(
@@ -237,23 +250,33 @@ def main():
     ap.add_argument("--publish", action="store_true", help="сразу опубликовать")
     ap.add_argument("--skip-build", action="store_true", help="не собирать, взять готовое")
     ap.add_argument("--dry-run", action="store_true", help="ничего не заливать")
+    ap.add_argument("--app", choices=["worker", "manager"], default="worker",
+                    help="worker — VaultBase (по умолчанию); manager — manager-app/")
+    ap.add_argument("--channel", choices=["stable", "beta"], default="stable",
+                    help="канал релиза (только --app manager)")
+    ap.add_argument("--rollout", type=int, default=100,
+                    help="процент флота, staged rollout (только --app manager)")
     a = ap.parse_args()
 
     notes = a.notes
     if a.notes_file:
         notes = open(os.path.join(ROOT, a.notes_file), encoding="utf-8").read()
     if not notes.strip():
-        notes = "Обновление VaultBase."
+        notes = "Обновление VaultBase." if a.app == "worker" else "Обновление VaultBase Manager."
 
-    cur = read_versions()
+    if a.app != "manager" and (a.channel != "stable" or a.rollout != 100):
+        die("--channel/--rollout имеют смысл только с --app manager")
+
+    version_files = VERSION_FILES_MANAGER if a.app == "manager" else VERSION_FILES
+    cur = read_versions(version_files)
     if len(set(cur.values())) != 1:
         die("версии рассинхронизированы: " + ", ".join(f"{k}={v}" for k, v in cur.items()))
     old = list(cur.values())[0]
     version = a.version or old
-    log(f"Текущая версия: {old} -> релиз: {version}")
+    log(f"[{a.app}] Текущая версия: {old} -> релиз: {version}")
 
     if version != old and not a.dry_run:
-        set_version(version)
+        set_version(version_files, version)
 
     plats = [p.strip() for p in a.platforms.split(",") if p.strip()]
     for p in plats:
@@ -261,7 +284,9 @@ def main():
             die(f"неизвестная платформа {p}; доступны: {', '.join(TARGETS)}")
 
     key = os.environ.get("TAURI_SIGNING_PRIVATE_KEY_PATH",
-                         os.path.join(ROOT, ".secrets", "vaultbase-updater.key"))
+                         os.path.join(ROOT, ".secrets",
+                                      "vaultbase-manager-updater.key" if a.app == "manager"
+                                      else "vaultbase-updater.key"))
 
     if not a.skip_build:
         for p in plats:
@@ -269,11 +294,15 @@ def main():
             if a.dry_run:
                 log("  dry-run: пропуск")
             else:
-                build(p, key)
+                build(p, key, app=a.app)
 
     arts = []
     for p in plats:
-        found = find_artifacts(p, version)
+        found = find_artifacts(p, version, app=a.app)
+        if a.app == "manager":
+            # Менеджеру на сервер нужны только updater-артефакты под своим типом.
+            found = [{**x, "file_type": "manager-updater"} for x in found
+                     if x["file_type"] == "updater"]
         log(f"\n[артефакты] {p}: найдено {len(found)}")
         for x in found:
             mb = os.path.getsize(x["path"]) / 1048576
@@ -294,7 +323,7 @@ def main():
     log(f"\n[заливка] в {SERVER_URL}{ADMIN_PATH}/upload")
     ok = 0
     for x in arts:
-        res = upload(x, version, notes, a.publish, user, pw)
+        res = upload(x, version, notes, a.publish, user, pw, a.channel, a.rollout)
         if res.get("ok"):
             ok += 1
             log(f"  OK   {res['filename']}  ({res['file_size_mb']} MB)")
@@ -302,17 +331,20 @@ def main():
             log(f"  СБОЙ {os.path.basename(x['path'])}: {res.get('error')}")
     log(f"  залито {ok}/{len(arts)}")
 
-    write_changelog(version, notes)
+    # CHANGELOG.md общий, воркерский — менеджерские релизы туда не пишем.
+    if a.app == "worker":
+        write_changelog(version, notes)
 
     log("\n[проверка апдейтера]")
-    code, data = get_json(f"{SERVER_URL}/update?current_version={old}")
+    q = "app=manager&" if a.app == "manager" else ""
+    code, data = get_json(f"{SERVER_URL}/update?{q}current_version={old}")
     if code == 200 and data:
         log(f"  клиент {old} увидит {data.get('version')}, платформы: {', '.join(data.get('platforms', {}))}")
     elif code == 204:
         log(f"  204 — обновление НЕ видно (не опубликовано? нужен --publish)")
     else:
         log(f"  HTTP {code}")
-    code, _ = get_json(f"{SERVER_URL}/update?current_version={version}")
+    code, _ = get_json(f"{SERVER_URL}/update?{q}current_version={version}")
     log(f"  клиент {version}: HTTP {code} (ожидается 204 — он уже свежий)")
 
     log("\nГОТОВО.")

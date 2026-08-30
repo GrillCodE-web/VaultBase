@@ -530,6 +530,53 @@ test('manager updater: channels, deterministic rollout, PATCH rollout', async ()
 });
 
 
+// ── DEVOPS-006: мультиплатформенные релизы (UNIQUE по платформе) ───────────
+
+test('worker updater: one version keeps per-platform rows, /update serves all', async () => {
+  const db = getDb();
+
+  // До миграции v17 UNIQUE(version, file_type) не давал хранить 3 платформы
+  // одной версии: заливка CI затирала строку, и в /update выживала последняя
+  // ОС (по факту Linux). Теперь ключ — (version, file_type, platform).
+  const ins = db.prepare(`INSERT INTO release_files
+    (version, file_type, platform, download_url, signature, notes, is_published)
+    VALUES (?,?,?,?,?,?,1)`);
+  ins.run('9.0.0', 'updater', 'windows-x86_64', 'https://x/w-900.msi', 'sigWin', 'multi');
+  ins.run('9.0.0', 'updater', 'linux-x86_64', 'https://x/w-900.AppImage', 'sigLin', 'multi');
+  ins.run('9.0.0', 'updater', 'darwin-aarch64', 'https://x/w-900.app.tar.gz', 'sigMac', 'multi');
+  db.prepare(`INSERT INTO versions (version, notes, download_url, signature, file_size, platform, is_published)
+    VALUES ('9.0.0','multi','https://x/w-900.msi','sigWin',1,'windows-x86_64',1)`).run();
+
+  const r = await req('GET', '/update?current_version=8.0.0');
+  assert.equal(r.status, 200);
+  assert.equal(r.json.version, '9.0.0');
+  for (const p of ['windows-x86_64', 'linux-x86_64', 'darwin-aarch64']) {
+    assert.ok(r.json.platforms[p], `platform ${p} present`);
+    assert.ok(r.json.platforms[p].signature, `platform ${p} signed`);
+  }
+
+  // Повторная заливка той же платформы — обновление строки, а не дубликат
+  // (именно этот upsert делает routes/upload.js по ключу version+type+platform).
+  db.prepare(`UPDATE release_files SET download_url=?, signature=?, published_at=CURRENT_TIMESTAMP
+    WHERE version=? AND file_type=? AND platform=?`)
+    .run('https://x/w-900-v2.msi', 'sigWin2', '9.0.0', 'updater', 'windows-x86_64');
+  const n = db
+    .prepare("SELECT COUNT(*) AS n FROM release_files WHERE version='9.0.0' AND file_type='updater'")
+    .get().n;
+  assert.equal(n, 3, 're-upload updates in place, no duplicate rows');
+
+  // Тот же ключ работает и для manager-updater: две ОС одной версии видны обе.
+  // (Версия 2.0.0 > 1.1.0 из MGR-009 выше — тот тест уже отработал.)
+  ins.run('2.0.0', 'manager-updater', 'windows-x86_64', 'https://x/m-200.exe', 'sigMWin', 'multi');
+  ins.run('2.0.0', 'manager-updater', 'darwin-aarch64', 'https://x/m-200.app.tar.gz', 'sigMMac', 'multi');
+  const m = await req('GET', '/update?app=manager&current_version=1.9.9');
+  assert.equal(m.status, 200);
+  assert.equal(m.json.version, '2.0.0');
+  assert.ok(m.json.platforms['windows-x86_64']);
+  assert.ok(m.json.platforms['darwin-aarch64']);
+});
+
+
 // ── MGR-013: удалённый wipe воркера через heartbeat-политику ────────────────
 
 test('remote wipe: manager sets flag, worker sees it in policy, ack clears it', async () => {

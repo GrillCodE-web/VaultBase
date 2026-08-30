@@ -9,10 +9,13 @@ const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, '../public
 fs.mkdirSync(RELEASES_DIR, { recursive: true });
 
 // Типы артефактов. `updater` — архив/инсталлятор, который скачивает встроенный
-// апдейтер Tauri (к нему обязательна подпись). Остальные — то, что человек
+// апдейтер Tauri (к нему обязательна подпись). `manager-updater` — то же для
+// второго приложения (VaultBase Manager), обслуживается веткой
+// /update?app=manager со staged rollout. Остальные — то, что человек
 // качает руками со страницы загрузки.
 const FILE_TYPES = [
   'updater',
+  'manager-updater', // VaultBase Manager (см. /update?app=manager)
   'installer-dmg',   // macOS
   'installer-app',   // macOS .app.tar.gz
   'installer-msi',   // Windows MSI
@@ -141,12 +144,15 @@ router.post('/', requireAdmin, (req, res) => {
       const file_size = parsed.file.data.length;
       const db = getDb();
 
-      // Write to release_files
-      const existing_rf = db.prepare('SELECT id FROM release_files WHERE version=? AND file_type=?').get(version, file_type);
+      // Write to release_files. Ключ — (version, file_type, platform): один
+      // релиз заливается под 3 ОС, и каждая платформа обязана храниться своей
+      // строкой. До миграции v17 ключ был (version, file_type) — заливки
+      // затирали друг друга, и в /update выживала одна ОС (последняя залитая).
+      const existing_rf = db.prepare('SELECT id FROM release_files WHERE version=? AND file_type=? AND platform=?').get(version, file_type, platform);
       if (existing_rf) {
         db.prepare(`UPDATE release_files SET notes=?,download_url=?,signature=?,file_size=?,
-          platform=?,is_published=?,channel=?,rollout_percent=?,published_at=CURRENT_TIMESTAMP WHERE version=? AND file_type=?`)
-          .run(notes, download_url, signature||null, file_size, platform, publish?1:0, channel, rollout_percent, version, file_type);
+          is_published=?,channel=?,rollout_percent=?,published_at=CURRENT_TIMESTAMP WHERE version=? AND file_type=? AND platform=?`)
+          .run(notes, download_url, signature||null, file_size, publish?1:0, channel, rollout_percent, version, file_type, platform);
       } else {
         db.prepare(`INSERT INTO release_files (version,file_type,notes,download_url,signature,file_size,platform,is_published,channel,rollout_percent)
           VALUES (?,?,?,?,?,?,?,?,?,?)`)
