@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { RotateCcw, X } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
-import { useFocusTrap } from '../../hooks/useFocusTrap.js'
-import { useEscapeKey } from '../../hooks/useEscapeKey.js'
+import { Modal } from '../../components/Modal.jsx'
 
+// REDESIGN-05-2: ручной оверлей/шапка/focus-trap/Escape/scroll-lock
+// (FIX P1-16) заменены общим <Modal>.
 export function RepeatOrderModal({ order, onCreated, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const { toast } = usePremiumToast()
   const [profiles, setProfiles] = useState([])
@@ -17,16 +17,6 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
   const [loading, setLoading] = useState(false)
   const [loadingProfiles, setLoadingProfiles] = useState(true)
   const submittingRef = useRef(false)
-  const modalRef = useRef(null)
-  useFocusTrap(modalRef, true)
-
-  // FIX P1-16: Add scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -87,59 +77,18 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
       : (order.item_name ?? '—')
 
   return (
-    <div className="modal-overlay">
-      <div
-        ref={modalRef}
-        className="modal w-modal-sm"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="repeat-order-title"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <RotateCcw size={15} className="text-blue-t" />
-            <span id="repeat-order-title" className="modal-title m-0">
-              Repeat Order
-            </span>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="text-[13px] text-text-2 mb-4 leading-normal">
-          Repeat order for <strong className="text-text">{shopLabel}</strong>
-          {itemLabel !== '—' && (
-            <>
-              {' '}
-              — <span className="text-muted">{itemLabel}</span>
-            </>
-          )}
-          ?
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Select Profile</label>
-          {loadingProfiles ? (
-            <div className="text-[12px] text-muted py-2">Loading profiles…</div>
-          ) : (
-            <select
-              value={selectedProfileId}
-              onChange={e => setSelectedProfileId(e.target.value)}
-              className="inline-select w-full"
-            >
-              <option value="">— Select profile —</option>
-              {profiles.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.holder_masked || '—'} ···{p.last4 || '????'}
-                  {p.bank_name ? ` (${p.bank_name})` : ''}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        <div className="flex gap-2 mt-4">
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="sm"
+      title={
+        <span className="flex items-center gap-2">
+          <RotateCcw size={15} className="text-blue-t" />
+          Repeat Order
+        </span>
+      }
+      footer={
+        <>
           <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">
             {t('btn_cancel')}
           </button>
@@ -148,10 +97,42 @@ export function RepeatOrderModal({ order, onCreated, onClose }) {
             disabled={loading || !selectedProfileId}
             className={`btn btn-b btn-sm flex-1 ${loading || !selectedProfileId ? 'opacity-40' : ''}`}
           >
-            {loading ? 'Creating…' : 'Repeat Order'}
+            {loading ? 'Creating...' : 'Repeat Order'}
           </button>
-        </div>
+        </>
+      }
+    >
+      <div className="text-[13px] text-text-2 mb-4 leading-normal">
+        Repeat order for <strong className="text-text">{shopLabel}</strong>
+        {itemLabel !== '—' && (
+          <>
+            {' '}
+            — <span className="text-muted">{itemLabel}</span>
+          </>
+        )}
+        ?
       </div>
-    </div>
+
+      <div className="form-group">
+        <label className="form-label">Select Profile</label>
+        {loadingProfiles ? (
+          <div className="text-[12px] text-muted py-2">Loading profiles…</div>
+        ) : (
+          <select
+            value={selectedProfileId}
+            onChange={e => setSelectedProfileId(e.target.value)}
+            className="inline-select w-full"
+          >
+            <option value="">— Select profile —</option>
+            {profiles.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.holder_masked || '—'} ···{p.last4 || '????'}
+                {p.bank_name ? ` (${p.bank_name})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+    </Modal>
   )
 }

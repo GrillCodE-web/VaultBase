@@ -10,7 +10,6 @@ import { invoke } from '@tauri-apps/api/core'
 import {
   Server,
   RefreshCw,
-  X,
   Eye,
   EyeOff,
   Pencil,
@@ -27,7 +26,7 @@ import { EmptyState } from '../../components/EmptyState.jsx'
 import { timeAgo } from '../../utils/formatting'
 import { getTotalPages } from '../../utils/pagination'
 import { presentUpanelError } from '../../utils/upanelErrors'
-import { useEscapeKey } from '../../hooks/useEscapeKey.js'
+import { Modal } from '../../components/Modal.jsx'
 
 const PER_PAGE = 50
 const DEFAULT_BASE_URL = 'https://upanel.ushubpulse.com/api/v1'
@@ -78,8 +77,8 @@ function cleanFilter(f) {
 // ─── Connection modal ─────────────────────────────────────────
 const EMPTY_CONN = { name: '', base_url: '', api_token: '', is_active: true }
 
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/scroll-lock заменены общим <Modal>
 function ConnectionModal({ initial, onSave, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const [form, setForm] = useState(
     initial
@@ -96,13 +95,6 @@ function ConnectionModal({ initial, onSave, onClose }) {
   const isEdit = !!initial
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
 
   const valid = form.name.trim() && (isEdit || form.api_token.trim())
 
@@ -123,83 +115,73 @@ function ConnectionModal({ initial, onSave, onClose }) {
   }
 
   return (
-    <div className="modal-overlay">
-      <div
-        className="modal w-modal-sm"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="upanel-conn-title"
-      >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="upanel-conn-title" className="modal-title">
-            {isEdit ? t('upanel_edit_connection') : t('upanel_add_connection')}
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label={t('btn_close')}>
-            <X size={16} />
-          </button>
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="sm"
+      title={isEdit ? t('upanel_edit_connection') : t('upanel_add_connection')}
+    >
+      <div className="flex flex-col gap-3.5">
+        <div className="form-group">
+          <label className="form-label">{t('upanel_name')}</label>
+          <input
+            value={form.name}
+            onChange={set('name')}
+            placeholder="Main uPanel"
+            className="form-input"
+          />
         </div>
-        <div className="flex flex-col gap-3.5">
-          <div className="form-group">
-            <label className="form-label">{t('upanel_name')}</label>
-            <input
-              value={form.name}
-              onChange={set('name')}
-              placeholder="Main uPanel"
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">{t('upanel_base_url')}</label>
-            <input
-              value={form.base_url}
-              onChange={set('base_url')}
-              placeholder={DEFAULT_BASE_URL}
-              className="form-input mono"
-            />
-            <div className="text-[10px] text-muted mt-1">{t('upanel_base_url_hint')}</div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">{t('upanel_api_token')}</label>
-            <div className="relative">
-              <input
-                type={showToken ? 'text' : 'password'}
-                value={form.api_token}
-                onChange={set('api_token')}
-                placeholder="upl_..."
-                className="form-input mono pr-9"
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken(s => !s)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-muted"
-              >
-                {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
-              </button>
-            </div>
-            <div className="text-[10px] text-muted mt-1">
-              {isEdit ? t('upanel_token_keep_hint') : t('upanel_api_token_hint')}
-            </div>
-          </div>
-          <label className="flex items-center gap-2 text-[12px] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.is_active}
-              onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
-            />
-            {t('upanel_is_active')}
-          </label>
-          <button
-            onClick={handleSave}
-            disabled={!valid || loading}
-            className="btn btn-b w-full"
-            style={{ opacity: !valid || loading ? 0.4 : 1 }}
-          >
-            {loading ? t('email_saving') : isEdit ? t('btn_save') : t('upanel_add_connection')}
-          </button>
+        <div className="form-group">
+          <label className="form-label">{t('upanel_base_url')}</label>
+          <input
+            value={form.base_url}
+            onChange={set('base_url')}
+            placeholder={DEFAULT_BASE_URL}
+            className="form-input mono"
+          />
+          <div className="text-[10px] text-muted mt-1">{t('upanel_base_url_hint')}</div>
         </div>
+        <div className="form-group">
+          <label className="form-label">{t('upanel_api_token')}</label>
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={form.api_token}
+              onChange={set('api_token')}
+              placeholder="upl_..."
+              className="form-input mono pr-9"
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => setShowToken(s => !s)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-muted"
+            >
+              {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
+            </button>
+          </div>
+          <div className="text-[10px] text-muted mt-1">
+            {isEdit ? t('upanel_token_keep_hint') : t('upanel_api_token_hint')}
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-[12px] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
+          />
+          {t('upanel_is_active')}
+        </label>
+        <button
+          onClick={handleSave}
+          disabled={!valid || loading}
+          className="btn btn-b w-full"
+          style={{ opacity: !valid || loading ? 0.4 : 1 }}
+        >
+          {loading ? t('email_saving') : isEdit ? t('btn_save') : t('upanel_add_connection')}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -223,17 +205,10 @@ const CREDS_PRIORITY = [
   'notes',
 ]
 
+// REDESIGN-05-2: ручной оверлей/шапка/Escape/scroll-lock заменены общим <Modal>
 function CredsModal({ title, data, onClose }) {
-  useEscapeKey(onClose)
   const { t } = useLang()
   const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
 
   const entries = Object.entries(data ?? {}).filter(
     ([, v]) => v !== null && v !== undefined && typeof v !== 'object'
@@ -246,53 +221,38 @@ function CredsModal({ title, data, onClose }) {
   const rows = ordered.map(k => entries.find(([ek]) => ek === k)).filter(Boolean)
 
   return (
-    <div className="modal-overlay">
-      <div
-        className="modal w-modal-sm"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="upanel-creds-title"
-      >
-        <div className="flex items-center justify-between mb-[18px]">
-          <div id="upanel-creds-title" className="modal-title">
-            {title}
-          </div>
-          <button onClick={onClose} className="modal-close" aria-label={t('btn_close')}>
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          {rows.length === 0 && <div className="text-[12px] text-muted text-center py-4">—</div>}
-          {rows.map(([k, v]) => {
-            const isPass = /pass|secret|token/i.test(k)
-            return (
-              <div key={k} className="flex items-center gap-2 border-b border-border py-1.5">
-                <div className="text-[11px] text-muted w-[100px] shrink-0 mono">{k}</div>
-                <div className="flex-1 text-[12px] mono" style={{ wordBreak: 'break-all' }}>
-                  {isPass && !visible ? '••••••••' : String(v)}
-                </div>
-                {isPass && (
-                  <button
-                    type="button"
-                    onClick={() => setVisible(v => !v)}
-                    className="btn btn-ghost btn-sm"
-                    aria-label={visible ? 'Hide' : 'Show'}
-                  >
-                    {visible ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
-                )}
+    <Modal isOpen onClose={onClose} size="sm" title={title}>
+      <div className="flex flex-col gap-1.5">
+        {rows.length === 0 && <div className="text-[12px] text-muted text-center py-4">—</div>}
+        {rows.map(([k, v]) => {
+          const isPass = /pass|secret|token/i.test(k)
+          return (
+            <div key={k} className="flex items-center gap-2 border-b border-border py-1.5">
+              <div className="text-[11px] text-muted w-[100px] shrink-0 mono">{k}</div>
+              <div className="flex-1 text-[12px] mono" style={{ wordBreak: 'break-all' }}>
+                {isPass && !visible ? '••••••••' : String(v)}
               </div>
-            )
-          })}
-          {rows.some(([k]) => /pass|secret|token/i.test(k)) && (
-            <button className="btn btn-ghost btn-sm mt-2" onClick={() => setVisible(v => !v)}>
-              <KeyRound size={13} />
-              {visible ? t('upanel_hide_secrets') : t('upanel_show_secrets')}
-            </button>
-          )}
-        </div>
+              {isPass && (
+                <button
+                  type="button"
+                  onClick={() => setVisible(v => !v)}
+                  className="btn btn-ghost btn-sm"
+                  aria-label={visible ? 'Hide' : 'Show'}
+                >
+                  {visible ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+              )}
+            </div>
+          )
+        })}
+        {rows.some(([k]) => /pass|secret|token/i.test(k)) && (
+          <button className="btn btn-ghost btn-sm mt-2" onClick={() => setVisible(v => !v)}>
+            <KeyRound size={13} />
+            {visible ? t('upanel_hide_secrets') : t('upanel_show_secrets')}
+          </button>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }
 
