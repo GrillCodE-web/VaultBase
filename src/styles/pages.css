@@ -1924,20 +1924,34 @@
    ORDERS PAGE — CYBER-FINANCIAL TERMINAL
    ═══════════════════════════════════════════════════════════ */
 
-  /* ── Order Status Badges ────────────────────────────────── */
+  /* ── Order Status Badges ──────────────────────────────────
+     REDESIGN-05-2: пилюли по эталону 05 — 22px, radius 999,
+     UI-шрифт 600 (не mono, без капса), точка-индикатор ::before
+     (JSX ~40 мест не трогаем: все пилюли — чистый текст). */
   .st {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-1) 10px;
-    border-radius: var(--r-sm);
+    gap: 6px;
+    padding: 3px 11px;
+    border-radius: var(--r-full);
     font-size: 11px;
-    font-weight: 700;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    text-transform: none;
+    letter-spacing: 0.01em;
     border: 1px solid;
+    white-space: nowrap;
     transition: all var(--t-fast);
+  }
+
+  /* Точка-индикатор как .pill .dot в мокапе */
+  .st::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
   }
 
   .st-pending {
@@ -2812,15 +2826,16 @@
 
   /* ── Log Stats Bar ──────────────────────────────────────── */
 
-  /* ── Filter Tabs ────────────────────────────────────────── */
+  /* ── Filter Tabs ──────────────────────────────────────────
+     REDESIGN-05-2: .fchip мокапа 05 — пилюля-чип на фоне --card. */
   .flt {
-    padding: 8px 16px;
-    background: transparent;
+    padding: 5px 13px;
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--r-md);
+    border-radius: var(--r-full);
     color: var(--text-3);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     font-family: var(--font-ui);
     cursor: pointer;
     transition: all var(--t-fast);
@@ -2828,15 +2843,15 @@
   }
 
   .flt:hover {
-    background: var(--hover);
     border-color: var(--border-hi);
     color: var(--text);
   }
 
   .flt.active {
-    background: var(--accent-dim);
-    border-color: var(--accent-border);
-    color: var(--accent-text);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+    box-shadow: 0 2px 8px var(--accent-dim);
   }
 
   /* ── Filter Tabs ────────────────────────────────────────── */
