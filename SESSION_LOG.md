@@ -1277,6 +1277,7 @@ pending/delivered срезы с reason='worker_banned', unban перевыпус
 собирался ~2 минуты, починено коммитом 326975b. Не моё и не трогал:
 src/pages/DashboardRedesigned.jsx (modified), design-mockups/, docs/CHAT_E2E.md,
 docs/REDESIGN_05_PLAN.md, scripts/**pycache**/.
+
 ## 2026-08-30 — ✅ @r — REDESIGN-05-2 (Stage 2 «Компоненты») закрыт
 
 - **Блок A (токены/стили):** `990843a` — `--inp`, `--r-control/input/card`,
@@ -1300,3 +1301,32 @@ docs/REDESIGN_05_PLAN.md, scripts/**pycache**/.
   baseline лежит в worktree, untracked) и полный playwright e2e (112 тестов;
   известный флейк settings.spec на firefox — соло-перезапуск зелёный).
 - **Далее:** REDESIGN-05-3 (страницы по одной) — свободна.
+
+## [2026-08-30] FEAT-004 -> done @main
+
+**Что сделано (1 коммит: 0be6db1):**
+
+- IF-THEN правила автоматизации (backend, «Новый модуль»): миграция v23
+  (automation_rules + automation_rule_runs с CASCADE/SET NULL), движок
+  `database/_automation.rs`, хук в `update_order_status` после записи истории
+  (срабатывает только при реальном переходе статуса).
+- Условия (AND): `status_equals` / `from_status_equals` /
+  `consecutive_declines_gte` (переиспользует `get_consecutive_declines`
+  с учётом качества магазина). Действия: `set_card_status`
+  (whitelist free/dead/archive), `append_card_note` (штамп [авто #id]),
+  `log_event`.
+- Ошибки правил НЕ прерывают смену статуса заказа: фиксируются в
+  automation_rule_runs (status=error) и last_error правила + событие
+  automation.rule_error в activity_log. JSON условий/действий валидируется
+  при создании/обновлении.
+- 5 команд (commands/automation.rs, require_user как у всего домена):
+  create/list/update/delete_automation_rule, get_automation_rule_runs;
+  зарегистрированы в main.rs. UI в пункт не входил (STREAM A) — команды
+  готовы для фронта.
+- 10 новых Rust тестов. **cargo test: 215/215** (было 205/205).
+
+**Параллельная активность:** во время работы @r закоммитил и запушил из этого
+же дерева REDESIGN-05-2 (9b74545, 6eed84f) — мой claim-коммит уехал вместе с их
+пушем (7256687). Чужой WIP (src/i18n/*, src/pages/Dashboard/tables.jsx,
+Cards.jsx, DashboardRedesigned.jsx, design-mockups/) не тронут, кодовый коммит
+собран строго по явным путям (7 файлов src-tauri).
