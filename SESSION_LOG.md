@@ -1277,3 +1277,26 @@ pending/delivered срезы с reason='worker_banned', unban перевыпус
 собирался ~2 минуты, починено коммитом 326975b. Не моё и не трогал:
 src/pages/DashboardRedesigned.jsx (modified), design-mockups/, docs/CHAT_E2E.md,
 docs/REDESIGN_05_PLAN.md, scripts/**pycache**/.
+## 2026-08-30 — ✅ @r — REDESIGN-05-2 (Stage 2 «Компоненты») закрыт
+
+- **Блок A (токены/стили):** `990843a` — `--inp`, `--r-control/input/card`,
+  `--shadow-card/modal/btn-primary`, `--row-pad 11px/6px`, `--h-control 32/24`,
+  шкала `--fs-9..32` + `text-N` в `@theme`, backdrop модалок во всех 3 темах.
+  A2 кнопки `6275612`; A3 поля; A4 пилюли `.st-*`/`.flt`; A5 таблицы/панели
+  (estimateSize: CardTable→49, Proxies→62, Shops→60); A6 модалки/тосты/EmptyState.
+- **Блок B (модалки):** B7 `b45f71b` (Modal.jsx: className/bodyClassName/scroll,
+  ref-counted scroll-lock) + Orders ×4; B8 `41d29a4` Profiles ×5; B9 `e862d7e`
+  Cards/Shops; B10 `12c8f4f` Imap/Proxies/ShortcutsHelp; добивка `0d2c199`
+  (Shipped/Repeat/upanel ×2 — B7 часть правок была перезаписана при BOM-хирургии).
+  Итог: все 21 самодельная модалка на общий `<Modal>`, `modal-overlay` только в Modal.jsx.
+- **Блок C (типографика):** `de0841f` — 352 инлайн-класса `text-[Npx]` → `text-N`
+  в 51 файле (px 1:1 через `@theme`, без визуального дрейфа); снапшот ProgressBar
+  обновлён. Замена скриптом PowerShell с сохранением BOM.
+- **Проверки:** eslint 0 errors; vitest 337/337 (после prettier-хука повторён);
+  audit_frontend.py — критичных проблем нет.
+- **Чеклист:** REDESIGN-05-2 → ✅ @r.
+- **НЕ сделано из плана финализации (некритично, на следующую сессию):**
+  визуальный дифф `visual-audit.mjs` против `audit-shots-stage2-before/` (74 скрина,
+  baseline лежит в worktree, untracked) и полный playwright e2e (112 тестов;
+  известный флейк settings.spec на firefox — соло-перезапуск зелёный).
+- **Далее:** REDESIGN-05-3 (страницы по одной) — свободна.
