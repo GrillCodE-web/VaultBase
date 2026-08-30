@@ -250,10 +250,10 @@ export default function DashboardRedesigned({ onNavigate }) {
         <div className="ph-actions">
           <button
             className="btn btn-b"
-            onClick={() => onNavigate?.('cards', { openImport: true })}
-            title="Quick import cards (Alt+2 then i)"
+            onClick={() => onNavigate?.('cards', { openSlices: true })}
+            title="Fetch card slices from manager"
           >
-            + {t('quick_import_cc')}
+            + {t('quick_fetch_slices')}
           </button>
           <button className="btn btn-g" onClick={() => onNavigate?.('profiles')}>
             + {t('quick_create_profile')}
@@ -295,10 +295,10 @@ export default function DashboardRedesigned({ onNavigate }) {
           <p className="text-11 text-muted mb-4">{t('dashboard_empty_hint')}</p>
           <button
             className="btn btn-b"
-            onClick={() => onNavigate?.('cards', { openImport: true })}
-            title="Quick import cards (Alt+2 then i)"
+            onClick={() => onNavigate?.('cards', { openSlices: true })}
+            title="Fetch card slices from manager"
           >
-            + {t('quick_import_cc')}
+            + {t('quick_fetch_slices')}
           </button>
         </div>
       )}

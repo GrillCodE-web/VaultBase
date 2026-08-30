@@ -11,8 +11,6 @@ export const cardsApi = {
   bulkUpdateStatus: (ids, status) => invoke('bulk_update_card_status', { ids, status }),
   enrichBin: id => invoke('enrich_card_bin', { id }),
   bulkEnrichBin: ids => invoke('bulk_enrich_bin', { ids }),
-  importCards: (text, format) => invoke('import_cards', { text, format }),
-  detectMapping: text => invoke('detect_mapping_preview', { text }),
   exportCards: filters => invoke('export_cards_csv', { filter: filters }),
   getCardStats: () => invoke('get_card_stats'),
 }

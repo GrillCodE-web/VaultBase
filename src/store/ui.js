@@ -2,7 +2,6 @@ import { create } from 'zustand'
 
 export const useUIStore = create(set => ({
   // Modals
-  showImport: false,
   showColPicker: false,
 
   // View options
@@ -25,7 +24,6 @@ export const useUIStore = create(set => ({
   enrichProgress: null,
 
   // Actions
-  setShowImport: show => set({ showImport: show }),
   setShowColPicker: show => set({ showColPicker: show }),
   setCompact: compact => set({ compact }),
   setGroupByBank: groupByBank => set({ groupByBank }),
@@ -55,7 +53,6 @@ export const useUIStore = create(set => ({
   // SEC-014: Reset all UI state on lock/logout
   clearSensitiveData: () =>
     set({
-      showImport: false,
       showColPicker: false,
       sideCard: null,
       sideCardIdx: null,

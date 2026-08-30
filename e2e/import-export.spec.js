@@ -4,105 +4,14 @@ import { readFile } from 'node:fs/promises'
 import { bootApp, navTo, mockState, mockCommands } from './helpers.js'
 
 // TEST-004: импорт/экспорт. Контракты, что проверяем:
-//   Cards import  — ImportModal (3 шага): detect_mapping_preview → mapping → import_cards
-//                   ({ total, imported, skipped, errors } — commands/cards.rs). Мок
-//                   stateful: импортированные карты реально попадают в state.cards.
 //   Cards export  — export_cards (маска ****last4, CVV не выгружается — FIX CRIT-02
 //                   в _cards.rs): CSV с заголовком через ',', TXT без заголовка через '|',
 //                   скачивание как cards_export.csv|txt.
 //   Orders import — BatchImportModal (только файл): клиентский парсер
 //                   profile_id,shop_id,item_name,item_sku,amount; создание чанками
 //                   через batch_create_orders → { created, failed } (числа).
+// NB: импорт карт удалён (MGR-018, этап B) — карты приходят срезами от менеджера.
 const dialog = p => p.locator('[role="dialog"]')
-
-test.describe('TEST-004: Импорт карт (ImportModal)', () => {
-  test.beforeEach(async ({ page }) => {
-    await bootApp(page)
-    await navTo(page, 'Cards')
-  })
-
-  test('пустой дамп → Preview задизейблен, после ввода разблокируется', async ({ page }) => {
-    await page.locator('button[data-shortcut="new"]').click()
-    await expect(dialog(page)).toContainText('Import Cards')
-
-    const preview = dialog(page).getByRole('button', { name: 'Preview' })
-    await expect(preview).toBeDisabled()
-    await dialog(page).locator('textarea').fill('4242424242424242|12/28|123|Test Holder')
-    await expect(preview).toBeEnabled()
-    const cmds = await mockCommands(page)
-    expect(cmds).not.toContain('detect_mapping_preview')
-  })
-
-  test('Preview: авто-детект колонок + таблица превью + Confirm Mapping', async ({ page }) => {
-    await page.locator('button[data-shortcut="new"]').click()
-    await dialog(page).locator('textarea').fill('4242424242424242|12/28|123|Test Holder')
-
-    await dialog(page).getByRole('button', { name: 'Preview' }).click()
-    await expect(dialog(page)).toContainText('4242424242424242')
-    await expect(dialog(page)).toContainText('Confirm Mapping')
-    const cmds = await mockCommands(page)
-    expect(cmds).toContain('detect_mapping_preview')
-  })
-
-  test('полный импорт 3 шагов → Imported: 1, карта 4242 в списке (stateful)', async ({ page }) => {
-    await page.locator('button[data-shortcut="new"]').click()
-    await dialog(page).locator('textarea').fill('4242424242424242|12/28|123|Test Holder')
-
-    await dialog(page).getByRole('button', { name: 'Preview' }).click()
-    await dialog(page).getByRole('button', { name: 'Confirm Mapping' }).click()
-
-    // шаг 3: колонки-маппинги; holder_name назначаем вручную (в дампе он 4-я колонка)
-    const selects = dialog(page).locator('select.inline-select')
-    await expect(selects).toHaveCount(4)
-    await expect(selects.nth(0)).toHaveValue('card_number')
-    await expect(selects.nth(1)).toHaveValue('expiry_date')
-    await selects.nth(3).selectOption('holder_name')
-
-    await dialog(page).getByRole('button', { name: 'Import', exact: true }).click()
-    await expect(dialog(page)).toContainText('Import complete')
-    await expect(dialog(page).locator('strong.text-green-t')).toHaveText('1')
-    await expect(dialog(page).locator('strong.text-yellow-t')).toHaveText('0')
-
-    // карточка реально в стейте мока (stateful, а не только UI-счётчик)
-    const cards = await mockState(page, 'state.cards')
-    expect(cards).toHaveLength(3)
-    expect(cards[2]).toMatchObject({ last4: '4242', holder_name: 'Test Holder', status: 'free' })
-
-    // футерный Close: у крестика модалки aria-label="Close" и текст '✕' — фильтруем по тексту.
-    // FIX P1-13: рефеч onImported дебаунсится 300ms и снимается при анмаунте модалки —
-    // даём таймеру отработать ДО Close, иначе мгновенный Close проглотит рефетч.
-    await page.waitForTimeout(500)
-    await dialog(page).locator('button').filter({ hasText: /^Close$/ }).click()
-    await expect(page.locator('table.tbl tbody tr', { hasText: '4242' })).toHaveCount(1, { timeout: 20000 })
-  })
-
-  test('строка без валидного номера → Imported: 0, Skipped: 1, карт не прибавилось', async ({ page }) => {
-    await page.locator('button[data-shortcut="new"]').click()
-    await dialog(page).locator('textarea').fill('Test Holder|12/28|999')
-
-    await dialog(page).getByRole('button', { name: 'Preview' }).click()
-    await dialog(page).getByRole('button', { name: 'Confirm Mapping' }).click()
-    await dialog(page).getByRole('button', { name: 'Import', exact: true }).click()
-
-    await expect(dialog(page)).toContainText('Import complete')
-    await expect(dialog(page).locator('strong.text-green-t')).toHaveText('0')
-    await expect(dialog(page).locator('strong.text-yellow-t')).toHaveText('1')
-    const cards = await mockState(page, 'state.cards')
-    expect(cards).toHaveLength(2)
-  })
-
-  test('Escape закрывает модалку без импорта (import_cards не вызван)', async ({ page }) => {
-    await page.locator('button[data-shortcut="new"]').click()
-    await dialog(page).locator('textarea').fill('4242424242424242|12/28|123|Test Holder')
-    await page.keyboard.press('Escape')
-
-    await expect(dialog(page)).toHaveCount(0)
-    const cmds = await mockCommands(page)
-    expect(cmds).not.toContain('import_cards')
-    const cards = await mockState(page, 'state.cards')
-    expect(cards).toHaveLength(2)
-  })
-})
 
 test.describe('TEST-004: Экспорт карт (export_cards)', () => {
   test.beforeEach(async ({ page }) => {

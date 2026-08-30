@@ -1,7 +1,7 @@
 // @ts-check
 // TEST-002: CRUD всех сущностей через реальный UI (мок stateful — изменения видны).
 // Cards: R/U(статус)/D(массовое) · Profiles: C/R/копия/D · Orders: U(статус)/D · Shops: C/R/U/D.
-// Создание карт импортом не покрывается (ImportModal — отдельный формат парсинга).
+// Создание карт импортом удалено (MGR-018, этап B): карты приходят срезами от менеджера.
 import { test, expect } from '@playwright/test'
 import { bootApp, navTo, mockState } from './helpers.js'
 

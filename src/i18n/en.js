@@ -144,23 +144,9 @@ export const en = {
   cc_mark_dead: 'Mark Dead',
   cc_confirm_dead: 'Mark this card as dead? This cannot be undone.',
   cc_no_cards: 'No cards found',
-  cc_import_first: 'Import your first dump',
 
   // Cards — import modal
-  cc_import_title: 'Import Cards',
-  cc_import_step1_hint: 'Paste your card dump below. Supported delimiters: | , ; TAB',
-  cc_import_step2_hint: 'Auto-detected columns are highlighted in green. Review before continuing.',
-  cc_import_step3_hint: "Assign each column to the correct field. Set unknown columns to 'skip'.",
-  cc_import_source_label: 'Source label',
-  cc_import_preview: 'Preview',
-  cc_import_mapping: 'Confirm Mapping',
-  cc_import_do: 'Import',
   cc_import_done: 'Import complete',
-  cc_import_drop_hint: 'or drag & drop a .csv / .txt file here',
-  cc_import_drop_active: 'Release to load the file',
-  cc_import_file_loaded: 'File loaded: {name}',
-  cc_import_file_bad_type: 'Unsupported file type — use .csv, .txt or .tsv',
-  cc_import_file_read_error: 'Failed to read the file',
   row_drag_title: 'Drag to reorder',
   tour_step_sidebar: 'Sidebar — quick access to all sections. You can drag items to reorder them.',
   tour_step_dashboard: 'Dashboard — key metrics, deadlines and card health at a glance.',
@@ -451,7 +437,7 @@ export const en = {
 
   // Dashboard
   dashboard_title: 'Dashboard',
-  quick_import_cc: 'Import CC',
+
   quick_create_profile: 'Create Profile',
   quick_new_order: 'New Order',
   period_today: 'Today',
@@ -832,9 +818,6 @@ export const en = {
   imap_server: 'Server',
   imap_last_check: 'Last Check',
 
-  // Cards extras
-  cards_bad_expiry: 'Unrecognised expiry format',
-
   // Dashboard extras
   dashboard_no_expiring: 'No expiring cards',
 
@@ -940,8 +923,6 @@ export const en = {
   shops_search_placeholder: 'Search name or domain… (Enter)',
 
   // Cards - newly added
-  cc_import_paste_first: 'Paste some card data first',
-  btn_back: 'Back',
   card_already_in_use: 'Card already in use',
   card_cannot_delete_linked:
     'Cannot delete: card is linked to an active profile. Mark as dead first.',
@@ -1137,7 +1118,7 @@ export const en = {
   cc_delete_last_preset: 'Delete last preset',
   usage_history: 'Usage history',
   no_orders_for_card: 'No orders for this card',
-  cc_import_no_data: 'No data to import',
+
   pkg_shop_required: 'Shop is required',
   pkg_select_pay_option: '— Select —',
   drops_step_1: 'Create a drop with an address and contacts',

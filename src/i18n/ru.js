@@ -144,25 +144,9 @@ export const ru = {
   cc_mark_dead: 'Отметить мёртвой',
   cc_confirm_dead: 'Отметить карту как мёртвую? Это нельзя отменить.',
   cc_no_cards: 'Карты не найдены',
-  cc_import_first: 'Импортируйте первые данные',
 
   // Cards — import modal
-  cc_import_title: 'Импорт карт',
-  cc_import_step1_hint: 'Вставьте данные карт ниже. Поддерживаемые разделители: | , ; TAB',
-  cc_import_step2_hint:
-    'Автоопределённые колонки подсвечены зелёным. Проверьте перед продолжением.',
-  cc_import_step3_hint:
-    "Назначьте каждой колонке правильное поле. Неизвестные — установите 'skip'.",
-  cc_import_source_label: 'Метка источника',
-  cc_import_preview: 'Предпросмотр',
-  cc_import_mapping: 'Подтвердить сопоставление',
-  cc_import_do: 'Импортировать',
   cc_import_done: 'Импорт завершён',
-  cc_import_drop_hint: 'или перетащите сюда файл .csv / .txt',
-  cc_import_drop_active: 'Отпустите файл для загрузки',
-  cc_import_file_loaded: 'Файл загружен: {name}',
-  cc_import_file_bad_type: 'Неподдерживаемый тип файла — используйте .csv, .txt или .tsv',
-  cc_import_file_read_error: 'Не удалось прочитать файл',
   row_drag_title: 'Перетащите, чтобы изменить порядок',
   tour_step_sidebar: 'Сайдбар — быстрый доступ ко всем разделам. Пункты можно перетаскивать.',
   tour_step_dashboard: 'Дашборд — ключевые метрики, дедлайны и здоровье карт.',
@@ -452,7 +436,6 @@ export const ru = {
 
   // Dashboard
   dashboard_title: 'Главная',
-  quick_import_cc: 'Импорт CC',
   quick_create_profile: 'Создать профиль',
   quick_new_order: 'Новый заказ',
   period_today: 'Сегодня',
@@ -834,9 +817,6 @@ export const ru = {
   imap_server: 'Сервер',
   imap_last_check: 'Последняя проверка',
 
-  // Cards extras
-  cards_bad_expiry: 'Нераспознанный формат даты',
-
   // Dashboard extras
   dashboard_no_expiring: 'Нет истекающих карт',
 
@@ -942,8 +922,6 @@ export const ru = {
   shops_search_placeholder: 'Поиск по имени или домену… (Enter)',
 
   // Cards - newly added
-  cc_import_paste_first: 'Сначала вставьте данные карт',
-  btn_back: 'Назад',
   card_already_in_use: 'Карта уже используется',
   card_cannot_delete_linked:
     'Нельзя удалить: карта привязана к активному профилю. Сначала пометьте как недействительную.',
@@ -1139,7 +1117,6 @@ export const ru = {
   cc_delete_last_preset: 'Удалить последний пресет',
   usage_history: 'История использования',
   no_orders_for_card: 'По этой карте нет заказов',
-  cc_import_no_data: 'Нет данных для импорта',
   pkg_shop_required: 'Укажите магазин',
   pkg_select_pay_option: '— Выберите —',
   drops_step_1: 'Создайте дропа с адресом и контактами',

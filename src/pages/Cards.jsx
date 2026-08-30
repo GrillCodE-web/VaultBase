@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
-import { Archive, Upload, Download, RefreshCw, Zap, FileText } from 'lucide-react'
+import { Archive, Download, RefreshCw, Zap, FileText } from 'lucide-react'
 import { useLang } from '../hooks/useLang.jsx'
 import { usePremiumToast } from '../hooks/usePremiumToast.js'
 import { useConfirm } from '../hooks/useConfirm.jsx'
@@ -14,7 +14,6 @@ import { buildPageNumbers, getTotalPages, getPageRange } from '../utils/paginati
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { isInInputField } from '../config/shortcuts.js'
 import { DELETE_UNDO_WINDOW_MS, FLASH_HIGHLIGHT_MS } from '../constants/cards.js'
-import { ImportModal } from './Cards/ImportModal.jsx'
 import { CardFilters } from './Cards/CardFilters.jsx'
 import { CardTable } from './Cards/CardTable.jsx'
 import { ColumnPicker } from './Cards/ColumnPicker.jsx'
@@ -71,7 +70,7 @@ const DEFAULT_COLS = [
 
 // ─── Main Cards page ──────────────────────────────────────────────────────
 
-export default function Cards({ onNavigate, activeTab = 'list', openImport = false }) {
+export default function Cards({ onNavigate, activeTab = 'list', openSlices = false }) {
   const { t } = useLang()
   // ★ Insight: useMemo предотвращает создание нового массива при каждом рендере
   // Это ломало бы мемоизацию зависимых компонентов без этой обертки
@@ -118,7 +117,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // UI store
   const {
-    showImport,
     showColPicker,
     compact,
     groupByBank,
@@ -129,7 +127,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
     statusMenuId,
     flashedIds,
     enrichProgress,
-    setShowImport,
     setShowColPicker,
     toggleCompact,
     toggleGroupByBank,
@@ -172,6 +169,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       setSlicesBusy(false)
     }
   }, [t, slicesBusy, fetchCards, toast])
+  const fetchSlicesRef = useRef(fetchSlices)
+  useEffect(() => {
+    fetchSlicesRef.current = fetchSlices
+  }, [fetchSlices])
 
   // Real-time sync flash animation timers
   const flashTimers = useRef({})
@@ -179,8 +180,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   const deleteTimers = useRef({})
   // ★ Insight: Sync error state для fallback UI при ошибке WebSocket
   const [syncError, setSyncError] = useState(null)
-  // UX-010: содержимое файла, брошенного на страницу (предзаполняет ImportModal)
-  const [droppedRaw, setDroppedRaw] = useState('')
 
   const [visibleCols, setVisibleCols] = usePersistedState('cards_visible_cols', DEFAULT_COLS)
   const [columnOrder, setColumnOrder] = usePersistedState('cards_column_order', null)
@@ -198,10 +197,10 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   // ── Effects ────────────────────────────────────────────────────────────
 
-  // Initialize: open import modal if requested
+  // Initialize: fetch slices if requested (MGR-018 — карты приходят срезами)
   useEffect(() => {
-    if (openImport) setShowImport(true)
-  }, [openImport, setShowImport])
+    if (openSlices) fetchSlicesRef.current()
+  }, [openSlices])
 
   // Load cards when filters or page change
   // ★ Insight: AbortController предотвращает race conditions при быстром переключении фильтров
@@ -387,18 +386,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
   // ── Page-specific keyboard shortcuts ──────────────────────────────────
 
   const pageShortcuts = [
-    {
-      keys: ['c'],
-      handler: () => setShowImport(true),
-      requireNoInput: true,
-      page: 'cards',
-    },
-    {
-      keys: ['i'],
-      handler: () => setShowImport(true),
-      requireNoInput: true,
-      page: 'cards',
-    },
     {
       keys: ['e'],
       handler: () => {
@@ -641,25 +628,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
 
   const { from, to } = getPageRange(page, total)
 
-  // UX-010: бросок .csv/.txt/.tsv в любую точку страницы открывает импорт с содержимым
-  const handlePageDrop = async e => {
-    e.preventDefault()
-    const file = e.dataTransfer?.files?.[0]
-    if (!file || !/\.(csv|txt|tsv)$/i.test(file.name)) return
-    try {
-      const text = await file.text()
-      if (text.trim()) {
-        setDroppedRaw(text)
-        setShowImport(true)
-      }
-    } catch (err) {
-      handleError(err, 'Cards.handlePageDrop')
-      toast(t('cc_import_file_read_error'), 'error')
-    }
-  }
-
   return (
-    <div className="content" onDragOver={e => e.preventDefault()} onDrop={handlePageDrop}>
+    <div className="content">
       {/* Sync error banner */}
       {syncError && (
         <div className="alert alert-error">
@@ -765,14 +735,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
             >
               <Download size={12} className={slicesBusy ? 'animate-spin' : ''} />{' '}
               {t('btn_fetch_slices')}
-            </button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="btn btn-b"
-              data-shortcut="new"
-              title="Import cards (i or c)"
-            >
-              <Upload size={12} /> {t('btn_import')}
             </button>
           </div>
         </div>
@@ -886,9 +848,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
                 </svg>
               </div>
               <h3 className="text-base font-semibold text-text">{t('cc_no_cards')}</h3>
-              <p className="text-sm text-muted mt-1">{t('cc_import_first')}</p>
-              <button onClick={() => setShowImport(true)} className="btn btn-b mt-4">
-                {t('btn_import')}
+              <p className="text-sm text-muted mt-1">{t('slices_empty_hint')}</p>
+              <button onClick={fetchSlices} disabled={slicesBusy} className="btn btn-b mt-4">
+                {t('btn_fetch_slices')}
               </button>
             </div>
           </div>
@@ -972,19 +934,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openImport = fal
       )}
 
       {/* Modals */}
-      {showImport && (
-        <ImportModal
-          initialRaw={droppedRaw}
-          onClose={() => {
-            setShowImport(false)
-            setDroppedRaw('')
-          }}
-          onImported={() => {
-            fetchCards(true)
-          }}
-        />
-      )}
-
       {/* #61 — Side panel */}
       {sideCard && (
         <CardSidePanel

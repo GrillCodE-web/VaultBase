@@ -100,20 +100,6 @@ export const SHORTCUTS = {
 
   // Page-specific shortcuts
   cards: {
-    create: {
-      keys: ['c'],
-      description: 'Create new card',
-      action: 'cards:create',
-      requireNoInput: true,
-      page: 'cards',
-    },
-    import: {
-      keys: ['i'],
-      description: 'Import cards',
-      action: 'cards:import',
-      requireNoInput: true,
-      page: 'cards',
-    },
     export: {
       keys: ['e', 'Cmd+E', 'Ctrl+E'],
       description: 'Export cards',
