@@ -1210,7 +1210,7 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
   флота за 14 дн: orders/delivered/declined/cards_taken/cards_dead,
   хронологический порядок) и `night_summary` (последний день: orders/delivered/
   decline_rate/cards/dead_ratio + дельты к среднему за trailing 7д:
-  delta__*pct в % для объёмов, delta*__pp в п.п. для долей; null без базы).
+  delta___pct в % для объёмов, delta___pp в п.п. для долей; null без базы).
   `DayStats::add` в telemetry.rs стал pub(crate). Тесты +2 (серия и порядок,
   сводка с дельтами 50%/62.5%/−6.7п.п.; null на пустой БД). Сьют: **44/44**.
 - **UI Dashboard:** панель «Ночная сводка — <дата>» после grid-cards: 5 метрик
@@ -1228,3 +1228,11 @@ platform)`; upsert в `upload.js` — по тройке. Прод-сервер �
 - **Остаток MGR-020 (НЕ сделано):** score + адаптивные квоты
   human-in-the-loop (предложение квот по score), тултипы «?» к метрикам,
   гигиена данных сверх MGR-021. Чеклист остаётся 🔄 @main.
+
+## 2026-08-30 — ✅ @main — DEVOPS-002: staging окружение (9ec6060)
+
+- **Что сделано:** staging-экземпляр cc-sync-server описан и отделяем: `cc-sync-server/.env.staging.example` (своя БД `staging.db`, PORT=3100, свои секреты/ADMIN_PATH/RELEASES_DIR, TELEMETRY_RETENTION_DAYS=14); `scripts/deploy-server.py` параметризован env (VPS_APP_DIR / VPS_NGINX_CONF / VPS_PM2_APP / VPS_BASE_URL / VPS_HEALTH_PORT) с прежними боевыми дефолтами — боевой деплой не меняется, staging = те же VPS_* со staging-значениями; процесс в `docs/STAGING.md` (запуск инстанса, деплой кода, клиенты против staging, репетиция миграций на копии боевой БД, чеклист релиза).
+- **Ключевая развилка клиента:** staging-профиль читается ТОЛЬКО debug-сборкой (release всегда production — DEVOPS-005, main.rs:92). В пакете для полигона — `npm run tauri build -- --debug` с `VAULTBASE_PROFILE=staging` + `VAULTBASE_SERVER_URL`/`VAULTBASE_SYNC_WS_URL`/`VAULTBASE_CONFIG_DIR`. Manager-app подхватывает те же env (http.rs:11).
+- **Проверки:** config-тесты 5/5 (включая новый test_get_default_config_staging); сервер npm test 110/110; py_compile + факт-проверка env-параметризации deploy-server.py (REMOTE_APP/HEALTH_PORT переопределяются, дефолты боевые).
+- **Не делал:** nginx-конфиг staging-хоста (одноразовая ручная настройка — задокументирована), CI-workflow для staging (избыточно: деплой скриптом уже параметризован). Артефакт чеклиста `VaultBase.staging.toml` — дополнен, профиль staging валиден.
+- Косметика от клейма 7fcf3ba: PowerShell-rewrite снёс хвостовые пробелы в 21 строке таблицы чеклиста — содержимое не менялось.
