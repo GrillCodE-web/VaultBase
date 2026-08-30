@@ -4,6 +4,7 @@ import { useLang } from '../hooks/useLang.jsx'
 import { api, getConfigValues, getLocalAlerts, lockApp, syncTelemetry } from '../api/server.js'
 import Dashboard from './Dashboard.jsx'
 import Workers from './Workers.jsx'
+import Cards from './Cards.jsx'
 import Analytics from './Analytics.jsx'
 import News from './News.jsx'
 import Alerts from './Alerts.jsx'
@@ -14,6 +15,7 @@ import Settings from './Settings.jsx'
 
 const PAGES = {
   dashboard: Dashboard,
+  cards: Cards,
   workers: Workers,
   analytics: Analytics,
   news: News,
@@ -117,6 +119,7 @@ export default function Shell({ appState, onLock }) {
   const nav = useMemo(
     () => [
       ['dashboard', 'nav_dashboard'],
+      ['cards', 'nav_cards'],
       ['workers', 'nav_workers'],
       ['analytics', 'nav_analytics'],
       ['news', 'nav_news'],

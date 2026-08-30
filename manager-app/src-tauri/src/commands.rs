@@ -5,6 +5,7 @@ use crate::http;
 use crate::license;
 use crate::state::{with_open, AppState, DbState};
 use crate::telemetry;
+use crate::vault;
 use base64::Engine;
 use serde_json::{json, Value};
 use tauri::State;
@@ -464,4 +465,70 @@ pub async fn install_app_update(
         .await
         .map_err(|e| e.to_string())?;
     app.restart();
+}
+
+// ── MGR-017: vault карт (импорт, пулы, раздача срезов, экспорт) ──────────────
+
+#[tauri::command]
+pub fn vault_import(state: State<'_, AppState>, text: String) -> Result<Value, String> {
+    with_open(&state, |database, enc| vault::import(database, enc, &text))
+}
+
+#[tauri::command]
+pub fn vault_list(
+    state: State<'_, AppState>,
+    status: Option<String>,
+    query: Option<String>,
+    limit: Option<i64>,
+) -> Result<Value, String> {
+    with_open(&state, |database, enc| {
+        vault::list(database, enc, status.as_deref(), &query.unwrap_or_default(), limit.unwrap_or(300))
+    })
+}
+
+#[tauri::command]
+pub fn vault_stats(state: State<'_, AppState>) -> Result<Value, String> {
+    with_open(&state, |database, _| vault::stats(database))
+}
+
+#[tauri::command]
+pub fn vault_issue(
+    state: State<'_, AppState>,
+    target_iid: String,
+    card_ids: Vec<i64>,
+) -> Result<Value, String> {
+    with_open(&state, |database, enc| vault::issue(database, enc, &target_iid, &card_ids))
+}
+
+#[tauri::command]
+pub fn vault_sync_issue_status(state: State<'_, AppState>) -> Result<Value, String> {
+    with_open(&state, |database, _| vault::sync_issue_status(database))
+}
+
+#[tauri::command]
+pub fn vault_recall(state: State<'_, AppState>, card_ids: Vec<i64>, to_status: String) -> Result<Value, String> {
+    with_open(&state, |database, _| vault::recall(database, &card_ids, &to_status))
+}
+
+#[tauri::command]
+pub fn vault_burn(state: State<'_, AppState>, card_ids: Vec<i64>, reason: Option<String>) -> Result<Value, String> {
+    with_open(&state, |database, _| vault::burn(database, &card_ids, &reason.unwrap_or_default()))
+}
+
+#[tauri::command]
+pub fn vault_export(
+    state: State<'_, AppState>,
+    card_ids: Vec<i64>,
+    path: String,
+    password: String,
+    purge: Option<bool>,
+) -> Result<Value, String> {
+    with_open(&state, |database, enc| {
+        vault::export(database, enc, &card_ids, &path, &password, purge.unwrap_or(true))
+    })
+}
+
+#[tauri::command]
+pub fn vault_export_log(state: State<'_, AppState>) -> Result<Value, String> {
+    with_open(&state, |database, _| vault::export_log(database))
 }

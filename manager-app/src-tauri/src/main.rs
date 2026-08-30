@@ -8,6 +8,7 @@ mod http;
 mod license;
 mod state;
 mod telemetry;
+mod vault;
 
 use state::AppState;
 
@@ -34,6 +35,15 @@ fn main() {
             commands::get_config_values,
             commands::set_config_value,
             commands::wipe_local_data,
+commands::vault_import,
+commands::vault_list,
+commands::vault_stats,
+commands::vault_issue,
+commands::vault_sync_issue_status,
+commands::vault_recall,
+commands::vault_burn,
+commands::vault_export,
+commands::vault_export_log,
             commands::check_app_update,
             commands::install_app_update,
         ])

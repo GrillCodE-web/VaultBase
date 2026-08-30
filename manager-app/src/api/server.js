@@ -27,6 +27,19 @@ export const wipeLocalData = () => invoke('wipe_local_data', { confirm: true })
 export const checkAppUpdate = () => invoke('check_app_update')
 export const installAppUpdate = () => invoke('install_app_update')
 
+// ── MGR-017: vault карт ──────────────────────────────────────────────────────
+export const vaultImport = (text) => invoke('vault_import', { text })
+export const vaultList = (status, query = '', limit = 300) =>
+  invoke('vault_list', { status, query, limit })
+export const vaultStats = () => invoke('vault_stats')
+export const vaultIssue = (targetIid, cardIds) => invoke('vault_issue', { targetIid, cardIds })
+export const vaultSyncIssueStatus = () => invoke('vault_sync_issue_status')
+export const vaultRecall = (cardIds, toStatus) => invoke('vault_recall', { cardIds, toStatus })
+export const vaultBurn = (cardIds, reason = '') => invoke('vault_burn', { cardIds, reason })
+export const vaultExport = (cardIds, path, password, purge = true) =>
+  invoke('vault_export', { cardIds, path, password, purge })
+export const vaultExportLog = () => invoke('vault_export_log')
+
 export function fmtDateTime(value) {
   if (!value) return '—'
   const iso = String(value).replace(' ', 'T') + (String(value).endsWith('Z') ? '' : 'Z')

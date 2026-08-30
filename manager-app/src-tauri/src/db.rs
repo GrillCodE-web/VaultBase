@@ -77,10 +77,50 @@ impl Database {
                     title TEXT NOT NULL,
                     message TEXT DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','ack','closed')),
-                    dedupe_key TEXT UNIQUE,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                );
-                "#,
+dedupe_key TEXT UNIQUE,
+created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS card_vault (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pan_hash TEXT NOT NULL UNIQUE,
+    pan_enc TEXT NOT NULL,
+    exp_enc TEXT DEFAULT '',
+    cvv_enc TEXT DEFAULT '',
+    extra_enc TEXT DEFAULT '',
+    bin TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pool' CHECK (status IN ('pool','on_worker','declined','burned','exported')),
+    assigned_iid TEXT,
+    issued_at TEXT,
+    returned_at TEXT,
+    decline_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_card_vault_status ON card_vault(status);
+CREATE TABLE IF NOT EXISTS card_issues (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL,
+    pan_hash TEXT NOT NULL,
+    target_iid TEXT NOT NULL,
+    key_id INTEGER,
+    server_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','ack','revoked')),
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    delivered_at TEXT,
+    acked_at TEXT,
+    UNIQUE(card_id, target_iid)
+);
+CREATE INDEX IF NOT EXISTS idx_card_issues_target ON card_issues(target_iid, status);
+CREATE TABLE IF NOT EXISTS card_exports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL DEFAULT 'export' CHECK (kind IN ('export','purge')),
+    cards_count INTEGER NOT NULL DEFAULT 0,
+    file_path TEXT DEFAULT '',
+    file_sha256 TEXT DEFAULT '',
+    note TEXT DEFAULT '',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+"#,
             )
             .map_err(|e| format!("init schema: {e}"))?;
         self.ensure_column("worker_snapshots", "quota_cards_day", "INTEGER")?;

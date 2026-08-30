@@ -239,6 +239,34 @@ test('activation registers worker pubkey (and rejects malformed one)', async () 
   assert.equal(stored.label, 'activation');
 });
 
+test('manager can revoke pending/delivered slices (recall to pool)', async () => {
+  // Выдаём два среза, отзываем один, воркер должен получить только один.
+  const issue = await req('POST', '/manager/api/cards/issue', MGR_TOKEN, {
+    target_iid: WRK_IID,
+    slices: [
+      { card_hash: 'hash-revoked-1', sealed_data: 'sealed-r1-000000000' },
+      { card_hash: 'hash-kept-1', sealed_data: 'sealed-keep1-000000' },
+    ],
+  });
+  assert.equal(issue.status, 201);
+
+  const bad = await req('POST', '/manager/api/cards/issued/revoke', MGR_TOKEN, { ids: 'nope' });
+  assert.equal(bad.status, 400);
+
+  const listed = await req('GET', `/manager/api/cards/issued?target_iid=${WRK_IID}`, MGR_TOKEN);
+  const open = listed.json.slices.filter(s => s.status !== 'ack' && s.status !== 'revoked');
+  assert.ok(open.length >= 2, 'should have open slices to revoke');
+  const revokeIds = open.map(s => s.id);
+  const revoke = await req('POST', '/manager/api/cards/issued/revoke', MGR_TOKEN, { ids: revokeIds });
+  assert.equal(revoke.status, 200);
+  assert.equal(revoke.json.ok, true);
+  assert.equal(revoke.json.revoked, revokeIds.length);
+
+  // Отозванное воркеру больше не доставляется.
+  const fetchAfter = await req('GET', '/sync/cards/issued', WRK_TOKEN);
+  assert.deepEqual(fetchAfter.json.slices.map(s => s.card_hash), []);
+});
+
 test('audit trail records key registrations and card issues', () => {
   const rows = getDb().prepare(
     "SELECT action, COUNT(*) AS n FROM audit_log WHERE action IN ('worker_key_register','manager_cards_issue') GROUP BY action"

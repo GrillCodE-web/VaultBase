@@ -194,4 +194,24 @@ workerRouter.post('/cards/issued/ack', (req, res) => {
   res.json({ ok: true, acked: info.changes });
 });
 
+// POST /manager/api/cards/issued/revoke — менеджер отзывает срезы (забрал
+// карту в пул / сжёг). Отозванные воркер по GET /sync/cards/issued не получает
+// (MGR-016) и ack на них не проходит.
+managerRouter.post('/cards/issued/revoke', (req, res) => {
+  const ids = (req.body || {}).ids;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500
+      || !ids.every((n) => Number.isInteger(n) && n > 0)) {
+    return res.status(400).json({ error: 'ids_array_required' });
+  }
+  const placeholders = ids.map(() => '?').join(',');
+  const info = getDb().prepare(`
+    UPDATE issued_card_slices SET status = 'revoked'
+    WHERE status IN ('pending','delivered') AND id IN (${placeholders})
+  `).run(...ids);
+  if (info.changes > 0) {
+    audit('manager_cards_revoke', { manager: req.installationId, revoked: info.changes });
+  }
+  res.json({ ok: true, revoked: info.changes });
+});
+
 module.exports = { managerRouter, workerRouter, MAX_SLICES_PER_ISSUE };
