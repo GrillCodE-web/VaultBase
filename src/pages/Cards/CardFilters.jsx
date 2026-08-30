@@ -173,8 +173,7 @@ export function CardFilters({
             setPage(1)
           }}
           placeholder={t('drop_field_state')}
-          className="search-box"
-          style={{ width: 60 }}
+          className="search-box w-[60px]"
           aria-label={t('drop_field_state')}
         />
 
@@ -209,9 +208,8 @@ export function CardFilters({
                 const p = presets.find(x => x.name === e.target.value)
                 if (p) loadPreset(p)
               }}
-              className="inline-select"
+              className="inline-select max-w-[120px]"
               aria-label={t('cc_filter_presets') || 'Filter presets'}
-              style={{ maxWidth: 120 }}
             >
               <option value="">{t('cc_filter_presets') || '⚡ Пресеты'}</option>
               {presets.map(p => (
@@ -233,8 +231,7 @@ export function CardFilters({
           {showPresetInput && (
             <span className="flex items-center gap-1">
               <input
-                className="search-box"
-                style={{ width: 100 }}
+                className="search-box w-[100px]"
                 value={presetName}
                 onChange={e => setPresetName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && savePreset()}
