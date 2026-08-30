@@ -25,18 +25,9 @@ function CopyNumberBtn({ value }) {
       }}
       title={t('cc_copy_num')}
       aria-label={t('cc_copy_num')}
-      style={{
-        marginLeft: 4,
-        padding: '1px 4px',
-        borderRadius: 4,
-        background: copied ? STATUS_COLORS.successBg : 'transparent',
-        color: copied ? STATUS_COLORS.success : 'var(--muted)',
-        border: 'none',
-        cursor: 'pointer',
-        fontSize: 10,
-        lineHeight: 1,
-        transition: 'color 0.15s',
-      }}
+      className={`ml-1 px-1 py-px rounded-md border-none cursor-pointer text-10 leading-none transition-colors ${
+        copied ? 'bg-success-bg text-success' : 'bg-transparent text-muted'
+      }`}
     >
       {copied ? '✓' : '⧉'}
     </button>
@@ -195,12 +186,9 @@ export const OrderRow = React.memo(
       <>
         <tr
           onClick={onToggleExpand}
+          className={`cursor-pointer ${isDeleting ? 'opacity-30 line-through pointer-events-none' : ''}`}
           style={{
-            cursor: 'pointer',
-            opacity: isDeleting ? 0.3 : 1,
-            textDecoration: isDeleting ? 'line-through' : 'none',
             transition: 'opacity 0.4s ease, background 0.15s ease',
-            pointerEvents: isDeleting ? 'none' : undefined,
             borderLeft: getBorderColor(),
           }}
         >

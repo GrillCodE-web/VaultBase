@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core'
 import { Upload } from 'lucide-react'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useLang } from '../../hooks/useLang'
-import { STATUS_COLORS } from '../../constants/colors'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { Modal } from '../../components/Modal.jsx'
 
@@ -141,19 +140,9 @@ export function BatchImportModal({ onCreated, onClose }) {
           </div>
 
           {parsedRows.length > 0 && (
-            <div
-              style={{
-                background: STATUS_COLORS.infoBg,
-                border: `1px solid ${STATUS_COLORS.info}33`,
-                borderRadius: 8,
-                padding: '10px 14px',
-                fontSize: 12,
-              }}
-            >
-              <span style={{ color: STATUS_COLORS.info, fontWeight: 600 }}>
-                {parsedRows.length}
-              </span>
-              <span style={{ color: 'var(--text-2)', marginLeft: 6 }}>
+            <div className="bg-info-bg border border-info/20 rounded-input px-3.5 py-2.5 text-12">
+              <span className="text-info font-semibold">{parsedRows.length}</span>
+              <span className="text-text-2 ml-1.5">
                 valid row{parsedRows.length !== 1 ? 's' : ''} parsed from {fileName}
               </span>
             </div>
@@ -185,32 +174,12 @@ export function BatchImportModal({ onCreated, onClose }) {
       ) : (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
-            <div
-              style={{
-                background: STATUS_COLORS.successBg,
-                border: `1px solid ${STATUS_COLORS.success}33`,
-                borderRadius: 10,
-                padding: 16,
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.success }}>
-                {result.created}
-              </div>
+            <div className="bg-success-bg border border-success/20 rounded-[10px] p-4 text-center">
+              <div className="text-28 font-bold text-success">{result.created}</div>
               <div className="text-11 text-muted mt-1">Created</div>
             </div>
-            <div
-              style={{
-                background: STATUS_COLORS.errorBg,
-                border: `1px solid ${STATUS_COLORS.error}33`,
-                borderRadius: 10,
-                padding: 16,
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: 28, fontWeight: 700, color: STATUS_COLORS.error }}>
-                {result.failed}
-              </div>
+            <div className="bg-error-bg border border-error/20 rounded-[10px] p-4 text-center">
+              <div className="text-28 font-bold text-error">{result.failed}</div>
               <div className="text-11 text-muted mt-1">Failed</div>
             </div>
           </div>

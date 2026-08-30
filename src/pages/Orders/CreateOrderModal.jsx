@@ -529,12 +529,8 @@ export function CreateOrderModal({ onCreated, onClose }) {
                 {FLAGS.filter(f => shopObj[f.key]).map(f => (
                   <span
                     key={f.key}
-                    style={{
-                      fontSize: 10,
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      ...f.color,
-                    }}
+                    className="text-10 px-2 py-0.5 rounded-full"
+                    style={{ ...f.color }}
                   >
                     {f.label}
                   </span>
