@@ -1,6 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { ShoppingCart, X, Sparkles, FolderOpen, Save, Trash2, Plus } from 'lucide-react'
+import {
+  ShoppingCart,
+  X,
+  Sparkles,
+  FolderOpen,
+  Save,
+  Trash2,
+  Plus,
+  BookmarkPlus,
+} from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useAuth } from '../../hooks/useAuth'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
@@ -9,10 +18,11 @@ import { useSmartSuggestions, SuggestionBadge } from '../Shops'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { STATUS_COLORS } from '../../constants/colors.js'
 import { RiskBlock } from './RiskBlock.jsx'
+import { saveOrderPreset } from '../../utils/orderPresets.js'
 
 const EMPTY_ITEM = { name: '', sku: '', qty: 1, price: '' }
 
-export function CreateOrderModal({ onCreated, onClose }) {
+export function CreateOrderModal({ onCreated, onClose, preset }) {
   const { t } = useLang()
   // Step state
   const [profileId, setProfileId] = useState('')
@@ -34,6 +44,9 @@ export function CreateOrderModal({ onCreated, onClose }) {
   const [templates, setTemplates] = useState([])
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  // REDESIGN-05-4 (порция 4): пресеты «магазин+профиль+дроп» (⌘K)
+  const [showSavePreset, setShowSavePreset] = useState(false)
+  const [presetName, setPresetName] = useState('')
   const [loading, setLoading] = useState(false)
   const submittingRef = useRef(false)
   // BUG-016: sequence-синхронизация асинхронного поиска и quick-create,
@@ -323,6 +336,56 @@ export function CreateOrderModal({ onCreated, onClose }) {
       const error = handleError(e, 'Orders.handleSaveTemplate')
       toast(getErrorMessage(error), 'error')
     }
+  }
+
+  // REDESIGN-05-4 (порция 4): применить пресет (магазин+профиль+дроп) —
+  // приходит из ⌘K через страницу Orders
+  const presetAppliedRef = useRef(false)
+  useEffect(() => {
+    if (!preset || presetAppliedRef.current) return
+    presetAppliedRef.current = true
+    ;(async () => {
+      if (preset.shop_id) {
+        await selectShop({
+          id: preset.shop_id,
+          domain: preset.shop_domain,
+          name: preset.shop_name,
+        })
+      }
+      if (preset.profile_id) {
+        setProfileId(preset.profile_id)
+        setProfileSearch(preset.profile_label || `#${preset.profile_id}`)
+        try {
+          const d = await invoke('get_profile_detail', { id: preset.profile_id })
+          setProfileDetail(d)
+          const drop =
+            d.drops?.find(dd => dd.id === preset.drop_id) ||
+            d.drops?.find(dd => dd.is_primary) ||
+            d.drops?.[0]
+          if (drop) setDropId(drop.id)
+        } catch (e) {
+          handleError(e)
+        }
+      }
+    })()
+  }, [preset])
+
+  // REDESIGN-05-4 (порция 4): сохранить текущий выбор как пресет для ⌘K
+  const handleSavePreset = () => {
+    const name = presetName.trim()
+    if (!name || !profileId || !shopId) return
+    saveOrderPreset({
+      name,
+      profile_id: profileId,
+      profile_label: profileSearch,
+      shop_id: shopId,
+      shop_domain: shopObj?.domain || null,
+      shop_name: shopObj?.name || null,
+      drop_id: dropId || null,
+    })
+    toast(t('preset_saved'), 'success')
+    setShowSavePreset(false)
+    setPresetName('')
   }
 
   // ── Submit ──
@@ -853,6 +916,44 @@ export function CreateOrderModal({ onCreated, onClose }) {
             className="form-input resize-none"
           />
         </div>
+
+        {/* REDESIGN-05-4 (порция 4): сохранить пресет магазин+профиль+дроп */}
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => setShowSavePreset(true)}
+            disabled={!profileId || !shopId}
+            className={`flex items-center gap-1 text-12 text-muted bg-transparent border-none ${
+              !profileId || !shopId ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+            }`}
+            title={t('preset_save_hint')}
+          >
+            <BookmarkPlus size={12} /> {t('preset_save')}
+          </button>
+        </div>
+        {showSavePreset && (
+          <div className="template-dialog">
+            <input
+              value={presetName}
+              onChange={e => setPresetName(e.target.value)}
+              placeholder={t('preset_name')}
+              className="form-input-sm flex-1-auto bg-transparent"
+            />
+            <button
+              onClick={handleSavePreset}
+              disabled={!presetName.trim()}
+              className={`btn btn-b btn-sm ${!presetName.trim() ? 'btn-opacity-disabled' : 'btn-opacity-normal'}`}
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setShowSavePreset(false)}
+              className="btn-icon-only"
+              aria-label="Cancel save preset"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* ── Submit ── */}
         <button

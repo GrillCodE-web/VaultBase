@@ -406,12 +406,14 @@ export default function Imap({ onNavigate: _onNavigate }) {
       if (!accountId) return
       setLoadingMsgs(true)
       try {
-        const result = await invoke('get_imap_messages', {
+        // FIX (REDESIGN-05-4): было get_imap_messages с плоскими аргументами,
+        // но та команда принимает { filter, page } без folder/search — вызов
+        // отклонялся backend'ом. Правильная команда — get_folder_messages.
+        const result = await invoke('get_folder_messages', {
           accountId,
           folder,
           page,
-          perPage: 30,
-          search,
+          search: search || null,
         })
         // ★ Insight: Проверка актуальности — если accountId изменился, не обновляем состояние
         // Бэкенд возвращает PaginatedMessages { items, total, ... } — поле
@@ -475,11 +477,10 @@ export default function Imap({ onNavigate: _onNavigate }) {
           while (idx < pairs.length && !cancelled.current && found.length < 200) {
             const { acc, folder } = pairs[idx++]
             try {
-              const res = await invoke('get_imap_messages', {
+              const res = await invoke('get_folder_messages', {
                 accountId: acc.id,
                 folder,
                 page: 1,
-                perPage: 10,
                 search: q,
               })
               for (const m of res?.items || []) {

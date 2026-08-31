@@ -5234,6 +5234,14 @@
   gap: 10px;
 }
 
+/* REDESIGN-05-4 (порция 4): мультивыбор ордеров в палитре (Tab) */
+.pal-sel-mark {
+  color: var(--accent);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 /* ── Menu (топбар: «+ Создать», аватар) ──────────────────── */
 .menu-root {
   position: relative;

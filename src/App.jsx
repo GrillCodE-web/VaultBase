@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import { useSyncFreshness } from './hooks/useSyncFreshness.js'
 import { useLiteRules } from './hooks/useLiteRules.js'
+import { maybeSendDailyDigest } from './utils/dailyDigest.js'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { AppTour } from './components/AppTour'
@@ -193,6 +194,16 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   // REDESIGN-05-4 (порция 3): lite-правила — периодическая оценка,
   // подсветка строк + уведомления
   useLiteRules()
+
+  // REDESIGN-05-4 (порция 4): дневной дайджест — раз в день в центр
+  // уведомлений (после прогрева приложения, чтобы не спорить со стартовой
+  // синхронизацией)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      maybeSendDailyDigest(t).catch(() => {})
+    }, 6000)
+    return () => clearTimeout(timer)
+  }, [t])
 
   // FIX P2-STATUS-01: WS sync connection status
   const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting, group_id? }

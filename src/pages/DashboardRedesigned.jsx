@@ -35,6 +35,7 @@ import {
 } from './Dashboard/tables'
 import { CollapsePanel, PremiumStatCard, SmartAlertCard } from './Dashboard/cards'
 import { WidgetGrid } from './Dashboard/WidgetGrid.jsx'
+import { AnomaliesWidget } from './Dashboard/AnomaliesWidget.jsx'
 import { UpanelApiStatusWidget } from './Dashboard/upanelApiStatus'
 
 // Стили дашборд-карточек — в общем styles/pages.css (через index.css).
@@ -70,6 +71,7 @@ export default function DashboardRedesigned({ onNavigate }) {
     sources: true,
     expiring: false,
     bin_perf: true,
+    anomalies: false,
   })
 
   const lastStatsRef = useRef(null)
@@ -451,6 +453,21 @@ export default function DashboardRedesigned({ onNavigate }) {
                 </>
               ),
             },
+          {
+            // REDESIGN-05-4 (порция 4): аномалии — спайки деклайнов шопа/прокси
+            id: 'anomalies',
+            defaultH: 3,
+            node: (
+              <CollapsePanel
+                title={t('anomalies_title')}
+                id="anomalies"
+                collapsed={collapsed.anomalies}
+                onToggle={toggleSection}
+              >
+                <AnomaliesWidget onNavigate={onNavigate} />
+              </CollapsePanel>
+            ),
+          },
           {
             id: 'charts',
             defaultH: 9,

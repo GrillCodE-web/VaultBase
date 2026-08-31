@@ -16,6 +16,7 @@ import { CreateOrderModal } from './Orders/CreateOrderModal.jsx'
 import { RepeatOrderModal } from './Orders/RepeatOrderModal.jsx'
 import { useOrdersStore } from '../store/orders.js'
 import { usePersistedState } from '../hooks/usePersistedState.js'
+import { APPLY_ORDER_PRESET_EVENT } from '../utils/orderPresets.js'
 
 // REDESIGN-05-4 (порция 2): выбор колонок таблицы ордеров (localStorage).
 // select/actions всегда видимы и в пикер не попадают (lockedIds).
@@ -69,6 +70,7 @@ export default function OrderList({
 
   // Local UI state (not in store)
   const [showCreate, setShowCreate] = useState(!!openCreate)
+  const [orderPreset, setOrderPreset] = useState(null)
   const [shopOptions, setShopOptions] = useState([])
   const [repeatOrder, setRepeatOrder] = useState(null)
   const [showBatchImport, setShowBatchImport] = useState(false)
@@ -90,6 +92,17 @@ export default function OrderList({
   const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
 
   // ── Effects ────────────────────────────────────────────────────
+
+  // REDESIGN-05-4 (порция 4): «создать по шаблону» из ⌘K — палитра
+  // диспатчит событие, открываем CreateOrderModal с предзаполнением
+  useEffect(() => {
+    const onApply = e => {
+      setOrderPreset(e.detail || null)
+      setShowCreate(true)
+    }
+    window.addEventListener(APPLY_ORDER_PRESET_EVENT, onApply)
+    return () => window.removeEventListener(APPLY_ORDER_PRESET_EVENT, onApply)
+  }, [])
 
   // Load orders on mount and fetch shop options
   useEffect(() => {
@@ -277,8 +290,12 @@ export default function OrderList({
 
       {showCreate && (
         <CreateOrderModal
+          preset={orderPreset}
           onCreated={() => fetchOrders(true)}
-          onClose={() => setShowCreate(false)}
+          onClose={() => {
+            setShowCreate(false)
+            setOrderPreset(null)
+          }}
         />
       )}
 
