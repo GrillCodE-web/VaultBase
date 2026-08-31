@@ -157,9 +157,38 @@ export function getTauriMockScript() {
       // Контракт commands/catalog.rs: CatalogStats { items, shops } (сид-каталог пуст).
       return { items: 0, shops: 0 }
     },
-    sync_get_group_status: function () {
-      // Контракт commands/sync.rs: SyncGroupStatus (группа не создана).
-      return { in_group: false, group_id: null, group_name: null, connected: false, last_sync: null }
+    // MGR-018 (этап E1): sync-группы выпилены — команды sync_*_group больше
+    // не существуют, мока нет. Метку свежести читаем через get_config('sync_last_at').
+    // REDESIGN-05-5B4: E2E-чат (команды commands/chat.rs). В e2e-окружении
+    // сети нет: peers пусты, история пуста, отправка — локальная запись.
+    chat_peers: function () {
+      return { self: 'e2e-install', group_id: null, peers: [] }
+    },
+    chat_send: function (a) {
+      var msg = {
+        id: (state.chatMessages || (state.chatMessages = [])).length + 1,
+        server_id: null,
+        room: a && a.peerIid ? 'dm:e2e-install:' + a.peerIid : 'group:e2e',
+        peer_iid: (a && a.peerIid) || '',
+        direction: 'out',
+        body: (a && a.body) || '',
+        ref_type: (a && a.refType) || null,
+        ref_id: (a && a.refId) || null,
+        created_at: '2026-01-01 00:00:00',
+        read_at: '2026-01-01 00:00:00',
+      }
+      state.chatMessages.push(msg)
+      return msg
+    },
+    chat_list: function (a) {
+      var all = state.chatMessages || []
+      if (a && a.room) return all.filter(function (m) { return m.room === a.room })
+      return all
+    },
+    chat_mark_read: function () { return 0 },
+    chat_unread_count: function () { return 0 },
+    chat_fetch: function () {
+      return { fetched: 0, stored: 0, failed: 0, since_id: 0 }
     },
     // MGR-013: panic-пароль (sidecar v3) — в e2e-окружении не задан.
     has_panic_password: function () { return false },

@@ -15,8 +15,8 @@ function parseDbUtc(s) {
 
 /**
  * REDESIGN-05-4 (порция 2): индикатор «данные устарели».
- * lastSyncAt берём из sync_get_group_status (config sync_last_at) и обновляем
- * на событиях входящего sync (sync:full_data / sync:card_update / ...).
+ * lastSyncAt берём из config sync_last_at (пишется забором срезов, MGR-018)
+ * и обновляем на событиях входящего sync (slices_received / ...).
  * stale = последний sync старше 5 минут. В solo-режиме (last_sync пуст)
  * индикатор не показываем — устаревать просто нечему.
  */
@@ -27,8 +27,10 @@ export function useSyncFreshness() {
 
   const refresh = useCallback(async () => {
     try {
-      const st = await invoke('sync_get_group_status')
-      const ms = parseDbUtc(st?.last_sync)
+      // MGR-018 (этап E1): sync_get_group_status выпилена вместе с группами —
+      // метку sync_last_at теперь пишет забор срезов (commands/slices.rs).
+      const v = await invoke('get_config', { key: 'sync_last_at' })
+      const ms = parseDbUtc(v)
       if (ms != null) setLastSyncAt(ms)
     } catch {
       /* sync не настроен — индикатор молчит */
@@ -41,7 +43,9 @@ export function useSyncFreshness() {
     const tick = setInterval(() => setNowTick(Date.now()), RECHECK_MS)
     let unlisteners = []
     let alive = true
-    const events = ['sync:full_data', 'sync:card_update', 'sync:settings_update']
+    // sync:full_data/sync:card_update (групповой sync) выпилены в MGR-018 E1;
+    // свежесть теперь отмечает приём срезов от менеджера.
+    const events = ['slices_received', 'sync:settings_update']
     Promise.all(events.map(ev => listen(ev, () => setLastSyncAt(Date.now())))).then(fns => {
       if (alive) unlisteners = fns
       else fns.forEach(u => u())
