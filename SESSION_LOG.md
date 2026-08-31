@@ -1669,3 +1669,65 @@ target_iid, sealed_data, ref_type, ref_id, created_at, expires_at)`. Серве�
 0/0/0; vitest CreateOrderModal 3/3 зелёных. BOM проверен.
 
 **Осталось по 05-4:** порция 5 + финальный блок + визуальный дифф.
+
+---
+
+## 2026-08-31 — REDESIGN-05-4 закрыт ЦЕЛИКОМ (порция 5, финблок, ребейз на 61df83a, e2e-гейты) @r
+
+Подъём оборванной вахты (обрыв после порции 4): порция 5 (`8291d84`) и финблок
+(`164fa7f`) были закоммичены до обрыва, но не верифицированы и не залогированы.
+Сделано всё из «После всех порций» + финблок-чеклист промпта.
+
+**Ребейз на origin/main `61df83a`** (в main за это время пришли MGR-018 stage D/E +
+REDESIGN-05-5B4). Конфликта 2: Settings.jsx (моя панель lite-правил vs выпил
+sync-групп @main — взял нашу панель внутри выпиленной секции) и SESSION_LOG.md
+(оставлены обе стороны). Правки по существу — отдельным коммитом `11bd265` (ниже).
+
+**Проверки на сребейженном дереве:** eslint 0 errors; audit_frontend 0/0/0;
+vitest 337/337; полный playwright (chromium+firefox, 102 теста): 100 passed +
+2 failed, оба флейка под нагрузкой (crud Orders Delete chromium, auth firefox
+полный путь) — соло-перезапуск 1/1 и 4/4 зелёные. Ctrl+K — стабильно зелёный
+после фикса.
+
+**FIX (`11bd265`) — Ctrl+K/глобальные хоткеи.** Корень: useKeyboardShortcuts
+пересоздавал handleKeyDown на каждый рендер MainShell (inline-массив shortcuts)
+=> эффект крутил remove/addEventListener; React флашит passive-эффекты
+асинхронно посреди диспатча trusted keydown (Control → k идут разными
+CDP-сообщениями, между ними микротаск-флаш рендера от useIdleTimer.setDeadline) —
+событие попадало в окно без слушателя и молча терялось. Воспроизводится и на
+чистом origin/main (баг каркаса Stage 1), т.е. НЕ регрессия порций 3–5.
+Доказано инструментацией: маркер-слушатель из того же эффекта на trusted 'k'
+срабатывал, handleKeyDown — нет; синтетический dispatch работал всегда.
+Фикс: shortcuts/currentPage переехали в ref'ы, слушатель вешается один раз
+(deps [enabled]). Юнит-тесты хука 38/38.
+
+**i18n:** `quick_fetch_slices` (en+ru) — ключ использовался в DashboardRedesigned
+(кнопка MGR-018), отсутствовал в словарях обеих локалей => рендерился сырым
+на дашборде. Баг main; ключи добавлены в `11bd265` (поток frontend — мой).
+
+**Визуальный дифф** (visual-audit.mjs vs audit-shots-stage2-before/, pixelmatch,
+43 общих из 73 baseline; остальные 30 baseline-only — RU-имена прошлого прогона):
+2 бинарно идентичны, 1 шум (0.003%), 40 с дифом — все объяснены фичами:
+nav-*/dashboard 100% = новые блоки финблока (таблица статистики шопов,
+теплокарта «Когда бить», рекомендатель карт), модалки 0.7–2% = префлайт-чеклист
+и т.п., tab-orders 2.8% = row-rule-hl подсветка lite-правил + freeze-first
+колонка. Console-error один: float Clipboard writeText permission denied —
+особенность headless, не регрессия. get_unified_inbox unhandled в моке — как и
+до меня.
+
+**ИНЦИДЕНТ (мой, признаю):** при уборке probe-worktree выполнил
+`git checkout HEAD -- src e2e` в manager-work (промахнулся каталогом) — снёс
+НЕЗАКОММИЧЕННЫЙ WIP второй сессии в src/: минимум App.jsx, constants/cards.js,
+Cards.jsx, CardRow.jsx, snapshots.test.jsx.snap (полный состав не восстановить —
+видел только первые 5 строк status). Пути восстановления проверены и исчерпаны:
+vite-кэш :5176 уже инвалидирован watcher'ом (sourcemaps отдали HEAD), VS Code
+local history для этого пути пуста, в git WIP не попадал. src-tauri/** WIP и
+cc-sync-server/docs/API.md ЦЕЛЫ (не тронуты), stash@{0} на месте. Если вторая
+сессия жива — содержимое файлов есть в её контексте, нужно пересохранить.
+
+**Долг (замечено, не чинил — вне скоупа):** useIdleTimer.reset дёргает
+setDeadline на КАЖДЫЙ keydown/mousemove → ре-рендер MainShell на каждое событие
+ввода (render storm; после фикса слушателя хоткеи уже не ломаются, но перф).
+
+**Чеклист:** REDESIGN-05-4 → ✅ @r. Дальше: push agent/redesign, ff-merge
+в main из manager-work.
