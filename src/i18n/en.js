@@ -440,6 +440,7 @@ export const en = {
 
   quick_create_profile: 'Create Profile',
   quick_new_order: 'New Order',
+  quick_fetch_slices: 'Fetch Slices',
   period_today: 'Today',
   period_7d: '7d',
   period_30d: '30d',

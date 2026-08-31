@@ -11,97 +11,108 @@ import { isInInputField } from '../config/shortcuts'
 export function useKeyboardShortcuts(shortcuts, options = {}) {
   const { enabled = true, currentPage = null } = options
   const sequenceRef = useRef({ keys: [], timer: null })
+  // FIX (REDESIGN-05-4 финал): актуальные значения — в ref'ах. Иначе каждый
+  // рендер (тиканье статус-бара, idle-таймер, уведомления) пересоздавал
+  // handleKeyDown -> эффект делал removeEventListener/addEventListener, и
+  // keydown, пришедший в окне между снятием и установкой слушателя
+  // (React флашит passive-эффекты асинхронно, посреди диспатча trusted
+  // keydown Control→k), терялся: Ctrl+K/Alt+N/… молча не срабатывали.
+  const shortcutsRef = useRef(shortcuts)
+  const currentPageRef = useRef(currentPage)
 
-  const handleKeyDown = useCallback(
-    e => {
-      if (!enabled) return
+  useEffect(() => {
+    shortcutsRef.current = shortcuts
+    currentPageRef.current = currentPage
+  })
 
-      // Build current key combination
-      const modifiers = []
-      if (e.metaKey) modifiers.push('Meta')
-      if (e.ctrlKey) modifiers.push('Control')
-      if (e.altKey) modifiers.push('Alt')
-      if (e.shiftKey) modifiers.push('Shift')
+  const handleKeyDown = useCallback(e => {
+    const shortcutsNow = shortcutsRef.current
+    const currentPageNow = currentPageRef.current
 
-      const key = e.key
-      const combo = modifiers.length > 0 ? `${modifiers.join('+')}+${key}` : key
+    // Build current key combination
+    const modifiers = []
+    if (e.metaKey) modifiers.push('Meta')
+    if (e.ctrlKey) modifiers.push('Control')
+    if (e.altKey) modifiers.push('Alt')
+    if (e.shiftKey) modifiers.push('Shift')
 
-      // Check for sequence shortcuts (e.g., 'g d')
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && key.length === 1) {
-        // Clear sequence timer
-        if (sequenceRef.current.timer) {
-          clearTimeout(sequenceRef.current.timer)
-        }
+    const key = e.key
+    const combo = modifiers.length > 0 ? `${modifiers.join('+')}+${key}` : key
 
-        // Add key to sequence
-        sequenceRef.current.keys.push(key)
-
-        // UX-021: сброс последовательности через 500ms (1000ms было слишком
-        // щедро — соседние буквы слипались в ложные шорткаты)
-        sequenceRef.current.timer = setTimeout(() => {
-          sequenceRef.current.keys = []
-        }, 500)
-
-        // Check if sequence matches any shortcut
-        const sequence = sequenceRef.current.keys.join(' ')
-        for (const shortcut of shortcuts) {
-          if (shortcut.keys.includes(sequence)) {
-            // Check if shortcut requires no input field focus
-            if (shortcut.requireNoInput && isInInputField()) {
-              continue
-            }
-
-            // Check if shortcut is page-specific
-            if (shortcut.page && shortcut.page !== currentPage) {
-              continue
-            }
-
-            e.preventDefault()
-            sequenceRef.current.keys = []
-            clearTimeout(sequenceRef.current.timer)
-            shortcut.handler(e)
-            return
-          }
-        }
-
-        // If sequence is longer than 2 keys, reset
-        if (sequenceRef.current.keys.length > 2) {
-          sequenceRef.current.keys = []
-        }
-
-        return
+    // Check for sequence shortcuts (e.g., 'g d')
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && key.length === 1) {
+      // Clear sequence timer
+      if (sequenceRef.current.timer) {
+        clearTimeout(sequenceRef.current.timer)
       }
 
-      // Check for direct key matches
-      for (const shortcut of shortcuts) {
-        // Normalize shortcut keys for comparison
-        const normalizedKeys = shortcut.keys.map(k =>
-          k
-            .replace(/Cmd/gi, 'Meta')
-            .replace(/Ctrl/gi, 'Control')
-            .replace(/Alt/gi, 'Alt')
-            .replace(/Shift/gi, 'Shift')
-        )
+      // Add key to sequence
+      sequenceRef.current.keys.push(key)
 
-        if (normalizedKeys.includes(combo) || normalizedKeys.includes(key)) {
+      // UX-021: сброс последовательности через 500ms (1000ms было слишком
+      // щедро — соседние буквы слипались в ложные шорткаты)
+      sequenceRef.current.timer = setTimeout(() => {
+        sequenceRef.current.keys = []
+      }, 500)
+
+      // Check if sequence matches any shortcut
+      const sequence = sequenceRef.current.keys.join(' ')
+      for (const shortcut of shortcutsNow) {
+        if (shortcut.keys.includes(sequence)) {
           // Check if shortcut requires no input field focus
           if (shortcut.requireNoInput && isInInputField()) {
             continue
           }
 
           // Check if shortcut is page-specific
-          if (shortcut.page && shortcut.page !== currentPage) {
+          if (shortcut.page && shortcut.page !== currentPageNow) {
             continue
           }
 
           e.preventDefault()
+          sequenceRef.current.keys = []
+          clearTimeout(sequenceRef.current.timer)
           shortcut.handler(e)
           return
         }
       }
-    },
-    [enabled, shortcuts, currentPage]
-  )
+
+      // If sequence is longer than 2 keys, reset
+      if (sequenceRef.current.keys.length > 2) {
+        sequenceRef.current.keys = []
+      }
+
+      return
+    }
+
+    // Check for direct key matches
+    for (const shortcut of shortcutsNow) {
+      // Normalize shortcut keys for comparison
+      const normalizedKeys = shortcut.keys.map(k =>
+        k
+          .replace(/Cmd/gi, 'Meta')
+          .replace(/Ctrl/gi, 'Control')
+          .replace(/Alt/gi, 'Alt')
+          .replace(/Shift/gi, 'Shift')
+      )
+
+      if (normalizedKeys.includes(combo) || normalizedKeys.includes(key)) {
+        // Check if shortcut requires no input field focus
+        if (shortcut.requireNoInput && isInInputField()) {
+          continue
+        }
+
+        // Check if shortcut is page-specific
+        if (shortcut.page && shortcut.page !== currentPageNow) {
+          continue
+        }
+
+        e.preventDefault()
+        shortcut.handler(e)
+        return
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!enabled) return

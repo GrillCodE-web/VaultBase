@@ -438,6 +438,7 @@ export const ru = {
   dashboard_title: 'Главная',
   quick_create_profile: 'Создать профиль',
   quick_new_order: 'Новый заказ',
+  quick_fetch_slices: 'Запросить срезы',
   period_today: 'Сегодня',
   period_7d: '7д',
   period_30d: '30д',
