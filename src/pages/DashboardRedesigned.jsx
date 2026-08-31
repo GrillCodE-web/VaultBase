@@ -36,6 +36,7 @@ import {
 import { CollapsePanel, PremiumStatCard, SmartAlertCard } from './Dashboard/cards'
 import { WidgetGrid } from './Dashboard/WidgetGrid.jsx'
 import { AnomaliesWidget } from './Dashboard/AnomaliesWidget.jsx'
+import { ShopIntelWidget } from './Dashboard/ShopIntelWidget.jsx'
 import { UpanelApiStatusWidget } from './Dashboard/upanelApiStatus'
 
 // Стили дашборд-карточек — в общем styles/pages.css (через index.css).
@@ -465,6 +466,22 @@ export default function DashboardRedesigned({ onNavigate }) {
                 onToggle={toggleSection}
               >
                 <AnomaliesWidget onNavigate={onNavigate} />
+              </CollapsePanel>
+            ),
+          },
+          {
+            // REDESIGN-05-4 (финальный блок): статистика магазинов, «когда бить»,
+            // рекомендатель карт — клиентский агрегат из get_orders
+            id: 'shopintel',
+            defaultH: 9,
+            node: (
+              <CollapsePanel
+                title={t('shopintel_title')}
+                id="shopintel"
+                collapsed={collapsed.shopintel}
+                onToggle={toggleSection}
+              >
+                <ShopIntelWidget />
               </CollapsePanel>
             ),
           },

@@ -37,19 +37,19 @@ export function AnomaliesWidget({ onNavigate }) {
         const out = []
 
         const wl = Array.isArray(winLoss) ? winLoss : []
-        const totOrders = wl.reduce((a, s) => a + (s.total_orders || 0), 0)
+        const totOrders = wl.reduce((a, s) => a + (s.total || 0), 0)
         const totDecl = wl.reduce((a, s) => a + (s.declined || 0), 0)
         const baseRate = totOrders > 0 ? totDecl / totOrders : 0
         for (const s of wl) {
-          const total = s.total_orders || 0
+          const total = s.total || 0
           if (total < MIN_SHOP_ORDERS) continue
           const rate = (s.declined || 0) / total
           if (rate >= Math.max(SHOP_MIN_ABS, baseRate * SHOP_SPIKE_MULT)) {
             out.push({
-              key: `shop:${s.shop}`,
+              key: `shop:${s.shop_name}`,
               severity: 'error',
               text: t('anomaly_shop_decline', {
-                shop: s.shop,
+                shop: s.shop_name,
                 n: Math.round(rate * 100),
                 base: Math.round(baseRate * 100),
               }),
