@@ -767,6 +767,16 @@ export const ru = {
   settings_bin_api_saved: 'BIN API ключ сохранён',
   settings_bin_api_configured: 'Настроен',
   settings_bin_api_not_configured: 'Не настроен',
+  // MGR-018 (E2): 17track — локальный ключ + read-only при share от менеджера
+  settings_track17_title: '17track API',
+  settings_track17_desc:
+    'Резервный трекинг неизвестных перевозчиков (батч-обновление каждые 30 мин).',
+  settings_track17_placeholder: 'Введите 17track API ключ...',
+  settings_track17_saved: '17track API ключ сохранён',
+  settings_track17_configured: 'Настроен',
+  settings_track17_not_configured: 'Не настроен',
+  settings_track17_shared:
+    'API-ключ выдан менеджером и доступен только для чтения. Для замены обратитесь к менеджеру.',
   settings_backup_created: 'Резервная копия создана',
   settings_backup_restored: 'Резервная копия восстановлена. Перезапуск...',
   settings_pw_mismatch: 'Новые пароли не совпадают',

@@ -71,6 +71,11 @@ export default function Settings() {
   const [binApiKey, setBinApiKey] = useState('')
   const [binApiKeySet, setBinApiKeySet] = useState(false)
   const [binApiSaved, setBinApiSaved] = useState(false)
+  // MGR-018 (E2): локальный 17track-ключ + read-only при share от менеджера
+  const [track17Key, setTrack17Key] = useState('')
+  const [track17KeySet, setTrack17KeySet] = useState(false)
+  const [track17Shared, setTrack17Shared] = useState(false)
+  const [track17Saved, setTrack17Saved] = useState(false)
   const [stufferUrl, setStufferUrl] = useState('')
   const [stufferKey, setStufferKey] = useState('')
   const [stufferKeySet, setStufferKeySet] = useState(false)
@@ -123,6 +128,12 @@ export default function Settings() {
     Promise.allSettled([
       invoke('get_config', { key: 'bin_api_key_set' }).then(v => {
         if (!cancelled) setBinApiKeySet(v === '1')
+      }),
+      invoke('get_config', { key: 'tracking_api_key_set' }).then(v => {
+        if (!cancelled) setTrack17KeySet(v === '1')
+      }),
+      invoke('get_config', { key: 'track17_shared_api_key_set' }).then(v => {
+        if (!cancelled) setTrack17Shared(v === '1')
       }),
       invoke('get_config', { key: 'always_on_top' }).then(v => {
         if (!cancelled) setAlwaysOnTop(v === '1')
@@ -337,6 +348,34 @@ export default function Settings() {
       toastOk(t('settings_bin_api_saved'))
     } catch (e) {
       const error = handleError(e, 'Settings.clearBinApiKey')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  // MGR-018 (E2): при активном share бэкенд всё равно ответит
+  // track17_config_managed — UI лишь прячет форму заранее.
+  const saveTrack17Key = async () => {
+    try {
+      await invoke('set_config', { key: 'tracking_api_key', value: track17Key })
+      setTrack17KeySet(!!track17Key.trim())
+      setTrack17Key('')
+      setTrack17Saved(true)
+      toastOk(t('settings_track17_saved'))
+      setTimeout(() => setTrack17Saved(false), 2000)
+    } catch (e) {
+      const error = handleError(e, 'Settings.saveTrack17Key')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const clearTrack17Key = async () => {
+    try {
+      await invoke('set_config', { key: 'tracking_api_key', value: '' })
+      setTrack17KeySet(false)
+      setTrack17Key('')
+      toastOk(t('settings_track17_saved'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.clearTrack17Key')
       toastErr(getErrorMessage(error))
     }
   }
@@ -928,6 +967,49 @@ export default function Settings() {
               ? t('settings_bin_api_configured') || 'Configured'
               : t('settings_bin_api_not_configured') || 'Not configured'}
           </div>
+        </div>
+
+        {/* 17track API. MGR-018 (E2): при активном share-ключе от менеджера
+            секция read-only — локальный ключ остаётся fallback в solo-режиме. */}
+        <div className="panel">
+          <div className="ptitle">
+            <Globe size={13} className="inline mr-1.5" />
+            {t('settings_track17_title')}
+          </div>
+          <div className="setting-desc mb-2">{t('settings_track17_desc')}</div>
+          {track17Shared ? (
+            <div className="setting-desc">{t('settings_track17_shared')}</div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={track17Key}
+                  onChange={e => setTrack17Key(e.target.value)}
+                  placeholder={track17KeySet ? '••••••••••••' : t('settings_track17_placeholder')}
+                  className="form-input flex-1"
+                  autoComplete="off"
+                />
+                <button
+                  onClick={saveTrack17Key}
+                  disabled={!track17Key.trim()}
+                  className={`btn btn-sm ${track17Saved ? 'btn-g' : 'btn-b'}`}
+                >
+                  {track17Saved ? t('msg_saved') : t('btn_save')}
+                </button>
+                {track17KeySet && (
+                  <button onClick={clearTrack17Key} className="btn btn-ghost btn-sm">
+                    {t('btn_clear') || 'Clear'}
+                  </button>
+                )}
+              </div>
+              <div className="setting-desc mt-1.5">
+                {track17KeySet
+                  ? t('settings_track17_configured')
+                  : t('settings_track17_not_configured')}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Stuffer API. Гейт по manage_couriers (право нужно для

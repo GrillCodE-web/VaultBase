@@ -224,6 +224,15 @@ export function handleError(error, context = '') {
       context,
     }
   }
+  if (message === 'track17_config_managed') {
+    return {
+      type: 'PermissionError',
+      code: 'TRACK17_CONFIG_MANAGED',
+      message: 'Ключ 17track выдан менеджером и доступен только для чтения.',
+      details: { originalMessage: message },
+      context,
+    }
+  }
 
   // MGR-019: политики менеджера. Коды приходят из telemetry::enforce_*.
   // (policy_can_add_cards ушёл вместе с ручным импортом карт — MGR-018.)
