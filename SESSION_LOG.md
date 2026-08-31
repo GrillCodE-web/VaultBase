@@ -1731,3 +1731,12 @@ setDeadline на КАЖДЫЙ keydown/mousemove → ре-рендер MainShell 
 
 **Чеклист:** REDESIGN-05-4 → ✅ @r. Дальше: push agent/redesign, ff-merge
 в main из manager-work.
+
+**Постскриптум (31.08, тот же день):** ff-мердж в main выполнен НЕ из
+manager-work — там в 13:40:53 живая вторая сессия восстановила свой WIP
+одним пакетом (App.jsx/Cards.jsx/CardRow.jsx/CardTable.jsx/store/cards.js/
+store/ui.js/tokens.css/snapshots — т.е. потёртый мной WIP ею, похоже,
+восстановлен), трогать дерево было нельзя. Вместо этого remote-ff:
+`git push origin agent/redesign:main` (61df83a → 39007b8, fast-forward,
+без merge-коммита). manager-work остался на 61df83a со своим WIP — при её
+коммите/пуше потребуется обычная интеграция с новым main.
