@@ -1,9 +1,25 @@
 import React from 'react'
 
+/** Plain-text сниппет из body (может быть HTML) — первые ~90 символов. */
+function bodySnippet(body) {
+  if (!body) return ''
+  const plain = body
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return plain.length > 90 ? `${plain.slice(0, 90)}…` : plain
+}
+
 /**
  * ImapEmailRow - Single email row in the virtualized list
+ * REDESIGN-05-4 (порция 5): сниппет-предпросмотр тела без открытия письма.
  */
 export const ImapEmailRow = React.memo(function ImapEmailRow({ msg, ActionBadge }) {
+  const snippet = bodySnippet(msg.body)
   return (
     <>
       <div className="flex justify-between items-start gap-1">
@@ -26,6 +42,12 @@ export const ImapEmailRow = React.memo(function ImapEmailRow({ msg, ActionBadge 
       >
         {msg.subject || '(no subject)'}
       </div>
+
+      {snippet && (
+        <div className="text-11 text-muted overflow-hidden text-ellipsis whitespace-nowrap mt-0.5">
+          {snippet}
+        </div>
+      )}
 
       {msg._folderLabel && (
         <div className="text-10 text-muted mt-[3px] overflow-hidden text-ellipsis whitespace-nowrap">

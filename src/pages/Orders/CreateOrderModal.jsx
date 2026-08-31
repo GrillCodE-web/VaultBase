@@ -9,6 +9,7 @@ import {
   Trash2,
   Plus,
   BookmarkPlus,
+  Check,
 } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
 import { useAuth } from '../../hooks/useAuth'
@@ -954,6 +955,39 @@ export function CreateOrderModal({ onCreated, onClose, preset }) {
             </button>
           </div>
         )}
+
+        {/* REDESIGN-05-4 (порция 5): preflight-проверки перед созданием */}
+        <div className="flex flex-col gap-1 text-11" aria-live="polite">
+          {[
+            { ok: !!profileId && !!profileDetail, label: t('preflight_profile') },
+            {
+              ok: !!profileDetail && profileDetail.card?.status === 'free',
+              warn: !!profileDetail && profileDetail.card?.status !== 'free',
+              label: t('preflight_card_free'),
+            },
+            { ok: !!shopId, label: t('preflight_shop') },
+            { ok: !!dropId, label: t('preflight_drop') },
+            {
+              ok: items.every(it => it.name.trim() && parseFloat(it.price) > 0),
+              label: t('preflight_items'),
+            },
+          ].map((c, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              {c.ok ? (
+                <Check size={11} className="text-success shrink-0" aria-hidden="true" />
+              ) : (
+                <X
+                  size={11}
+                  className={`shrink-0 ${c.warn ? 'text-warning' : 'text-muted'}`}
+                  aria-hidden="true"
+                />
+              )}
+              <span className={c.ok ? 'text-muted' : c.warn ? 'text-warning' : 'text-text'}>
+                {c.label}
+              </span>
+            </div>
+          ))}
+        </div>
 
         {/* ── Submit ── */}
         <button

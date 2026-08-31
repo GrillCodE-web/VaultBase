@@ -801,6 +801,11 @@ export const en = {
   digest_title: 'Daily digest',
   digest_body:
     'Today: {orders} orders · {delivered} delivered · {declined} declined · revenue {revenue}',
+  preflight_profile: 'Profile selected and loaded',
+  preflight_card_free: 'Card is free',
+  preflight_shop: 'Shop selected',
+  preflight_drop: 'Drop address selected',
+  preflight_items: 'All items have name and price',
   notif_center: 'Notifications',
   notif_unread: '{n} unread',
   notif_mark_all: 'Mark all read',

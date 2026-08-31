@@ -11,6 +11,7 @@ import { useIdleTimer } from './hooks/useIdleTimer'
 import { useSyncFreshness } from './hooks/useSyncFreshness.js'
 import { useLiteRules } from './hooks/useLiteRules.js'
 import { maybeSendDailyDigest } from './utils/dailyDigest.js'
+import { applySeasonAttr } from './utils/season.js'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { AppTour } from './components/AppTour'
@@ -431,6 +432,14 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   }
 
   // Атрибут data-theme и localStorage — забота useTheme.
+
+  // REDESIGN-05-4 (порция 5): сезонный акцент — data-season на <html>;
+  // вне сезонных окон атрибут снимается, визуал не меняется
+  useEffect(() => {
+    applySeasonAttr()
+    const timer = setInterval(applySeasonAttr, 3_600_000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Live region announcement for IMAP updates
   const [imapAnnouncement, setImapAnnouncement] = useState('')

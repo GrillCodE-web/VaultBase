@@ -800,6 +800,11 @@ export const ru = {
   digest_title: 'Дневной дайджест',
   digest_body:
     'Сегодня: {orders} ордеров · {delivered} доставлено · {declined} отклонено · выручка {revenue}',
+  preflight_profile: 'Профиль выбран и загружен',
+  preflight_card_free: 'Карта свободна',
+  preflight_shop: 'Магазин выбран',
+  preflight_drop: 'Дроп-адрес выбран',
+  preflight_items: 'У всех позиций есть название и цена',
   notif_center: 'Уведомления',
   notif_unread: 'Непрочитанных: {n}',
   notif_mark_all: 'Прочитать все',

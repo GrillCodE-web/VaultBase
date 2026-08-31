@@ -281,7 +281,7 @@ export function CardTable({
   if (loading && cards.length === 0) {
     return (
       <div className="panel p-0 overflow-x-auto">
-        <table className="tbl">
+        <table className="tbl tbl-freeze-first">
           <thead className="sticky top-0 z-[3] bg-card">
             <tr>
               <th scope="col" className="w-9 bg-card" aria-label={t('select_all')}></th>
@@ -320,7 +320,7 @@ export function CardTable({
           ref={parentRef}
           className={`flex-1 overflow-y-auto min-h-0 ${useVirtualCards ? 'h-[760px] overflow-y-scroll' : ''}`}
         >
-          <table className="tbl relative">
+          <table className="tbl relative tbl-freeze-first">
             <thead className="sticky top-0 z-[3] bg-card">
               <tr>
                 {/* #48 — frozen checkbox column */}

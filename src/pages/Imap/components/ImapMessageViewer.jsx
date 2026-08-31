@@ -1,5 +1,48 @@
-import { Mail, CheckCircle, CornerUpLeft, Archive, Trash2, Package } from 'lucide-react'
+import { useState } from 'react'
+import { Mail, CheckCircle, CornerUpLeft, Archive, Trash2, Copy, Check } from 'lucide-react'
 import { ActionBadge } from './ImapActionBadge'
+import { copyText } from '../../../utils/clipboard.js'
+
+/**
+ * REDESIGN-05-4 (порция 5): умное копирование — если backend не извлёк
+ * трек, ищем его regex'ом в теле (UPS 1Z…, FedEx 12–15, USPS 20–22 цифры).
+ */
+const TRACK_PATTERNS = [
+  /\b1Z[0-9A-Z]{16}\b/, // UPS
+  /\b(?:9[0-9]{15,21})\b/, // FedEx/USPS длинные
+  /\b(?:\d{12}|\d{15})\b/, // FedEx короткие
+]
+
+export function findTrackingInText(text) {
+  if (!text) return null
+  const plain = text.replace(/<[^>]+>/g, ' ')
+  for (const re of TRACK_PATTERNS) {
+    const m = plain.match(re)
+    if (m) return m[0]
+  }
+  return null
+}
+
+function CopyChip({ value, label }) {
+  const [copied, setCopied] = useState(false)
+  if (!value) return null
+  const copy = () => {
+    copyText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <button
+      className="btn btn-ghost btn-sm mono"
+      onClick={copy}
+      title={label ? `Copy ${label}` : 'Copy'}
+      aria-label={label ? `Copy ${label}` : 'Copy value'}
+    >
+      {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
+      <span className="text-11">{value}</span>
+    </button>
+  )
+}
 
 /**
  * ImapMessageViewer - Email reading panel
@@ -17,6 +60,8 @@ export function ImapMessageViewer({ message, onReply, onMarkRead, onDelete, onAr
   }
 
   const isHtml = message.body?.trim().startsWith('<')
+  // Умное копирование: трек из поля или из тела письма
+  const tracking = message.extracted_tracking || findTrackingInText(message.body)
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -36,16 +81,12 @@ export function ImapMessageViewer({ message, onReply, onMarkRead, onDelete, onAr
           )}
           <div className="flex items-center justify-between flex-wrap gap-1">
             <span>{message.received_at ? new Date(message.received_at).toLocaleString() : ''}</span>
-            <div className="flex gap-1.5 items-center">
+            <div className="flex gap-1.5 items-center flex-wrap">
               {message.action_taken && <ActionBadge action={message.action_taken} />}
               {message.extracted_order_number && (
-                <span className="text-11 text-blue-t">
-                  <Package size={10} className="inline mr-0.5" />#{message.extracted_order_number}
-                </span>
+                <CopyChip value={message.extracted_order_number} label="order number" />
               )}
-              {message.extracted_tracking && (
-                <span className="mono text-11 text-muted">{message.extracted_tracking}</span>
-              )}
+              {tracking && <CopyChip value={tracking} label="tracking" />}
             </div>
           </div>
         </div>

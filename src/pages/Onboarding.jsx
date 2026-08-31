@@ -1,7 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
-import { CreditCard, Mail, User, ShoppingCart, CheckCircle, ChevronRight } from 'lucide-react'
+import {
+  CreditCard,
+  Mail,
+  User,
+  ShoppingCart,
+  CheckCircle,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react'
 
 const STEPS = [
   {
@@ -68,6 +76,26 @@ export default function Onboarding({ onComplete, onNavigate }) {
 
   const completedCount = Object.keys(completed).length
   const allDone = completedCount >= STEPS.length
+  const autoChecked = useRef(false)
+
+  // REDESIGN-05-4 (порция 5): авто-проверка всех шагов при открытии —
+  // чеклист должен сам показать текущее состояние, без ручных «Check»
+  useEffect(() => {
+    if (autoChecked.current) return
+    autoChecked.current = true
+    ;(async () => {
+      setChecking(true)
+      for (const step of STEPS) {
+        try {
+          const done = await step.checkFn()
+          if (done) setCompleted(prev => ({ ...prev, [step.id]: true }))
+        } catch (e) {
+          handleError(e)
+        }
+      }
+      setChecking(false)
+    })()
+  }, [])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-10 gap-8 bg-bg">
@@ -111,8 +139,13 @@ export default function Onboarding({ onComplete, onNavigate }) {
               </div>
               {!done && (
                 <div className="flex gap-2">
-                  <button className="btn btn-s" onClick={() => checkStep(step)} disabled={checking}>
-                    Check
+                  <button
+                    className="btn btn-s"
+                    onClick={() => checkStep(step)}
+                    disabled={checking}
+                    aria-label={`Check ${step.title}`}
+                  >
+                    {checking ? <Loader2 size={12} className="animate-spin" /> : 'Check'}
                   </button>
                   <button
                     className="btn btn-b btn-s flex items-center gap-1"

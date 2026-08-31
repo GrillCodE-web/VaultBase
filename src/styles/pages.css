@@ -1198,6 +1198,29 @@
     background: var(--color-warning-bg);
   }
 
+  /* ── REDESIGN-05-4 (порция 5): клавиатурный фокус строки (j/k) ── */
+  .tbl tr.row-kb-focus > td {
+    background: var(--accent-soft);
+  }
+
+  .tbl tr.row-kb-focus > td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  /* ── REDESIGN-05-4 (порция 5): заморозка первой колонки (чекбокс) ──
+     sticky работает внутри .table-scroll-container (overflow-x). */
+  .tbl.tbl-freeze-first th:first-child,
+  .tbl.tbl-freeze-first td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--card);
+  }
+
+  .tbl.tbl-freeze-first thead th:first-child {
+    z-index: 3;
+  }
+
   /* Premium hover effects - glow shadow, scale lift, animated border */
   .card-row:hover {
     box-shadow:

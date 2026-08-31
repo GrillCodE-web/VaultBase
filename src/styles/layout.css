@@ -106,6 +106,22 @@
     flex-shrink: 0;
   }
 
+  /* ── REDESIGN-05-4 (порция 5): сезонные акценты ─────────────
+     Сезон задаётся data-season на <html> (utils/season.js). Меняем ТОЛЬКО
+     точечные акценты сайдбара: активный пункт + тайл логотипа. Вне сезонных
+     окон атрибут отсутствует — визуал идентичен (скриншотные диффы). */
+  [data-season='winter'] .sbi.active,
+  [data-season='winter'] .sbi[aria-current='page'] {
+    background: rgba(56, 189, 248, 0.14);
+    color: #38bdf8;
+  }
+
+  [data-season='halloween'] .sbi.active,
+  [data-season='halloween'] .sbi[aria-current='page'] {
+    background: rgba(249, 115, 22, 0.14);
+    color: #f97316;
+  }
+
   /* ── Пункт навигации (05: мокап .ni) ─────────────────────────
    Активный — заливка --accent-soft + акцентный текст indigo. */
   .sbi {

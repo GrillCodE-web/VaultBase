@@ -41,6 +41,9 @@ export function OrdersTable({
   const [expandedId, setExpandedId] = useState(null)
   // REDESIGN-05-4 (порция 3): подсветка строк по lite-правилам
   const orderRuleHl = useLiteRulesStore(s => s.highlights.orders)
+  // REDESIGN-05-4 (порция 5): хоткеи таблицы — j/k навигация, Enter раскрыть,
+  // Space выбрать. Активны, когда фокус в контейнере таблицы.
+  const [focusIdx, setFocusIdx] = useState(-1)
 
   // Virtual scrolling setup
   const parentRef = useRef(null)
@@ -68,9 +71,52 @@ export function OrdersTable({
     return () => document.removeEventListener('click', handler, true)
   }, [statusMenuId])
 
+  // REDESIGN-05-4 (порция 5): хоткеи таблицы. j/k — перемещение фокуса,
+  // Enter — раскрыть таймлайн, Space — чекбокс. Игнор при фокусе в полях.
+  const handleTableKey = e => {
+    const tag = e.target?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return
+    if (orders.length === 0) return
+    if (e.key === 'j' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      setFocusIdx(prev => {
+        const next = Math.min((prev < 0 ? -1 : prev) + 1, orders.length - 1)
+        rowVirtualizer.scrollToIndex(next, { align: 'auto' })
+        return next
+      })
+    } else if (e.key === 'k' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setFocusIdx(prev => {
+        const next = Math.max((prev < 0 ? orders.length : prev) - 1, 0)
+        rowVirtualizer.scrollToIndex(next, { align: 'auto' })
+        return next
+      })
+    } else if (e.key === 'Enter' && focusIdx >= 0) {
+      e.preventDefault()
+      const o = orders[focusIdx]
+      if (o) setExpandedId(expandedId === o.id ? null : o.id)
+    } else if (e.key === ' ' && focusIdx >= 0) {
+      e.preventDefault()
+      const o = orders[focusIdx]
+      if (o) toggleSelect(o.id)
+    } else if (e.key === 'Escape') {
+      setFocusIdx(-1)
+    }
+  }
+
   return (
-    <div ref={parentRef} className="panel p-0 overflow-x-auto table-scroll-container">
-      <table className="tbl">
+    <div
+      ref={parentRef}
+      className="panel p-0 overflow-x-auto table-scroll-container"
+      tabIndex={0}
+      role="grid"
+      aria-label={t('orders')}
+      onKeyDown={handleTableKey}
+      onFocus={() => {
+        if (focusIdx < 0 && orders.length > 0) setFocusIdx(0)
+      }}
+    >
+      <table className="tbl tbl-freeze-first">
         <thead>
           <tr>
             {show('select') && (
@@ -135,6 +181,7 @@ export function OrdersTable({
                     isSelected={selected.includes(o.id)}
                     isDeleting={deletingIds.includes(o.id)}
                     isExpanded={expandedId === o.id}
+                    isFocused={virtualRow.index === focusIdx}
                     ruleHl={!!orderRuleHl[o.id]}
                     onToggleExpand={() => {
                       const next = expandedId === o.id ? null : o.id
