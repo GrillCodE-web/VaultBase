@@ -970,6 +970,43 @@ pub struct SyncGroupStatus {
 }
 
 // ─────────────────────────────────────────
+//  REDESIGN-05-5B4: E2E-чат (локальная копия, plaintext в SQLCipher)
+// ─────────────────────────────────────────
+
+/// Сообщение чата в локальной БД воркера. На сервер и в транзит уходит только
+/// запечатанный конверт (TelemetryEnvelope), plaintext живёт только здесь.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ChatMessage {
+    pub id: i64,
+    /// id строки на сервере (chat_messages.id); NULL у исходящих (их копии у
+    /// получателей — отдельные серверные строки).
+    pub server_id: Option<i64>,
+    /// 'dm:<iidA>:<iidB>' (iid'ы отсортированы) или 'group:<group_id>'.
+    pub room: String,
+    /// Контрагент: для исходящих — получатель, для входящих — отправитель.
+    pub peer_iid: String,
+    pub direction: String, // 'in' | 'out'
+    pub body: String,
+    /// Ссылка на сущность (заказ/карта/профиль) — метаданные, не секрет
+    /// (CHAT_E2E.md §3).
+    pub ref_type: Option<String>,
+    pub ref_id: Option<String>,
+    pub created_at: String,
+    /// NULL = непрочитано (только для входящих; исходящие всегда прочитаны).
+    pub read_at: Option<String>,
+}
+
+/// Участник чата из серверного каталога ключей (GET /sync/chat/peers).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ChatPeer {
+    pub installation_id: String,
+    pub key_id: i64,
+    pub pubkey: String,
+    pub label: String,
+    pub role: String, // 'manager' | 'worker'
+}
+
+// ─────────────────────────────────────────
 //  Footprint — Card/Email/Shop analytics
 // ─────────────────────────────────────────
 

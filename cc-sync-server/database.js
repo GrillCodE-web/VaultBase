@@ -630,6 +630,33 @@ function migrate(db) {
       PRAGMA user_version = 24;
     `);
   }
+
+  // REDESIGN-05-5B4: E2E-чат (docs/CHAT_E2E.md). Сервер — тупой ретранслятор:
+  // хранит ТОЛЬКО запечатанные конверты (тот же формат, что telemetry/
+  // config-shares: {key_id, ephemeral, nonce, ct}) и метаданные маршрутизации
+  // (кто кому, когда, размер). Одна строка = один конверт одному получателю
+  // (fan-out на отправителе). plaintext на сервере не существует в принципе.
+  // expires_at — мягкий TTL комнаты: сервер чистит блобы по истечении,
+  // не читая их (лениво на send/fetch).
+  if (ver < 25) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        room         TEXT NOT NULL,
+        sender_iid   TEXT NOT NULL,
+        target_iid   TEXT NOT NULL,
+        sealed_data  TEXT NOT NULL,
+        ref_type     TEXT,
+        ref_id       TEXT,
+        created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at   DATETIME
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_target ON chat_messages(target_iid, id);
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_expiry ON chat_messages(expires_at);
+
+      PRAGMA user_version = 25;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

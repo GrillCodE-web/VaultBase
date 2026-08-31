@@ -39,6 +39,7 @@ include!("_profiles.rs");
 include!("_upanel.rs");
 include!("_shops.rs");
 include!("_orders.rs");
+include!("_chat.rs");
 include!("_stuffer.rs");
 include!("_misc.rs");
 include!("_automation.rs");

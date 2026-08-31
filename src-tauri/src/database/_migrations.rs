@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 26;
+    const LATEST_VERSION: u32 = 27;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -78,7 +78,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
         (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
         (23, migration_v23), (24, migration_v24), (25, migration_v25),
-        (26, migration_v26),
+        (26, migration_v26), (27, migration_v27),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -957,6 +957,32 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                     THEN RAISE(ABORT, 'invalid order status')
                 END;
             END;
+        "#)?;
+        Ok(())
+    }
+
+
+    // REDESIGN-05-5B4: E2E-чат (docs/CHAT_E2E.md). Локальная копия переписки:
+    // plaintext здесь — норма (SQLCipher), на сервере и в транзите — только
+    // запечатанные конверты (TelemetryEnvelope, тот же контракт, что у срезов
+    // и config-shares). server_id — id строки на сервере; UNIQUE(server_id)
+    // даёт идемпотентный fetch (at-least-once доставка), у исходящих NULL.
+    fn migration_v27(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id   INTEGER UNIQUE,
+                room        TEXT NOT NULL,
+                peer_iid    TEXT NOT NULL,
+                direction   TEXT NOT NULL CHECK (direction IN ('in','out')),
+                body        TEXT NOT NULL,
+                ref_type    TEXT,
+                ref_id      TEXT,
+                created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                read_at     DATETIME
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_room   ON chat_messages(room, id);
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_unread ON chat_messages(direction, read_at);
         "#)?;
         Ok(())
     }

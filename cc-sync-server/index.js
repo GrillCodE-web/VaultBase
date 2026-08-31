@@ -100,6 +100,10 @@ app.use('/sync',        groupPanel.workerRouter);
 const workerAssets = require('./routes/worker-assets');
 app.use('/manager/api', workerAssets.managerRouter);
 app.use('/sync',        workerAssets.workerRouter);
+// REDESIGN-05-5B4: E2E-чат — opaque-relay запечатанных блобов
+const chat = require('./routes/chat');
+app.use('/manager/api', chat.managerRouter);
+app.use('/sync',        chat.workerRouter);
 // SEC-019: CSP violation reports from Tauri clients (see tauri.conf.json report-uri)
 app.use('/csp-report', require('./routes/csp-report'));
 
