@@ -473,7 +473,6 @@
 > (там WIP backend-сессии). Работа в worktree `..\agent-redesign`, ветка `agent/redesign`.
 > «Чего НЕ делаем» из контракта (§5) — не добавлять.
 
-
 | #               | Этап                                                                                                                                                                                                                | Приоритет | Файл(ы)                                                                                              | Статус                              |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | REDESIGN-05-0   | Фундамент токенов: 23 токена в system-dark, `@keyframes fadeIn`, схлопнуть `.float-copy.copied` ×3, токенизировать rgba (float, `.live-dot`, `.filters::before`, `.st-*`), status.js → токены, кракозябры float.jsx | 🔴        | `styles/tokens.css`, `layout.css`, `components.css`, `pages.css`, `constants/status.js`, `float.jsx` | ✅ @r                               |
@@ -485,9 +484,8 @@
 | REDESIGN-05-5B1 | Backend: пул карт + бронирование — server pool-таблицы/эндпоинты (upload/reserve/ack/release/report/ключи пула) + команды воркера                                                                                   | 🟠        | `cc-sync-server/routes/worker-cards.js`, `database.js`, `src-tauri/commands/slices.rs`               | ✅ @main                            |
 | REDESIGN-05-5B2 | Backend: панель воркеров — presence/last_seen/счётчики срезов/групповая статистика (decline-rate) + публикация статов воркером                                                                                      | 🟠        | `cc-sync-server/ws-tauri.js`, `database.js`, `src-tauri/commands/`, `background.rs`                  | ✅ @main                            |
 | REDESIGN-05-5B3 | Backend: трекинг — checkpoints (миграция + поллер), сигнал «перебивай», сессия перебивки (bulk-статусы), правило «delivered >24ч», подсказка привязки трека из почты                                                | 🟠        | `src-tauri/tracking.rs`, `background.rs`, `database/_migrations.rs`, `commands/orders.rs`            | ✅ @main                            |
-| REDESIGN-05-5B4 | Backend: E2E-чат — opaque-relay + хранилище блобов на сервере, X25519/AES-GCM обвязка воркера, таблицы чатов, команды                                                                                               | 🟠        | `cc-sync-server/ws-tauri.js`, `database.js`, `src-tauri/commands/chat.rs` (новый)                    | ⬜                                  |
+| REDESIGN-05-5B4 | Backend: E2E-чат — opaque-relay + хранилище блобов на сервере, X25519/AES-GCM обвязка воркера, таблицы чатов, команды                                                                                               | 🟠        | `cc-sync-server/ws-tauri.js`, `database.js`, `src-tauri/commands/chat.rs` (новый)                    | 🔄 @main                            |
 | REDESIGN-05-6   | Десктоп-натив: трей, автообновление, D&D импорт, пресеты окон, panic-клавиша                                                                                                                                        | 🟡        | `src-tauri` (стык) + `src/**`                                                                        | ⬜ (ждёт)                           |
-
 
 ---
 
