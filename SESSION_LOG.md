@@ -1511,4 +1511,72 @@ MGR-018: выпил pair-кодов/групп/NOSYNC (sync.rs/auth.rs/state.rs)
 - **Проверки после каждой порции:** eslint 0 errors; audit_frontend 0 сирот/0 фантомов/0 дублей; vitest 337/337 (один флейк тайминга useToast под нагрузкой — соло и повторный полный прогон зелёные).
 - **Инцидент:** eslint поймал `Adjacent JSX elements` в App.jsx:1536 после моей правки статус-бара (задвоенный блок часов) — исправлено до коммита.
 - **Осталось по 05-4:** порции 3–5 + финальный блок (статистика шопов, теплокарта, рекомендатель) + долг визуального диффа (audit-shots-stage2-before, 74 скрина, untracked — НЕ коммитить).
-- **Чужое не тронуто:** backend (`src-tauri/**`, `cc-sync-server/**`), WIP @main в manager-work, CRLF-шум snapshots.test.jsx.snap в коммиты не включён.
+- **Чужое не тронуто:** backend (`src-tauri/**`, `cc-sync-server/**`), WIP @main в manager-work, CRLF-шум snapshots.test.jsx.snap в коммиты не включён.
+
+---
+
+## 2026-08-31 — ✅ @main — REDESIGN-05-5B4 «Backend E2E-чат» — закрыт (4b92447 + checklist 55d758b)
+
+- **Спека:** docs/CHAT_E2E.md (набросок @r) + план REDESIGN_05 раздел 4 (чат воркеров
+  с E2E; plaintext только на клиентах).
+- **Сервер (opaque-relay):** миграция v25 — `chat_messages(id, room, sender_iid,
+target_iid, sealed_data, ref_type, ref_id, created_at, expires_at)`. Сервер хранит
+  ТОЛЬКО запечатанные конверты (формат telemetry: `{key_id, ephemeral, nonce, ct}`)
+  - метаданные маршрутизации; plaintext на сервере не существует в принципе.
+    `routes/chat.js`: воркер `GET /sync/chat/peers` (моя legacy-группа + активные
+    менеджеры, pubkeys не секретны), `POST /sync/chat/send` (fan-out ≤50 конвертов,
+    атомарно; валидация формы конверта, key_id обязан принадлежать цели и быть
+    активным, DM только внутри группы или с менеджером, group-room — только своя
+    группа), `GET /sync/chat/messages?since_id=` (at-least-once, мягкий TTL ≤30д,
+    ленивая уборка протухших блобов на send/fetch). Менеджер: `/manager/api/chat/peers|send|messages`
+    (key_id валидируется по worker_keys цели). Уведомления: WS `{"type":"chat_message"}`
+    воркеру и socket.io `manager:chat_message` менеджеру; полезная нагрузка по WS не
+    ездит (pull-модель как у срезов). Аудит — только факт/адресаты/размер.
+    12 тестов `test/chat.test.js`; весь сьют сервера **161/161**.
+- **Воркер:** миграция v27 `chat_messages` (локально plaintext — норма, SQLCipher;
+  `server_id UNIQUE` = идемпотентный fetch). Команды: `chat_peers`, `chat_send`
+  (peer_iid=None → group-room с fan-out по peers; исходящее пишется в БД только
+  после успешного POST), `chat_list`, `chat_mark_read`, `chat_unread_count`,
+  `chat_fetch` (ручной pull-to-refresh). Крипто: переиспользован X25519-ключ
+  срезов (`ensure_slice_key` из slices.rs) + `TelemetryEnvelope::seal/unseal`;
+  payload `{v:1, body, ref?}`; refs — метаданные (не секрет, CHAT_E2E §3).
+  Дедуп по server_id; если ВСЕ входящие не распечатываются — авто-ротация ключа
+  (сброс worker_slice_key_*) и один повторный fetch («Угроза №3»).
+  WS-ветка `chat_message` → фоновый fetch + события `chat:message`, `chat:unread`,
+  `chat:read`, `chat:room_updated`. 7 тестов (roundtrip крипто, дедуп, read,
+  изоляция комнат, каноничность dm-room).
+- **E2E-граница (как договаривались):** plaintext — только в БД воркера и в
+  памяти процесса; сервер и транзит — исключительно шифртекст. Это зафиксировано
+  здесь по требованию задачи.
+- **Проверки:** `cargo check` 0 ошибок; полный `cargo test` **232/232** (744с;
+  база 238 → −13 снятых выпилом MGR-018 + 7 моих = 232, регрессий 0);
+  `node --test test/` сервера **161/161**. Отдельно: `cargo check` во временном
+  worktree на коммите 4b92447 — 0 ошибок (коммит самодостаточен на origin/main).
+- **Параллельные сессии — инцидент и решения:** в ЭТОМ ЖЕ worktree активно
+  работала вторая сессия (MGR-018: выпил pair-кодов/групп, track17 share) —
+  нарушение «одна сессия = один worktree». По решению пользователя MGR-018
+  остался за ней, я ушёл в 5B4. Мой неверифицированный WIP по выпилу — в
+  `stash@{0}` «@main MGR-018a WIP» (НЕ применять: их версия полнее — убраны
+  group-creds из ws_sync, переведён useSyncFreshness; stash можно дропнуть
+  после их коммита).
+- **Координационные заметки для второй сессии:**
+  1. `git commit -- <paths>` коммитит РАБОЧЕЕ ДЕРЕВО этих путей, а не индекс —
+     так мой первый коммит подмял их незакоммиченные хунки (откачен
+     `reset --soft`, переделан через `update-index --cacheinfo` HEAD+мои хунки +
+     `git commit` без путей). Для частичного коммита общих файлов — только
+     хирургия индекса.
+  2. Их коммит ce484c0 подмял мои e2e-мок-стабы chat_* (файл общий по потокам —
+     e2e мой, но смысл сохранён, оставляю как есть).
+  3. В ws_sync.rs некоммитом лежат МОИ: ветка `"chat_message"` →
+     `chat::fetch_on_ws_notify` и фикс `apply_config_share` → существующий
+     `slices::fetch_config_shares_on_ws_notify()` (их вызов несуществующей
+     функции ломал сборку). При их коммите ws_sync.rs это уедет вместе — ОК.
+  4. Их выпил снёс WS-ветки `auth_error` (событие `license_revoked` фронту) и
+     `catalog_update` (apply_catalog_item/shop теперь dead code) — если это не
+     намеренно, это регрессии: отзыв лицензии по WS и каталог-пуши молча умрут.
+  5. `main.rs` у них в дереве без строки sync_*; мои chat-регистрации уже в
+     origin/main (4b92447) — при их коммите main.rs конфликтов быть не должно.
+- **Дальше:** frontend чата — @r (команды/события выше). Менеджер-приложение:
+  свои fetch/poll по `/manager/api/chat/*` + socket.io `manager:chat_message`
+  (контракт в routes/chat.js). После коммита MGR-018 второй сессией — дропнуть
+  `stash@{0}` и закрыть строку MGR-018 в чеклисте.
