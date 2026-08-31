@@ -1626,3 +1626,46 @@ target_iid, sealed_data, ref_type, ref_id, created_at, expires_at)`. Серве�
 накоплению после порций (по правилам вахты).
 
 **Осталось по 05-4:** порции 4–5 + финальный блок + визуальный дифф.
+
+---
+
+## 2026-08-31, ~10:30 — 🔄 @r — REDESIGN-05-4 — порция 4 закрыта
+
+**Коммит `471a2d5`** (порция 4, «данные»):
+
+- **Аномалии**: `Dashboard/AnomaliesWidget.jsx` + регистрация в WidgetGrid
+  (CollapsePanel, dash_collapsed_anomalies). Backend-команды `get_insights`
+  с аномалиями в worker-репо НЕТ (manager-work only) → клиентская оценка из
+  существующих: `get_shop_win_loss` (деклайн-рейт шопа ≥ max(15%, 3×
+  среднего), порог 5 ордеров) + `get_proxy_usage_stats` (≥40% фейлов при
+  ≥5 ордерах). Клик по аномалии → навигация в shops/proxies.
+- **Дневной дайджест**: `utils/dailyDigest.js` — раз в календарный день
+  (UTC, `vb_last_digest_date`) пуш в центр уведомлений из
+  `get_dashboard_stats('today')`; вызов из AppShell с задержкой 6с.
+- **Пресеты ордеров** (магазин+профиль+дроп): `utils/orderPresets.js`
+  (localStorage `vb_order_presets_v1`, max 20), «Сохранить пресет» в
+  CreateOrderModal (рядом с submit), применение из ⌘K: палитра диспатчит
+  `vb:apply-order-preset`, Orders ловит и открывает CreateOrderModal с
+  пропом preset (модалка сама выбирает шоп/профиль/дроп).
+  Backend-шаблоны items (save_order_template) не тронуты — они про товары.
+- **FTS-lite в ⌘K**: секции «Шаблоны», «Письма» (`get_unified_inbox`
+  search), «Заметки» (клиентский contains по notes первых 200 ордеров/карт;
+  backend global_search имеет FTS5 только по ордерам, заметки/письма не
+  покрывает — расширение FTS5 задача для @main). Дедуп id против
+  global_search. Отдельный debounce 400мс, allSettled — падение одной
+  секции не роняет остальные.
+- **Мультивыбор в ⌘K**: Tab по строке ордера (Space конфликтует с набором
+  запроса), ✓-маркер, футер превращается в bulk-бар со статусами
+  (pending..cancelled) → `bulkUpdateStatus` стора (оптимистика+rollback),
+  Esc сначала снимает выбор.
+- **FIX (латентный баг)**: Imap.loadMessages и мой fan-out из порции 3
+  вызывали `get_imap_messages` с плоскими {accountId, folder, search} — а
+  команда принимает `{ filter: ImapMsgFilter, page }` без folder/search,
+  т.е. список писем молча падал (видимо, давно). Переведено на
+  `get_folder_messages(accountId, folder, page, search)`. Стоит проверить
+  e2e/ручками страницу IMAP после мерджа.
+
+**Проверки:** eslint 0 errors до и после lint-staged; audit_frontend
+0/0/0; vitest CreateOrderModal 3/3 зелёных. BOM проверен.
+
+**Осталось по 05-4:** порция 5 + финальный блок + визуальный дифф.
