@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-09-01
+
 Спринт после 2.11.3: 140+ коммитов по MASTER_CHECKLIST (SEC, UX, ARCH, CLEAN, FEAT, TEST, DEVOPS, MGR) и второе приложение в репозитории — VaultBase Manager.
 
 ### VaultBase Manager — второе приложение репозитория
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Воркер: новое
 
+- **Десктоп-натив** (REDESIGN-05-6): системный трей, пресеты размеров окна (compact/standard/large) с восстановлением геометрии, глобальная panic-клавиша, запуск свёрнутым, глобальный Drag&Drop импорт (текст дропов/прокси распознаётся и открывает нужную модалку), ручная проверка обновлений со страницы «Обновления».
 - **Cron-планировщик фоновых задач** (FEAT-008) и **напоминания о картах и трекингах** через него (FEAT-006/007).
 - **Stuffer**: провайдерная архитектура SWAT/CARGO и фикс дропов SWAT (FEAT-013), поля панели и комментарии в списке посылок, привязка посылок панели к заказам/профилям (FEAT-009), live-тест пишущих методов панели (FEAT-012).
 - **Синхронизация**: теги курьеров между пользователями в реальном времени по WS (FEAT-010); sliding session refresh — expires_at в логине и проверка срока перед invoke (FEAT-016/017); тост при потере WS-соединения (ERR-003); invokeWithRetry с exponential backoff и no-retry маркерами (ERR-006); глобальный поиск на стабильных ключах.
