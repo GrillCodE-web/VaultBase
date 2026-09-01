@@ -1778,3 +1778,45 @@ store/ui.js/tokens.css/snapshots — т.е. потёртый мной WIP ею, 
   (вероятен текстовый конфликт в SESSION_LOG.md — append-vs-append, тривиален)
   и закрыть строку MGR-018. Открытых пунктов чеклиста теперь 4: MGR-018
   (🔄 вторая сессия), PERF-010 и CLEAN-003 (🔄 @b), REDESIGN-05-6 (⬜).
+
+---
+
+## 2026-09-01 — @main: MGR-018 ✅ (e6d23ca) — WIP оборвавшейся второй сессии подобран, верифицирован и закрыт
+
+- Владелец: второй сессии больше нет, её WIP передан @main («делай тут»).
+  Ребейз: мои три коммита (827f802→daf64a7, 4379d2d→218e09f, b62d97a→f89c2de)
+  на origin/main fd1a302 (+10 @r, REDESIGN-05-4 ✅); конфликт только
+  SESSION_LOG (append-vs-append, обе стороны сохранены).
+- Верификация WIP: выпил sync-групп/pair/NOSYNC полный и консистентный
+  (команды/регистрация/фронт/стили/сторы); **auth_error и catalog_update в
+  ws_sync.rs НЕ снесены** — открытый вопрос из записи 5B4 закрыт, регрессии
+  нет; 17track share доведён до end-to-end (resolver + гейт set_config +
+  приёмник в slices + WS-нотифик apply_config_share; сервер kind=track17 уже
+  в HEAD, фронт-гейт e28505a). База src-tauri/cc-sync-server между старым и
+  новым origin/main идентична — результаты cargo переносятся точно.
+- Проверки: cargo check 0 err; cargo test 231/232 — единственный фейл
+  `test_cards_expiring_within` = pre-existing календарный флейк (функция
+  считает срок по КОНЦУ месяца MM/YY; 01.09 конец месяца в 29 днях > окна 14),
+  к WIP отношения нет; исправлен окном 40 дней, логика проверена на живом SQL
+  (better-sqlite3): окно 40 → {01/20 dl<0, текущий месяц dl 0..31}, окно 14 →
+  только 01/20 (механика флейка воспроизведена). eslint 0 err (7 warnings
+  pre-existing), vitest 337/337, audit_frontend 0/0/0. Scoped re-run
+  `cargo test perf_tests` отложен: дерево сейчас не компилируется из-за
+  чужого WIP REDESIGN-05-6 (ниже) — перезапустить, когда дерево зелёное.
+- Коммиты: **e6d23ca** (MGR-018, 24 файла, +300/−1498; main.rs вошёл
+  частичным стейджем одной строки — удаление регистрации sync_*), затем
+  docs/REDESIGN_05_PLAN.md (набросок @r — ссылки из шапки чеклиста и
+  CHAT_E2E §0 теперь замкнуты). Чеклист: MGR-018 ✅ @main, блок статистики
+  пересчитан по факту (226 пунктов / 3 открытых).
+- **В ЭТОМ WORKTREE РАБОТАЕТ ЕЩЁ ОДНА ЖИВАЯ СЕССИЯ (REDESIGN-05-6, claim
+  1dd8633 под именем «@main»):** с ~16:34 UTC растут tray.rs / desktop.rs /
+  commands/desktop.rs / DesktopBridge.jsx / dropDetect.js + Cargo.toml/lock,
+  i18n, Proxies/Settings/Updates; промежуточное состояние местами НЕ
+  компилируется (desktop.rs: E0689 ambiguous float). Мои коммиты — строго
+  explicit paths, их файлы не тронуты; их `git add -A` съесть мой WIP уже не
+  может — всё моё закоммичено. Если это коллизия, а не намерение владельца —
+  той сессии нужен свой worktree (scripts/agent-session.ps1), иначе правила
+  одного worktree на сессию нарушены.
+- Мусор прошлых сессий оставлен как есть: scripts/_recover/, probe-main/,
+  design-mockups/, scripts/_tmp-* (мои _tmp_verify_flake/_tmp_main_* можно
+  удалить после зелёного re-run теста).
