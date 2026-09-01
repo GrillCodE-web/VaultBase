@@ -26,5 +26,5 @@ export const CARDS_VIRTUAL_THRESHOLD = 50
  */
 export const DELETE_UNDO_WINDOW_MS = 5000
 
-/** Сколько строка подсвечивается после «живого» обновления с sync-сервера. */
-export const FLASH_HIGHLIGHT_MS = 2000
+// MGR-018 (этап E1): FLASH_HIGHLIGHT_MS выпилена вместе с групповым
+// sync'ом (подсветка «живых» обновлений строк больше не применяется).

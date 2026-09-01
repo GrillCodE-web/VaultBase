@@ -30,6 +30,8 @@ import { useCardsStore } from './store/cards.js'
 import { useNotificationsStore } from './store/notifications.js'
 import { NotificationCenter } from './components/NotificationCenter.jsx'
 import { TasksIndicator } from './components/TasksIndicator.jsx'
+// REDESIGN-05-6: panic-модалка (хоткей/трей), tray:sync, глобальный D&D импорт
+import { DesktopBridge } from './components/DesktopBridge.jsx'
 // SPRINT3-DAY2: Structured logging
 import { createLogger } from './utils/logger'
 // UX-012: нативные OS-уведомления (новая почта, статус посылки, ошибки sync)
@@ -207,7 +209,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
   }, [t])
 
   // FIX P2-STATUS-01: WS sync connection status
-  const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting, group_id? }
+  const [wsStatus, setWsStatus] = React.useState(null) // { connected, connecting }
 
   React.useEffect(() => {
     let unlistenFn = null
@@ -1751,6 +1753,8 @@ export default function App() {
           <ConfirmProvider>
             <AuthProvider>
               <AppInner />
+              {/* REDESIGN-05-6: доступен и на экране блокировки (panic) */}
+              <DesktopBridge />
             </AuthProvider>
           </ConfirmProvider>
         </SmartToastProvider>

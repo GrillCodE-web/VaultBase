@@ -55,7 +55,19 @@ pub(crate) fn set_config(key: String, value: String) -> Result<(), String> {
     if !is_config_writable(&key) {
         return Err(format!("config_key_not_allowed: {}", key));
     }
-    with_db!(db, { db.set_config(&key, &value).map_err(|e| e.to_string()) })
+    with_db!(db, {
+        // MGR-018 (этап E2): активный share-ключ 17track read-only — ручная
+        // правка tracking_api_key запрещена, пока менеджер не выдаст замену
+        // (локальный ключ остаётся fallback в solo-режиме, не сносим его).
+        if key == "tracking_api_key" {
+            let shared = db.get_config(crate::tracking::TRACK17_SHARED_KEY)
+                .map_err(|e| e.to_string())?;
+            if shared.is_some_and(|v| !v.is_empty()) {
+                return Err("track17_config_managed".into());
+            }
+        }
+        db.set_config(&key, &value).map_err(|e| e.to_string())
+    })
 }
 
 // SEC-020/BUG-003: Seed data only available in debug builds

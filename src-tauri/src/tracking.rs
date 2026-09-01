@@ -614,6 +614,33 @@ pub fn check_tracking_smart(tracking: &str) -> Result<TrackingStatus, String> {
     result
 }
 
+// ─────────────────────────────────────────
+//  MGR-018 (этап E2): share-ключ 17track от менеджера
+// ─────────────────────────────────────────
+
+/// Конфиг-ключ share-креда 17track, выданного менеджером (запечатанный
+/// конверт worker_config_shares, kind='track17'). Пишется только кодом
+/// приёма share (commands/slices.rs); в CONFIG_WRITABLE не входит.
+pub(crate) const TRACK17_SHARED_KEY: &str = "track17_shared_api_key";
+
+/// Резолюция ключа 17track: share-ключ менеджера в приоритете над локальным
+/// tracking_api_key; локальный остаётся fallback в solo-режиме (менеджер
+/// локальный ключ не трогает — revoke share его не сносит).
+pub(crate) fn resolve_track17_api_key(db: &crate::database::Database) -> Option<String> {
+    let shared = db
+        .get_config(TRACK17_SHARED_KEY)
+        .ok()
+        .flatten()
+        .filter(|k| !k.is_empty());
+    if shared.is_some() {
+        return shared;
+    }
+    db.get_config("tracking_api_key")
+        .ok()
+        .flatten()
+        .filter(|k| !k.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -648,5 +675,38 @@ mod tests {
         assert_eq!(detect_carrier("9400111899223456789"), None);
         // Начинается не с 9 — не USPS (и не подходит по длине под остальных).
         assert_eq!(detect_carrier("8400111899223456789012"), None);
+    }
+
+    // ── MGR-018 (этап E2): резолюция ключа 17track (shared > local) ──
+
+    fn test_db() -> (tempfile::TempDir, crate::database::Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("track17.db");
+        let db = crate::database::Database::open(path.to_str().unwrap()).unwrap();
+        (dir, db)
+    }
+
+    #[test]
+    fn track17_resolution_prefers_shared_over_local() {
+        let (_dir, db) = test_db();
+        db.set_config("tracking_api_key", "local-key").unwrap();
+        db.set_config(TRACK17_SHARED_KEY, "shared-key").unwrap();
+        assert_eq!(resolve_track17_api_key(&db).as_deref(), Some("shared-key"));
+    }
+
+    #[test]
+    fn track17_resolution_falls_back_to_local_in_solo() {
+        let (_dir, db) = test_db();
+        assert_eq!(resolve_track17_api_key(&db), None);
+        db.set_config("tracking_api_key", "local-key").unwrap();
+        assert_eq!(resolve_track17_api_key(&db).as_deref(), Some("local-key"));
+    }
+
+    #[test]
+    fn track17_resolution_ignores_empty_shared() {
+        let (_dir, db) = test_db();
+        db.set_config(TRACK17_SHARED_KEY, "").unwrap();
+        db.set_config("tracking_api_key", "local-key").unwrap();
+        assert_eq!(resolve_track17_api_key(&db).as_deref(), Some("local-key"));
     }
 }

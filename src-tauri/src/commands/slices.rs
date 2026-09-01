@@ -246,6 +246,10 @@ fn fetch_locked(db: &mut Database) -> Result<Value, String> {
         Some("card"),
         None,
     );
+    // MGR-018 (этап E1): метка свежести данных для useSyncFreshness — раньше
+    // её писал групповой sync (sync_last_at), теперь пишет канал срезов.
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let _ = db.set_config("sync_last_at", &now);
     Ok(json!({
         "received": received,
         "imported": imported,
@@ -448,15 +452,19 @@ pub(crate) fn email_slices_fetch() -> Result<Value, String> {
 }
 
 // ─────────────────────────────────────────
-//  MGR-018 (этап D): share-ключи конфигурации (stuffer)
+//  MGR-018 (этапы D + E2): share-ключи конфигурации (stuffer, 17track)
 // ─────────────────────────────────────────
 //
-// Отдельный от срезов канал: менеджер запечатывает {"base_url","api_key"}
-// и кладёт конверт на сервер (worker_config_shares, routes/worker-assets.js).
-// Воркер хранит ключ read-only: stuffer_set_config отказывает, пока активен
-// share-ключ, а значения во frontend не утекают — STUFFER_SHARED_* не входят
-// ни в CONFIG_READABLE, ни в CONFIG_SECRET (их пишет только этот код).
-// 17track менеджер не трогает: tracking_api_key остаётся локальным fallback.
+// Отдельный от срезов канал: менеджер запечатывает payload и кладёт конверт
+// на сервер (worker_config_shares, routes/worker-assets.js). kind='stuffer':
+// {"base_url","api_key"}; kind='track17' (этап E2): {"api_key"}.
+// Воркер хранит ключи read-only: stuffer_set_config отказывает, пока активен
+// share-ключ, а set_config("tracking_api_key") отвечает track17_config_managed;
+// значения во frontend не утекают — STUFFER_SHARED_* не входят ни в
+// CONFIG_READABLE, ни в CONFIG_SECRET, у track17 во frontend уходит только
+// флаг наличия `<key>_set` (tracking::TRACK17_SHARED_KEY в CONFIG_SECRET).
+// Локальный tracking_api_key менеджер не трогает — он fallback в solo-режиме
+// (резолюция shared > local: tracking::resolve_track17_api_key).
 
 const STUFFER_SHARED_KEY: &str = "stuffer_shared_api_key";
 const STUFFER_SHARED_BASE: &str = "stuffer_shared_base_url";
@@ -475,6 +483,14 @@ fn stuffer_config_from_payload(payload: &Value) -> Result<(String, String), Stri
     Ok((base_url, api_key))
 }
 
+/// MGR-018 (этап E2): ключ 17track из запечатанного payload менеджера:
+/// { "api_key": "..." }.
+fn track17_config_from_payload(payload: &Value) -> Result<String, String> {
+    let api_key = payload["api_key"].as_str().unwrap_or("").trim().to_string();
+    if api_key.is_empty() { return Err("no_api_key".into()); }
+    Ok(api_key)
+}
+
 fn fetch_config_shares_and_store() -> Result<Value, String> {
     with_db!(db, {
         if db.is_locked() {
@@ -483,7 +499,9 @@ fn fetch_config_shares_and_store() -> Result<Value, String> {
         let token = auth_token(db)?;
         register_key_if_needed(db, &token)?;
 
-        let resp = ureq::get(&crate::endpoints::endpoint("/sync/config/shares?kind=stuffer"))
+        // kind не фильтруем: забираем все pending-конверты разом (stuffer,
+        // track17, будущие kind'ы) и диспетчим по полю kind каждого конверта.
+        let resp = ureq::get(&crate::endpoints::endpoint("/sync/config/shares"))
             .set("Authorization", &format!("Bearer {}", token))
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
             .call()
@@ -499,6 +517,7 @@ fn fetch_config_shares_and_store() -> Result<Value, String> {
         for s in &shares {
             let id = s["id"].as_i64().unwrap_or(0);
             let sealed = s["sealed_data"].as_str().unwrap_or("");
+            let kind = s["kind"].as_str().unwrap_or("");
             if id <= 0 || sealed.is_empty() { continue; }
             let processed = (|| -> Result<(), String> {
                 let env: crate::commands::telemetry::TelemetryEnvelope = serde_json::from_str(sealed)
@@ -507,16 +526,34 @@ fn fetch_config_shares_and_store() -> Result<Value, String> {
                 let payload_str = crate::commands::telemetry::unseal_envelope(&priv_hex, &env)?;
                 let payload: Value = serde_json::from_str(&payload_str)
                     .map_err(|e| format!("payload_parse: {e}"))?;
-                let (base_url, api_key) = stuffer_config_from_payload(&payload)?;
-                db.set_config(STUFFER_SHARED_BASE, &base_url).map_err(|e| e.to_string())?;
-                db.set_config(STUFFER_SHARED_KEY, &api_key).map_err(|e| e.to_string())?;
-                // В лог — только base_url; сам ключ не светим нигде.
-                let _ = db.log_event(
-                    "stuffer.shared_key_received",
-                    &format!("Stuffer key received from manager (base_url={base_url})"),
-                    Some("stuffer"), None,
-                );
-                Ok(())
+                match kind {
+                    "stuffer" => {
+                        let (base_url, api_key) = stuffer_config_from_payload(&payload)?;
+                        db.set_config(STUFFER_SHARED_BASE, &base_url).map_err(|e| e.to_string())?;
+                        db.set_config(STUFFER_SHARED_KEY, &api_key).map_err(|e| e.to_string())?;
+                        // В лог — только base_url; сам ключ не светим нигде.
+                        let _ = db.log_event(
+                            "stuffer.shared_key_received",
+                            &format!("Stuffer key received from manager (base_url={base_url})"),
+                            Some("stuffer"), None,
+                        );
+                        Ok(())
+                    }
+                    "track17" => {
+                        let api_key = track17_config_from_payload(&payload)?;
+                        db.set_config(crate::tracking::TRACK17_SHARED_KEY, &api_key)
+                            .map_err(|e| e.to_string())?;
+                        let _ = db.log_event(
+                            "track17.shared_key_received",
+                            "17track API key received from manager",
+                            Some("tracking"), None,
+                        );
+                        Ok(())
+                    }
+                    // Forward-compat: неизвестный kind — failed + ack, чтобы
+                    // конверт не перезаливался каждые 5 минут до обновления.
+                    other => Err(format!("unknown_share_kind: {other}")),
+                }
             })();
             match processed {
                 Ok(()) => { applied += 1; ack_ids.push(id); }
@@ -524,9 +561,9 @@ fn fetch_config_shares_and_store() -> Result<Value, String> {
                     failed += 1;
                     ack_ids.push(id);
                     let _ = db.log_event(
-                        "stuffer.shared_key_failed",
-                        &format!("share #{id}: {e}"),
-                        Some("stuffer"), None,
+                        "config.shared_key_failed",
+                        &format!("share #{id} (kind={kind}): {e}"),
+                        Some("config"), None,
                     );
                 }
             }
@@ -835,5 +872,52 @@ mod slices_tests {
 
         assert_eq!(db.get_config(STUFFER_SHARED_BASE).unwrap().as_deref(), Some("https://panel.example"));
         assert_eq!(db.get_config(STUFFER_SHARED_KEY).unwrap().as_deref(), Some("mgr-issued-key"));
+    }
+
+    // ── MGR-018 (этап E2): share-ключи 17track ──
+
+    #[test]
+    fn track17_config_from_payload_maps_and_rejects() {
+        let key = track17_config_from_payload(&json!({ "api_key": "t17-key" })).unwrap();
+        assert_eq!(key, "t17-key");
+        // без ключа / с пустым — отказ
+        assert!(track17_config_from_payload(&json!({})).is_err());
+        assert!(track17_config_from_payload(&json!({ "api_key": "  " })).is_err());
+    }
+
+    #[test]
+    fn sealed_track17_share_roundtrip_applies_to_config() {
+        // Тот же конвейер, что у stuffer-roundtrip: менеджер запечатывает
+        // {"api_key"}, воркер открывает и пишет в track17_shared_api_key;
+        // резолюция затем ставит share выше локального tracking_api_key.
+        let (_dir, db) = test_db();
+        let priv_hex = ensure_slice_key(&db).unwrap();
+        let payload = json!({ "v": 1, "api_key": "mgr-track17-key" });
+        let envelope = crate::commands::telemetry::seal_envelope(
+            7,
+            &pubkey_hex(&priv_hex),
+            &payload.to_string(),
+        ).unwrap();
+        let sealed_data = serde_json::to_string(&envelope).unwrap();
+
+        let env: crate::commands::telemetry::TelemetryEnvelope =
+            serde_json::from_str(&sealed_data).unwrap();
+        let payload_str = crate::commands::telemetry::unseal_envelope(
+            &ensure_slice_key(&db).unwrap(),
+            &env,
+        ).unwrap();
+        let key = track17_config_from_payload(&serde_json::from_str(&payload_str).unwrap()).unwrap();
+        db.set_config(crate::tracking::TRACK17_SHARED_KEY, &key).unwrap();
+
+        assert_eq!(
+            db.get_config(crate::tracking::TRACK17_SHARED_KEY).unwrap().as_deref(),
+            Some("mgr-track17-key"),
+        );
+        // shared > local; без share — локальный fallback (solo)
+        db.set_config("tracking_api_key", "local-key").unwrap();
+        assert_eq!(
+            crate::tracking::resolve_track17_api_key(&db).as_deref(),
+            Some("mgr-track17-key"),
+        );
     }
 }

@@ -460,6 +460,15 @@ ws.onmessage = ev => {
 
 **Messages:**
 
+> MGR-018 (этап E1): текущий воркер больше не участвует в групповом sync'е —
+> `full_pull`/`push`/`card_update`/`full_data`/`courier_tag`/`refresh_group`/
+> `group_refreshed`/`member_joined`/`member_left` он не шлёт и не обрабатывает.
+> Они остаются в протоколе для legacy-участников старых групп (политика
+> MGR-016: данные у legacy не отбираем, новые входы закрыты 410 Gone). Карты
+> воркеру приезжают персональными срезами: `cards_issued` / `assets_issued` /
+> `config_shared` + HTTP-забор `/sync/cards/issued`, `/sync/assets`,
+> `/sync/config/shares`.
+
 | Type              | Direction       | Payload                                                                                 |
 | ----------------- | --------------- | --------------------------------------------------------------------------------------- |
 | `auth_challenge`  | Server → Client | `{ nonce, ts }` — one-time anti-replay challenge, first frame after connect             |

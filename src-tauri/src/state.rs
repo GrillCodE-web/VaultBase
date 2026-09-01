@@ -259,7 +259,9 @@ const CONFIG_READABLE: &[&str] = &[
     "autolock_timeout",
     "sync_enabled", "theme", "language", "installation_id",
     "license_status_cache",
-    "sync_group_id", "sync_group_name",
+    // MGR-018 (этап E1): метка последнего удачного забора срезов — читает
+    // useSyncFreshness для индикатора «данные устарели».
+    "sync_last_at",
     "always_on_top", "last_backup_time",
     "dash_collapsed_banks", "dash_collapsed_countries",
     "dash_collapsed_sources", "dash_collapsed_expiring",
@@ -270,8 +272,12 @@ const CONFIG_READABLE: &[&str] = &[
 
 /// Ключи-секреты: записать можно, прочитать значение — нельзя.
 /// Frontend вместо значения запрашивает `<key>_set` и получает "1" либо "0".
+/// track17_shared_api_key сюда входит ради флага наличия для read-only UI
+/// (MGR-018 E2); пишет его только приём share-конверта (commands/slices.rs),
+/// в CONFIG_WRITABLE он НЕ входит.
 const CONFIG_SECRET: &[&str] = &[
     "bin_api_key", "tracking_api_key", "stuffer_api_key",
+    "track17_shared_api_key",
 ];
 
 const CONFIG_WRITABLE: &[&str] = &[

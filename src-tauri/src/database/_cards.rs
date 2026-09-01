@@ -480,24 +480,9 @@ impl Database {
     /// FEAT-001: авто-архив dead-карт по нажатию пользователя — переводит
     /// ВЕСЬ пул dead → archive одной операцией (раньше UI архивировал только
     /// текущую страницу через bulk_update_status). Возвращает число
-    /// архивированных карт и sync-обновления (по картам с непустым hash).
-    pub fn archive_dead_cards(&self, changed_by: Option<i64>) -> Result<(u32, Vec<crate::models::CardSyncUpdate>), String> {
-        let mut stmt = self.conn.prepare(
-            "SELECT card_hash, notes FROM credit_cards \
-             WHERE status='dead' AND card_hash IS NOT NULL AND card_hash != ''",
-        ).map_err(|e| e.to_string())?;
-        let updates: Vec<crate::models::CardSyncUpdate> = stmt
-            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))
-            .map_err(|e| e.to_string())?
-            .filter_map(|r| r.ok())
-            .map(|(card_hash, notes)| crate::models::CardSyncUpdate {
-                card_hash,
-                status: "archive".into(),
-                notes,
-                encrypted_data: None,
-            })
-            .collect();
-        drop(stmt);
+    /// архивированных карт. MGR-018 (этап E1): sync-обновления для группового
+    /// пуша больше не строятся — групповой sync выпилен.
+    pub fn archive_dead_cards(&self, changed_by: Option<i64>) -> Result<u32, String> {
         // MGR-014: id dead-карт до апдейта — для card_status_events
         let dead_ids: Vec<i64> = {
             let mut stmt = self.conn.prepare("SELECT id FROM credit_cards WHERE status='dead'").map_err(|e| e.to_string())?;
@@ -511,7 +496,7 @@ impl Database {
         for cid in &dead_ids {
             self.record_status_event(*cid, Some("dead"), "archive", changed_by, Some("auto_archive"));
         }
-        Ok((n as u32, updates))
+        Ok(n as u32)
     }
 
     // FIX B06: bulk_delete с транзакцией
@@ -901,7 +886,11 @@ mod perf_tests {
             rusqlite::params![this_month],
         ).unwrap();
 
-        let got = db.cards_expiring_within(14).unwrap();
+        // Окно 40 дней: функция считает срок по КОНЦУ месяца MM/YY, поэтому
+        // с окном 14 тест был календарно-зависим (падал в первые ~17 дней
+        // месяца, когда до конца месяца больше 14 дней). 40 ≥ 31 — «текущий
+        // месяц» покрыт всегда, а «12/35» всё равно далеко за окном.
+        let got = db.cards_expiring_within(40).unwrap();
         assert_eq!(got.len(), 2, "только истекающая и просроченная, без архива и без expiry");
         // первая — самая старая (01/20), days_left отрицательный
         assert_eq!(got[0].3, "01/20");
@@ -927,11 +916,8 @@ mod perf_tests {
         ).unwrap();
         db.conn.execute("UPDATE credit_cards SET status='archive' WHERE id=3", []).unwrap();
 
-        let (count, updates) = db.archive_dead_cards(None).unwrap();
+        let count = db.archive_dead_cards(None).unwrap();
         assert_eq!(count, 2, "архивируются только dead");
-        assert_eq!(updates.len(), 2, "sync-обновления по обеим картам (hash есть всегда)");
-        assert!(updates.iter().all(|u| u.status == "archive"));
-        assert!(updates.iter().all(|u| !u.card_hash.is_empty()));
 
         let dead_left: i64 = db.conn.query_row(
             "SELECT COUNT(*) FROM credit_cards WHERE status='dead'", [], |r| r.get(0),
@@ -943,9 +929,8 @@ mod perf_tests {
         assert_eq!(archived, 3, "2 свежих + 1 уже была в архиве");
 
         // Повторный прогон — no-op
-        let (count2, updates2) = db.archive_dead_cards(None).unwrap();
+        let count2 = db.archive_dead_cards(None).unwrap();
         assert_eq!(count2, 0);
-        assert!(updates2.is_empty());
     }
 
     // MGR-014: структурные события статусов карт (вместо парсинга activity_log)

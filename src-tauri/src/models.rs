@@ -946,28 +946,9 @@ pub struct SyncResult {
 //  Sync Groups
 // ─────────────────────────────────────────
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SyncGroupMember {
-    pub installation_id: String,
-    pub joined_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SyncGroupInfo {
-    pub group_id: String,
-    pub name: String,
-    pub card_count: u32,
-    pub members: Vec<SyncGroupMember>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SyncGroupStatus {
-    pub in_group: bool,
-    pub group_id: Option<String>,
-    pub group_name: Option<String>,
-    pub connected: bool,
-    pub last_sync: Option<String>,
-}
+// MGR-018 (этап E1): SyncGroupMember/Info/Status выпилены вместе с
+// групповым sync'ом воркера (команды sync_create_group/pair/join/status/
+// disconnect и SyncGroupClient удалены).
 
 // ─────────────────────────────────────────
 //  REDESIGN-05-5B4: E2E-чат (локальная копия, plaintext в SQLCipher)
@@ -1625,18 +1606,9 @@ impl ActiveUser {
     }
 }
 
-// ─────────────────────────────────────────
-//  Sync Push Models
-// ─────────────────────────────────────────
-
-/// FIX P1-RETRY-02: Модель для отправки обновлений карт на sync сервер
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CardSyncUpdate {
-    pub card_hash: String,
-    pub status: String,
-    pub notes: Option<String>,
-    pub encrypted_data: Option<String>,
-}
+// MGR-018 (этап E1): CardSyncUpdate (push-канал статусов карт в sync-группу)
+// выпилена вместе с групповым sync'ом — статусы менеджеру возвращаются
+// отчётами/срезами, а не SyncGroupClient::push_card_updates.
 
 // ─────────────────────────────────────────
 //  Tracking (PHASE 3: Direct Carrier API)

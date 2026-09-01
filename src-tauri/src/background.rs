@@ -298,9 +298,10 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
     ));
         loop {
             if let Some(st) = STATE.get() {
+                // MGR-018 (этап E2): share-ключ менеджера в приоритете над
+                // локальным tracking_api_key (fallback в solo-режиме).
                 let api_key = st.db.lock().ok()
-                    .and_then(|d| d.get_config("tracking_api_key").ok().flatten())
-                    .filter(|k| !k.is_empty());
+                    .and_then(|d| crate::tracking::resolve_track17_api_key(&d));
                 if let Some(key) = api_key {
                     run_tracking_update(&h, &key);
                 }

@@ -211,90 +211,17 @@ pub fn derive_db_key(password: &str, salt: &[u8]) -> [u8; 32] {
 }
 
 // ─────────────────────────────────────────
-//  SEC-008: Group encryption key for E2E sync
+//  Random 32-byte key generation
 // ─────────────────────────────────────────
 
-/// Generates a random 32-byte group master key for E2E sync encryption.
+/// Generates a random 32-byte key. MGR-018 (этап E1): групповой E2E-sync
+/// выпилен вместе с encrypt/decrypt/resolve_group_key и pair-кодами —
+/// функция остаётся источником DEK для envelope-шифрования БД (SEC-005,
+/// commands/auth.rs) и ключевого материала тестов.
 pub fn generate_group_key() -> [u8; 32] {
     let mut key = [0u8; 32];
     OsRng.fill_bytes(&mut key);
     key
-}
-
-/// Encrypts a group key with a user's DEK so it can be stored on the server.
-/// Returns Base64(nonce[12] || ciphertext).
-pub fn encrypt_group_key(group_key: &[u8; 32], user_field_enc: &FieldEncryption) -> Result<String, String> {
-    user_field_enc.encrypt(&hex::encode(group_key))
-}
-
-/// Decrypts a group key that was encrypted with encrypt_group_key().
-pub fn decrypt_group_key(encrypted: &str, user_field_enc: &FieldEncryption) -> Result<[u8; 32], String> {
-    let hex_str = user_field_enc.decrypt(encrypted)?;
-    let bytes = hex::decode(&hex_str).map_err(|e| format!("hex decode: {e}"))?;
-    if bytes.len() != 32 {
-        return Err(format!("invalid group key length: {}", bytes.len()));
-    }
-    let mut key = [0u8; 32];
-    key.copy_from_slice(&bytes);
-    Ok(key)
-}
-
-/// E2E encrypt a sync payload with the group key.
-pub fn e2e_encrypt(payload: &str, group_key: &[u8; 32]) -> Result<String, String> {
-    let enc = FieldEncryption { key: *group_key };
-    enc.encrypt(payload)
-}
-
-/// E2E decrypt a sync payload with the group key.
-pub fn e2e_decrypt(encrypted: &str, group_key: &[u8; 32]) -> Result<String, String> {
-    let enc = FieldEncryption { key: *group_key };
-    enc.decrypt(encrypted)
-}
-
-/// SEC-008/009: Generate a pair code locally (6 chars, unambiguous alphabet —
-/// same charset the sync server used historically). The server never sees the
-/// code itself, only its SHA-256 hash.
-pub fn generate_pair_code() -> String {
-    const ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let mut bytes = [0u8; 6];
-    OsRng.fill_bytes(&mut bytes);
-    bytes.iter().map(|b| ALPHABET[(*b as usize) % ALPHABET.len()] as char).collect()
-}
-
-/// SEC-008/009: Derive the transport key for group-key handover from a pair
-/// code. The joiner re-derives the same key from the typed code, so the group
-/// key crosses the server only as an E2E blob (PBKDF2-SHA256, 100k rounds).
-pub fn derive_pair_transport_key(code: &str) -> [u8; 32] {
-    let mut key = [0u8; 32];
-    pbkdf2::pbkdf2_hmac::<Sha256>(
-        code.trim().to_uppercase().as_bytes(),
-        b"vaultbase-gk-transport-v1",
-        100_000,
-        &mut key,
-    );
-    key
-}
-
-/// SEC-008/009: SHA-256 hex of a normalized pair code — the only code-related
-/// value the sync server is allowed to store.
-pub fn pair_code_hash(code: &str) -> String {
-    hex::encode(Sha256::digest(code.trim().to_uppercase().as_bytes()))
-}
-
-/// SEC-008: Resolve the raw group key from its stored representation:
-/// FieldEncryption blob (current) or raw 64-char hex (legacy groups).
-pub fn resolve_group_key(stored: &str, enc: &FieldEncryption) -> Option<[u8; 32]> {
-    if stored.is_empty() {
-        return None;
-    }
-    if stored.len() == 64 && stored.chars().all(|c| c.is_ascii_hexdigit()) {
-        let bytes = hex::decode(stored).ok()?;
-        if bytes.len() != 32 { return None; }
-        let mut k = [0u8; 32];
-        k.copy_from_slice(&bytes);
-        return Some(k);
-    }
-    decrypt_group_key(stored, enc).ok()
 }
 
 /// SEC-005: Wrap a random DB encryption key (DEK) with a password-derived KEK
@@ -336,73 +263,6 @@ mod tests {
         let salt = generate_salt();
         let blob = wrap_dek(&dek, "right", &salt).unwrap();
         assert!(unwrap_dek(&blob, "wrong", &salt).is_err());
-    }
-
-    #[test]
-    fn test_group_key_encrypt_decrypt() {
-        let gk = generate_group_key();
-        let salt = generate_salt();
-        let enc = FieldEncryption::new("pw123456789012", &salt);
-        let blob = encrypt_group_key(&gk, &enc).unwrap();
-        let back = decrypt_group_key(&blob, &enc).unwrap();
-        assert_eq!(gk, back);
-    }
-
-    #[test]
-    fn test_resolve_group_key_hex_legacy() {
-        let salt = generate_salt();
-        let enc = FieldEncryption::new("pw123456789012", &salt);
-        let hex_key = hex::encode([42u8; 32]);
-        let back = resolve_group_key(&hex_key, &enc).unwrap();
-        assert_eq!(back, [42u8; 32]);
-    }
-
-    #[test]
-    fn test_resolve_group_key_encrypted_blob() {
-        let gk = generate_group_key();
-        let salt = generate_salt();
-        let enc = FieldEncryption::new("pw123456789012", &salt);
-        let blob = encrypt_group_key(&gk, &enc).unwrap();
-        let back = resolve_group_key(&blob, &enc).unwrap();
-        assert_eq!(gk, back);
-    }
-
-    #[test]
-    fn test_pair_code_deterministic_hash_and_key() {
-        // Normalization = trim + uppercase. Interior characters are preserved.
-        let c = "abc123";
-        let h1 = pair_code_hash(c);
-        let h2 = pair_code_hash("  ABC123  ");
-        assert_eq!(h1, h2);
-        let k1 = derive_pair_transport_key(c);
-        let k2 = derive_pair_transport_key("  abc123 ");
-        assert_eq!(k1, k2);
-        // Different interior content must NOT collide
-        assert_ne!(pair_code_hash("abc123"), pair_code_hash("abc-123"));
-    }
-
-    #[test]
-    fn test_pair_transport_e2e_roundtrip() {
-        // Simulates the join flow: creator encrypts the group key with the
-        // pair-code transport key; joiner re-derives and decrypts.
-        let gk = generate_group_key();
-        let code = generate_pair_code();
-        let tk = derive_pair_transport_key(&code);
-        let blob = e2e_encrypt(&hex::encode(gk), &tk).unwrap();
-        // Joiner side: re-derive from typed code (mixed case/whitespace)
-        let tk2 = derive_pair_transport_key(&format!(" {} ", code.to_lowercase()));
-        let plain = e2e_decrypt(&blob, &tk2).unwrap();
-        let back: [u8; 32] = hex::decode(plain).unwrap().try_into().unwrap();
-        assert_eq!(gk, back);
-    }
-
-    #[test]
-    fn test_pair_code_charset_no_ambiguous() {
-        for _ in 0..50 {
-            let c = generate_pair_code();
-            assert_eq!(c.len(), 6);
-            assert!(c.chars().all(|ch| "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".contains(ch)));
-        }
     }
 
     // ── TEST-008: edge cases ──

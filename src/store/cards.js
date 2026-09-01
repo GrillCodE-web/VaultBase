@@ -393,36 +393,9 @@ export const useCardsStore = create((set, get) => ({
     return content
   },
 
-  // Real-time sync handlers
-  handleSyncUpdate: updates => {
-    // ★ Insight: Проверяем существование карты перед обновлением
-    // Предотвращает ошибки при получении update для уже удаленной карты
-    set(state => ({
-      cards: state.cards
-        .map(c => {
-          const upd = updates.find(u => u.id === c.id)
-          if (!upd) return c
-          return {
-            ...c,
-            status: upd.status ?? c.status,
-            notes: upd.notes ?? c.notes,
-          }
-        })
-        .filter(Boolean), // Отфильтровываем удаленные карты (если вдруг пришли)
-    }))
-  },
-
-  handleFullSync: (() => {
-    // FIX P1-11: Debounce full sync to prevent rapid refetches
-    let timeoutId = null
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        get().fetchCards(true)
-        timeoutId = null
-      }, 200)
-    }
-  })(),
+  // MGR-018 (этап E1): handleSyncUpdate/handleFullSync выпилены вместе с
+  // групповым sync'ом — обновление списка карт триггерит slices_received
+  // (Cards.jsx → fetchCards(true)).
 
   // Invalidate cache
   invalidateCache: () => set({ cache: {} }),

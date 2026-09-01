@@ -13,7 +13,7 @@ import { copyToClipboard, copySensitive } from '../utils/clipboard.js'
 import { buildPageNumbers, getTotalPages, getPageRange } from '../utils/pagination.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { isInInputField } from '../config/shortcuts.js'
-import { DELETE_UNDO_WINDOW_MS, FLASH_HIGHLIGHT_MS } from '../constants/cards.js'
+import { DELETE_UNDO_WINDOW_MS } from '../constants/cards.js'
 import { CardFilters } from './Cards/CardFilters.jsx'
 import { CardTable } from './Cards/CardTable.jsx'
 import { ColumnPicker } from '../components/ColumnPicker.jsx'
@@ -127,8 +127,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
     bulkDelete,
     bulkEnrich,
     exportCards,
-    handleSyncUpdate,
-    handleFullSync,
     revealCard,
   } = useCardsStore()
 
@@ -142,7 +140,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
     shopUsageCardId,
     timelineCardId,
     statusMenuId,
-    flashedIds,
     enrichProgress,
     setShowColPicker,
     toggleCompact,
@@ -152,8 +149,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
     setShopUsageCardId,
     setTimelineCardId,
     setStatusMenuId,
-    addFlashedId,
-    removeFlashedId,
     setEnrichProgress,
   } = useUIStore()
 
@@ -191,12 +186,8 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
     fetchSlicesRef.current = fetchSlices
   }, [fetchSlices])
 
-  // Real-time sync flash animation timers
-  const flashTimers = useRef({})
   // FIX FE-H01: Track delete timers for cleanup on unmount
   const deleteTimers = useRef({})
-  // ★ Insight: Sync error state для fallback UI при ошибке WebSocket
-  const [syncError, setSyncError] = useState(null)
 
   const [visibleCols, setVisibleCols] = usePersistedState('cards_visible_cols', DEFAULT_COLS)
   const [columnOrder, setColumnOrder] = usePersistedState('cards_column_order', null)
@@ -268,98 +259,9 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
     setFilters({ expiring_soon: activeTab === 'expiring' ? true : null })
   }, [activeTab, setFilters])
 
-  // Real-time sync: listen for card updates from WS sync
-  // ★ Insight: cardsRef вместо cards в зависимостях предотвращает пересоздание listeners
-  // при каждом обновлении карт (что происходило бы сотни раз в минуту)
-  const cardsRef = useRef(cards)
-
-  // FIX: Обернуть handleSyncUpdate и handleFullSync в ref для стабильности
-  // CLEAN-002: ref-ы обновляем в эффекте, а не во время рендера (react-hooks/refs)
-  const handleSyncUpdateRef = useRef(handleSyncUpdate)
-  const handleFullSyncRef = useRef(handleFullSync)
-  useEffect(() => {
-    cardsRef.current = cards
-    handleSyncUpdateRef.current = handleSyncUpdate
-    handleFullSyncRef.current = handleFullSync
-  })
-
-  useEffect(() => {
-    let unlistenUpdate = null
-    let unlistenFull = null
-    let isMounted = true
-
-    const setupListeners = async () => {
-      try {
-        // Register card_update listener
-        const updateListener = await listen('sync:card_update', event => {
-          if (!isMounted) return // FIX CRITICAL: Check if still mounted
-
-          const updates = event.payload ?? []
-          // Use ref to get latest handler
-          handleSyncUpdateRef.current(updates)
-
-          // Flash updated cards — используем ref вместо direct dependency
-          updates.forEach(upd => {
-            if (!isMounted) return // FIX CRITICAL: Check before each timer
-
-            const card = cardsRef.current.find(c => c.id === upd.id)
-            if (card) {
-              addFlashedId(card.id)
-
-              // FIX CRITICAL: Clear old timer before setting new one
-              const oldTimer = flashTimers.current[card.id]
-              if (oldTimer) clearTimeout(oldTimer)
-
-              // FIX CRITICAL: Check mounted state before scheduling
-              const timerId = setTimeout(() => {
-                if (isMounted) {
-                  removeFlashedId(card.id)
-                }
-              }, FLASH_HIGHLIGHT_MS)
-
-              flashTimers.current[card.id] = timerId
-            }
-          })
-        })
-        if (isMounted) {
-          unlistenUpdate = updateListener
-          setSyncError(null)
-        }
-
-        // Register full_data listener
-        const fullListener = await listen('sync:full_data', () => {
-          if (isMounted) {
-            handleFullSyncRef.current()
-          }
-        })
-        if (isMounted) {
-          unlistenFull = fullListener
-        }
-      } catch (e) {
-        if (isMounted) {
-          console.error('[Cards] Failed to register sync listeners:', e)
-          setSyncError('Real-time sync unavailable')
-        }
-      }
-    }
-
-    setupListeners()
-
-    return () => {
-      isMounted = false
-
-      // FIX CRITICAL: Cleanup listeners safely
-      if (unlistenUpdate) unlistenUpdate()
-      if (unlistenFull) unlistenFull()
-
-      // FIX CRITICAL: Clear all timers using current ref (not stale closure)
-      Object.values(flashTimers.current).forEach(clearTimeout)
-      flashTimers.current = {}
-
-      Object.values(deleteTimers.current).forEach(clearTimeout)
-      deleteTimers.current = {}
-    }
-  }, [addFlashedId, removeFlashedId])
+  // MGR-018 (этап E1): слушатели группового sync'a (sync:card_update /
+  // sync:full_data) выпилены вместе с группами — новые карты приезжают
+  // срезами менеджера, слушатель slices_received ниже.
 
   // MGR-018: slices_received — воркер принял срезы фоном (cards_issued),
   // обновляем список и показываем сводку
@@ -656,21 +558,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
 
   return (
     <div className="content">
-      {/* Sync error banner */}
-      {syncError && (
-        <div className="alert alert-error">
-          <span className="alert-icon">⚠️</span>
-          <span>{syncError}</span>
-          <button
-            onClick={() => setSyncError(null)}
-            className="alert-close"
-            aria-label="Dismiss error"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       {/* Page header */}
       <div className="ph">
         <div>
@@ -884,7 +771,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
           deletingIds={deletingIds}
           revealed={revealed}
           revealCard={revealCard}
-          flashedIds={flashedIds}
           // UI store
           statusMenuId={statusMenuId}
           setStatusMenuId={setStatusMenuId}

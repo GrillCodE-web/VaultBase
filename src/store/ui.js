@@ -17,9 +17,6 @@ export const useUIStore = create(set => ({
   // Status menu
   statusMenuId: null,
 
-  // Flash animations
-  flashedIds: [], // Use array instead of Set for localStorage compatibility
-
   // Enrich progress
   enrichProgress: null,
 
@@ -38,16 +35,6 @@ export const useUIStore = create(set => ({
 
   setStatusMenuId: id => set({ statusMenuId: id }),
 
-  addFlashedId: id =>
-    set(state => ({
-      flashedIds: [...state.flashedIds, id],
-    })),
-
-  removeFlashedId: id =>
-    set(state => ({
-      flashedIds: state.flashedIds.filter(fid => fid !== id),
-    })),
-
   setEnrichProgress: progress => set({ enrichProgress: progress }),
 
   // SEC-014: Reset all UI state on lock/logout
@@ -59,7 +46,6 @@ export const useUIStore = create(set => ({
       shopUsageCardId: null,
       timelineCardId: null,
       statusMenuId: null,
-      flashedIds: [],
       enrichProgress: null,
     }),
 }))

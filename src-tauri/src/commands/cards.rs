@@ -8,7 +8,6 @@ use crate::models;
 use crate::encryption::{FieldEncryption, PasswordValidation, generate_salt};
 use crate::license::LicenseStatus;
 use crate::rate_limiter;
-use crate::sync;
 use crate::imap;
 use crate::stuffer;
 use crate::smtp;
@@ -132,12 +131,13 @@ pub(crate) fn update_card_status(id: i64, status: String, reason: Option<String>
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
-        // Get card_hash and notes for sync (notes нужны для NOSYNC-фильтра в
-        // push; на сервер уезжают только внутри E2E blob, SEC-008)
-        let (hash, notes): (String, Option<String>) = db.conn.query_row(
-            "SELECT card_hash, notes FROM credit_cards WHERE id = ?1",
+        // Проверка существования карты (404-семантика). MGR-018 (этап E1):
+        // пуш в sync-группу выпилен — карты/статусы менеджеру возвращаются
+        // отчётами, а не групповым sync'ом; NOSYNC-фильтр ушёл вместе с ним.
+        db.conn.query_row(
+            "SELECT 1 FROM credit_cards WHERE id = ?1",
             rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?))
+            |_| Ok(())
         ).map_err(|e| format!("card_not_found: {}", e))?;
 
         // MGR-014: причина деклайна — необязательный ручной ввод оператора,
@@ -145,15 +145,6 @@ pub(crate) fn update_card_status(id: i64, status: String, reason: Option<String>
         db.update_card_status(id, &status, Some(user.user_id), reason.as_deref())?;
         let _ = db.log_event("card.status_changed",
             &format!("Card {} status → {}", id, status), Some("card"), Some(&id.to_string()));
-
-        // FIX P1-RETRY-03: Push update to sync server with retry
-        let update = crate::models::CardSyncUpdate {
-            card_hash: hash,
-            status: status.clone(),
-            notes,
-            encrypted_data: None,
-        };
-        let _ = crate::sync::SyncGroupClient::push_card_updates(db, &[update]);
 
         Ok(())
     })
@@ -165,25 +156,16 @@ pub(crate) fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
-        // Get card_hash and status for sync
-        let (hash, cur_status): (String, String) = db.conn.query_row(
-            "SELECT card_hash, status FROM credit_cards WHERE id = ?1",
+        // Проверка существования карты (404-семантика, как у update_card_status)
+        db.conn.query_row(
+            "SELECT 1 FROM credit_cards WHERE id = ?1",
             rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?))
+            |_| Ok(())
         ).map_err(|e| format!("card_not_found: {}", e))?;
 
         db.update_card_notes(id, &notes)?;
         let _ = db.log_event("card.notes_updated",
             &format!("Card {} notes updated", id), Some("card"), Some(&id.to_string()));
-
-        // FIX P1-RETRY-04: Push update to sync server with retry
-        let update = crate::models::CardSyncUpdate {
-            card_hash: hash,
-            status: cur_status,
-            notes: Some(notes),
-            encrypted_data: None,
-        };
-        let _ = crate::sync::SyncGroupClient::push_card_updates(db, &[update]);
 
         Ok(())
     })
@@ -208,35 +190,10 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
 
-        // Get card_hash for each ID and build updates
-        let mut updates = Vec::with_capacity(ids.len());
-        for id in &ids {
-            let result: Result<(String, Option<String>), _> = db.conn.query_row(
-                "SELECT card_hash, notes FROM credit_cards WHERE id = ?1",
-                rusqlite::params![id],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
-            );
-
-            if let Ok((hash, notes)) = result {
-                if !hash.is_empty() {
-                    updates.push(crate::models::CardSyncUpdate {
-                        card_hash: hash,
-                        status: status.clone(),
-                        notes,
-                        encrypted_data: None,
-                    });
-                }
-            }
-        }
-
+        // MGR-018 (этап E1): групповой push выпилен — просто меняем статусы.
         db.bulk_update_status(&ids, &status, Some(user.user_id))?;
         let _ = db.log_event("card.bulk_status",
             &format!("{} cards → {}", ids.len(), status), Some("card"), None);
-
-        // FIX P1-RETRY-05: Push bulk update to sync server with retry
-        if !updates.is_empty() {
-            let _ = crate::sync::SyncGroupClient::push_card_updates(db, &updates);
-        }
 
         Ok(())
     })
@@ -250,17 +207,13 @@ pub(crate) fn archive_dead_cards() -> Result<u32, String> {
     let user = require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
-        let (count, updates) = db.archive_dead_cards(Some(user.user_id))?;
+        let count = db.archive_dead_cards(Some(user.user_id))?;
         if count > 0 {
             let _ = db.log_event(
                 "card.dead_archived",
                 &format!("{} dead cards archived (user-triggered)", count),
                 Some("card"), None,
             );
-            // FIX P1-RETRY-05: тот же канал, что и у bulk_update_cards
-            if !updates.is_empty() {
-                let _ = crate::sync::SyncGroupClient::push_card_updates(db, &updates);
-            }
         }
         Ok(count)
     })

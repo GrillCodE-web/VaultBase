@@ -491,7 +491,7 @@ pub(crate) fn has_panic_password() -> Result<bool, String> {
 #[tauri::command]
 pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("unlock"))?;
-    let (token, group_id, group_key) = with_db!(db, {
+    let token = with_db!(db, {
         let db_path = crate::state::db_path();
         let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
         let is_encrypted_db = Database::is_encrypted(db_path_str);
@@ -592,15 +592,13 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
         db.log_event("system.unlocked", "Database unlocked", Some("system"), None)
             .map_err(|e| e.to_string())?;
         let _ = auto_backup(db);
+        // MGR-018 (этап E1): sync_group_id/key больше не читаем — legacy
+        // sync-групп нет, WS подключается по одному токену лицензии (соло).
         let token = db.get_config("license_token").ok().flatten()
             .and_then(|t| if t.is_empty() { None } else {
                 db.encryption.as_ref().and_then(|enc| enc.decrypt(&t).ok())
             });
-        let group_id = db.get_config("sync_group_id").ok().flatten();
-        let group_key: Option<[u8; 32]> = db.get_config("sync_group_key").ok().flatten()
-            .and_then(|gk| db.encryption.as_ref()
-                .and_then(|enc| crate::encryption::resolve_group_key(&gk, enc)));
-        Ok::<(Option<String>, Option<String>, Option<[u8; 32]>), String>((token, group_id, group_key))
+        Ok::<Option<String>, String>(token)
     })?;
 
     // FIX B-MED-05: Сбрасываем атомарный флаг после успешного unlock
@@ -610,8 +608,7 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
 
     // Start WS sync in background (non-blocking)
     if let Some(h) = WS_HANDLE.get() {
-        h.set_group_key(group_key);
-        h.set_creds(token, group_id);
+        h.set_creds(token);
         ws_sync::start(app, h.clone());
     }
     Ok(())
@@ -638,8 +635,7 @@ pub(crate) fn lock() -> Result<(), String> {
     // Stop WS sync
     if let Some(h) = WS_HANDLE.get() {
         h.stop();
-        h.set_creds(None, None);
-        h.set_group_key(None);
+        h.set_creds(None);
     }
     
     tracing::info!("Lock completed successfully");

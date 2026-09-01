@@ -8,7 +8,6 @@ use crate::models;
 use crate::encryption::{FieldEncryption, PasswordValidation, generate_salt};
 use crate::license::LicenseStatus;
 use crate::rate_limiter;
-use crate::sync;
 use crate::imap;
 use crate::stuffer;
 use crate::smtp;
@@ -264,12 +263,8 @@ pub(crate) fn stuffer_add_courier_tag(
     let provider = active_provider_id()?;
     let hash = Database::courier_identity_hash(&provider, &name, &address1, &city, &state, &zip);
     with_db!(db, {
-        let added = db.add_courier_tag(&provider, courier_id, &hash, &tag)?;
-        if added {
-            // оффлайн/не в группе — Ok(false), тег остаётся локальным
-            let _ = sync::SyncGroupClient::push_courier_tag(db, &provider, &hash, &tag, "add");
-        }
-        Ok(added)
+        // MGR-018 (этап E1): пуш тега в sync-группу выпилен — теги локальные.
+        db.add_courier_tag(&provider, courier_id, &hash, &tag)
     })
 }
 
@@ -288,11 +283,7 @@ pub(crate) fn stuffer_remove_courier_tag(
     let provider = active_provider_id()?;
     let hash = Database::courier_identity_hash(&provider, &name, &address1, &city, &state, &zip);
     with_db!(db, {
-        let removed = db.remove_courier_tag(&provider, &hash, &tag)?;
-        if removed {
-            let _ = sync::SyncGroupClient::push_courier_tag(db, &provider, &hash, &tag, "remove");
-        }
-        Ok(removed)
+        db.remove_courier_tag(&provider, &hash, &tag)
     })
 }
 

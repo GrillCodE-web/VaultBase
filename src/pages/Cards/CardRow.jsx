@@ -47,7 +47,6 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
     revealed,
     selected,
     deletingIds,
-    flashedIds,
     statusMenuId,
     visibleCols,
     toggleSelect,
@@ -84,7 +83,6 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
   const statusLabel = card.status === 'in_use' ? 'in use' : card.status
   const badge = getBinBadge(card.card_type)
   const burnCount = card.orders_count ?? 0
-  const isFlashing = flashedIds.includes(card.id)
 
   // P2-QUARANTINE: Check if card is in quarantine (моложе QUARANTINE_DAYS)
   // Note: We use created_at as fallback since acquired_at may be null for older imports
@@ -103,7 +101,6 @@ export const CardRow = React.memo(function CardRow({ card, index }) {
 
   const rowClasses = [
     'card-row',
-    isFlashing && 'row-flash',
     selected.includes(card.id) && 'card-row-selected',
     card.status === 'free' && 'card-row-free',
     card.status === 'dead' && 'card-row-dead',

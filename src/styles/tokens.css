@@ -778,29 +778,8 @@
   }
 }
 
-/* ── Sync Flash (WebSocket update) ──────────────────────── */
-@keyframes row-flash {
-  0% {
-    background: rgba(20, 241, 149, 0.12);
-    border-left-color: var(--green);
-    box-shadow: 0 0 16px rgba(20, 241, 149, 0.2);
-  }
-  70% {
-    background: rgba(20, 241, 149, 0.05);
-    border-left-color: rgba(20, 241, 149, 0.4);
-    box-shadow: 0 0 8px rgba(20, 241, 149, 0.1);
-  }
-  100% {
-    background: transparent;
-    border-left-color: transparent;
-    box-shadow: none;
-  }
-}
-
-.row-flash {
-  animation: none;
-  transition: none !important;
-}
+/* MGR-018 (этап E1): .row-flash / @keyframes row-flash выпилены вместе с
+   групповым sync'ом (подсветка «живых» обновлений строк). */
 
 /* ── Additional Animations ──────────────────────────────── */
 
