@@ -1820,3 +1820,38 @@ store/ui.js/tokens.css/snapshots — т.е. потёртый мной WIP ею, 
 - Мусор прошлых сессий оставлен как есть: scripts/_recover/, probe-main/,
   design-mockups/, scripts/_tmp-* (мои _tmp_verify_flake/_tmp_main_* можно
   удалить после зелёного re-run теста).
+
+---
+
+## 2026-09-01 — @main: MGR-018 — финал: scoped re-run зелёный; push заблокирован архивом репозитория
+
+- **Scoped re-run подтверждён:** `cargo test --bin vaultbase
+database::perf_tests::test_cards_expiring_within -- --exact` → **ok
+  (1 passed, 231 filtered out, 23.90s, EXITCODE=0)**. Прогон в изолированном
+  detached-worktree `vb-verify-mgr018` @ HEAD (38f6b23) + копия `dist/`,
+  т.к. живое дерево manager-work несёт чужой некоммит-WIP REDESIGN-05-6
+  (их desktop.rs местами не компилируется — коммиченое состояние надо
+  проверять без него). Worktree после прогона удалён. Единственный «красный»
+  из прогона 231/232 (e6d23ca) закрыт подтверждением: фикс окна 14→40
+  работает на чистом HEAD.
+- Окружение cargo на этой машине (для будущих сессий): PATH +=
+  `C:\msys64\mingw64\bin` (иначе `dlltool not found` на
+  parking_lot_core/windows-sys при свежем target), `OPENSSL_DIR=C:\msys64\mingw64`
+  - `OPENSSL_NO_VENDOR=1` (иначе линкер падает на `_invoke_watson`).
+    Найден и убит мой осиротевший `cargo test perf_tests` с 17:05
+    (PID 18684/20900 — ждал лока build-директории, держал _tmp-cargo-test-flake2.log);
+    чужие `cargo check` REDESIGN-05-6 (16:43, 17:50) не тронуты.
+- Убраны свои _tmp-артефакты MGR-018 (патчи-сплитты `_tmp_main_*` /
+  `_tmp_cards_*`, `_tmp_verify_flake.*`, `_tmp_split_patch.py`,
+  `_tmp_stage_ws_sync.py`, логи прогонов mgr018/flake/flake2/verify-rerun).
+  Чужие и старые не тронуты: r56 (`_tmp-cargo-check-r56.*`,
+  `_tmp-r56-baseline.*`), от 31.08 (`_tmp-cargo-check*`, `_tmp-vite5174.*`).
+- **Push НЕВОЗМОЖЕН (внешний блокер, нужен владелец):** `git push origin
+main` → 403: репозиторий `github.com/GrillCodE-web/VaultBase`
+  **заархивирован на GitHub (read-only)**, других remote нет. Все 8
+  коммитов (daf64a7, 218e09f, f89c2de, 1dd8633, e6d23ca, 0eab860, 38f6b23
+  - этот log-коммит) локальны и целы; origin/main остаётся fd1a302. Когда
+    владелец разархивирует репо или даст новый remote — обычный ff-push,
+    конфликтов не будет. До тех пор обмен между сессиями — через worktree'и
+    этого клона (общий object store). MGR-018 по коду закрыт окончательно;
+    интеграция в origin отложена по внешнему блокеру.
