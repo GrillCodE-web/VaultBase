@@ -21,6 +21,8 @@ coverage/
 *.db-wal
 *.db.salt
 *.db.plaintext.bak
+# REDESIGN-05-6: локальные десктоп-настройки (трей/окна/panic-хоткей)
+desktop.json
 *.xlsx
 *.csv
 *.zip

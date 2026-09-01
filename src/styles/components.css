@@ -5097,6 +5097,35 @@
   color: var(--accent);
 }
 
+/* REDESIGN-05-6: глобальный D&D — полнооконный оверлей при перетаскивании файла */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) - 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-modal);
+  pointer-events: none; /* не перехватываем drop — слушатели висят на window */
+}
+
+.drop-overlay-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 48px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-dim);
+}
+
+.drop-overlay-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* Грип перетаскивания строки (UX-011): виден при наведении на строку,
    иначе «⠿» висит мусором в каждой первой ячейке (паттерн .col-grip) */
 .tbl tr .row-grip {

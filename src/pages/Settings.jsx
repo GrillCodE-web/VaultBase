@@ -36,6 +36,7 @@ import { LicenseSection } from '../components/LicenseSection'
 import { STATUS_COLORS } from '../constants/colors'
 import { useLiteRulesStore, RULE_TEMPLATES } from '../store/liteRules.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+import { desktopApi } from '../api/desktop.js'
 
 const THEME_OPTIONS = [
   { value: 'system', label: 'System', Icon: Monitor },
@@ -122,6 +123,10 @@ export default function Settings() {
   const [panicSet, setPanicSet] = useState(false)
   const [panicInput, setPanicInput] = useState('')
   const [panicSaving, setPanicSaving] = useState(false)
+  // REDESIGN-05-6: десктоп-натив (трей/окна/panic-хоткей) — desktop.json, не БД
+  const [desktopCfg, setDesktopCfg] = useState(null)
+  const [hotkeyDraft, setHotkeyDraft] = useState('')
+  const [hotkeyRecording, setHotkeyRecording] = useState(false)
   const [catalogStats, setCatalogStats] = useState(null)
 
   useEffect(() => {
@@ -141,6 +146,12 @@ export default function Settings() {
       }),
       invoke('get_config', { key: 'always_on_top' }).then(v => {
         if (!cancelled) setAlwaysOnTop(v === '1')
+      }),
+      desktopApi.getConfig().then(cfg => {
+        if (!cancelled && cfg) {
+          setDesktopCfg(cfg)
+          setHotkeyDraft(cfg.panic_hotkey || '')
+        }
       }),
       invoke('get_config', { key: 'autolock_timeout' }).then(v => {
         if (!cancelled && v) setAutoLock(v)
@@ -271,6 +282,85 @@ export default function Settings() {
       const error = handleError(e, 'Settings.toggleAlwaysOnTop')
       toastErr(getErrorMessage(error))
     }
+  }
+
+  // REDESIGN-05-6: десктоп-натив (desktop.json)
+  const handleStartMinimized = async val => {
+    setDesktopCfg(c => ({ ...c, start_minimized: val }))
+    try {
+      await desktopApi.setStartMinimized(val)
+    } catch (e) {
+      setDesktopCfg(c => ({ ...c, start_minimized: !val }))
+      const error = handleError(e, 'Settings.startMinimized')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleFloatAot = async val => {
+    setDesktopCfg(c => ({ ...c, float_aot: val }))
+    try {
+      await desktopApi.setFloatAot(val)
+    } catch (e) {
+      setDesktopCfg(c => ({ ...c, float_aot: !val }))
+      const error = handleError(e, 'Settings.floatAot')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handlePreset = async preset => {
+    try {
+      await desktopApi.applyWindowPreset(preset)
+      toastOk(t('preset_applied'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.applyPreset')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleResetLayout = async () => {
+    try {
+      await desktopApi.resetWindowLayout()
+      toastOk(t('desktop_reset_done'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.resetLayout')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const savePanicHotkey = async combo => {
+    try {
+      const norm = await desktopApi.setPanicHotkey(combo || null)
+      setHotkeyDraft(norm || '')
+      toastOk(t(combo ? 'desktop_hotkey_saved' : 'desktop_hotkey_cleared'))
+    } catch (e) {
+      const error = handleError(e, 'Settings.panicHotkey')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  // Запись хоткея: ловим keydown в readonly-поле. Delete/Backspace — снять.
+  const handleHotkeyKeyDown = e => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.key === 'Escape') {
+      e.currentTarget.blur()
+      return
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      void savePanicHotkey(null)
+      e.currentTarget.blur()
+      return
+    }
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return
+    const parts = []
+    if (e.ctrlKey) parts.push('Ctrl')
+    if (e.metaKey) parts.push('Super')
+    if (e.altKey) parts.push('Alt')
+    if (e.shiftKey) parts.push('Shift')
+    if (parts.length === 0) return // panic-клавиша обязана иметь модификатор
+    parts.push(e.key === ' ' ? 'Space' : e.key)
+    e.currentTarget.blur()
+    void savePanicHotkey(parts.join('+'))
   }
 
   const handleReminderCardDays = async val => {
@@ -686,6 +776,74 @@ export default function Settings() {
             </label>
           </div>
         </div>
+
+        {/* REDESIGN-05-6: десктоп-натив — трей, пресеты окон, panic-клавиша */}
+        {desktopCfg && (
+          <div className="panel">
+            <div className="ptitle">
+              <Monitor size={13} className="inline mr-1.5" />
+              {t('desktop_section')}
+            </div>
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-title">{t('desktop_start_minimized')}</div>
+              </div>
+              <label className="toggle-wrap">
+                <input
+                  type="checkbox"
+                  checked={!!desktopCfg.start_minimized}
+                  onChange={e => handleStartMinimized(e.target.checked)}
+                />
+                <span className="track" />
+              </label>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-title">{t('desktop_float_aot')}</div>
+              </div>
+              <label className="toggle-wrap">
+                <input
+                  type="checkbox"
+                  checked={desktopCfg.float_aot ?? true}
+                  onChange={e => handleFloatAot(e.target.checked)}
+                />
+                <span className="track" />
+              </label>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-title">{t('desktop_presets')}</div>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {['compact', 'standard', 'large'].map(p => (
+                  <button key={p} onClick={() => handlePreset(p)} className="btn btn-sm btn-ghost">
+                    {t(`preset_${p}`)}
+                  </button>
+                ))}
+                <button onClick={handleResetLayout} className="btn btn-sm btn-ghost">
+                  {t('desktop_reset_layout')}
+                </button>
+              </div>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-title">{t('desktop_hotkey_label')}</div>
+                <div className="setting-desc">{t('desktop_hotkey_hint')}</div>
+              </div>
+              <input
+                type="text"
+                readOnly
+                className="form-input mono text-12"
+                style={{ width: 200, cursor: 'pointer', textAlign: 'center' }}
+                placeholder={t('desktop_hotkey_not_set')}
+                value={hotkeyRecording ? t('desktop_hotkey_recording') : hotkeyDraft}
+                onFocus={() => setHotkeyRecording(true)}
+                onBlur={() => setHotkeyRecording(false)}
+                onKeyDown={handleHotkeyKeyDown}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Dock Badge */}
         <div className="panel">
@@ -1354,7 +1512,6 @@ export default function Settings() {
             )
           })}
         </div>
-
       </div>
 
       {/* Catalog */}

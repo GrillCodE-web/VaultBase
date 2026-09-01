@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Import } from 'lucide-react'
 import { useLang } from '../../hooks/useLang'
@@ -6,9 +6,11 @@ import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { Modal } from '../../components/Modal.jsx'
 
-export function ImportDropsModal({ profileId, onDone, onClose }) {
+export function ImportDropsModal({ profileId, initialRaw, onDone, onClose }) {
   const [step, setStep] = useState(1)
-  const [raw, setRaw] = useState('')
+  // REDESIGN-05-6: initialRaw — текст из глобального D&D (GlobalDropImport):
+  // шаг «вставьте текст» пропускается, маппинг запускается автоматически.
+  const [raw, setRaw] = useState(initialRaw || '')
   const [mapping, setMapping] = useState([])
   const [preview, setPreview] = useState(null)
   const [result, setResult] = useState(null)
@@ -44,6 +46,15 @@ export function ImportDropsModal({ profileId, onDone, onClose }) {
       setLoading(false)
     }
   }
+
+  // REDESIGN-05-6: с initialRaw сразу идём на превью маппинга
+  useEffect(() => {
+    if (initialRaw?.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка превью
+      handlePreview()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- только на монтировании
+  }, [])
 
   const handleImport = async () => {
     setLoading(true)

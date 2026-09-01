@@ -330,9 +330,11 @@ function ProxyModal({ initial, onSave, onClose }) {
 
 // ─── Import modal ─────────────────────────────────────────────
 // REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
-function ImportModal({ onDone, onClose }) {
+// REDESIGN-05-6: export + initialRaw — переиспользуется глобальным D&D
+// (components/GlobalDropImport.jsx) как модалка-подтверждение импорта прокси.
+export function ImportModal({ initialRaw, onDone, onClose }) {
   const { t } = useLang()
-  const [raw, setRaw] = useState('')
+  const [raw, setRaw] = useState(initialRaw || '')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const { toast } = usePremiumToast()

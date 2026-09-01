@@ -6,6 +6,7 @@ mod commands;
 mod config;  // SPRINT3-DAY3: TOML configuration management
 mod constants;  // FIX CRITICAL: Centralized configuration (URLs, timeouts, limits)
 mod database;
+mod desktop;
 mod encryption;
 mod endpoints;
 mod imap;
@@ -19,6 +20,7 @@ mod state;
 mod stuffer;
 mod sync;
 mod tracking;
+mod tray;
 mod wipe; // MGR-013: локальное криптостирание (panic-пароль / remote wipe)
 mod ws_sync;
 
@@ -222,6 +224,14 @@ fn main() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        // REDESIGN-05-6: глобальная panic-клавиша (регистрация — desktop::apply_startup)
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    desktop::on_panic_shortcut(app, shortcut, event.state());
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());
 
@@ -269,10 +279,18 @@ fn main() {
                 float_win.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
+                        // REDESIGN-05-6: запоминаем геометрию float перед скрытием
+                        desktop::save_bounds_for(&fwc, "float");
                         let _ = fwc.hide();
                     }
                 });
             }
+            // REDESIGN-05-6: трей + десктоп-конфиг (геометрия окон, float AOT,
+            // panic-хоткей, запуск свёрнутым). Ошибка трея не валит запуск.
+            if let Err(e) = tray::setup_tray(app) {
+                tracing::warn!(error = %e, "tray setup failed");
+            }
+            desktop::apply_startup(app);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -392,6 +410,11 @@ fn main() {
             commands::automation::get_automation_rule_runs,
             // PHASE 2: Shop Statistics Enhancement
             commands::automation::get_shop_stats_v2_cmd,
+            // REDESIGN-05-6: десктоп-натив (трей, пресеты окон, panic)
+            commands::desktop_get_config, commands::desktop_set_start_minimized,
+            commands::desktop_set_float_aot, commands::desktop_set_panic_hotkey,
+            commands::window_apply_preset, commands::window_reset_layout,
+            commands::panic_wipe,
         ])
         .build(tauri::generate_context!())
         // FIX CRITICAL: Graceful error handling instead of panic
@@ -407,7 +430,12 @@ fn main() {
             // освободить пул соединений БД (иначе на Windows остаются
             // file locks на .db/-wal до смерти процесса).
             if let tauri::RunEvent::ExitRequested { .. } = event {
+                // REDESIGN-05-6: сохранить геометрию окон перед выходом
+                if let Some(win) = app_handle.get_webview_window("main") {
+                    desktop::save_bounds_for(&win, "main");
+                }
                 if let Some(float_win) = app_handle.get_webview_window("float") {
+                    desktop::save_bounds_for(&float_win, "float");
                     let _ = float_win.destroy();
                 }
                 if let Some(st) = STATE.get() {

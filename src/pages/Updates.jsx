@@ -2,7 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { check as checkUpdate } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { RefreshCw, Package, CheckCircle, Receipt, XCircle, AlertTriangle, Pin } from 'lucide-react'
+import {
+  RefreshCw,
+  Package,
+  CheckCircle,
+  Receipt,
+  XCircle,
+  AlertTriangle,
+  Pin,
+  Download,
+} from 'lucide-react'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useLang } from '../hooks/useLang.jsx'
 import DataLoader from '../components/DataLoader.jsx'
@@ -158,6 +167,7 @@ export default function Updates() {
   const [downloadState, setDownloadState] = useState('idle') // idle | downloading | ready | installed
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [dismissed, setDismissed] = useState(false)
+  const [checking, setChecking] = useState(false)
 
   // FIX P2-5: Track cancelled state to prevent setState after unmount
   const cancelledRef = useRef(false)
@@ -292,6 +302,26 @@ export default function Updates() {
     setRefreshing(true)
     loadData(true)
   }
+
+  // REDESIGN-05-6: ручная проверка обновления приложения (вне авто-проверки при монтировании)
+  const handleManualCheck = async () => {
+    setChecking(true)
+    try {
+      const update = await checkUpdate()
+      if (update?.available && localStorage.getItem(INSTALLED_VER_KEY) !== update.version) {
+        setUpdateAvailable(update)
+        setDismissed(false)
+        toast(`${t('upd_available_toast')}: v${update.version}`, 'success')
+      } else {
+        toast(t('upd_current_version'), 'success')
+      }
+    } catch (e) {
+      console.error('[Updates] Manual update check failed:', e)
+      toast(t('upd_load_failed'), 'error')
+    } finally {
+      setChecking(false)
+    }
+  }
   const handleApplyTrack = item => toast(`Track applied for item ${item.id}`, 'success')
   const handleIgnore = item => setItems(prev => prev.filter(i => i.id !== item.id))
 
@@ -316,13 +346,17 @@ export default function Updates() {
           <div className="ph-sub">{t('upd_imap_monitors')}</div>
         </div>
         <div className="ph-actions">
+          {/* REDESIGN-05-6: обновление в один клик — ручная проверка */}
+          <button className="btn btn-ghost btn-sm" onClick={handleManualCheck} disabled={checking}>
+            <Download size={14} /> {checking ? t('upd_checking') : t('upd_check_now')}
+          </button>
           <button
             className="btn btn-ghost btn-sm"
             onClick={handleRefresh}
             disabled={loading || refreshing}
           >
             {refreshing ? (
-              '…'
+              '...'
             ) : (
               <>
                 <RefreshCw size={13} /> {t('upd_refresh')}
