@@ -1919,3 +1919,17 @@ main` → 403: репозиторий `github.com/GrillCodE-web/VaultBase`
   cargo check ok (tauri 2.11.5, GNU toolchain, нужен PATH+=C:\msys64\mingw64\bin
   иначе windres not found), audit_frontend 0/0.
 - **Все 13 dependabot-веток удалены с origin.** Остались: main, agent/desktop (архив).
+
+## 2026-09-02 (доп.4) — @main: финальная зачистка (по решению владельца)
+
+- **design-mockups/** закоммичены (8649120) — 7 HTML-концептов для планирования v3
+  (terminal-pro, glass-workstation, neo-brutalist, neon-hud, adaptive).
+- **origin/agent/desktop удалён** — старая редакция REDESIGN-05-6 больше не нужна
+  (в main вошла редакция 8ba9ce4). На origin остался только main.
+- **cargo clean** в src-tauri: освобождено ~19,9 ГБ (диск C: 38,9 → 55,2 ГБ свободно).
+  Бандлы 2.12.0 предварительно скопированы в `C:\PROJECT\by GrillCodE\VaultBase\release-2.12.0\bundle\`
+  (msi + msi.sig + setup.exe + setup.exe.sig). Расплата: следующая release-сборка
+  с нуля (~8 мин Rust). Напоминание окружения: PATH += C:\msys64\mingw64\bin,
+  OPENSSL_DIR=C:\msys64\mingw64, OPENSSL_NO_VENDOR=1.
+- **vb-baseline** оставлен (0,14 ГБ, эталон для аудитов).
+- PERF-010 и CLEAN-003 не тронуты по решению владельца.
