@@ -1897,3 +1897,25 @@ main` → 403: репозиторий `github.com/GrillCodE-web/VaultBase`
 - **REDESIGN-05-6 закрыт в MASTER_CHECKLIST.md**: ✅ @main (8ba9ce4, вошла в 2.12.0);
   автообновление реализовано как ручная проверка, «в один клик» не делалось.
   Открытыми остаются PERF-010 и CLEAN-003 (🔄 @b). Итог: 226 пунктов, открыто 2.
+
+## 2026-09-02 (доп.3) — @main: dependabot-хвост закрыт (13 веток)
+
+- **GitHub Actions** (коммит 34b7942): подняты checkout@v7, setup-node@v7,
+  cache@v6, upload-artifact@v7, codecov-action@v7, tauri-action@v1 — в test.yml,
+  build-release.yml, build-manager-release.yml.
+- **npm minor-patch** (9f594a9 + 15bc419): vite 8.2.2, plugin-react 6.1.1,
+  vitest-coverage 4.1.11, lint-staged 17.4.1, zustand 5.0.15, lucide-react 1.37.0,
+  react-virtual 3.14.10, @testing-library, rollup-plugin-visualizer и др.
+  Dependabot перевыпустил ветку (rebase) по ходу — добрал lucide 1.37/plugin-react 6.1.1
+  отдельным мержем (15bc419), конфликты package.json+lock разрешены в theirs.
+- **cargo minor-patch** (9a5e6dd): tauri 2.11.1->2.11.5, serde 1.0.229,
+  serde_json 1.0.151, uuid 1.26.0, chrono 0.4.45. Ветка старая (104 коммита позади),
+  Cargo.toml конфликтовал — взят ours (сохранены version=2.12.0 и REDESIGN-05-6
+  фичи tray-icon + global-shortcut), обновился только Cargo.lock.
+- **Мажоры НЕ взяты в 2.12.x** (ломают API, риск на релизе): bcrypt 0.19.3,
+  sha2 0.11.0, dirs 6.0.0, ureq 3.4.0, eslint 10.9.1, @eslint/js 10.0.1 — ветки удалены.
+  Брать осознанно под v3 с прогоном тестов.
+- **Проверки зелёные:** eslint 0 err (7 pre-existing warnings), vitest 344/344,
+  cargo check ok (tauri 2.11.5, GNU toolchain, нужен PATH+=C:\msys64\mingw64\bin
+  иначе windres not found), audit_frontend 0/0.
+- **Все 13 dependabot-веток удалены с origin.** Остались: main, agent/desktop (архив).
