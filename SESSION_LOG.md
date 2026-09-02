@@ -1864,3 +1864,11 @@ main` → 403: репозиторий `github.com/GrillCodE-web/VaultBase`
   fast-forward fd1a302..d774fa3**; `git ls-remote origin main` = локальному
   HEAD (d774fa3). Все 8 коммитов MGR-018-финала теперь в origin/main.
   Блокер из предыдущей записи снят, синхронизация с origin восстановлена.
+
+## 2026-09-02 — @main: production-сборка 2.12.0 (по запросу владельца)
+
+- `npm run tauri build` на HEAD 80f71c2: release-профиль 8м09с, **2 бандла готовы**:
+  `src-tauri/target/release/bundle/msi/VaultBase_2.12.0_x64_en-US.msi` (17,5 МБ) и
+  `.../nsis/VaultBase_2.12.0_x64-setup.exe` (12,1 МБ); exe ProductVersion = 2.12.0.
+- Грабля для будущих сборок в cmd: `set OPENSSL_DIR=C:\msys64\mingw64&&` — без пробела перед `&&`, иначе trailing space ломает openssl-sys (`include directory does not exist: C:\msys64\mingw64 \include`).
+- НЕ сделано: подпись updater-артефактов — в tauri.conf.json задан pubkey, а `TAURI_SIGNING_PRIVATE_KEY` на машине нет → `.sig` не сгенерированы (автообновление со старой версии на этот бандл без sig не сработает; установщики полноценны). Ключ у владельца.
