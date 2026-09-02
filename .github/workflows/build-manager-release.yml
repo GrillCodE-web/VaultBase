@@ -90,7 +90,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri (manager-app)
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # ОТДЕЛЬНЫЙ ключ подписи менеджера (не воркерский), см. docs/RELEASE.md §9.
