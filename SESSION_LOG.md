@@ -1878,3 +1878,22 @@ main` → 403: репозиторий `github.com/GrillCodE-web/VaultBase`
 - Ключ нашёлся: `.secrets/vaultbase-updater.key` (07.08, .pub совпал с `plugins.updater.pubkey` в tauri.conf.json; `vaultbase-manager-updater.key` — для manager-app, НЕ подходит).
 - Подписано напрямую: `tauri signer sign --private-key-path .secrets/vaultbase-updater.key --password ` + файл → `.msi.sig` и `.x64-setup.exe.sig` рядом с бандлами. Ключ с пустым паролем.
 - Грабли: 1) `TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ''` в PowerShell УДАЛЯЕТ переменную → tauri-cli висит на интерактивном промпте пароля (убит PID 15088); 2) `signer sign` принимает ровно ОДИН файл за вызов.
+
+## 2026-09-02 (доп.2) — @main: зачистка сессий + закрытие REDESIGN-05-6 (по запросу владельца)
+
+- **Ворктри удалены** (6 шт., ~28,4 ГБ на диске): agent-backend, agent-desktop,
+  agent-frontend, agent-night, agent-redesign, agent-upanel. Остались manager-work
+  и vb-baseline (эталон, 0,14 ГБ).
+- Перед удалением проверено: agent-night WIP = FEAT-002, уже в main (8953f73);
+  agent-desktop (3 коммита старой редакции REDESIGN-05-6, 7bbfbd4) сохранён на
+  origin/agent/desktop — код не потерян. Остальные ветки влиты в main.
+- _*Локальные ветки agent/* удалены_* (5 шт. -d, desktop -D).
+- **Remote-ветки удалены**: origin/agent/backend (только пустой claim DEVOPS-003),
+  origin/agent/frontend, origin/agent/redesign (обе влиты). origin/agent/desktop
+  оставлен по решению владельца.
+- **Мусор в manager-work**: scripts/_tmp-* (20 файлов r56-проверок), **pycache**,
+  _recover (страховочные копии от 31.08 — всё закоммичено), probe-main (junction).
+  design-mockups/ — макеты владельца, не трогали.
+- **REDESIGN-05-6 закрыт в MASTER_CHECKLIST.md**: ✅ @main (8ba9ce4, вошла в 2.12.0);
+  автообновление реализовано как ручная проверка, «в один клик» не делалось.
+  Открытыми остаются PERF-010 и CLEAN-003 (🔄 @b). Итог: 226 пунктов, открыто 2.
