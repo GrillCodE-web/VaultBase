@@ -1872,3 +1872,9 @@ main` → 403: репозиторий `github.com/GrillCodE-web/VaultBase`
   `.../nsis/VaultBase_2.12.0_x64-setup.exe` (12,1 МБ); exe ProductVersion = 2.12.0.
 - Грабля для будущих сборок в cmd: `set OPENSSL_DIR=C:\msys64\mingw64&&` — без пробела перед `&&`, иначе trailing space ломает openssl-sys (`include directory does not exist: C:\msys64\mingw64 \include`).
 - НЕ сделано: подпись updater-артефактов — в tauri.conf.json задан pubkey, а `TAURI_SIGNING_PRIVATE_KEY` на машине нет → `.sig` не сгенерированы (автообновление со старой версии на этот бандл без sig не сработает; установщики полноценны). Ключ у владельца.
+
+### 2026-09-02 (доп.): updater-подписи 2.12.0 — закрыто
+
+- Ключ нашёлся: `.secrets/vaultbase-updater.key` (07.08, .pub совпал с `plugins.updater.pubkey` в tauri.conf.json; `vaultbase-manager-updater.key` — для manager-app, НЕ подходит).
+- Подписано напрямую: `tauri signer sign --private-key-path .secrets/vaultbase-updater.key --password ` + файл → `.msi.sig` и `.x64-setup.exe.sig` рядом с бандлами. Ключ с пустым паролем.
+- Грабли: 1) `TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ''` в PowerShell УДАЛЯЕТ переменную → tauri-cli висит на интерактивном промпте пароля (убит PID 15088); 2) `signer sign` принимает ровно ОДИН файл за вызов.
