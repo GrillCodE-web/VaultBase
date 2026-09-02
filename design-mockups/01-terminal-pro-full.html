@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>01 · Terminal Pro (interactive) — VaultBase</title>
+<style>
+  :root{
+    --bg:#0a0e15; --surface:#0e131e; --hover:#161d2b;
+    --hairline:#1b2231; --hairline2:#232c40;
+    --text:#d7deea; --t2:#8a94a8; --t3:#566078;
+    --accent:#5e6ad2; --accent-dim:rgba(94,106,210,.14);
+    --green:#4ade80; --yellow:#facc15; --red:#f87171; --blue:#60a5fa; --purple:#c084fc;
+    --mono:ui-monospace,'SF Mono','Cascadia Mono',Consolas,monospace;
+    --ui:-apple-system,'Segoe UI','Inter',system-ui,sans-serif;
+    --row-h:26px;
+  }
+  body.compact{--row-h:22px}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font:12px/1.45 var(--ui);-webkit-font-smoothing:antialiased;overflow:hidden}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  svg{display:block}
+  kbd{font:600 9px var(--mono);color:var(--t3);border:1px solid var(--hairline2);border-radius:4px;padding:1px 5px;background:var(--surface)}
+
+  .app{display:flex;height:100vh}
+
+  /* rail */
+  .rail{width:56px;background:var(--surface);border-right:1px solid var(--hairline);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;flex-shrink:0}
+  .rail .logo{width:32px;height:32px;border-radius:8px;background:var(--accent);display:grid;place-items:center;font:700 12px var(--mono);color:#fff;margin-bottom:10px}
+  .ri{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--t3);position:relative;cursor:pointer;border:0;background:none}
+  .ri:hover{background:var(--hover);color:var(--t2)}
+  .ri.on{background:var(--accent-dim);color:#a5b0f5}
+  .ri.on::before{content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:2px;background:var(--accent);border-radius:2px}
+  .ri .bdg{position:absolute;top:2px;right:2px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--accent);color:#fff;font:600 9px/14px var(--mono);text-align:center}
+  .rsep{width:20px;height:1px;background:var(--hairline2);margin:6px 0}
+  .rsp{flex:1}
+
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .cmdbar{height:42px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--surface);flex-shrink:0}
+  .crumb{font:500 11px var(--mono);color:var(--t3)}
+  .crumb b{color:var(--t2);font-weight:500}
+  .cmdk{width:420px;height:26px;border:1px solid var(--hairline2);border-radius:6px;background:var(--bg);display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--t3);font:11px var(--ui);cursor:pointer;margin:0 auto}
+  .cmdk kbd{margin-left:auto}
+  .cb-r{display:flex;align-items:center;gap:14px}
+  .sync{display:flex;align-items:center;gap:6px;font:10px var(--mono);color:var(--t3)}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+  .avatar{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#5e6ad2,#8b5cf6);display:grid;place-items:center;font:700 9px var(--mono);color:#fff;cursor:pointer}
+
+  .workspace{flex:1;display:flex;min-height:0}
+  .content{flex:1;overflow:auto;padding:14px 16px;min-width:0}
+  .view{display:none}
+  .view.on{display:block}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--hairline);border-radius:8px;overflow:hidden;background:var(--surface)}
+  .stat{padding:10px 14px;border-right:1px solid var(--hairline)}
+  .stat:last-child{border-right:0}
+  .stat .l{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+  .stat .v{font:600 20px/1.2 var(--mono);margin-top:4px}
+  .stat .d{font:10px var(--mono);margin-top:2px}
+  .up{color:var(--green)} .dn{color:var(--red)}
+
+  .fbar{display:flex;align-items:center;gap:8px;margin:12px 0 10px}
+  .chip{height:22px;padding:0 10px;border:1px solid var(--hairline2);border-radius:11px;display:flex;align-items:center;gap:6px;font:11px var(--ui);color:var(--t2);cursor:pointer;background:transparent}
+  .chip:hover{border-color:var(--t3)}
+  .chip.on{background:var(--accent-dim);border-color:transparent;color:#a5b0f5}
+  .chip .n{font:10px var(--mono);color:var(--t3)}
+  .chip.on .n{color:#a5b0f5}
+  .fsearch{margin-left:auto;width:200px;height:26px;border:1px solid var(--hairline2);border-radius:6px;background:var(--bg);color:var(--text);font:11px var(--ui);padding:0 10px;outline:none}
+  .fsearch:focus{border-color:var(--accent)}
+  .fsearch::placeholder{color:var(--t3)}
+
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  body.compact table{font-size:11px}
+  thead th{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--t3);text-align:left;padding:0 12px;height:28px;border-bottom:1px solid var(--hairline2);position:sticky;top:0;background:var(--bg)}
+  tbody td{height:var(--row-h);padding:0 12px;border-bottom:1px solid var(--hairline);color:var(--t2);white-space:nowrap}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--hover)}
+  tbody tr.sel{background:var(--accent-dim)}
+  tbody tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+  .id{font:11px var(--mono);color:var(--t3)}
+  .strong{color:var(--text);font-weight:500}
+  .sum{font-family:var(--mono);color:var(--text)}
+  .pan{font:11px var(--mono);color:var(--t3)}
+  .st{display:inline-flex;align-items:center;gap:5px;font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+  .st i{width:5px;height:5px;border-radius:50%;background:currentColor}
+  .st-p{color:var(--yellow)} .st-pr{color:var(--blue)} .st-s{color:var(--purple)} .st-d{color:var(--green)} .st-x{color:var(--red)}
+  .risk{display:inline-flex;align-items:center;gap:5px;font:500 10px var(--mono)}
+  .risk i{width:6px;height:6px;border-radius:2px;background:currentColor}
+  .r-low{color:var(--green)} .r-med{color:var(--yellow)} .r-high{color:var(--red)}
+
+  /* inspector */
+  .insp{width:330px;border-left:1px solid var(--hairline);background:var(--surface);display:none;flex-direction:column;overflow:auto;flex-shrink:0}
+  .insp.on{display:flex}
+  .insp-h{padding:12px 14px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:10px}
+  .insp-h .t{font:600 13px var(--ui)}
+  .pill{margin-left:auto;height:20px;padding:0 8px;border-radius:10px;font:600 10px var(--mono);text-transform:uppercase;display:flex;align-items:center;gap:5px}
+  .pill.p{background:rgba(250,204,21,.12);color:var(--yellow)}
+  .pill.d{background:rgba(74,222,128,.12);color:var(--green)}
+  .pill.s{background:rgba(192,132,252,.12);color:var(--purple)}
+  .pill.x{background:rgba(248,113,113,.12);color:var(--red)}
+  .pill.pr{background:rgba(96,165,250,.12);color:var(--blue)}
+  .ifield{display:flex;justify-content:space-between;align-items:center;padding:7px 14px;border-bottom:1px solid var(--hairline);font-size:11px}
+  .ifield .k{color:var(--t3);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+  .ifield .v{font-family:var(--mono);color:var(--text)}
+  .isec{padding:12px 14px 6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+  .iacts{margin-top:auto;padding:12px 14px;border-top:1px solid var(--hairline);display:flex;gap:8px}
+  .btn{height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--hairline2);background:transparent;color:var(--text);font:500 11px var(--ui);cursor:pointer}
+  .btn:hover{background:var(--hover)}
+  .btn.pri{background:var(--accent);border-color:transparent;color:#fff}
+  .btn.dgr{color:var(--red)}
+
+  /* statusbar */
+  .statusbar{height:26px;border-top:1px solid var(--hairline);background:var(--surface);display:flex;align-items:center;gap:16px;padding:0 14px;font:10px var(--mono);color:var(--t3);flex-shrink:0}
+  .statusbar .ok{color:var(--green)}
+  .statusbar .r{margin-left:auto;display:flex;gap:16px;align-items:center}
+  .dens{display:flex;border:1px solid var(--hairline2);border-radius:5px;overflow:hidden}
+  .dens span{padding:1px 8px;cursor:pointer;font-size:9px;letter-spacing:.06em}
+  .dens span.on{background:var(--accent-dim);color:#a5b0f5}
+
+  /* command palette */
+  .ovl{position:fixed;inset:0;background:rgba(4,6,10,.6);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:100}
+  .ovl.on{display:flex}
+  .pal{width:560px;background:var(--surface);border:1px solid var(--hairline2);border-radius:10px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+  .pal-in{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--hairline)}
+  .pal-in input{flex:1;background:none;border:0;outline:none;color:var(--text);font:14px var(--ui)}
+  .pal-in input::placeholder{color:var(--t3)}
+  .pal-list{max-height:320px;overflow:auto;padding:6px}
+  .pal-i{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--t2)}
+  .pal-i .k{margin-left:auto;font:10px var(--mono);color:var(--t3)}
+  .pal-i.sel,.pal-i:hover{background:var(--accent-dim);color:var(--text)}
+  .pal-cap{padding:6px 12px 2px;font:600 9px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+
+  /* modal */
+  .movl{position:fixed;inset:0;background:rgba(4,6,10,.6);display:none;align-items:center;justify-content:center;z-index:110}
+  .movl.on{display:flex}
+  .modal{width:480px;background:var(--surface);border:1px solid var(--hairline2);border-radius:10px;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+  .m-h{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--hairline)}
+  .m-h .t{font:600 13px var(--ui)}
+  .m-x{margin-left:auto;color:var(--t3);cursor:pointer;border:0;background:none;font-size:15px}
+  .m-b{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .m-f{display:flex;flex-direction:column;gap:5px}
+  .m-f.full{grid-column:span 2}
+  .m-f label{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
+  .m-f input,.m-f select{height:30px;border:1px solid var(--hairline2);border-radius:6px;background:var(--bg);color:var(--text);font:12px var(--ui);padding:0 10px;outline:none}
+  .m-f input:focus,.m-f select:focus{border-color:var(--accent)}
+  .m-f{display:flex}
+  .m-f2{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--hairline)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="rail" id="rail">
+    <div class="logo">VB</div>
+    <button class="ri on" data-view="dashboard" title="Дашборд"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></button>
+    <button class="ri" data-view="orders" title="Ордера"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="bdg">37</span></button>
+    <button class="ri" data-view="cards" title="Карты"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></button>
+    <div class="rsep"></div>
+    <button class="ri" title="Профили"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg></button>
+    <button class="ri" title="Прокси"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg></button>
+    <button class="ri" title="Почта"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg><span class="bdg">4</span></button>
+    <div class="rsp"></div>
+    <button class="ri" title="Настройки"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg></button>
+  </aside>
+
+  <div class="main">
+    <header class="cmdbar">
+      <span class="crumb">vaultbase <b>/</b> <span id="crumb-view">дашборд</span></span>
+      <div class="cmdk" id="cmdk">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Поиск, действия, переходы… <kbd>⌘K</kbd>
+      </div>
+      <div class="cb-r">
+        <span class="sync"><span class="dot"></span>sync</span>
+        <div class="avatar">AD</div>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <section class="content">
+
+        <!-- DASHBOARD -->
+        <div class="view on" id="v-dashboard">
+          <div class="stats">
+            <div class="stat"><div class="l">Выручка сегодня</div><div class="v">$4,280</div><div class="d up">▲ 12.4% к вчера</div></div>
+            <div class="stat"><div class="l">Активные ордера</div><div class="v">37</div><div class="d up">▲ 5 новых</div></div>
+            <div class="stat"><div class="l">Карты live</div><div class="v">124<span style="color:var(--t3);font-size:13px">/206</span></div><div class="d" style="color:var(--t3)">60% пула</div></div>
+            <div class="stat"><div class="l">Прибыль / неделя</div><div class="v">$9,731</div><div class="d dn">▼ 3.1%</div></div>
+          </div>
+          <div class="fbar"><span class="id">НАЖМИ ⌘K — ПАЛИТРА КОМАНД · НАЖМИ «ОРДЕРА» В РЕЙЛЕ — ТАБЛИЦА + ИНСПЕКТОР · СНИЗУ — ПЕРЕКЛЮЧАТЕЛЬ ПЛОТНОСТИ</span></div>
+          <table>
+            <thead><tr><th>#</th><th>Магазин</th><th>Покупатель</th><th>Карта</th><th>Сумма</th><th>Статус</th><th>Обновлён</th></tr></thead>
+            <tbody id="dash-rows"></tbody>
+          </table>
+        </div>
+
+        <!-- ORDERS -->
+        <div class="view" id="v-orders">
+          <div class="fbar">
+            <button class="chip on">Все <span class="n">206</span></button>
+            <button class="chip">Pending <span class="n">12</span></button>
+            <button class="chip">Processing <span class="n">9</span></button>
+            <button class="chip">Shipped <span class="n">16</span></button>
+            <button class="chip">Delivered <span class="n">148</span></button>
+            <button class="chip">Declined <span class="n">21</span></button>
+            <button class="btn pri" id="new-order" style="height:24px;margin-left:8px">+ Ордер</button>
+            <input class="fsearch" placeholder="Фильтр: магазин, трек, карта…">
+          </div>
+          <table>
+            <thead><tr><th>#</th><th>Магазин</th><th>Покупатель</th><th>Карта</th><th>Сумма</th><th>Статус</th><th>Обновлён</th></tr></thead>
+            <tbody id="order-rows"></tbody>
+          </table>
+        </div>
+
+        <!-- CARDS -->
+        <div class="view" id="v-cards">
+          <div class="fbar">
+            <button class="chip on">Все <span class="n">206</span></button>
+            <button class="chip">Live <span class="n">124</span></button>
+            <button class="chip">Burned <span class="n">52</span></button>
+            <button class="chip">Archive <span class="n">30</span></button>
+            <input class="fsearch" placeholder="Фильтр: PAN, банк, holder…">
+          </div>
+          <table>
+            <thead><tr><th>Карта</th><th>Holder</th><th>Банк</th><th>Тип</th><th>Ордера</th><th>Риск</th><th>Статус</th></tr></thead>
+            <tbody id="card-rows"></tbody>
+          </table>
+        </div>
+
+      </section>
+
+      <!-- INSPECTOR -->
+      <aside class="insp" id="insp">
+        <div class="insp-h"><span class="t" id="i-title">Ордер #4823</span><span class="pill p" id="i-pill">● pending</span></div>
+        <div class="isec">Детали</div>
+        <div id="i-fields"></div>
+        <div class="isec">Таймлайн</div>
+        <div style="padding:0 14px 12px;font-size:11px;color:var(--t2)">
+          <div style="padding:4px 0">● Создан <span class="id" style="float:right">13:31</span></div>
+          <div style="padding:4px 0">● Оплата инициирована <span class="id" style="float:right">13:31</span></div>
+          <div style="padding:4px 0;color:var(--t3)">○ Processing</div>
+          <div style="padding:4px 0;color:var(--t3)">○ Shipped</div>
+        </div>
+        <div class="iacts">
+          <button class="btn pri">В processing</button>
+          <button class="btn">Открыть</button>
+          <button class="btn dgr">Деклайн</button>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="statusbar">
+      <span class="ok">● синхронизировано</span>
+      <span>admin · solo</span>
+      <span>ws: ok</span>
+      <div class="r">
+        <div class="dens" id="dens"><span data-d="comfort">COMFORT</span><span data-d="compact" class="on">COMPACT</span></div>
+        <span>206 ордеров</span><span id="clock">14:32:08 UTC</span>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- command palette -->
+<div class="ovl" id="ovl">
+  <div class="pal">
+    <div class="pal-in">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--t3)"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="pal-in" placeholder="Команда, страница, ордер, карта…">
+      <kbd>esc</kbd>
+    </div>
+    <div class="pal-list" id="pal-list"></div>
+  </div>
+</div>
+
+<!-- modal -->
+<div class="movl" id="movl">
+  <div class="modal">
+    <div class="m-h"><span class="t">Новый ордер</span><button class="m-x" data-close>✕</button></div>
+    <div class="m-b">
+      <div class="m-f"><label>Магазин</label><select><option>Amazon</option><option>Nike</option><option>eBay</option><option>Walmart</option></select></div>
+      <div class="m-f"><label>Карта</label><select><option>••4242 · 05/28</option><option>••8817 · 11/27</option><option>••3091 · 02/29</option></select></div>
+      <div class="m-f"><label>Покупатель</label><input value="Mike Ross"></div>
+      <div class="m-f"><label>Сумма</label><input value="$0.00" class="mono"></div>
+      <div class="m-f full"><label>Адрес доставки (дроп)</label><select><option>A. Smirnov · Berlin, DE</option><option>K. Weber · Munich, DE</option></select></div>
+      <div class="m-f full"><label>Комментарий</label><input placeholder="опционально…"></div>
+    </div>
+    <div class="m-f2">
+      <button class="btn" data-close>Отмена</button>
+      <button class="btn pri">Создать ордер</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ORDERS=[
+  [4821,'Amazon','John Mitchell','••4242','$189.99','d','delivered','14:02'],
+  [4822,'Nike','Sarah Connor','••8817','$74.50','s','shipped','13:47'],
+  [4823,'eBay','Mike Ross','••3091','$1,240.00','p','pending','13:31'],
+  [4824,'Walmart','Anna Bell','••5540','$56.20','x','declined','12:58'],
+  [4825,'Best Buy','Tom Hardy','••7763','$329.00','pr','processing','12:20'],
+  [4826,'Target','Lisa Kane','••1128','$92.10','d','delivered','11:54'],
+  [4827,'StockX','Chris Evans','••9904','$412.00','s','shipped','11:12'],
+  [4828,'Amazon','Dana White','••4242','$64.99','pr','processing','10:48'],
+  [4829,'Zappos','Kate Mira','••3355','$128.40','d','delivered','10:05'],
+  [4830,'eBay','Oleg Petrov','••3091','$79.95','x','declined','09:37'],
+];
+const CARDS=[
+  ['••4242 · 05/28','John Mitchell','Chase','Visa · Platinum',14,'low','live'],
+  ['••8817 · 11/27','Sarah Connor','BofA','MC · World',7,'low','live'],
+  ['••3091 · 02/29','Mike Ross','Citi','Visa · Signature',22,'med','live'],
+  ['••5540 · 09/26','Anna Bell','Wells Fargo','Visa · Classic',3,'high','burned'],
+  ['••7763 · 12/27','Tom Hardy','Amex','Amex · Gold',9,'low','live'],
+  ['••1128 · 07/28','Lisa Kane','Capital One','MC · Standard',1,'med','live'],
+  ['••9904 · 04/27','Chris Evans','Chase','Visa · Infinite',31,'med','live'],
+  ['••3355 · 10/26','Kate Mira','Discover','Disc · It',0,'high','archive'],
+];
+
+const stHtml=(c,l)=>`<span class="st st-${c}"><i></i>${l}</span>`;
+function orderRow(o){
+  return `<tr data-id="${o[0]}" data-shop="${o[1]}" data-buyer="${o[2]}" data-pan="${o[3]}" data-sum="${o[4]}" data-st="${o[6]}" data-stc="${o[5]}">
+    <td class="id">${o[0]}</td><td class="strong">${o[1]}</td><td>${o[2]}</td><td class="pan">${o[3]}</td><td class="sum">${o[4]}</td><td>${stHtml(o[5],o[6])}</td><td class="id">${o[7]}</td></tr>`;
+}
+document.getElementById('dash-rows').innerHTML=ORDERS.slice(0,8).map(orderRow).join('');
+document.getElementById('order-rows').innerHTML=ORDERS.map(orderRow).join('');
+document.getElementById('card-rows').innerHTML=CARDS.map(c=>`<tr>
+  <td class="pan" style="color:var(--text)">${c[0]}</td><td>${c[1]}</td><td>${c[2]}</td><td class="pan">${c[3]}</td>
+  <td class="sum">${c[4]}</td><td><span class="risk r-${c[5]}"><i></i>${c[5].toUpperCase()}</span></td>
+  <td>${c[6]==='live'?stHtml('d','live'):c[6]==='burned'?stHtml('x','burned'):stHtml('pr','archive')}</td></tr>`).join('');
+
+// views
+const names={dashboard:'дашборд',orders:'ордера',cards:'карты'};
+document.getElementById('rail').addEventListener('click',e=>{
+  const b=e.target.closest('[data-view]');if(!b)return;
+  document.querySelectorAll('#rail .ri').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById('v-'+b.dataset.view).classList.add('on');
+  document.getElementById('crumb-view').textContent=names[b.dataset.view];
+  document.getElementById('insp').classList.toggle('on',b.dataset.view==='orders');
+});
+document.getElementById('insp').classList.add('on'); // orders default demo? keep hidden until orders
+document.getElementById('insp').classList.remove('on');
+
+// inspector fill on row click
+document.getElementById('order-rows').addEventListener('click',e=>{
+  const tr=e.target.closest('tr');if(!tr)return;
+  document.querySelectorAll('#order-rows tr').forEach(x=>x.classList.remove('sel'));tr.classList.add('sel');
+  document.getElementById('insp').classList.add('on');
+  document.getElementById('i-title').textContent='Ордер #'+tr.dataset.id;
+  const pill=document.getElementById('i-pill');
+  pill.className='pill '+tr.dataset.stc;pill.textContent='● '+tr.dataset.st;
+  document.getElementById('i-fields').innerHTML=[
+    ['Магазин',tr.dataset.shop],['Покупатель',tr.dataset.buyer],['Карта',tr.dataset.pan+' · 05/28'],
+    ['Сумма',tr.dataset.sum],['Дроп','A. Smirnov · DE'],['Прокси','de-04.pptp']
+  ].map(f=>`<div class="ifield"><span class="k">${f[0]}</span><span class="v">${f[1]}</span></div>`).join('');
+});
+
+// density
+document.getElementById('dens').addEventListener('click',e=>{
+  const s=e.target.closest('span');if(!s)return;
+  document.querySelectorAll('#dens span').forEach(x=>x.classList.remove('on'));s.classList.add('on');
+  document.body.classList.toggle('compact',s.dataset.d==='compact');
+});
+document.body.classList.add('compact');
+
+// palette
+const CMDS=[
+  ['cap','Действия'],['+ Новый ордер','N'],['⇪ Импорт карт','I'],['⤓ Экспорт CSV','E'],
+  ['cap','Переходы'],['→ Дашборд','G D'],['→ Ордера','G O'],['→ Карты','G C'],['→ Профили','G P'],['→ Прокси','G X'],['→ Почта','G M'],['→ Настройки','G ,'],
+  ['cap','Поиск'],['#4823 · eBay · Mike Ross','↵'],['••4242 · Chase · live','↵'],
+];
+const ovl=document.getElementById('ovl'),palIn=document.getElementById('pal-in');
+function renderPal(q=''){
+  document.getElementById('pal-list').innerHTML=CMDS.map(c=>{
+    if(c[0]==='cap')return q?'':`<div class="pal-cap">${c[1]}</div>`;
+    if(q&&!c[0].toLowerCase().includes(q))return '';
+    return `<div class="pal-i">${c[0]}<span class="k">${c[1]}</span></div>`;
+  }).join('');
+}
+function openPal(){ovl.classList.add('on');palIn.value='';renderPal();setTimeout(()=>palIn.focus(),0)}
+function closePal(){ovl.classList.remove('on')}
+document.getElementById('cmdk').onclick=openPal;
+ovl.addEventListener('click',e=>{if(e.target===ovl)closePal()});
+palIn.addEventListener('input',()=>renderPal(palIn.value.trim().toLowerCase()));
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPal()}
+  if(e.key==='Escape'){closePal();document.getElementById('movl').classList.remove('on')}
+});
+
+// modal
+const movl=document.getElementById('movl');
+document.getElementById('new-order').onclick=()=>movl.classList.add('on');
+movl.addEventListener('click',e=>{if(e.target===movl||e.target.closest('[data-close]'))movl.classList.remove('on')});
+
+// clock
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toISOString().slice(11,19)+' UTC'},1000);
+</script>
+</body>
+</html>

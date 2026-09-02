@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>01 · Terminal Pro — VaultBase</title>
+<style>
+  :root{
+    --bg:#0a0e15; --surface:#0e131e; --panel:#10161f; --hover:#161d2b;
+    --hairline:#1b2231; --hairline2:#232c40;
+    --text:#d7deea; --t2:#8a94a8; --t3:#566078;
+    --accent:#5e6ad2; --accent-dim:rgba(94,106,210,.14);
+    --green:#4ade80; --yellow:#facc15; --red:#f87171; --blue:#60a5fa; --purple:#c084fc; --orange:#fb923c;
+    --mono:ui-monospace,'SF Mono','Cascadia Mono',Consolas,monospace;
+    --ui:-apple-system,'Segoe UI','Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font:12px/1.45 var(--ui);-webkit-font-smoothing:antialiased;overflow:hidden}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  svg{display:block}
+
+  .app{display:flex;height:100vh}
+
+  /* ── rail ── */
+  .rail{width:56px;background:var(--surface);border-right:1px solid var(--hairline);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px}
+  .rail .logo{width:32px;height:32px;border-radius:8px;background:var(--accent);display:grid;place-items:center;font:700 12px var(--mono);color:#fff;margin-bottom:10px}
+  .ri{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--t3);position:relative;cursor:pointer}
+  .ri:hover{background:var(--hover);color:var(--t2)}
+  .ri.on{background:var(--accent-dim);color:#a5b0f5}
+  .ri.on::before{content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:2px;background:var(--accent);border-radius:2px}
+  .ri .bdg{position:absolute;top:2px;right:2px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--accent);color:#fff;font:600 9px/14px var(--mono);text-align:center}
+  .rsep{width:20px;height:1px;background:var(--hairline2);margin:6px 0}
+  .rsp{flex:1}
+
+  /* ── main ── */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+
+  .cmdbar{height:42px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--surface)}
+  .crumb{font:500 11px var(--mono);color:var(--t3);letter-spacing:.02em}
+  .crumb b{color:var(--t2);font-weight:500}
+  .cmdk{margin-left:auto;margin-right:auto;width:420px;height:26px;border:1px solid var(--hairline2);border-radius:6px;background:var(--bg);display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--t3);font:11px var(--ui);cursor:text}
+  .cmdk kbd{margin-left:auto;font:600 9px var(--mono);color:var(--t3);border:1px solid var(--hairline2);border-radius:4px;padding:1px 5px;background:var(--surface)}
+  .cb-r{display:flex;align-items:center;gap:14px;margin-left:auto}
+  .sync{display:flex;align-items:center;gap:6px;font:10px var(--mono);color:var(--t3)}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+  .avatar{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#5e6ad2,#8b5cf6);display:grid;place-items:center;font:700 9px var(--mono);color:#fff}
+
+  .workspace{flex:1;display:flex;min-height:0}
+  .content{flex:1;overflow:auto;padding:14px 16px;min-width:0}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--hairline);border-radius:8px;overflow:hidden;background:var(--surface)}
+  .stat{padding:10px 14px;border-right:1px solid var(--hairline)}
+  .stat:last-child{border-right:0}
+  .stat .l{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+  .stat .v{font:600 20px/1.2 var(--mono);margin-top:4px}
+  .stat .d{font:10px var(--mono);margin-top:2px}
+  .up{color:var(--green)} .dn{color:var(--red)}
+
+  /* filter bar */
+  .fbar{display:flex;align-items:center;gap:8px;margin:12px 0 10px}
+  .chip{height:22px;padding:0 10px;border:1px solid var(--hairline2);border-radius:11px;display:flex;align-items:center;gap:6px;font:11px var(--ui);color:var(--t2);cursor:pointer;background:transparent}
+  .chip:hover{border-color:var(--t3)}
+  .chip.on{background:var(--accent-dim);border-color:transparent;color:#a5b0f5}
+  .chip .n{font:10px var(--mono);color:var(--t3)}
+  .chip.on .n{color:#a5b0f5}
+  .fsearch{margin-left:auto;width:200px;height:26px;border:1px solid var(--hairline2);border-radius:6px;background:var(--bg);color:var(--text);font:11px var(--ui);padding:0 10px;outline:none}
+  .fsearch::placeholder{color:var(--t3)}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  thead th{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--t3);text-align:left;padding:0 12px;height:28px;border-bottom:1px solid var(--hairline2);position:sticky;top:0;background:var(--bg)}
+  tbody td{height:26px;padding:0 12px;border-bottom:1px solid var(--hairline);color:var(--t2);white-space:nowrap}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--hover)}
+  tbody tr.sel{background:var(--accent-dim)}
+  tbody tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+  td .id{font:11px var(--mono);color:var(--t3)}
+  td .strong{color:var(--text);font-weight:500}
+  td .sum{font-family:var(--mono);color:var(--text)}
+  td .pan{font:11px var(--mono);color:var(--t3)}
+  .st{display:inline-flex;align-items:center;gap:5px;font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+  .st i{width:5px;height:5px;border-radius:50%;background:currentColor}
+  .st-p{color:var(--yellow)} .st-pr{color:var(--blue)} .st-s{color:var(--purple)} .st-d{color:var(--green)} .st-x{color:var(--red)}
+  .rowbtn{color:var(--t3);background:none;border:0;cursor:pointer;font:14px var(--ui)}
+
+  /* inspector */
+  .insp{width:330px;border-left:1px solid var(--hairline);background:var(--surface);display:flex;flex-direction:column;overflow:auto}
+  .insp-h{padding:12px 14px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:10px}
+  .insp-h .t{font:600 13px var(--ui)}
+  .pill{margin-left:auto;height:20px;padding:0 8px;border-radius:10px;font:600 10px var(--mono);text-transform:uppercase;display:flex;align-items:center;gap:5px}
+  .pill.p{background:rgba(250,204,21,.12);color:var(--yellow)}
+  .ifield{display:flex;justify-content:space-between;align-items:center;padding:7px 14px;border-bottom:1px solid var(--hairline);font-size:11px}
+  .ifield .k{color:var(--t3);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+  .ifield .v{font-family:var(--mono);color:var(--text)}
+  .isec{padding:12px 14px 6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+  .tl{padding:0 14px 12px}
+  .tl-i{display:flex;gap:10px;padding:5px 0;font-size:11px;color:var(--t2)}
+  .tl-i .td{width:8px;display:flex;flex-direction:column;align-items:center;padding-top:4px}
+  .tl-i .td i{width:7px;height:7px;border-radius:50%;background:var(--hairline2)}
+  .tl-i.done .td i{background:var(--green)}
+  .tl-i .td::after{content:'';width:1px;flex:1;background:var(--hairline2);margin-top:3px}
+  .tl-i:last-child .td::after{display:none}
+  .tl-i .tt{color:var(--t3);font:10px var(--mono);margin-left:auto}
+  .iacts{margin-top:auto;padding:12px 14px;border-top:1px solid var(--hairline);display:flex;gap:8px}
+  .btn{height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--hairline2);background:transparent;color:var(--text);font:500 11px var(--ui);cursor:pointer}
+  .btn:hover{background:var(--hover)}
+  .btn.pri{background:var(--accent);border-color:transparent;color:#fff}
+  .btn.dgr{color:var(--red)}
+
+  /* statusbar */
+  .statusbar{height:26px;border-top:1px solid var(--hairline);background:var(--surface);display:flex;align-items:center;gap:16px;padding:0 14px;font:10px var(--mono);color:var(--t3)}
+  .statusbar .ok{color:var(--green)}
+  .statusbar .r{margin-left:auto;display:flex;gap:16px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="rail">
+    <div class="logo">VB</div>
+    <div class="ri on" title="Дашборд"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></div>
+    <div class="ri" title="Ордера"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg><span class="bdg">37</span></div>
+    <div class="ri" title="Карты"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+    <div class="ri" title="Профили"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg></div>
+    <div class="rsep"></div>
+    <div class="ri" title="Магазины"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7l1.5-4h13L20 7M4 7h16v13H4V7z"/><path d="M9 20v-6h6v6"/></svg></div>
+    <div class="ri" title="Прокси"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg></div>
+    <div class="ri" title="Почта"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg><span class="bdg">4</span></div>
+    <div class="rsp"></div>
+    <div class="ri" title="Настройки"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg></div>
+  </aside>
+
+  <div class="main">
+    <header class="cmdbar">
+      <span class="crumb">vaultbase <b>/</b> ордера <b>/</b> все</span>
+      <div class="cmdk">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Поиск, действия, переходы…
+        <kbd>⌘K</kbd>
+      </div>
+      <div class="cb-r">
+        <span class="sync"><span class="dot"></span>sync</span>
+        <div class="avatar">AD</div>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <section class="content">
+        <div class="stats">
+          <div class="stat"><div class="l">Выручка сегодня</div><div class="v">$4,280</div><div class="d up">▲ 12.4% к вчера</div></div>
+          <div class="stat"><div class="l">Активные ордера</div><div class="v">37</div><div class="d up">▲ 5 новых</div></div>
+          <div class="stat"><div class="l">Карты live</div><div class="v">124<span style="color:var(--t3);font-size:13px">/206</span></div><div class="d" style="color:var(--t3)">60% пула</div></div>
+          <div class="stat"><div class="l">Прибыль / неделя</div><div class="v">$9,731</div><div class="d dn">▼ 3.1%</div></div>
+        </div>
+
+        <div class="fbar">
+          <button class="chip on">Все <span class="n">206</span></button>
+          <button class="chip">Pending <span class="n">12</span></button>
+          <button class="chip">Processing <span class="n">9</span></button>
+          <button class="chip">Shipped <span class="n">16</span></button>
+          <button class="chip">Delivered <span class="n">148</span></button>
+          <button class="chip">Declined <span class="n">21</span></button>
+          <input class="fsearch" placeholder="Фильтр: магазин, трек, карта…">
+        </div>
+
+        <table>
+          <thead><tr><th>#</th><th>Магазин</th><th>Покупатель</th><th>Карта</th><th>Сумма</th><th>Статус</th><th>Обновлён</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="id">4821</td><td class="strong">Amazon</td><td>John Mitchell</td><td class="pan">••4242</td><td class="sum">$189.99</td><td><span class="st st-d"><i></i>delivered</span></td><td class="id">14:02</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4822</td><td class="strong">Nike</td><td>Sarah Connor</td><td class="pan">••8817</td><td class="sum">$74.50</td><td><span class="st st-s"><i></i>shipped</span></td><td class="id">13:47</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr class="sel"><td class="id">4823</td><td class="strong">eBay</td><td>Mike Ross</td><td class="pan">••3091</td><td class="sum">$1,240.00</td><td><span class="st st-p"><i></i>pending</span></td><td class="id">13:31</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4824</td><td class="strong">Walmart</td><td>Anna Bell</td><td class="pan">••5540</td><td class="sum">$56.20</td><td><span class="st st-x"><i></i>declined</span></td><td class="id">12:58</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4825</td><td class="strong">Best Buy</td><td>Tom Hardy</td><td class="pan">••7763</td><td class="sum">$329.00</td><td><span class="st st-pr"><i></i>processing</span></td><td class="id">12:20</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4826</td><td class="strong">Target</td><td>Lisa Kane</td><td class="pan">••1128</td><td class="sum">$92.10</td><td><span class="st st-d"><i></i>delivered</span></td><td class="id">11:54</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4827</td><td class="strong">StockX</td><td>Chris Evans</td><td class="pan">••9904</td><td class="sum">$412.00</td><td><span class="st st-s"><i></i>shipped</span></td><td class="id">11:12</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4828</td><td class="strong">Amazon</td><td>Dana White</td><td class="pan">••4242</td><td class="sum">$64.99</td><td><span class="st st-pr"><i></i>processing</span></td><td class="id">10:48</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4829</td><td class="strong">Zappos</td><td>Kate Mira</td><td class="pan">••3355</td><td class="sum">$128.40</td><td><span class="st st-d"><i></i>delivered</span></td><td class="id">10:05</td><td><button class="rowbtn">⋯</button></td></tr>
+            <tr><td class="id">4830</td><td class="strong">eBay</td><td>Oleg Petrov</td><td class="pan">••3091</td><td class="sum">$79.95</td><td><span class="st st-x"><i></i>declined</span></td><td class="id">09:37</td><td><button class="rowbtn">⋯</button></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <aside class="insp">
+        <div class="insp-h"><span class="t">Ордер #4823</span><span class="pill p">● pending</span></div>
+        <div class="isec">Детали</div>
+        <div class="ifield"><span class="k">Магазин</span><span class="v">eBay</span></div>
+        <div class="ifield"><span class="k">Покупатель</span><span class="v">Mike Ross</span></div>
+        <div class="ifield"><span class="k">Карта</span><span class="v">••3091 · 05/28</span></div>
+        <div class="ifield"><span class="k">Сумма</span><span class="v">$1,240.00</span></div>
+        <div class="ifield"><span class="k">Дроп</span><span class="v">A. Smirnov · DE</span></div>
+        <div class="ifield"><span class="k">Прокси</span><span class="v">de-04.pptp</span></div>
+        <div class="isec">Таймлайн</div>
+        <div class="tl">
+          <div class="tl-i done"><span class="td"><i></i></span>Создан<span class="tt">13:31</span></div>
+          <div class="tl-i done"><span class="td"><i></i></span>Оплата инициирована<span class="tt">13:31</span></div>
+          <div class="tl-i"><span class="td"><i></i></span>Processing<span class="tt">—</span></div>
+          <div class="tl-i"><span class="td"><i></i></span>Shipped<span class="tt">—</span></div>
+        </div>
+        <div class="iacts">
+          <button class="btn pri">В processing</button>
+          <button class="btn">Открыть</button>
+          <button class="btn dgr">Деклайн</button>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="statusbar">
+      <span class="ok">● синхронизировано</span>
+      <span>admin · solo</span>
+      <span>ws: ok</span>
+      <div class="r"><span>выбрано: 1</span><span>206 ордеров</span><span>14:32:08 UTC</span></div>
+    </footer>
+  </div>
+</div>
+</body>
+</html>
