@@ -46,7 +46,7 @@ ureq          = { version = "2", features = ["json"] }
 regex         = "1"
 rand          = "0.8"
 once_cell     = "1"
-dirs          = "5"
+dirs          = "6"
 imap          = "2.4"
 native-tls    = "0.2"
 mailparse     = "0.14"
