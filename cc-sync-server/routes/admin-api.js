@@ -82,7 +82,10 @@ router.get('/licenses', (req, res) => {
 router.post('/licenses', (req, res) => {
   const { installation_id, challenge, label, role } = req.body || {};
   if (!installation_id || !challenge) return res.status(400).json({ error: 'installation_id and challenge required' });
-  const licRole = (role === 'admin') ? 'admin' : 'operator';
+  // manager — полноценная роль manager-приложения; без неё админка не могла
+  // выдать первую manager-лицензию (бутстрап-дыра: /manager/api/licenses
+  // требует уже существующий manager-токен).
+  const licRole = ['admin', 'operator', 'manager'].includes(role) ? role : 'operator';
   const db = getDb();
   try {
     db.prepare('INSERT INTO licenses (installation_id,challenge,label,role) VALUES (?,?,?,?)').run(
@@ -107,7 +110,7 @@ router.patch('/licenses/:id', (req, res) => {
     db.prepare('UPDATE licenses SET label=? WHERE installation_id=?').run(label.trim(), req.params.id);
   }
   if (role !== undefined) {
-    if (role !== 'admin' && role !== 'operator') return res.status(400).json({ error: 'role must be admin or operator' });
+    if (!['admin', 'operator', 'manager'].includes(role)) return res.status(400).json({ error: 'role must be admin, operator or manager' });
     db.prepare('UPDATE licenses SET role=? WHERE installation_id=?').run(role, req.params.id);
   }
   cache.invalidate('admin:licenses');

@@ -46,14 +46,21 @@ job `publish` заливает всё в админ-панель.
 export PATH="/c/msys64/mingw64/bin:$PATH"
 export TAURI_SIGNING_PRIVATE_KEY="$(cat .secrets/vaultbase-updater.key)"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-npx tauri build --bundles msi,nsis,updater
+npx tauri build --bundles msi,nsis,updater --target x86_64-pc-windows-gnu
 ```
+
+**`--target x86_64-pc-windows-gnu` обязателен.** Без него tauri-cli (MSVC-бинарь
+из npm) считает таргетом свой хост-triple, проверка `windows-gnu` в бандлере не
+срабатывает, и NSIS **не кладёт WebView2Loader.dll** рядом с exe — свежая
+установка падает молча, 0xC0000135 (DLL not found). MSI кладёт всегда.
+Проверено на CLI 2.11.4 (2026-09-03): с флагом DLL в установщике есть,
+без флага — нет.
 
 **`updater` в списке бандлов обязателен.** Без него Tauri не создаёт `.sig`, и
 встроенное обновление молча не работает — сборка ставится руками, но
 авто-апдейт её отвергает. Проверка: рядом с `.msi` должен лежать `.msi.sig`.
 
-Результат в `src-tauri/target/release/bundle/`:
+Результат в `src-tauri/target/x86_64-pc-windows-gnu/release/bundle/`:
 `msi/VaultBase_<ver>_x64_en-US.msi` и `nsis/VaultBase_<ver>_x64-setup.exe`.
 
 ---
@@ -237,8 +244,12 @@ GitHub Release и заливает updater-артефакты на сервер 
 $env:PATH = "C:\msys64\mingw64\bin;$env:PATH"   # dlltool/as для свежих crate-ов
 $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content .secrets\vaultbase-manager-updater.key -Raw)
 $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
-cd manager-app; npx tauri build --bundles nsis,updater
+cd manager-app; npx tauri build --bundles nsis,updater --target x86_64-pc-windows-gnu
 ```
+
+`--target x86_64-pc-windows-gnu` обязателен — иначе NSIS выходит без
+WebView2Loader.dll (см. раздел про воркера выше). Артефакты окажутся в
+`manager-app/src-tauri/target/x86_64-pc-windows-gnu/release/bundle/`.
 
 Рядом с `*-setup.exe` должен появиться `*-setup.exe.sig` — без него апдейт
 не примут клиенты.

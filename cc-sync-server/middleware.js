@@ -35,7 +35,13 @@ function authenticateToken(req, rolePolicy) {
       if (!row) return { status: 401, body: { error: 'invalid_token' } };
       if (!row.is_active) return { status: 401, body: { error: 'revoked' } };
 
-      if (rolePolicy === 'manager' && row.role !== 'manager') {
+      // admin — надроль уровня manager: менеджер-приложение принимает admin
+      // при активации, поэтому manager-каналы обязаны его пускать. Kill-switch
+      // и воркерские баны на него не действуют. Worker-каналы админу по-прежнему
+      // открыты (та же лицензия может стоять на воркерской машине у саппорта).
+      const managerSide = row.role === 'manager' || row.role === 'admin';
+
+      if (rolePolicy === 'manager' && !managerSide) {
         return { status: 403, body: { error: 'manager_required' } };
       }
       if (rolePolicy === 'worker' && row.role === 'manager') {
@@ -44,7 +50,7 @@ function authenticateToken(req, rolePolicy) {
 
       // MGR-008 kill-switch: воркерские каналы глушатся 503, менеджеры и
       // админка продолжают работать (иначе выключатель не вернуть).
-      if (row.role !== 'manager' && isKillSwitchOn()) {
+      if (!managerSide && isKillSwitchOn()) {
         return { status: 503, body: { error: 'service_halted' } };
       }
 
@@ -52,7 +58,7 @@ function authenticateToken(req, rolePolicy) {
       const verifyRow = db.prepare('SELECT is_active FROM licenses WHERE token_hash = ?').get(tokenHash);
       if (!verifyRow?.is_active) return { status: 401, body: { error: 'revoked_concurrent' } };
 
-      if (row.role !== 'manager') {
+      if (!managerSide) {
         const banned = db.prepare(`
           SELECT banned, banned_reason, ban_until, permissions_override,
                  quota_cards_day, quota_orders_day, min_version, version_exempt,

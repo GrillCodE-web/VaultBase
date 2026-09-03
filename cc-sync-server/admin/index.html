@@ -697,6 +697,7 @@ input[type=range].slider::-moz-range-thumb{
         <select class="inp" id="add-role">
           <option value="operator" selected>Оператор</option>
           <option value="admin">Админ</option>
+          <option value="manager">Менеджер</option>
         </select>
         <div class="hint">Роль применяется в приложении после активации лицензии</div>
       </div>
@@ -1162,10 +1163,10 @@ function renderLicenses(list) {
       </td>
       <td class="code">${esc(l.challenge)}</td>
       <td>
-        <button class="badge ${l.role === 'admin' ? 'badge-purple' : 'badge-grey'}" style="cursor:pointer;border:none;font:inherit"
-          onclick="toggleRole('${escAttr(l.installation_id)}', '${l.role === 'admin' ? 'admin' : 'operator'}')"
+        <button class="badge ${l.role === 'admin' ? 'badge-purple' : l.role === 'manager' ? 'badge-blue' : 'badge-grey'}" style="cursor:pointer;border:none;font:inherit"
+          onclick="toggleRole('${escAttr(l.installation_id)}', '${['admin', 'manager'].includes(l.role) ? l.role : 'operator'}')"
           title="Нажмите, чтобы сменить роль">
-          ${l.role === 'admin' ? 'Админ' : 'Оператор'}
+          ${l.role === 'admin' ? 'Админ' : l.role === 'manager' ? 'Менеджер' : 'Оператор'}
         </button>
       </td>
       <td><span class="badge ${l.is_active ? 'badge-green' : 'badge-red'}">
@@ -1212,9 +1213,11 @@ async function addLicense() {
 }
 
 async function toggleRole(iid, currentRole) {
-  const newRole = currentRole === 'admin' ? 'operator' : 'admin';
+  const order = ['operator', 'admin', 'manager'];
+  const labels = { operator: 'Оператор', admin: 'Админ', manager: 'Менеджер' };
+  const newRole = order[(order.indexOf(currentRole) + 1) % order.length];
   const res = await PATCH('/licenses/' + encodeURIComponent(iid), { role: newRole });
-  toast(res.ok ? `Роль изменена: ${newRole}` : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
+  toast(res.ok ? `Роль изменена: ${labels[newRole]}` : 'Ошибка: ' + (res.data.error || res.status), res.ok ? 'success' : 'error');
   if (res.ok) loadLicenses();
 }
 

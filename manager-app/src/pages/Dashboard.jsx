@@ -73,7 +73,7 @@ export default function Dashboard({ onSync, onNavigate }) {
   if (error) {
     return (
       <div>
-        <div className="error-box">{t('err_generic')}: {error}</div>
+        <div className="error-box">{t('err_generic')}: {error.includes('overview_403') ? t('overview_forbidden') : error}</div>
         <button className="btn primary" onClick={load}>{t('retry')}</button>
       </div>
     )

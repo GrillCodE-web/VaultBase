@@ -6,22 +6,28 @@ const path = require('node:path');
 const express = require('express');
 
 process.env.DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vb-manager-')), 'test.db');
+// requireAdmin/basicAuthValid читают env на каждый запрос — хватает установки до тестов.
+process.env.ADMIN_PASS = 'manager-suite-admin-pass';
 
 const { getDb, hashToken } = require('../database');
 const managerApi = require('../routes/manager-api');
+const adminApi = require('../routes/admin-api');
 const telemetry = require('../routes/telemetry');
 const alertsEngine = require('../alerts-engine');
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use('/manager/api', managerApi);
+app.use('/admin/api', adminApi);
 app.use('/api/telemetry', telemetry);
 app.use('/update', require('../routes/update'));
 
 const MGR_TOKEN = 'mgr-token-1234567890abcdef';
 const WRK_TOKEN = 'wrk-token-1234567890abcdef';
+const ADM_TOKEN = 'adm-token-1234567890abcdef';
 const MGR_IID = 'mgr-install-0001';
 const WRK_IID = 'wrk-install-0001';
+const ADM_IID = 'adm-install-0001';
 
 let server;
 
@@ -65,6 +71,8 @@ test.before(async () => {
     .run(MGR_IID, 'CHALLENGE1', hashToken(MGR_TOKEN), 'Head Manager', 'manager');
   db.prepare("INSERT INTO licenses (installation_id, challenge, token, token_hash, label, role, is_active) VALUES (?,?,NULL,?,?,?,1)")
     .run(WRK_IID, 'CHALLENGE2', hashToken(WRK_TOKEN), 'Worker One', 'operator');
+  db.prepare("INSERT INTO licenses (installation_id, challenge, token, token_hash, label, role, is_active) VALUES (?,?,NULL,?,?,?,1)")
+    .run(ADM_IID, 'CHALLENGE3', hashToken(ADM_TOKEN), 'Boss Admin', 'admin');
   await new Promise((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve);
   });
@@ -91,6 +99,13 @@ test('worker token cannot call manager api', async () => {
   const r = await req('GET', '/manager/api/overview', WRK_TOKEN);
   assert.equal(r.status, 403);
   assert.equal(r.json.error, 'manager_required');
+});
+
+test('admin token is manager-side: manager api allowed, worker api not blocked', async () => {
+  const ov = await req('GET', '/manager/api/overview', ADM_TOKEN);
+  assert.equal(ov.status, 200);
+  const policy = await req('GET', '/api/telemetry/policy', ADM_TOKEN);
+  assert.equal(policy.status, 200);
 });
 
 test('manager key upload, exposure to workers and rotation', async () => {
@@ -148,7 +163,7 @@ test('heartbeat stores envelope and returns default policy', async () => {
 test('overview counts workers, managers and online status', async () => {
   const r = await req('GET', '/manager/api/overview', MGR_TOKEN);
   assert.equal(r.status, 200);
-  assert.equal(r.json.workers_total, 1);
+  assert.equal(r.json.workers_total, 2); // WRK + admin-фикстура (в статистике флота admin — воркер)
   assert.equal(r.json.workers_online, 1);
   assert.equal(r.json.managers, 1);
   assert.equal(r.json.manager_keys_active, 1);
@@ -446,6 +461,27 @@ test('licenses: create/list/patch/revoke/restore + self-guards', async () => {
     "SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'manager_license_%'"
   ).get().n;
   assert.ok(audited >= 4, `expected >= 4 audited license actions, got ${audited}`);
+});
+
+test('admin panel issues and edits manager licenses (bootstrap hole closed)', async () => {
+  process.env.SERVER_SECRET = process.env.SERVER_SECRET || 'mgr010-test-secret';
+  const basic = 'Basic ' + Buffer.from(`admin:${process.env.ADMIN_PASS}`).toString('base64');
+  const iid = 'adm-made-mgr-0001';
+
+  const created = await req('POST', '/admin/api/licenses', null, {
+    installation_id: iid, challenge: 'CH-ADMINMGR', label: 'From panel', role: 'manager',
+  }, { authorization: basic });
+  assert.equal(created.status, 200);
+  assert.ok(created.json.activation_key);
+  const db = getDb();
+  assert.equal(db.prepare('SELECT role FROM licenses WHERE installation_id = ?').get(iid).role, 'manager');
+
+  const patched = await req('PATCH', `/admin/api/licenses/${iid}`, null, { role: 'operator' }, { authorization: basic });
+  assert.equal(patched.status, 200);
+  assert.equal(db.prepare('SELECT role FROM licenses WHERE installation_id = ?').get(iid).role, 'operator');
+
+  const bad = await req('PATCH', `/admin/api/licenses/${iid}`, null, { role: 'superuser' }, { authorization: basic });
+  assert.equal(bad.status, 400);
 });
 
 
