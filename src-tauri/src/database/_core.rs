@@ -140,12 +140,23 @@ impl Database {
 
         let conn = Connection::open(path).map_err(|e| format!("open plaintext: {e}"))?;
 
+        // FIX: sqlcipher_export копирует схему и данные, но НЕ header-прагмы
+        // (user_version). Без переноса версии зашифрованная копия получала
+        // user_version=0 → init_db прогонял все миграции заново и падал на
+        // первом неидемпотентном ALTER (v21: duplicate column created_by) —
+        // снаружи это выглядело как «Authentication error» на unlock.
+        let user_version: u32 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .map_err(|e| format!("read user_version: {e}"))?;
+
         conn.execute_batch(&format!(
             "ATTACH DATABASE '{}' AS encrypted KEY \"x'{}'\"; \
              SELECT sqlcipher_export('encrypted'); \
+             PRAGMA encrypted.user_version = {}; \
              DETACH DATABASE encrypted;",
             encrypted_path.replace('\'', "''"),
             hex_key,
+            user_version,
         )).map_err(|e| format!("sqlcipher_export: {e}"))?;
         drop(conn);
 

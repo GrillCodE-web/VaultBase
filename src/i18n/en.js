@@ -146,6 +146,8 @@ export const en = {
   upd_check_fail: 'Update check failed',
   auth_err_locked: 'Database is locked',
   auth_err_generic: 'Authentication error. Please try again.',
+  auth_err_rate_limited: 'Too many attempts. Please wait a minute and try again.',
+  auth_err_db_unavailable: 'Database cannot be opened. Please contact support.',
   auth_err_already_set: 'Password already set. Please restart the app.',
   sidebar_lock: 'Lock',
   sidebar_collapse: 'Collapse',

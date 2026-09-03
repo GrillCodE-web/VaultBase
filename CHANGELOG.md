@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.1] — 2026-09-03
+
+### Fixed
+
+- **Критично: невозможно войти после шифрования БД («Authentication error» на unlock)** — `sqlcipher_export` при миграции plaintext→SQLCipher (setup_password / первый unlock в 2.12.0) не переносил `PRAGMA user_version` в зашифрованную копию: она получала version=0, и `init_db` при следующем открытии прогонял все миграции заново, падая на первом неидемпотентном ALTER (v21: `duplicate column name: created_by`). `migrate_to_encrypted` теперь переносит `user_version`; миграции v21/v25/v26 сделаны идемпотентными (как остальные ALTER-ы), что лечит уже зашифрованные 2.12.0-БД при первом unlock.
+- **Точные ошибки входа вместо generic**: неверный пароль при v2-sidecar возвращал `salt_file_missing` → «Authentication error»; теперь `wrong_password` / `db_open_failed: …`; фронт дополнительно различает rate-limit («Слишком много попыток») и недоступность БД.
+- **UI: кнопка показа пароля** на экране входа — отступ от края, область 28×28, hover-состояние; текст пароля больше не залезает под иконку.
+- Строка версии в логе старта больше не зашита вручную (`env!("CARGO_PKG_VERSION")`).
+
 ## [2.12.0] — 2026-09-01
 
 Спринт после 2.11.3: 140+ коммитов по MASTER_CHECKLIST (SEC, UX, ARCH, CLEAN, FEAT, TEST, DEVOPS, MGR) и второе приложение в репозитории — VaultBase Manager.

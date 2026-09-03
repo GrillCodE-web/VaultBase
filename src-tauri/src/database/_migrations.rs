@@ -773,8 +773,13 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     //    (used/dead в daily_stats больше не зависят от формата текстовых строк).
     // Причина деклайна — необязательный ручной ввод (reason, NULL по умолчанию).
     fn migration_v21(conn: &Connection) -> SqlResult<()> {
+        // ALTER вынесен из batch и ошибки игнорируются (как остальные ALTER-ы
+        // в этом файле): колонка может уже существовать у БД, чей user_version
+        // был потерян при sqlcipher_export до фикса его переноса.
+        let _ = conn.execute_batch(
+            "ALTER TABLE orders ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;"
+        );
         conn.execute_batch(r#"
-            ALTER TABLE orders ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
             CREATE INDEX IF NOT EXISTS idx_orders_created_by ON orders(created_by);
 
             CREATE TABLE IF NOT EXISTS order_status_history (
@@ -901,9 +906,11 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     // issued_asset_slices на cc-sync-server) с локальной строкой — дедуп при
     // at-least-once доставке и точка опоры для будущего отзыва менеджером.
     fn migration_v25(conn: &Connection) -> SqlResult<()> {
+        // Идемпотентность: колонки могут уже существовать у БД с потерянным
+        // user_version (sqlcipher_export до фикса) — как остальные ALTER-ы здесь.
+        let _ = conn.execute_batch("ALTER TABLE proxies ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';");
+        let _ = conn.execute_batch("ALTER TABLE email_pool ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';");
         conn.execute_batch(r#"
-            ALTER TABLE proxies ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
-            ALTER TABLE email_pool ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
             CREATE TABLE IF NOT EXISTS asset_pool_links (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 kind          TEXT NOT NULL CHECK (kind IN ('proxy','email')),
@@ -929,6 +936,9 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     //    перебивки); триггер v20 пересоздаётся аддитивно, старые значения
     //    не ломаются (как и при FEAT-002-фиксе).
     fn migration_v26(conn: &Connection) -> SqlResult<()> {
+        // Идемпотентность: колонка может уже существовать у БД с потерянным
+        // user_version (sqlcipher_export до фикса) — как остальные ALTER-ы здесь.
+        let _ = conn.execute_batch("ALTER TABLE orders ADD COLUMN delivered_at TEXT;");
         conn.execute_batch(r#"
             CREATE TABLE IF NOT EXISTS tracking_checkpoints (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -945,8 +955,6 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
             CREATE INDEX IF NOT EXISTS idx_checkpoints_order    ON tracking_checkpoints(order_id);
             CREATE INDEX IF NOT EXISTS idx_checkpoints_tracking ON tracking_checkpoints(tracking_number);
             CREATE INDEX IF NOT EXISTS idx_checkpoints_status   ON tracking_checkpoints(status);
-
-            ALTER TABLE orders ADD COLUMN delivered_at TEXT;
 
             DROP TRIGGER IF EXISTS trg_order_status_check;
             CREATE TRIGGER trg_order_status_check

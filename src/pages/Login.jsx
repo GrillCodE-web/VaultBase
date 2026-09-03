@@ -53,14 +53,14 @@ function PasswordInput({
         spellCheck={false}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedby}
-        className="auth-input pr-11"
+        className="auth-input"
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setShow(v => !v)}
         aria-label={show ? 'Hide password' : 'Show password'}
-        className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-muted p-0"
+        className="absolute right-1 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-muted w-7 h-7 flex items-center justify-center rounded-sm hover:text-text-2 transition-colors"
       >
         {show ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
@@ -327,5 +327,8 @@ function parseError(err, t) {
   if (msg.includes('password_already_set')) return t('auth_err_already_set')
   if (msg.includes('mismatch')) return t('auth_err_mismatch')
   if (msg.includes('database_locked')) return t('auth_err_locked')
+  if (msg.includes('rate_limit_exceeded')) return t('auth_err_rate_limited')
+  if (msg.includes('db_open_failed') || msg.includes('salt_file_missing'))
+    return t('auth_err_db_unavailable')
   return t('auth_err_generic')
 }

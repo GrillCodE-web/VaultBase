@@ -52,7 +52,7 @@ fn main() {
         eprintln!("   Continuing without structured logging...");
     }
     
-    tracing::info!("🚀 VaultBase v2.11.3 starting...");
+    tracing::info!("🚀 VaultBase v{} starting...", env!("CARGO_PKG_VERSION"));
     
     // Должно быть первым: WebView2 ещё не создан, папка не залочена.
     purge_old_webview_cache();

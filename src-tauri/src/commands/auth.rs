@@ -520,13 +520,16 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
             // покрывает прерванную запись sidecar при смене пароля.
             let mut last_err = "salt_file_missing: cannot unlock encrypted database".to_string();
             let mut opened = false;
+            let mut sidecar_found = false;
+            let mut unwrapped = false;
             for sc in [Database::read_sidecar(db_path_str), Database::read_sidecar_bak(db_path_str)]
                 .into_iter().flatten()
             {
+                sidecar_found = true;
                 let salt = match B64.decode(&sc.salt_b64) { Ok(s) => s, Err(_) => continue };
                 let dek = match &sc.wrapped_dek {
                     Some(blob) => match crate::encryption::unwrap_dek(blob, &password, &salt) {
-                        Ok(d) => d,
+                        Ok(d) => { unwrapped = true; d }
                         Err(_) => continue,
                     },
                     None => derive_db_key(&password, &salt),
@@ -546,7 +549,16 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
                 }
             }
             if !opened {
-                return Err(last_err);
+                // FIX: раньше любой провал в этом цикле возвращал исходный
+                // last_err = salt_file_missing → фронт показывал generic
+                // "Authentication error" вместо понятного "неверный пароль".
+                return Err(if !sidecar_found {
+                    last_err
+                } else if !unwrapped {
+                    "wrong_password".into()
+                } else {
+                    format!("db_open_failed: {last_err}")
+                });
             }
         }
 
