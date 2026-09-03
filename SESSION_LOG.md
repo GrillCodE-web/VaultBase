@@ -1976,3 +1976,16 @@ PATH += C:\msys64\mingw64\bin (windres), OPENSSL_DIR=C:\msys64\mingw64,
 OPENSSL_NO_VENDOR=1. Доступа к VPS sync-сервера с этой машины нет
 (ssh root@162.0.213.238 — ни ключ id_ed25519/mastro_prod, ни сохранённый
 VPS_PASS не подходят; mastro_prod — для другого хоста).
+
+## 2026-09-03 (доп.5) — @main: сборка+установка VaultBase Manager 0.2.0
+
+- Собраны и подписаны (vaultbase-manager-updater.key) msi+sig и nsis setup+sig:
+  manager-app/src-tauri/target/release/bundle/. Установлен NSIS →
+  C:\Program Files\VaultBase Manager, запуск OK (окно открылось).
+- **БАГ УПАКОВКИ (надо чинить в main):** NSIS-бандл менеджера НЕ включает
+  WebView2Loader.dll (в отличие от воркера) — свежая установка падает с
+  0xC0000135 (STATUS_DLL_NOT_FOUND). Временно вылечено копированием
+  WebView2Loader.dll из C:\Program Files\VaultBase рядом с vaultbase-manager.exe.
+  Подозрение: manager-app/src-tauri/tauri.conf.json → bundle.resources.
+  При пересборке/переустановке менеджера костыль надо повторить до фикса.
+- Воркер 2.12.1 установлен и работает (hotfix unlock проверен владельцем).
