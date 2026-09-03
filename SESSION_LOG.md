@@ -2080,3 +2080,70 @@ VPS_PASS не подходят; mastro_prod — для другого хоста
   manager-новости, operator — нет). `node --test`: **155/155**.
 - Линт manager-app чист, i18n паритет 421/421.
 - docs/MANAGER_APP.md — абзац про manager-side admin под заголовком /manager/api.
+
+## 2026-09-03 (доп.8) — @main: ДЕПЛОЙ сервера + РЕЛИЗ Manager 0.2.1 + ответ про чат
+
+### 1. Деплой cc-sync-server на sec201-www (209.74.89.158) — ВЫПОЛНЕН
+
+- `scripts/deploy-server.py` (paramiko, VPS_* из окружения сессии). Бэкап
+  `/root/backup-20260903-065555` (app-code.tar.gz ~1,4 ГБ + data.db* + nginx conf).
+- Залито 38 файла кода (все корневые *.js + routes/ + admin/ + public/). `.env` уже
+  содержал BASE_URL/TRUST_PROXY — не тронут. nginx: изменений не потребовалось
+  (releases открыты, лимит 200m).
+- **npm ci на сервере упал** (npm error aliases… — старый npm на VPS не понял
+  `ci --omit=dev`). НЕ критично: package.json не менялся, node_modules целы.
+  Деплой-скрипт продолжил и дошёл до конца (в следующий раз — обновить npm на VPS
+  или заменить `npm ci` на `npm install --omit=dev`).
+- `pm2 restart cc-sync-server --update-env`, health-check: `/version`=200,
+  `/update`=200. Авто-откат не понадобился.
+- Верификация после деплоя: `/version` → 200, `/manager/api/overview` без токена →
+  **401 missing_token** (роут жив, auth-цепочка в порядке; 403-фикс admin/manager
+  в коде и задеплоен). Боевой end-to-end с токеном не гонял (нет клиентского токена).
+
+### 2. Релиз VaultBase Manager 0.2.1 — СОБРАН, ПОДПИСАН, ОПУБЛИКОВАН
+
+- Бамп версии 0.2.0 → 0.2.1 в package.json, src-tauri/Cargo.toml, tauri.conf.json
+  (+ Cargo.lock). Коммит f3c10ae.
+- **Грабли:** PowerShell `Set-Content` добавил BOM в package.json/tauri.conf.json и
+  сломал vite/PostCSS (Unexpected token '﻿'); откатил и переписал BOM-less.
+  Впредь версии бампить `python release.py` (он пишет utf-8 без BOM), не вручную.
+- Сборка: `npm run tauri build -- --bundles msi,nsis,updater --target
+x86_64-pc-windows-gnu` (env: PATH+=msys64, OPENSSL_DIR, OPENSSL_NO_VENDOR=1,
+  TAURI_SIGNING_PRIVATE_KEY=…manager-updater.key). Release 5м29с.
+- NSIS теперь **содержит WebView2Loader.dll** (подтверждено 7z: 8 файлов,
+  WebView2Loader.dll + vaultbase-manager.exe 0.2.1) — баг упаковки закрыт.
+- **TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" ломает ключ** («incorrect updater private
+  key password: Wrong password»): в PS `=''` удаляет var. Ключ менеджера имеет
+  НЕПУСТОЙ пароль; в `--password '""'` (literally 2 кавычки) он подошёл —
+  т.е. реальный пароль = `""` (двойные кавычки). Зафиксировано для будущих сборок.
+  `.sig` сгенерированы через `tauri signer sign` (по одному файлу за вызов).
+- Публикация по SFTP (ADMIN_PASS в окружении нет, поэтому не upload-artifacts, а
+  прямой publish-release-подход): msi → installer-msi + manager-updater, nsis →
+  installer-nsis. Записи в release_files через node-скрипт на сервере (better-sqlite3).
+- Верификация: `/update?app=manager&current_version=0.2.0` → 200 version=0.2.1,
+  platforms.windows-x86_64.url + signature + size=12423168. `current_version=0.2.1`
+  → 204 (свежий). release_files: 3 строки 0.2.1, все is_published=1, rollout 100,
+  sig на месте. Файлы в public/releases лежат.
+- Артефакты локально: `manager-app/src-tauri/target/x86_64-pc-windows-gnu/release/bundle/`.
+
+### 3. Ваша лицензия MGR-c51af874… — НОРМАЛЬНАЯ (не битая)
+
+- role=admin, is_active=1. После деплоя admin = manager-side → **403 должна уйти
+  после «Повторить» на Дашборде.**
+- `manager_keys` пусто — ключ телеметрии не загружался. Теперь, когда 403 ушёл,
+  ключ зальётся при следующем разблоке/синке (ensure_manager_key). Смотрите
+  Settings → «Ключ телеметрии»: статус сменится с «сервер недоступен» на загружен.
+- Никакой SQL-обход не нужен (фикс уже на сервере). Старый костыль с ручной
+  WebView2Loader.dll тоже больше не нужен для 0.2.1 (там NSIS уже с DLL).
+
+### 4. Почему нет чата в приложениях — ОТВЕТ
+
+- Серверный backend чата ГОТОВ и задеплоен (MGR-016 ✅): opaque-relay + блобы,
+  WS, X25519/AES-GCM, таблицы, воркерские + менеджерские роуты. Тесты 155/155.
+- **Frontend чата НЕ написан** — ни в воркере (`src/`), ни в менеджере
+  (`manager-app/src/`): нет ни Chat.jsx, ни команды chat в Tauri, ни пункта в nav.
+  По MASTER_CHECKLIST REDESIGN-05-5: backend-часть (5B1–5B4) сделана @main,
+  **frontend-часть оставлена за @r** и до сих пор не начата. Поэтому кнопки/страницы
+  чата нет — сервер умеет всё, а UI-клиент отсутствует. Это не баг, а
+  недоделанный фронтенд-этап. Чтобы заработало — нужен Chat.jsx + Tauri-команды
+  (chat.rs) в обоих приложениях + пункт в навигации.
