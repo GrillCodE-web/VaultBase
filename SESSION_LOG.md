@@ -1933,3 +1933,46 @@ main` → 403: репозиторий `github.com/GrillCodE-web/VaultBase`
   OPENSSL_DIR=C:\msys64\mingw64, OPENSSL_NO_VENDOR=1.
 - **vb-baseline** оставлен (0,14 ГБ, эталон для аудитов).
 - PERF-010 и CLEAN-003 не тронуты по решению владельца.
+
+## 2026-09-03 — @main: HOTFIX 2.12.1 — unlock падал после шифрования БД (56a7c64)
+
+**Симптом (у владельца на боевой машине):** свежая установка 2.12.0, активация
+лицензии ок, создание мастер-пароля → «Authentication error. Please try again.»,
+вход невозможен. Данные при этом целы (пароль верный, БД зашифрована корректно).
+
+**Root cause (подтверждён диагностической dev-сборкой с eprintln-логами на копии
+боевой БД):** `sqlcipher_export` в `migrate_to_encrypted` (SEC-001) копирует схему
+и данные, но НЕ header-прагмы — `PRAGMA user_version` в зашифрованной копии = 0.
+Следующий `reopen_with_key` → `init_db` видел version=0 и прогонял все 27 миграций
+на уже готовой схеме: падение на первом неидемпотентном ALTER —
+`duplicate column name: created_by` (v21). Фронт оборачивал это в generic
+«Authentication error» (т.к. старая ветка envelope-loop возвращала исходный
+`salt_file_missing` вместо реальной ошибки).
+
+**Фиксы (56a7c64):**
+
+1. `_core.rs migrate_to_encrypted`: читает `PRAGMA user_version` исходной БД и
+   выставляет `PRAGMA encrypted.user_version` в копии до DETACH.
+2. Миграции v21 (orders.created_by), v25 (proxies/email_pool.source),
+   v26 (orders.delivered_at) — идемпотентны (`let _ =` на ALTER, как остальные
+   ALTER-ы в файле) → лечит уже битые 2.12.0-БД при первом unlock.
+3. `auth.rs unlock`: envelope-loop различает исходы — sidecar не найден /
+   unwrap не прошёл → `wrong_password` / unwrap ок, но reopen упал →
+   `db_open_failed: <err>` (раньше всегда `salt_file_missing` → generic).
+4. Login.jsx: маппинг `rate_limit_exceeded` и `db_open_failed`/`salt_file_missing`;
+   i18n en+ru: `auth_err_rate_limited`, `auth_err_db_unavailable`.
+5. UI: кнопка показа пароля (глазик) — right-1, w-7 h-7, hover; `.auth-input`
+   padding-right 40px (текст не залезает под иконку); убран `pr-11`.
+6. main.rs: версия в логе из `env!("CARGO_PKG_VERSION")` (была зашита «v2.11.3»).
+
+**Проверки:** diag-прогон на копии боевой БД — полный unlock SUCCESS;
+vitest 344/344, eslint 0 err, cargo check ok, audit_frontend 0/0.
+DIAG-логи и scripts/diag-unlock.cjs после диагностики удалены.
+Диагностика шла против КОПИИ БД в корне worktree (боевая в %LOCALAPPDATA% не
+тронута; её user_version=0 залечится первым unlock'ом в 2.12.1).
+
+**Окружение машины (подтверждено снова):** GNU-тулчейн требует
+PATH += C:\msys64\mingw64\bin (windres), OPENSSL_DIR=C:\msys64\mingw64,
+OPENSSL_NO_VENDOR=1. Доступа к VPS sync-сервера с этой машины нет
+(ssh root@162.0.213.238 — ни ключ id_ed25519/mastro_prod, ни сохранённый
+VPS_PASS не подходят; mastro_prod — для другого хоста).
