@@ -298,6 +298,7 @@ export const dict = {
   target_role: 'Роль',
   target_role_operator: 'Операторы',
   target_role_admin: 'Админы',
+  target_role_manager: 'Менеджеры',
   target_worker: 'Конкретный работник',
   target_none: '—',
   target_global: 'Глобально',

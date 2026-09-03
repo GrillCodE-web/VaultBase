@@ -2051,3 +2051,32 @@ VPS_PASS не подходят; mastro_prod — для другого хоста
 - Известное ограничение (не трогал, низкий приоритет): admin-лицензия не попадает в
   список менеджеров чата (`chat.js` ищет `role='manager'`), и новости с
   `target_role='manager'` воркер-эндпоинт отдаёт только manager-лицензиям.
+
+## 2026-09-03 (доп.7) — @main: admin-лицензия докручена в чате и новостях
+
+Продолжение доп.6 (admin = manager-side). Закрыты два места, где admin
+по-прежнему вёл себя как обычный воркер:
+
+- **Чат (routes/chat.js):**
+  - `GET /sync/chat/peers` — admin с активным manager-ключом теперь отдаётся
+    воркерам в списке менеджеров (role='manager'); дедупликация: если admin в
+    моей sync-группе и у него есть manager-ключ — не дублируется worker-записью
+    (manager-пир побеждает).
+  - `POST /sync/chat/send` — писать admin'у можно без общей группы (как
+    менеджеру; раньше было 403 target_not_allowed).
+  - `keyBelongsToTarget` — для admin конверт принимается и на manager-ключ,
+    и на worker-ключ (обе таблицы, т.к. та же лицензия может стоять на
+    воркерской машине саппорта).
+- **Новости (routes/telemetry.js):** `GET /api/telemetry/news` для роли admin
+  отдаёт и `target_role='manager'` новости (раньше admin видел только
+  'all'/'admin'). Manager'у ничего менять не нужно было — его роль совпадала.
+- **Авторинг новостей (routes/manager-api.js):** `NEWS_TARGET_ROLES` += 'manager'
+  — раньше создать новость «только менеджерам» было невозможно вовсе (400
+  target_role_invalid); корневой фейл теста был именно в этом, а не в SELECT.
+  В manager-app News.jsx добавлена опция «Менеджеры» (i18n target_role_manager,
+  en+ru).
+- **Тесты:** chat.test.js +3 (peers с admin, дедупликация, send на оба ключа +
+  ответ admin'а через manager-роут), manager.test.js +1 (admin получает
+  manager-новости, operator — нет). `node --test`: **155/155**.
+- Линт manager-app чист, i18n паритет 421/421.
+- docs/MANAGER_APP.md — абзац про manager-side admin под заголовком /manager/api.

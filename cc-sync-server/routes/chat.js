@@ -106,10 +106,15 @@ function groupOf(db, iid) {
 
 // Конверт адресован ключу key_id; ключ обязан принадлежать получателю и быть
 // активным (worker_keys для воркеров, manager_keys для менеджеров).
+// admin — manager-side роль: ключ может лежать в manager_keys (manager-app)
+// или в worker_keys (та же лицензия на воркерской машине саппорта).
 function keyBelongsToTarget(db, target, keyId) {
-  const table = target.role === 'manager' ? 'manager_keys' : 'worker_keys';
-  return !!db.prepare(`SELECT 1 FROM ${table} WHERE id = ? AND installation_id = ? AND is_active = 1`)
-    .get(keyId, target.installation_id);
+  const tables = target.role === 'manager' ? ['manager_keys']
+    : target.role === 'admin' ? ['manager_keys', 'worker_keys']
+    : ['worker_keys'];
+  return tables.some((table) => !!db.prepare(
+    `SELECT 1 FROM ${table} WHERE id = ? AND installation_id = ? AND is_active = 1`
+  ).get(keyId, target.installation_id));
 }
 
 function insertMessages(db, rows) {
@@ -159,18 +164,23 @@ function latestKeysPerInstall(db, table, iids) {
 workerRouter.get('/chat/peers', (req, res) => {
   const db = getDb();
   const gid = groupOf(db, req.installationId);
+  // admin — manager-side (как в middleware): воркеры видят его как менеджера,
+  // если у него есть активный manager-ключ (т.е. он реально запускает manager-app).
+  const managerIids = db.prepare(
+    "SELECT installation_id FROM licenses WHERE role IN ('manager', 'admin') AND is_active = 1"
+  ).all().map((r) => r.installation_id);
+  const managers = latestKeysPerInstall(db, 'manager_keys', managerIids)
+    .map((m) => ({ ...m, role: 'manager' }));
+  const managerPeerIids = new Set(managers.map((m) => m.installation_id));
   let workers = [];
   if (gid) {
     const iids = db.prepare(
       'SELECT installation_id FROM sync_group_members WHERE group_id = ? AND installation_id != ?'
     ).all(gid, req.installationId).map((r) => r.installation_id);
-    workers = latestKeysPerInstall(db, 'worker_keys', iids);
+    // Дедупликация: admin в моей группе с manager-ключом не дублируется воркером.
+    workers = latestKeysPerInstall(db, 'worker_keys', iids)
+      .filter((w) => !managerPeerIids.has(w.installation_id));
   }
-  const managerIids = db.prepare(
-    "SELECT installation_id FROM licenses WHERE role = 'manager' AND is_active = 1"
-  ).all().map((r) => r.installation_id);
-  const managers = latestKeysPerInstall(db, 'manager_keys', managerIids)
-    .map((m) => ({ ...m, role: 'manager' }));
   res.json({
     self: req.installationId,
     group_id: gid,
@@ -224,7 +234,9 @@ workerRouter.post('/chat/send', (req, res) => {
     if (!target) return res.status(404).json({ error: 'unknown_installation', target_iid: targetIid });
     if (!target.is_active) return res.status(400).json({ error: 'license_revoked', target_iid: targetIid });
     const sameGroup = myGroup && groupOf(db, targetIid) === myGroup;
-    if (!sameGroup && target.role !== 'manager') {
+    // admin manager-side: писать ему можно без общей группы (как менеджеру).
+    const targetIsManagerSide = target.role === 'manager' || target.role === 'admin';
+    if (!sameGroup && !targetIsManagerSide) {
       return res.status(403).json({ error: 'target_not_allowed', target_iid: targetIid });
     }
     if (!keyBelongsToTarget(db, target, env.key_id)) {

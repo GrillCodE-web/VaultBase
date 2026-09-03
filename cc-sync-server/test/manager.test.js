@@ -484,6 +484,19 @@ test('admin panel issues and edits manager licenses (bootstrap hole closed)', as
   assert.equal(bad.status, 400);
 });
 
+test('news: admin (manager-side) видит manager-таргетированные новости, operator — нет', async () => {
+  const mgrOnly = await req('POST', '/manager/api/news', MGR_TOKEN, { severity: 'info', title: 'Mgrs only', body: 'z', target_role: 'manager' });
+  assert.equal(mgrOnly.status, 201);
+  await req('POST', `/manager/api/news/${mgrOnly.json.id}/publish`, MGR_TOKEN);
+
+  const asAdmin = await req('GET', '/api/telemetry/news', ADM_TOKEN);
+  assert.equal(asAdmin.status, 200);
+  assert.ok(asAdmin.json.news.some((n) => n.id === mgrOnly.json.id), 'admin получает manager-новости');
+
+  const asWorker = await req('GET', '/api/telemetry/news', WRK_TOKEN);
+  assert.ok(!asWorker.json.news.some((n) => n.id === mgrOnly.json.id), 'operator не видит manager-новости');
+});
+
 
 // ── MGR-009: staged rollout manager-релизов (channel + rollout_percent) ─────
 

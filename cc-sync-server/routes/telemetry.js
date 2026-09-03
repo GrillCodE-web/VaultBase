@@ -144,6 +144,9 @@ router.get('/policy', (req, res) => {
 
 router.get('/news', (req, res) => {
   const db = getDb();
+  const role = req.licenseRole || 'operator';
+  // admin — manager-side: видит и свои (target_role='admin'), и менеджерские
+  // (target_role='manager') новости.
   const news = db.prepare(`
     SELECT n.id, n.severity, n.title, n.body, n.published_at, n.expires_at,
            CASE WHEN r.news_id IS NOT NULL THEN 1 ELSE 0 END AS is_read
@@ -151,11 +154,11 @@ router.get('/news', (req, res) => {
     LEFT JOIN news_reads r ON r.news_id = n.id AND r.installation_id = ?
     WHERE n.is_published = 1
       AND (n.expires_at IS NULL OR n.expires_at > datetime('now'))
-      AND (n.target_role = 'all' OR n.target_role = ?)
+      AND (n.target_role = 'all' OR n.target_role = ? OR (n.target_role = 'manager' AND ? = 'admin'))
       AND (n.target_iid IS NULL OR n.target_iid = ?)
     ORDER BY n.published_at DESC
     LIMIT 100
-  `).all(req.installationId, req.licenseRole || 'operator', req.installationId);
+  `).all(req.installationId, role, role, req.installationId);
   res.json({ news });
 });
 

@@ -124,6 +124,7 @@ export default function News() {
               <option value="all">{t('target_all')}</option>
               <option value="operator">{t('target_role_operator')}</option>
               <option value="admin">{t('target_role_admin')}</option>
+              <option value="manager">{t('target_role_manager')}</option>
             </select>
           </div>
           <div className="field">

@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(requireManagerToken);
 
 const NEWS_SEVERITIES = ['info', 'warning', 'critical'];
-const NEWS_TARGET_ROLES = ['all', 'admin', 'operator'];
+const NEWS_TARGET_ROLES = ['all', 'admin', 'operator', 'manager'];
 const PRIORITY_TARGET_ROLES = ['operator', 'admin'];
 
 function audit(managerIid, action, details) {
