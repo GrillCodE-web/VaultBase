@@ -452,6 +452,13 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                 }
             }
         }),
+        // Чат: WS шлёт мгновенные chat_message-уведомления, но при мёртвом или
+        // ещё не поднятом канале входящие лежали на сервере до ручного
+        // «Обновить». Раз в минуту тянем ?since_id= — дёшево, дедуп по
+        // server_id внутри fetch_and_store.
+        CronTask::new("chat_poll", 60, 15, |h| {
+            crate::commands::chat::fetch_on_ws_notify(h.clone());
+        }),
     ]);
 
     // ── Auto-fetch catalog on first run if empty ──

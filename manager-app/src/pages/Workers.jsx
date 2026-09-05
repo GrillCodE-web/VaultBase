@@ -392,6 +392,14 @@ export default function Workers({ navParams }) {
 
   useEffect(load, [])
 
+  // Авто-обновление списка: онлайн-статус (heartbeat) меняется без
+  // действий пользователя — не заставляем жать «Обновить».
+  useEffect(() => {
+    const timer = setInterval(load, 30000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // MGR-020: диплинк из алертов/действий — сразу открыть карточку воркера
   useEffect(() => {
     if (!workers || !navParams?.focus) return

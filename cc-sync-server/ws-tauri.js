@@ -131,8 +131,13 @@ module.exports = function initWsTauri(wss, io) {
             'SELECT installation_id, is_active, role FROM licenses WHERE token_hash = ?'
           ).get(th);
           if (!row || !row.is_active) return null;
-          // Manager licenses never join the card-sync WS channel.
-          if (row.role === 'manager') return { forbidden: 'manager_ws_forbidden' };
+          // Менеджеру разрешён WS для realtime-уведомлений (chat_message и
+          // рассылки broadcastAll). Группового канала карт у него нет:
+          // groupId = null, а full_pull/push ниже отвечают not_in_group.
+          if (row.role === 'manager') {
+            db.prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ?').run(th);
+            return { installationId: row.installation_id, groupId: null, isManager: true };
+          }
           // Worker policy ban (worker_policies) applies at connection auth too.
           const banned = db.prepare(
             "SELECT banned_reason FROM worker_policies WHERE installation_id = ? AND banned = 1 AND (ban_until IS NULL OR ban_until > datetime('now'))"
@@ -162,11 +167,6 @@ module.exports = function initWsTauri(wss, io) {
           ws.close();
           return;
         }
-        if (auth.forbidden) {
-          send(ws, { type: 'auth_error', error: auth.forbidden });
-          ws.close();
-          return;
-        }
         if (auth.banned !== undefined) {
           send(ws, { type: 'auth_error', error: 'banned', reason: auth.banned });
           ws.close();
@@ -177,6 +177,7 @@ module.exports = function initWsTauri(wss, io) {
         ws.installationId = auth.installationId;
         ws.userToken = tokenHash;
         ws.groupId = auth.groupId;
+        ws.isManager = auth.isManager === true;
 
         // FIX: повторное подключение той же installation_id раньше молча
         // перезаписывало clients-запись, а close СТАРОГО сокета потом удалял
@@ -339,7 +340,8 @@ function broadcastToGroup(groupId, msg, excludeInstallationId) {
 function broadcastCatalogUpdate(wss, type, data) {
   const msg = JSON.stringify({ type: 'catalog_update', payload: { type, data } });
   wss.clients.forEach(client => {
-    if (client.readyState === 1 && client.authenticated) client.send(msg);
+    // Менеджерам каталог не рассылаем: их канал — уведомления (chat, новости).
+    if (client.readyState === 1 && client.authenticated && !client.isManager) client.send(msg);
   });
 }
 module.exports.broadcastCatalogUpdate = broadcastCatalogUpdate;

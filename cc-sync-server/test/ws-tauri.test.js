@@ -155,12 +155,17 @@ test('auth_error for unknown token', async () => {
   await closed(ws);
 });
 
-test('manager-role license is rejected from the worker WS channel (MGR-001)', async () => {
+test('manager-role license is accepted for notify channel but has no group (chat era)', async () => {
   const ws = await connect();
   const msg = await authenticate(ws, 'tok-mgr');
-  assert.equal(msg.type, 'auth_error');
-  assert.equal(msg.error, 'manager_ws_forbidden');
-  await closed(ws);
+  assert.equal(msg.type, 'auth_ok');
+  assert.equal(msg.group_id, null);
+  // Групповые операции карт менеджеру недоступны.
+  ws.send(JSON.stringify({ type: 'full_pull' }));
+  const err = await nextMessage(ws);
+  assert.equal(err.type, 'error');
+  assert.equal(err.error, 'not_in_group');
+  ws.close();
 });
 
 test('banned worker is rejected with the ban reason (MGR-001 worker_policies)', async () => {

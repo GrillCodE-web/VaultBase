@@ -11,6 +11,7 @@ mod license;
 mod state;
 mod telemetry;
 mod vault;
+mod ws;
 
 use state::AppState;
 
@@ -19,6 +20,13 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::new())
+        .setup(|app| {
+            // Realtime-канал (WS /ws + fallback-опрос чата): без него чат и
+            // входящие обновлялись только ручными запросами. Токен появится
+            // после unlock — ws.rs сам дожидается его в цикле.
+            crate::ws::start(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_state,
             commands::set_server_url,

@@ -10,7 +10,7 @@
 use crate::crypto::{seal_envelope, unseal_envelope};
 use crate::db::Database;
 use crate::http;
-use crate::state::{with_open, AppState};
+use crate::state::{with_open, with_open_app, AppState};
 use crate::telemetry;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -304,8 +304,16 @@ pub fn chat_unread_count(state: State<'_, AppState>) -> Result<i64, String> {
 
 #[tauri::command]
 pub fn chat_fetch(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<Value, String> {
+    fetch_and_emit(&app, &state)
+}
+
+/// Общая точка для команды, WS-хука и фонового опроса: забрать входящие,
+/// сохранить, сэмитить chat:message по каждому новому. Идемпотентно
+/// (INSERT OR IGNORE по server_id), поэтому безопасно при параллельных
+/// триггерах.
+pub(crate) fn fetch_and_emit(app: &tauri::AppHandle, state: &AppState) -> Result<Value, String> {
     let mut fails = 0usize;
-    let stored_msgs: Vec<ChatMessage> = with_open(&state, |db, enc| {
+    let stored_msgs: Vec<ChatMessage> = with_open_app(state, |db, enc| {
         let base = http::server_base(db);
         let token = db.get_config("license_token").ok_or("no_token")?;
         let (secret, _public, _key_id) = telemetry::ensure_manager_key(db, enc, &base, &token)?;
@@ -378,7 +386,7 @@ pub fn chat_fetch(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<V
 
     // Авто-ротация: массовые unseal-fail — ключ на сервере сменился без нас.
     if fails >= UNSEAL_ROTATE_THRESHOLD {
-        let _ = with_open(&state, |db, enc| {
+        let _ = with_open_app(state, |db, enc| {
             let base = http::server_base(db);
             let token = db.get_config("license_token").ok_or("no_token")?;
             let (s, p) = crate::crypto::generate_x25519();

@@ -23,6 +23,15 @@ pub fn with_open<F, R>(state: &tauri::State<'_, AppState>, f: F) -> Result<R, St
 where
     F: FnOnce(&Database, &FieldEncryption) -> Result<R, String>,
 {
+    with_open_app(state, f)
+}
+
+/// То же, но от голого AppState — для фоновых потоков (ws.rs), у которых
+/// есть только AppHandle, а не tauri::State из сигнатуры команды.
+pub fn with_open_app<F, R>(state: &AppState, f: F) -> Result<R, String>
+where
+    F: FnOnce(&Database, &FieldEncryption) -> Result<R, String>,
+{
     let guard = state.db.lock().map_err(|_| "state_poisoned".to_string())?;
     match &*guard {
         DbState::Open { db, enc } => f(db, enc),
