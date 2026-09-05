@@ -1,5 +1,5 @@
 ﻿<#
-VaultBase — параллельные сессии агентов (подробности: PARALLEL_WORK.md).
+VaultBase — параллельные сессии агентов (подробности: AGENTS.md §«Parallel agent sessions»).
 
 Создать worktree для потока (ветка agent/<stream> от main):
   .\scripts\agent-session.ps1 backend
@@ -31,7 +31,7 @@ if ($Remove) {
   git -C $repo worktree remove $wt
   Assert-Step "git worktree remove не смог удалить $wt (может, там незакоммиченное — смотри руками)"
   git -C $repo branch -d $branch
-  Assert-Step "ветка $branch не слита в main — сначала слей (см. PARALLEL_WORK.md)"
+  Assert-Step "ветка $branch не слита в main — сначала слей (см. AGENTS.md)"
   Write-Host "Removed: $wt (branch $branch)"
   exit 0
 }
@@ -52,8 +52,8 @@ Write-Host ""
 Write-Host "OK: $wt  (ветка $branch)"
 Write-Host "Следующие шаги для сессии агента, открытой в этой папке:"
 Write-Host "  1) npm ci                                   # без него не работает pre-commit (lint-staged)"
-Write-Host "  2) прочитать AGENTS.md и PARALLEL_WORK.md"
-Write-Host "  3) заклеймить пункт в MASTER_CHECKLIST.md по протоколу (только свой поток)"
+Write-Host "  2) прочитать AGENTS.md, engram mem_context, bd ready"
+Write-Host "  3) заклеймить задачу: bd update <id> --claim (только свой поток)"
 if ($Stream -eq 'backend') {
   Write-Host "  4) cd src-tauri; cargo check               # первая сборка долгая — это нормально"
 } else {

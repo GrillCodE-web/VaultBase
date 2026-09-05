@@ -567,9 +567,8 @@ sync-сервер, логирование. Подробно: [docs/CONFIGURATION
 
 | Документ                                              | Что внутри                                         |
 | ----------------------------------------------------- | -------------------------------------------------- |
-| [AGENTS.md](AGENTS.md) / [AGENTS.ru.md](AGENTS.ru.md) | Правила разработки и для ИИ-агентов (EN/RU)        |
-| [MASTER_CHECKLIST.md](MASTER_CHECKLIST.md)            | Живой чеклист задач — 183 пункта со статусами      |
-| [PARALLEL_WORK.md](PARALLEL_WORK.md)                  | Протокол параллельных агентских сессий (worktrees) |
+| [AGENTS.md](AGENTS.md)                                | Правила разработки и для ИИ-агентов (EN)           |
+| Задачи и память                                       | `bd ready` (beads) + engram (`mem_context`)        |
 | [CHANGELOG.md](CHANGELOG.md)                          | История версий + [Unreleased]: сводка спринта      |
 | [docs/README.md](docs/README.md)                      | Индекс всех справочников                           |
 | [MANAGER_APP.md](docs/MANAGER_APP.md)                 | Архитектура VaultBase Manager и телеметрии         |

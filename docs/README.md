@@ -8,9 +8,7 @@
 | --------------------------------------------- | -------------------------------------------------------------- |
 | [README.md](../README.md)                     | Main overview: feature map, run commands, layout, screenshots  |
 | [AGENTS.md](../AGENTS.md)                     | Developer/agent guide (EN)                                     |
-| [AGENTS.ru.md](../AGENTS.ru.md)               | Тоже самое по-русски (RU)                                      |
-| [MASTER_CHECKLIST.md](../MASTER_CHECKLIST.md) | Live task checklist (183 items, statuses)                      |
-| [PARALLEL_WORK.md](../PARALLEL_WORK.md)       | Parallel agent sessions: worktrees, streams, claiming protocol |
+| Tasks & memory                                | `bd ready` (beads) + engram (`mem_context`/`mem_save`)         |
 | [CHANGELOG.md](../CHANGELOG.md)               | Version history                                                |
 
 ## Architecture & security

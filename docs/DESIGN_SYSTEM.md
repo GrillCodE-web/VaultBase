@@ -686,6 +686,6 @@ pages.css ×3** (33 шт.). Самые заметные:
 
 - `docs/ICON_AND_BRANDING.md` — бренд-иконка (см. дрейф §14).
 - `docs/ARCHITECTURE.md` — общая архитектура.
-- `docs/PARALLEL_AGENTS.md` / `PARALLEL_WORK.md` — потоки работ (docs/** —
-  backend-поток, src/** — frontend-поток).
+- Потоки работ: см. `AGENTS.md` §«Parallel agent sessions» (docs/** —
+  backend-поток, src/** — frontend-поток); задачи — `bd ready`.
 - `AGENTS.md` §«CSS — read before touching styles» — краткие правила.

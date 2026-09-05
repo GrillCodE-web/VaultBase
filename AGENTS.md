@@ -1,10 +1,10 @@
 # VaultBase — Agent Guide
 
-> Russian version: [AGENTS.ru.md](AGENTS.ru.md). Version 2.11.3, updated 2026-08-25.
+> Version 2.12.1, updated 2026-09-05. Трекинг: задачи — `bd` (beads), память/журнал — engram (`mem_context`/`mem_save`). Файлов SESSION_LOG/MASTER_CHECKLIST/PARALLEL_WORK больше нет (удалены 2026-09-05, история — в git).
 
 ## Режим экономии (читать первым, обязателен)
 
-**Старт сессии:** 1) `engram.mem_context` (проект VaultBase); 2) `bd ready --json`; 3) `codebase-memory.index_status` → `index_repository` один раз, далее `detect_changes`; 4) `AGENTS.ru.md`, `docs/*`, `.claude/*` — не читать, если задача прямо не про них (этот файл уже содержит всё нужное).
+**Старт сессии:** 1) `engram.mem_context` (проект VaultBase); 2) `bd ready --json`; 3) `codebase-memory.index_status` → `index_repository` один раз, далее `detect_changes`; 4) `docs/*`, `.claude/*` — не читать, если задача прямо не про них (этот файл уже содержит всё нужное).
 
 **Навигация:** структура/вызовы (React ↔ Tauri commands ↔ Rust database/*) — через codebase-memory (`search_graph`, `trace_path`, `get_code_snippet`), не `file_read` целиком; ≤ 3 файлов целиком за задачу. Игнор: node_modules, dist, target, coverage, playwright-report, test-results, audit-shots, design-mockups, .release-artifacts, *.log.
 
@@ -97,7 +97,7 @@ npm run test:e2e     # Playwright e2e
 npm run tauri build  # Production bundles
 ```
 
-## Parallel agent sessions — read [PARALLEL_WORK.md](PARALLEL_WORK.md) first
+## Parallel agent sessions
 
 If other agent sessions may be running simultaneously: one session = one git
 worktree = one branch. Create yours with `scripts/agent-session.ps1 backend|frontend`
@@ -106,13 +106,11 @@ worktree = one branch. Create yours with `scripts/agent-session.ps1 backend|fron
 - **backend**: `src-tauri/**`, `cc-sync-server/**`, `e2e/**`, `.github/**`, `scripts/**`, `docs/**`
 - **frontend**: `src/**`, `index.html`, `vite.config.js`, eslint/prettier/postcss configs
 
-Before starting a checklist item, claim it in MASTER_CHECKLIST.md (`⬜` → `🔄 @a`/`🔄 @b`)
-and commit the checklist file alone. Commit with explicit paths only — never
-`git add -A` / `git commit -a`: another agent may have WIP in the same tree.
-Merge into main one session at a time (rebase → checks → push; no force-push).
-Crash/interrupt recovery rules: section «Оборванная сессия» in PARALLEL_WORK.md.
-Session continuity: read the tail of SESSION_LOG.md at session start and append
-an entry after every completed checklist item — chats die, the log survives.
+Claim work in **bd** (`bd update <id> --claim`), not in markdown files. Commit with
+explicit paths only — never `git add -A` / `git commit -a`: another agent may have
+WIP in the same tree. Merge into main one session at a time (rebase → checks → push;
+no force-push). Session continuity: `engram.mem_context` at start, `engram.mem_save`
+after each completed task (`bd close`) — chats die, memory survives.
 
 ## Auth flow
 
