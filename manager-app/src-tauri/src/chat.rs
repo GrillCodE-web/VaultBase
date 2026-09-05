@@ -21,7 +21,7 @@ const MAX_BODY_CHARS: usize = 4000;
 // (воркер шлёт на новый), генерируем и регистрируем новый.
 const UNSEAL_ROTATE_THRESHOLD: usize = 5;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 pub struct ChatPeer {
     pub installation_id: String,
     pub key_id: i64,
