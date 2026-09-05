@@ -28,7 +28,11 @@ describe('EmptyState snapshots', () => {
 
   it('as table row', () => {
     const { container } = render(
-      <table><tbody><EmptyState icon="📭" title="Empty" colSpan={5} /></tbody></table>
+      <table>
+        <tbody>
+          <EmptyState icon="📭" title="Empty" colSpan={5} />
+        </tbody>
+      </table>
     )
     expect(container.firstChild).toMatchSnapshot()
   })
@@ -66,14 +70,22 @@ describe('ProgressBar snapshots', () => {
 describe('SkeletonRow snapshots', () => {
   it('single row, 3 cols', () => {
     const { container } = render(
-      <table><tbody><SkeletonRow cols={3} /></tbody></table>
+      <table>
+        <tbody>
+          <SkeletonRow cols={3} />
+        </tbody>
+      </table>
     )
     expect(container.firstChild).toMatchSnapshot()
   })
 
   it('multiple rows', () => {
     const { container } = render(
-      <table><tbody><SkeletonRows count={3} cols={4} /></tbody></table>
+      <table>
+        <tbody>
+          <SkeletonRows count={3} cols={4} />
+        </tbody>
+      </table>
     )
     expect(container.firstChild).toMatchSnapshot()
   })

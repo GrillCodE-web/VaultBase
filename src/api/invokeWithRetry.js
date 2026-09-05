@@ -2,7 +2,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { safeGetItem } from '../utils/localStorage'
 
 // FEAT-017: эти команды сами работают с сессией — их expiry-чек не блокирует
-const SESSION_CMDS = new Set(['user_login', 'try_auto_login', 'resume_session', 'refresh_session', 'user_logout'])
+const SESSION_CMDS = new Set([
+  'user_login',
+  'try_auto_login',
+  'resume_session',
+  'refresh_session',
+  'user_logout',
+])
 
 // Дублирует isSessionExpired() из useAuth.jsx — импорт хука сюда создавал бы
 // циклическую зависимость (store/cards → invokeWithRetry → useAuth → store/cards)

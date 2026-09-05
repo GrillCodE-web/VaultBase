@@ -20,9 +20,7 @@ describe('invokeWithRetry', () => {
   })
 
   it('ретраит транзиентную ошибку и в итоге успешен', async () => {
-    invoke
-      .mockRejectedValueOnce(new Error('database is locked'))
-      .mockResolvedValueOnce([1, 2, 3])
+    invoke.mockRejectedValueOnce(new Error('database is locked')).mockResolvedValueOnce([1, 2, 3])
     const res = await invokeWithRetry('get_cards', {}, { baseDelay: 1 })
     expect(res).toEqual([1, 2, 3])
     expect(invoke).toHaveBeenCalledTimes(2)
