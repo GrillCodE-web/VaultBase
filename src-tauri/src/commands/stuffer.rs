@@ -21,9 +21,6 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
 use std::path::PathBuf;
 use tauri::{Manager, Emitter};
-use bcrypt;
-use chrono;
-use serde_json;
 use std::collections::HashMap;
 
 #[tauri::command]
