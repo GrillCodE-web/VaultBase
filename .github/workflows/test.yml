@@ -101,6 +101,11 @@ jobs:
   manager-rust-tests:
     name: Manager Rust Tests (Cargo)
     runs-on: ubuntu-latest
+    env:
+      # manager-app/src-tauri/rust-toolchain.toml залип в репо (d505800) и
+      # пинает stable-x86_64-pc-windows-gnu — на Linux тут же падает
+      # 'target tuple in channel name'. RUSTUP_TOOLCHAIN бьёт toml по приоритету.
+      RUSTUP_TOOLCHAIN: stable
 
     steps:
       - name: Checkout code

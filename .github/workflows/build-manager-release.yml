@@ -50,6 +50,12 @@ jobs:
 
     name: Build Manager · ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    env:
+      # manager-app/src-tauri/rust-toolchain.toml закоммичен по ошибке и пинает
+      # stable-x86_64-pc-windows-gnu — без переопределения linux/macos-ноги
+      # падают на cargo metadata. RUSTUP_TOOLCHAIN бьёт toml по приоритету.
+      # windows-нога собирается целевым target'ом из matrix --target флага.
+      RUSTUP_TOOLCHAIN: stable
 
     steps:
       - uses: actions/checkout@v7
