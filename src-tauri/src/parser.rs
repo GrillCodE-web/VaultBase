@@ -134,7 +134,7 @@ pub fn luhn_valid(number: &str) -> bool {
         }
     }).sum();
 
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 // ─────────────────────────────────────────
@@ -147,7 +147,7 @@ fn parse_expiry(raw: &str) -> Option<String> {
     // Вспомогательная: проверяем что дата не истекла
     let is_valid_future = |mm: u32, yy: u32| -> bool {
         let now = chrono::Utc::now();
-        let cur_y = (now.format("%y").to_string().parse::<u32>().unwrap_or(0)) as u32;
+        let cur_y = now.format("%y").to_string().parse::<u32>().unwrap_or(0);
         let cur_m = now.month();
         // FIX B60: отклоняем карты у которых срок уже истёк
         yy > cur_y || (yy == cur_y && mm >= cur_m)
@@ -159,7 +159,7 @@ fn parse_expiry(raw: &str) -> Option<String> {
         let mm = &s[..pos];
         let yy_part = &s[pos+1..];
         let mm: u32 = mm.parse().ok()?;
-        if mm < 1 || mm > 12 { return None; }
+        if !(1..=12).contains(&mm) { return None; }
         let yy: u32 = if yy_part.len() == 4 {
             yy_part.parse::<u32>().ok()? % 100
         } else {
@@ -175,7 +175,7 @@ fn parse_expiry(raw: &str) -> Option<String> {
             // MMYY
             let mm: u32 = digits[..2].parse().ok()?;
             let yy: u32 = digits[2..].parse().ok()?;
-            if mm < 1 || mm > 12 { return None; }
+            if !(1..=12).contains(&mm) { return None; }
             if !is_valid_future(mm, yy) { return None; }
             Some(format!("{:02}/{:02}", mm, yy))
         }
@@ -186,7 +186,7 @@ fn parse_expiry(raw: &str) -> Option<String> {
             // Heuristic: если digits[2..4] <= 31 И digits[4..6] выглядит как год (>= current_yy) —
             // это MMDDYY. Иначе — MMYYYY.
             let mm: u32 = digits[..2].parse().ok()?;
-            if mm < 1 || mm > 12 { return None; }
+            if !(1..=12).contains(&mm) { return None; }
             let middle: u32 = digits[2..4].parse().ok()?;
             let last2: u32 = digits[4..].parse().ok()?;
             let now = chrono::Utc::now();

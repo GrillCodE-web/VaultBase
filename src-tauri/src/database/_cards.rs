@@ -1,3 +1,6 @@
+/// (id, bin, last4, expiry_date, days_left) — строка FEAT-006.
+type ExpiringCardRow = (i64, String, String, String, i64);
+
 impl Database {
     pub fn insert_cards(&self, cards: Vec<CardInput>) -> Result<usize, String> {
         let mut inserted = 0usize;
@@ -591,7 +594,7 @@ impl Database {
 
         // 3. Fall back to iinapi.com API
         fetch_bin_info(&bin, api_key)
-            .map(|info| {
+            .inspect(|info| {
                 // Save to local cache
                 if let Ok(json) = serde_json::to_string(&info) {
                     let _ = self.conn.execute(
@@ -611,7 +614,6 @@ impl Database {
                     "UPDATE credit_cards SET bank_name=?1, card_type=?2, card_level=?3 WHERE id=?4",
                     params![info.bank_name, info.card_type, info.card_level, card_id],
                 );
-                info
             })
     }
 
@@ -692,8 +694,9 @@ impl Database {
         };
 
         // credit_cards
-        let rows: Vec<(i64, Option<String>, Option<String>, Option<String>, Option<String>,
-                        Option<String>, Option<String>, Option<String>)> = {
+        type CardRow = (i64, Option<String>, Option<String>, Option<String>, Option<String>,
+                        Option<String>, Option<String>, Option<String>);
+        let rows: Vec<CardRow> = {
             let mut stmt = self.conn.prepare(
                 "SELECT id, card_number, cvv, holder_name, billing_address, phone, email, ip_address
                  FROM credit_cards"
@@ -805,7 +808,7 @@ impl Database {
     /// у которых срок действия истекает в ближайшие `days` дней или уже истёк.
     /// expiry_date в формате MM/YY — plaintext, сравнение на стороне SQLite
     /// (паттерн FIX B15). Возвращает (id, bin, last4, expiry_date, days_left).
-    pub fn cards_expiring_within(&self, days: i64) -> Result<Vec<(i64, String, String, String, i64)>, String> {
+    pub fn cards_expiring_within(&self, days: i64) -> Result<Vec<ExpiringCardRow>, String> {
         let mut stmt = self.conn.prepare(
             "SELECT id, COALESCE(bin,''), COALESCE(last4,''), expiry_date, \
                     CAST(julianday(date('20'||substr(expiry_date,4,2)||'-'||substr(expiry_date,1,2)||'-01','+1 month','-1 day')) \

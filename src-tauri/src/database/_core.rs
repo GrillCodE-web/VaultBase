@@ -93,7 +93,7 @@ impl Database {
     /// Create r2d2 connection pool. Each pooled connection receives the same
     /// SQLCipher PRAGMA key so it can read/write the encrypted file.
     pub(crate) fn create_pool(path: &str, db_key: Option<&[u8; 32]>) -> Option<DbPool> {
-        let hex_key = db_key.map(|k| hex::encode(k));
+        let hex_key = db_key.map(hex::encode);
         let manager = SqliteConnectionManager::file(path)
             .with_init(move |c| {
                 if let Some(ref hk) = hex_key {

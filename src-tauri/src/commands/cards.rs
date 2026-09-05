@@ -375,7 +375,7 @@ pub(crate) fn import_drops(profile_id: String, raw: String, mapping: Vec<String>
     require_user()?;
     let cols = mapping.clone();
     let rows: Vec<DropInput> = raw.lines().filter(|l| !l.trim().is_empty())
-        .filter_map(|line| {
+        .map(|line| {
             let parts: Vec<&str> = line.split('\t').collect();
             let get = |key: &str| -> String {
                 cols.iter().position(|c| c == key)
@@ -383,7 +383,7 @@ pub(crate) fn import_drops(profile_id: String, raw: String, mapping: Vec<String>
                     .map(|s| s.trim().to_string())
                     .unwrap_or_default()
             };
-            Some(DropInput {
+            DropInput {
                 recipient_name: get("recipient_name"),
                 address: get("address"),
                 city: get("city"),
@@ -391,7 +391,7 @@ pub(crate) fn import_drops(profile_id: String, raw: String, mapping: Vec<String>
                 zip: get("zip"),
                 country: get("country"),
                 phone: Some(get("phone")),
-            })
+            }
         }).collect();
     with_db!(db, { db.import_drops(&profile_id, rows) })
 }

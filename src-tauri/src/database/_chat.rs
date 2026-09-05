@@ -24,6 +24,7 @@ impl Database {
     /// повторный fetch/WS-notify не плодит дубли. Возвращает Some(local_id)
     /// для новой строки, None при дедупе. created_at берём серверный —
     /// единые часы для всех участников.
+    #[allow(clippy::too_many_arguments)]
     pub fn chat_insert_incoming(
         &self,
         server_id: i64,

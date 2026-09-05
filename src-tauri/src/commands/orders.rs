@@ -109,7 +109,7 @@ pub(crate) fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i
         // FIX B31: передаём все факторы риска в БД-функцию
         // FEAT-002: amount — опциональная сумма заказа (статистический фактор)
         let mut result = db.run_risk_check(&profile_id, shop_id, drop_id, email_pool_id, proxy_id, amount)?;
-        let server_result = sync::SyncClient::check_risk_detailed(&db, &profile_id, shop_id);
+        let server_result = sync::SyncClient::check_risk_detailed(db, &profile_id, shop_id);
         match server_result {
             sync::RiskCheckOutcome::Offline => {
                 result.offline = true;

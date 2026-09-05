@@ -189,7 +189,8 @@ impl Database {
 
     /// Проверяет токен, обновляет last_seen, возвращает ActiveUser
     pub fn get_active_user_by_token(&self, token: &str) -> Option<crate::models::ActiveUser> {
-        let row: Option<(i64, String, String, Option<String>, bool, Option<String>)> = self.conn.query_row(
+        type ActiveUserRow = (i64, String, String, Option<String>, bool, Option<String>);
+        let row: Option<ActiveUserRow> = self.conn.query_row(
             "SELECT u.id, u.username, u.role, u.display_name, u.is_active, s.ip_address
              FROM user_sessions s JOIN users u ON s.user_id=u.id
              WHERE s.token=?1 AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)",

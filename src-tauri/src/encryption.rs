@@ -122,7 +122,7 @@ impl FieldEncryption {
         use sha2::{Sha256, Digest};
         let mut h = Sha256::new();
         h.update(b"vaultbase-footprint-hmac-v2:");
-        h.update(&self.key);
+        h.update(self.key);
         h.finalize().into()
     }
 }
@@ -152,7 +152,7 @@ impl PasswordValidation {
             // FIX B39: требуем хотя бы один спецсимвол
             has_special: password.chars().any(|c| !c.is_alphanumeric()),
             // FIX B38: bcrypt обрезает пароли > 72 байт
-            exceeds_bcrypt_limit: password.as_bytes().len() > 72,
+            exceeds_bcrypt_limit: password.len() > 72,
         }
     }
 

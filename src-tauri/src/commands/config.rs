@@ -125,7 +125,7 @@ pub(crate) fn import_backup(path: String) -> Result<(), String> {
         .unwrap_or_else(|_| {
             // Default to user's Downloads or Documents folder as fallback
             dirs::download_dir()
-                .or_else(|| dirs::document_dir())
+                .or_else(dirs::document_dir)
                 .unwrap_or_else(|| std::path::PathBuf::from("."))
         });
 
@@ -146,7 +146,7 @@ pub(crate) fn import_backup(path: String) -> Result<(), String> {
 
     // SQLite magic header: "SQLite format 3\0"
     let sqlite_magic = b"SQLite format 3\0";
-    if &header[..15] != &sqlite_magic[..15] {
+    if header[..15] != sqlite_magic[..15] {
         return Err("invalid_backup_file: not a SQLite database".into());
     }
 

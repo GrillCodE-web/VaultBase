@@ -65,7 +65,7 @@ pub(crate) fn seal_envelope(
     }
     let b = PublicKey::from(<[u8; 32]>::try_from(b_bytes.as_slice()).unwrap());
 
-    let e = StaticSecret::random_from_rng(&mut rand::rngs::OsRng);
+    let e = StaticSecret::random_from_rng(rand::rngs::OsRng);
     let e_pub = PublicKey::from(&e);
     let shared = e.diffie_hellman(&b);
 

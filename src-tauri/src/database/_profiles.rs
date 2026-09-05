@@ -225,7 +225,8 @@ impl Database {
             "SELECT id,profile_id,recipient_name,address,city,state,zip,country,phone,is_primary,created_at FROM drops WHERE profile_id=?1 ORDER BY is_primary DESC,id ASC"
         ).map_err(|e| e.to_string())?;
         // FIX B21: дешифруем PII поля при чтении
-        let rows: Vec<(i64,String,String,String,Option<String>,Option<String>,Option<String>,Option<String>,Option<String>,i64,String)> =
+        type DropRow = (i64,String,String,String,Option<String>,Option<String>,Option<String>,Option<String>,Option<String>,i64,String);
+        let rows: Vec<DropRow> =
             stmt.query_map(params![profile_id], |r| Ok((
                 r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?,
                 r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?,
@@ -565,8 +566,8 @@ impl Database {
     // ── Proxies ───────────────────────────
 
     fn build_proxy(&self, id: i64) -> Result<Proxy, String> {
-        let (host, port, ptype, username, pw_enc, label, notes, is_blocked, created_at, updated_at, last_checked):
-            (String, i64, String, Option<String>, Option<String>, Option<String>, Option<String>, i64, String, String, Option<String>) =
+        type ProxyRow = (String, i64, String, Option<String>, Option<String>, Option<String>, Option<String>, i64, String, String, Option<String>);
+        let (host, port, ptype, username, pw_enc, label, notes, is_blocked, created_at, updated_at, last_checked): ProxyRow =
             self.conn.query_row(
                 "SELECT host,port,proxy_type,username,password,label,notes,is_blocked,created_at,updated_at,last_checked FROM proxies WHERE id=?1",
                 params![id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?,r.get(9)?,r.get(10)?))
@@ -608,7 +609,7 @@ impl Database {
             let host = parts[0].to_string();
             let port: i64 = parts[1].parse().unwrap_or(0);
             // FIX B41: валидируем диапазон порта 1-65535
-            if port < 1 || port > 65535 { skipped += 1; continue; }
+            if !(1..=65535).contains(&port) { skipped += 1; continue; }
             let username = parts.get(2).map(|s| s.to_string()).unwrap_or_default();
             let password = parts.get(3).map(|s| s.to_string()).unwrap_or_default();
             let input = ProxyInput {

@@ -1,8 +1,21 @@
+/// Строка build_order: колонки SELECT из orders + JOIN'ов.
+type OrderRow = (String,i64,Option<i64>,Option<i64>,Option<i64>,Option<String>,String,Option<f64>,Option<String>,Option<String>,Option<String>,Option<String>,String,String,Option<String>,Option<String>,Option<String>,Option<i64>,Option<String>,Option<String>);
+
+/// Строка списка заказов: OrderRow + флаги pending_too_long/card_expiring/bin_declined_here.
+type OrderListRow = (i64,String,i64,Option<i64>,Option<i64>,Option<i64>,
+    Option<String>,String,Option<f64>,Option<String>,Option<String>,
+    Option<String>,Option<String>,String,String,Option<String>,
+    Option<String>,Option<String>,Option<i64>,Option<String>,Option<String>,
+    bool,bool,bool);
+
+/// (id, order_number, tracking_number, carrier, days_since_update) — FEAT-007.
+type StaleTrackingRow = (i64, Option<String>, String, Option<String>, i64);
+
 impl Database {
     // ── Orders ────────────────────────────
 
     fn build_order(&self, id: i64) -> Result<Order, String> {
-        let row: (String,i64,Option<i64>,Option<i64>,Option<i64>,Option<String>,String,Option<f64>,Option<String>,Option<String>,Option<String>,Option<String>,String,String,Option<String>,Option<String>,Option<String>,Option<i64>,Option<String>,Option<String>) =
+        let row: OrderRow =
             self.conn.query_row(
                 "SELECT o.profile_id,o.shop_id,o.drop_id,o.email_pool_id,o.proxy_id,o.order_number,o.status,o.total_amount,o.tracking_number,o.carrier,o.notes,o.items_json,o.created_at,o.updated_at,s.name,c.holder_name,c.last4,c.id,COALESCE(px.label,px.host||':'||px.port),ep.email FROM orders o LEFT JOIN shops s ON o.shop_id=s.id LEFT JOIN profiles p ON o.profile_id=p.id LEFT JOIN credit_cards c ON p.card_id=c.id LEFT JOIN proxies px ON o.proxy_id=px.id LEFT JOIN email_pool ep ON o.email_pool_id=ep.id WHERE o.id=?1",
                 params![id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?,r.get(9)?,r.get(10)?,r.get(11)?,r.get(12)?,r.get(13)?,r.get(14)?,r.get(15)?,r.get(16)?,r.get(17)?,r.get(18)?,r.get(19)?))
@@ -69,6 +82,7 @@ impl Database {
 
     /// PHASE 1: Footprint Sync V2 — записывает hashed footprint данные заказа в shop_footprints
     /// Добавлены: order_status для аналитики, installation_id_hash для идентификации установки
+    #[allow(clippy::too_many_arguments)]
     fn record_order_footprint(&self, order_id: i64, profile_id: &str, shop_id: i64,
         email_pool_id: Option<i64>, drop_id: Option<i64>, proxy_id: Option<i64>,
         order_status: &str) -> Result<(), String>
@@ -197,12 +211,7 @@ impl Database {
                order_number, status, total_amount, tracking_number, carrier,
                notes, items_json, created_at, updated_at, shop_name,
                holder_enc, last4, card_id, proxy_label, email_addr,
-               pending_too_long, card_expiring, bin_declined_here):
-              (i64,String,i64,Option<i64>,Option<i64>,Option<i64>,
-               Option<String>,String,Option<f64>,Option<String>,Option<String>,
-               Option<String>,Option<String>,String,String,Option<String>,
-               Option<String>,Option<String>,Option<i64>,Option<String>,Option<String>,
-               bool,bool,bool)| {
+               pending_too_long, card_expiring, bin_declined_here): OrderListRow| {
             let holder_masked = holder_enc.as_deref()
                 .and_then(|h| self.decrypt_field(h).ok())
                 .map(|n| mask_name(&n));
@@ -667,7 +676,7 @@ impl Database {
     /// shipped, и заказ не обновлялся `days` дней. Напоминание проверить
     /// трекинг вручную. Возвращает (id, order_number, tracking_number,
     /// carrier, days_since_update).
-    pub fn stale_tracking_orders(&self, days: i64) -> Result<Vec<(i64, Option<String>, String, Option<String>, i64)>, String> {
+    pub fn stale_tracking_orders(&self, days: i64) -> Result<Vec<StaleTrackingRow>, String> {
         let mut stmt = self.conn.prepare(
             "SELECT id, order_number, tracking_number, carrier, \
                     CAST(julianday('now') - julianday(updated_at) AS INTEGER) \
@@ -691,6 +700,7 @@ impl Database {
     /// (order_id, status, event_at, description) второй раз не пишется —
     /// поллер дёргается каждые N минут и API отдаёт всю историю событий.
     /// Возвращает true, если строка реально добавлена.
+    #[allow(clippy::too_many_arguments)]
     pub fn record_tracking_checkpoint(
         &self,
         order_id: i64,

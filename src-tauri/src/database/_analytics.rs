@@ -550,9 +550,8 @@ impl Database {
             extra
         );
         let round1 = |v: Option<f64>| v.map(|x| (x * 10.0).round() / 10.0);
-        let (a_ps, a_sd, a_cd, a_cdec, n_ship, n_del, n_dec): (
-            Option<f64>, Option<f64>, Option<f64>, Option<f64>, i64, i64, i64,
-        ) = self.conn.query_row(&sql, p_refs.as_slice(), |r| Ok((
+        type AvgRow = (Option<f64>, Option<f64>, Option<f64>, Option<f64>, i64, i64, i64);
+        let (a_ps, a_sd, a_cd, a_cdec, n_ship, n_del, n_dec): AvgRow = self.conn.query_row(&sql, p_refs.as_slice(), |r| Ok((
             r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?,
             r.get::<_, i64>(4)?, r.get::<_, i64>(5)?, r.get::<_, i64>(6)?,
         ))).map_err(|e| e.to_string())?;

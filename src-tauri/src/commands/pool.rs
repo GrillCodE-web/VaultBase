@@ -68,7 +68,7 @@ fn pool_register_key_if_needed(db: &Database, token: &str) -> Result<(), String>
 }
 
 fn validate_count(count: i64) -> Result<i64, String> {
-    if count < 1 || count > MAX_RESERVE_PER_CALL {
+    if !(1..=MAX_RESERVE_PER_CALL).contains(&count) {
         return Err(format!("count_invalid: 1..={MAX_RESERVE_PER_CALL}"));
     }
     Ok(count)
@@ -315,10 +315,10 @@ pub(crate) fn pool_status() -> Result<Value, String> {
         if let Some(mine) = body.get_mut("mine").and_then(|m| m.as_array_mut()) {
             for s in mine.iter_mut() {
                 let has = s.get("sealed_data").and_then(|v| v.as_str()).map(|v| !v.is_empty()).unwrap_or(false);
-                s.as_object_mut().map(|o| {
+                if let Some(o) = s.as_object_mut() {
                     o.remove("sealed_data");
                     o.insert("has_sealed".into(), json!(has));
-                });
+                }
             }
         }
         Ok(body)
@@ -341,10 +341,10 @@ pub(crate) fn pool_reserve(app: tauri::AppHandle, count: i64) -> Result<Value, S
         let slices = body.get("slices").and_then(|v| v.as_array()).cloned().unwrap_or_default();
         let reserved = body.get("reserved").and_then(|v| v.as_i64()).unwrap_or(0);
         let mut stats = import_reserved_locked(db, &token, &slices)?;
-        stats.as_object_mut().map(|o| {
+        if let Some(o) = stats.as_object_mut() {
             o.insert("requested".into(), json!(count));
             o.insert("reserved".into(), json!(reserved));
-        });
+        }
         let _ = db.log_event(
             "pool.reserve",
             &format!("requested={count} reserved={reserved} imported={} failed={}",

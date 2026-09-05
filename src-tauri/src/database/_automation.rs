@@ -219,6 +219,7 @@ impl Database {
 
     /// Ok(true) — правило сработало и действия применены; Ok(false) — условия
     /// не выполнены; Err — ошибка разбора или выполнения действия.
+    #[allow(clippy::too_many_arguments)]
     fn try_fire_rule(
         &self,
         rule_id: i64,
@@ -322,6 +323,7 @@ impl Database {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn record_rule_run(
         &self,
         rule_id: i64,

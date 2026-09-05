@@ -245,6 +245,7 @@ impl Database {
     //  IMAP Messages
     // ─────────────────────────────────────────
 
+    #[allow(clippy::too_many_arguments)]
     pub fn save_imap_message(&self, account_id: i64, uid: Option<&str>, subject: &str,
         from_email: &str, received_at: &str, order_num: Option<&str>,
         tracking: Option<&str>, action: Option<&str>) -> Result<(), String>
@@ -254,6 +255,7 @@ impl Database {
     }
 
     /// FIX B66: `processed` = true только если action реально применено к заказу
+    #[allow(clippy::too_many_arguments)]
     pub fn save_imap_message_v2(&self, account_id: i64, uid: Option<&str>, subject: &str,
         from_email: &str, received_at: &str, order_num: Option<&str>,
         tracking: Option<&str>, action: Option<&str>, processed: bool) -> Result<(), String>
@@ -359,7 +361,7 @@ impl Database {
             processed: r.get::<_,i64>(13).unwrap_or(0) != 0,
             created_at: r.get(14)?,
         })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
-        let pages = ((total as u32) + per_page - 1) / per_page;
+        let pages = (total as u32).div_ceil(per_page);
         Ok(PaginatedMessages { items, total: total as u32, page, per_page, pages })
     }
 
@@ -415,7 +417,7 @@ impl Database {
             let x = stmt.query_map(params![account_id, folder, pp, offset], row_map)
                 .map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect(); x
         };
-        let pages = ((total as u32).max(1) + per_page - 1) / per_page;
+        let pages = (total as u32).max(1).div_ceil(per_page);
         Ok(PaginatedMessages { items, total: total as u32, page, per_page, pages })
     }
 
@@ -527,7 +529,7 @@ impl Database {
             let rows = stmt.query_map(params![pp, offset], row_map).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
             (t, rows)
         };
-        let pages = ((total as u32).max(1) + per_page - 1) / per_page;
+        let pages = (total as u32).max(1).div_ceil(per_page);
         Ok(PaginatedMessages { items, total: total as u32, page, per_page, pages })
     }
 
@@ -539,6 +541,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn save_imap_message_with_body(&self, account_id: i64, uid: Option<&str>,
         subject: &str, from_email: &str, to_email: Option<&str>, received_at: &str,
         body: Option<&str>, folder: &str, order_num: Option<&str>,
@@ -626,6 +629,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn log_sent_email(&self, smtp_config_id: Option<i64>, from_email: Option<&str>,
         to_email: &str, subject: Option<&str>, body_text: Option<&str>,
         status: &str, error_message: Option<&str>) -> Result<(), String>
@@ -649,7 +653,7 @@ impl Database {
             to_email: r.get(3)?, subject: r.get(4)?,
             status: r.get(5)?, error_message: r.get(6)?, sent_at: r.get(7)?,
         })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
-        let pages = ((total as u32).max(1) + per_page - 1) / per_page;
+        let pages = (total as u32).max(1).div_ceil(per_page);
         Ok(PaginatedSentEmails { items, total: total as u32, page, per_page, pages })
     }
 
@@ -814,54 +818,54 @@ impl Database {
         let mut stmt = self.conn.prepare(
             "SELECT id,last4,bin,bank_name,card_type,status FROM credit_cards WHERE last4 LIKE ?1 OR bin LIKE ?2 LIMIT 8"
         ).map_err(|e| e.to_string())?;
-        for row in stmt.query_map(params![ql, ql], |r| {
+        for v in stmt.query_map(params![ql, ql], |r| {
             Ok(json!({
                 "id": r.get::<_,i64>(0)?, "last4": r.get::<_,Option<String>>(1)?,
                 "bin": r.get::<_,Option<String>>(2)?, "bank_name": r.get::<_,Option<String>>(3)?,
                 "card_type": r.get::<_,Option<String>>(4)?, "status": r.get::<_,String>(5)?,
                 "_type": "card",
             }))
-        }).map_err(|e| e.to_string())? { if let Ok(v) = row { cards.push(v); } }
+        }).map_err(|e| e.to_string())?.flatten() { cards.push(v); }
 
         // Orders — search by order_number
         let mut orders = Vec::new();
         let mut stmt = self.conn.prepare(
             "SELECT o.id,o.order_number,o.status,s.name FROM orders o LEFT JOIN shops s ON o.shop_id=s.id WHERE o.order_number LIKE ?1 LIMIT 6"
         ).map_err(|e| e.to_string())?;
-        for row in stmt.query_map(params![ql], |r| {
+        for v in stmt.query_map(params![ql], |r| {
             Ok(json!({
                 "id": r.get::<_,i64>(0)?, "order_number": r.get::<_,Option<String>>(1)?,
                 "status": r.get::<_,String>(2)?, "shop_name": r.get::<_,Option<String>>(3)?,
                 "_type": "order",
             }))
-        }).map_err(|e| e.to_string())? { if let Ok(v) = row { orders.push(v); } }
+        }).map_err(|e| e.to_string())?.flatten() { orders.push(v); }
 
         // Shops
         let mut shops = Vec::new();
         let mut stmt = self.conn.prepare(
             "SELECT id,name,domain FROM shops WHERE LOWER(name) LIKE ?1 OR LOWER(domain) LIKE ?1 LIMIT 5"
         ).map_err(|e| e.to_string())?;
-        for row in stmt.query_map(params![q], |r| {
+        for v in stmt.query_map(params![q], |r| {
             Ok(json!({"id": r.get::<_,i64>(0)?, "name": r.get::<_,String>(1)?, "domain": r.get::<_,String>(2)?, "_type": "shop"}))
-        }).map_err(|e| e.to_string())? { if let Ok(v) = row { shops.push(v); } }
+        }).map_err(|e| e.to_string())?.flatten() { shops.push(v); }
 
         // Emails
         let mut emails = Vec::new();
         let mut stmt = self.conn.prepare(
             "SELECT id,email_hash,label FROM email_pool WHERE LOWER(label) LIKE ?1 LIMIT 5"
         ).map_err(|e| e.to_string())?;
-        for row in stmt.query_map(params![q], |r| {
+        for v in stmt.query_map(params![q], |r| {
             Ok(json!({"id": r.get::<_,i64>(0)?, "label": r.get::<_,Option<String>>(2)?, "_type": "email"}))
-        }).map_err(|e| e.to_string())? { if let Ok(v) = row { emails.push(v); } }
+        }).map_err(|e| e.to_string())?.flatten() { emails.push(v); }
 
         // Proxies
         let mut proxies = Vec::new();
         let mut stmt = self.conn.prepare(
             "SELECT id,host,port,label FROM proxies WHERE LOWER(label) LIKE ?1 OR LOWER(host) LIKE ?1 LIMIT 5"
         ).map_err(|e| e.to_string())?;
-        for row in stmt.query_map(params![q], |r| {
+        for v in stmt.query_map(params![q], |r| {
             Ok(json!({"id": r.get::<_,i64>(0)?, "host": r.get::<_,String>(1)?, "port": r.get::<_,i64>(2)?, "label": r.get::<_,Option<String>>(3)?, "_type": "proxy"}))
-        }).map_err(|e| e.to_string())? { if let Ok(v) = row { proxies.push(v); } }
+        }).map_err(|e| e.to_string())?.flatten() { proxies.push(v); }
 
         // Profiles — search by drop recipient_name or notes
         // FIX AUDIT-15: recipient_name зашифрован — LIKE по шифротексту не работал.
@@ -871,7 +875,8 @@ impl Database {
             "SELECT DISTINCT p.id, d.recipient_name, d.city, d.country, p.notes
              FROM profiles p LEFT JOIN drops d ON d.profile_id=p.id"
         ).map_err(|e| e.to_string())?;
-        let rows: Vec<(String, Option<String>, Option<String>, Option<String>, Option<String>)> =
+        type ProfileSearchRow = (String, Option<String>, Option<String>, Option<String>, Option<String>);
+        let rows: Vec<ProfileSearchRow> =
             stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
                 .map_err(|e| e.to_string())?
                 .filter_map(|r| r.ok())

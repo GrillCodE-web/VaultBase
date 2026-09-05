@@ -32,7 +32,7 @@ impl SimpleRateLimiter {
         
         // FIX CRITICAL: Periodic cleanup to prevent memory leak
         // Clean up expired buckets every 100th call
-        if buckets.len() % 100 == 0 && buckets.len() > 0 {
+        if buckets.len() % 100 == 0 && !buckets.is_empty() {
             let max_age = self.window * 2; // Keep buckets for 2x window duration
             buckets.retain(|_, (_, start_time)| {
                 now.duration_since(*start_time) <= max_age

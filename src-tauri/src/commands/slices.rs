@@ -269,7 +269,7 @@ pub(crate) fn import_sealed_slice(db: &Database, sealed_data: &str) -> Result<us
     let payload: Value = serde_json::from_str(&payload_str)
         .map_err(|e| format!("payload_parse: {e}"))?;
     let card = slice_to_card(&payload)?;
-    Ok(db.insert_cards(vec![card])?)
+    db.insert_cards(vec![card])
 }
 
 #[tauri::command]

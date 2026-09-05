@@ -477,7 +477,7 @@ pub fn check_fedex_tracking(tracking: &str) -> Result<TrackingStatus, String> {
 
     // FIX CRITICAL: Use constant for FedEx tracking URL
     let resp = ureq::post(url)
-        .set("Authorization", &format!("Bearer {}", &api_key))
+        .set("Authorization", &format!("Bearer {api_key}"))
         .set("client_api_key", &api_key)
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(10))

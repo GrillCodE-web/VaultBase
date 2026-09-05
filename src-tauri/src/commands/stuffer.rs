@@ -336,12 +336,15 @@ pub(crate) struct SharedCourierList {
     errors: Vec<SharedCourierError>,
 }
 
-/// Источники общего списка: (account_id, label, provider_id, base_url, api_key).
-/// Легаси-ключ из настроек — account_id=0; аккаунт-дубликат легаси-ключа
-/// (та же тройка provider+url+key) пропускается, чтобы не плодить дубли.
-fn stuffer_account_sources() -> Result<Vec<(i64, String, String, String, String)>, String> {
+/// (account_id, label, provider_id, base_url, api_key).
+type AccountSource = (i64, String, String, String, String);
+
+/// Источники общего списка. Легаси-ключ из настроек — account_id=0;
+/// аккаунт-дубликат легаси-ключа (та же тройка provider+url+key)
+/// пропускается, чтобы не плодить дубли.
+fn stuffer_account_sources() -> Result<Vec<AccountSource>, String> {
     with_db!(db, {
-        let mut sources: Vec<(i64, String, String, String, String)> = Vec::new();
+        let mut sources: Vec<AccountSource> = Vec::new();
         // MGR-018 (этап D): share-ключ менеджера заменяет легаси-аккаунт.
         let legacy = match shared_creds(db)? {
             Some((base, key)) => Some((base, key)),

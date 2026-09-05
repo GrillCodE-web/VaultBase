@@ -69,7 +69,8 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         return Err(rusqlite::Error::QueryReturnedNoRows);
     }
 
-    let migrations: &[(u32, fn(&Connection) -> SqlResult<()>)] = &[
+    type MigrationFn = fn(&Connection) -> SqlResult<()>;
+    let migrations: &[(u32, MigrationFn)] = &[
         (1, migration_v1), (2, migration_v2), (3, migration_v3),
         (4, migration_v4), (5, migration_v5), (6, migration_v6),
         (7, migration_v7), (8, migration_v8), (9, migration_v9),

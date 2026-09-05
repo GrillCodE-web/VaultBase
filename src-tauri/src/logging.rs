@@ -52,6 +52,7 @@ impl From<LogLevel> for LevelFilter {
 /// # Returns
 /// * `Ok(())` if successful
 /// * `Err(String)` if initialization fails
+///
 /// SEC: файловые логи — форензик-след (хронология сессий, пути с именем
 /// пользователя ОС). В release-сборке по умолчанию НЕ пишутся: включаются
 /// осознанно через env `VAULTBASE_LOG_FILE=1`. В dev-сборке (debug_assertions)

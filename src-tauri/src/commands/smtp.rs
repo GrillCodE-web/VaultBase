@@ -58,7 +58,7 @@ pub(crate) fn test_smtp_connection(id: i64) -> Result<String, String> {
 pub(crate) fn send_email(smtp_config_id: i64, to: String, subject: String, body: String) -> Result<(), String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
-    crate::smtp::EmailSender::send(&*guard, smtp_config_id, &to, &subject, &body)
+    crate::smtp::EmailSender::send(&guard, smtp_config_id, &to, &subject, &body)
 }
 
 #[tauri::command]

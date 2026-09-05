@@ -113,7 +113,7 @@ fn generate_challenge(installation_id: &str) -> String {
     hasher.update(installation_id.as_bytes());
     hasher.update(b"|");
     hasher.update(epoch_hour.to_string().as_bytes());
-    hasher.update(&random_bytes); // Add randomness to prevent prediction
+    hasher.update(random_bytes); // Add randomness to prevent prediction
     let result = hasher.finalize();
 
     // FIX CRY-05: Use 32 hex characters (128 bits of entropy) instead of 16
@@ -193,6 +193,9 @@ pub fn activate(db: &Database, activation_key: &str) -> Result<(), String> {
 // Verify at startup
 // ─────────────────────────────────────────────
 
+// needless_return: в debug-ветке return обязателен — блок стоит в
+// statement-позиции, иначе после cfg-раскрытия функция вернёт ().
+#[cfg_attr(debug_assertions, allow(clippy::needless_return))]
 pub fn verify_at_startup(db: &Database) -> Result<LicenseStatus, String> {
     // In debug builds, skip license check entirely
     #[cfg(debug_assertions)]

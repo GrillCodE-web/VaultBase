@@ -17,7 +17,8 @@ impl Database {
     }
 
     fn build_shop(&self, id: i64) -> Result<Shop, String> {
-        let (name,domain,url,cat,notes,rcvv,bvpn,pmatch,amex,avs,hcr,ca,ua): (String,String,String,Option<String>,Option<String>,i64,i64,i64,i64,i64,i64,String,String) =
+        type ShopRow = (String,String,String,Option<String>,Option<String>,i64,i64,i64,i64,i64,i64,String,String);
+        let (name,domain,url,cat,notes,rcvv,bvpn,pmatch,amex,avs,hcr,ca,ua): ShopRow =
             self.conn.query_row(
                 "SELECT name,domain,url,category,notes,requires_cvv_match,blocks_vpn,phone_must_match,accepts_amex,requires_avs,high_cancel_risk,created_at,updated_at FROM shops WHERE id=?1",
                 params![id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?,r.get(9)?,r.get(10)?,r.get(11)?,r.get(12)?))
@@ -323,7 +324,7 @@ impl Database {
             })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
             (total, items)
         };
-        let pages = ((total as u32).max(1) + per_page - 1) / per_page;
+        let pages = (total as u32).max(1).div_ceil(per_page);
         Ok(PaginatedCatalogItems { items, total: total as u32, page, per_page, pages })
     }
 
@@ -360,7 +361,7 @@ impl Database {
             })).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
             (total, items)
         };
-        let pages = ((total as u32).max(1) + per_page - 1) / per_page;
+        let pages = (total as u32).max(1).div_ceil(per_page);
         Ok(PaginatedCatalogShops { items, total: total as u32, page, per_page, pages })
     }
 
