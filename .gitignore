@@ -58,3 +58,11 @@ audit-shots/
 audit-run*.log
 dev-server.log
 audit-shots-before/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key
+.beads/proxieddb/
+
+# Release bundles (kept on server, not in repo)
+.release-artifacts/
