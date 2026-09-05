@@ -8,6 +8,7 @@ import Cards from './Cards.jsx'
 import Analytics from './Analytics.jsx'
 import News from './News.jsx'
 import Alerts from './Alerts.jsx'
+import Chat from './Chat.jsx'
 import Priorities from './Priorities.jsx'
 import Updates from './Updates.jsx'
 import Licenses from './Licenses.jsx'
@@ -20,6 +21,7 @@ const PAGES = {
   analytics: Analytics,
   news: News,
   alerts: Alerts,
+  chat: Chat,
   priorities: Priorities,
   updates: Updates,
   licenses: Licenses,
@@ -129,6 +131,7 @@ export default function Shell({ appState, onLock }) {
       ['analytics', 'nav_analytics'],
       ['news', 'nav_news'],
       ['alerts', 'nav_alerts'],
+      ['chat', 'nav_chat'],
       ['priorities', 'nav_priorities'],
       ['updates', 'nav_updates'],
       ['licenses', 'nav_licenses'],

@@ -512,6 +512,11 @@ impl Database {
                 "SELECT COUNT(*) FROM imap_messages WHERE is_read=0",
                 [], |r| r.get(0),
             ).unwrap_or(0),
+            // REDESIGN-05-5B4: бейдж чата — тот же COUNT, что chat_unread_count.
+            unread_chat: self.conn.query_row(
+                "SELECT COUNT(*) FROM chat_messages WHERE direction='in' AND read_at IS NULL",
+                [], |r| r.get(0),
+            ).unwrap_or(0),
             unsynced_footprints,
         })
     }

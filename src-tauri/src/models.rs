@@ -1216,6 +1216,8 @@ pub struct SidebarBadges {
     pub clean_emails: i64,
     pub unread_imap: i64,
     pub unsynced_footprints: i64,
+    /// REDESIGN-05-5B4: непрочитанные входящие чата (badgeKey 'unread_chat').
+    pub unread_chat: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

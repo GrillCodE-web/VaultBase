@@ -43,6 +43,15 @@ export const vaultExport = (cardIds, path, password, purge = true) =>
   invoke('vault_export', { cardIds, path, password, purge })
 export const vaultExportLog = () => invoke('vault_export_log')
 
+// ── REDESIGN-05-5B4: E2E-чат (docs/CHAT_E2E.md) ─────────────────────────────
+export const chatPeers = () => invoke('chat_peers')
+export const chatSend = (peerIid, body, refType = null, refId = null) =>
+  invoke('chat_send', { peerIid, body, refType, refId })
+export const chatList = (room = null, limit = 500) => invoke('chat_list', { room, limit })
+export const chatMarkRead = (ids) => invoke('chat_mark_read', { ids })
+export const chatUnreadCount = () => invoke('chat_unread_count')
+export const chatFetch = () => invoke('chat_fetch')
+
 export function fmtDateTime(value) {
   if (!value) return '—'
   const iso = String(value).replace(' ', 'T') + (String(value).endsWith('Z') ? '' : 'Z')

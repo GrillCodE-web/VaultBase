@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod alerts;
+mod chat;
 mod commands;
 mod crypto;
 mod db;
@@ -48,6 +49,12 @@ commands::vault_recall,
 commands::vault_burn,
 commands::vault_export,
 commands::vault_export_log,
+            chat::chat_peers,
+            chat::chat_send,
+            chat::chat_list,
+            chat::chat_mark_read,
+            chat::chat_unread_count,
+            chat::chat_fetch,
             commands::check_app_update,
             commands::install_app_update,
         ])

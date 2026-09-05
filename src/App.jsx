@@ -54,6 +54,7 @@ const Catalog = lazy(() => import('./pages/Catalog'))
 const Shops = lazy(() => import('./pages/Shops'))
 const ProxyList = lazy(() => import('./pages/Proxies'))
 const Imap = lazy(() => import('./pages/Imap'))
+const Chat = lazy(() => import('./pages/Chat'))
 const Couriers = lazy(() => import('./pages/Couriers'))
 const ActivityLog = lazy(() => import('./pages/ActivityLog'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -69,6 +70,7 @@ import {
   Shield,
   Truck,
   Inbox,
+  MessagesSquare,
   ClipboardList,
   Settings as SettingsIcon,
   Globe,
@@ -105,6 +107,7 @@ const PAGE_MAP = {
   proxies: ProxyList,
   couriers: Couriers,
   imap: Imap,
+  chat: Chat,
   activity_log: ActivityLog,
   updates: Updates,
   settings: Settings,
@@ -266,6 +269,8 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     // imap — без топбар-табов: страница сама 3-панельный почтовый клиент,
     // табы Accounts/Inbox дублировали её шапку и ничего не переключали.
     imap: [],
+    // chat — тоже без топбар-табов: 2-панельный мессенджер со своей шапкой.
+    chat: [],
     activity_log: [{ key: 'list', label: t('log_title') }],
     updates: [{ key: 'list', label: t('updates_title') }],
     dashboard: [],
@@ -852,6 +857,11 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       requireNoInput: true,
     },
     {
+      keys: ['g t'],
+      handler: () => handlePageChange('chat'),
+      requireNoInput: true,
+    },
+    {
       keys: ['g x'],
       handler: () => handlePageChange('proxies'),
       requireNoInput: true,
@@ -1012,6 +1022,14 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           label: t('nav_imap'),
           badgeKey: 'unread_imap',
           hint: 'G M',
+        },
+        {
+          key: 'chat',
+          icon: MessagesSquare,
+          page: 'chat',
+          label: t('nav_chat'),
+          badgeKey: 'unread_chat',
+          hint: 'G T',
         },
       ],
     },
@@ -1466,7 +1484,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
 
         <main
           id="main-content"
-          className={`main-content-scroll${page === 'imap' ? ' main-content-fill' : ''}`}
+          className={`main-content-scroll${page === 'imap' || page === 'chat' ? ' main-content-fill' : ''}`}
         >
           <ErrorBoundary resetKey={page} onReset={() => handlePageChange('dashboard')}>
             <Suspense

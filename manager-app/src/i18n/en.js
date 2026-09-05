@@ -438,4 +438,18 @@ export const dict = {
   vault_col_declines: 'Declines',
   vault_col_cards: 'Cards',
   vault_export_log: 'Export journal',
+
+  // REDESIGN-05-5B4: E2E chat (docs/CHAT_E2E.md)
+  nav_chat: 'Chat',
+  chat_e2e_badge: 'E2E encrypted',
+  chat_e2e_hint: 'Messages are sealed on your device (X25519/AES-GCM); the server only relays envelopes',
+  chat_you: 'You',
+  chat_no_peers: 'No workers with registered keys yet',
+  chat_select_room: 'Select a worker',
+  chat_empty_room: 'No messages yet — say hello',
+  chat_input_placeholder: 'Message… (Enter — send, Shift+Enter — newline)',
+  chat_send: 'Send',
+  chat_ref_card: 'Card',
+  chat_ref_order: 'Order',
+  chat_ref_profile: 'Profile',
 }

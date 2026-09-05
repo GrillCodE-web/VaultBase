@@ -1359,4 +1359,27 @@ export const ru = {
   upanel_api_error: 'Ошибка API uPanel',
   upanel_read_error: 'Не удалось прочитать ответ uPanel',
   upanel_connection_not_found: 'Подключение uPanel не найдено',
+
+  // REDESIGN-05-5B4: E2E-чат (docs/CHAT_E2E.md)
+  nav_chat: 'Чат',
+  chat_e2e_badge: 'E2E-шифрование',
+  chat_e2e_hint:
+    'Сообщения запечатываются на устройстве (X25519/AES-GCM); сервер лишь пересылает конверты',
+  chat_refresh: 'Забрать новые',
+  chat_new_messages: 'Новых сообщений: {n}',
+  chat_group_room: 'Комната группы',
+  chat_role_manager: 'менеджер',
+  chat_you: 'Вы',
+  chat_no_peers: 'Пока нет собеседников — они появятся после регистрации ключей воркера/менеджера',
+  chat_select_room: 'Выберите диалог',
+  chat_empty_room: 'Сообщений пока нет — напишите первым',
+  chat_input_placeholder: 'Сообщение… (Enter — отправить, Shift+Enter — новая строка)',
+  chat_send: 'Отправить',
+  chat_ref_card: 'Карта',
+  chat_ref_order: 'Заказ',
+  chat_ref_profile: 'Профиль',
+  chat_err_empty_body: 'Сообщение пустое',
+  chat_err_body_too_long: 'Сообщение слишком длинное (макс. 4000 символов)',
+  chat_err_peer_unknown: 'Собеседник не найден или у него нет ключа шифрования',
+  chat_err_no_token: 'Нет авторизации на sync-сервере',
 }

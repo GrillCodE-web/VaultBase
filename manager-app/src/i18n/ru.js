@@ -438,4 +438,18 @@ export const dict = {
   vault_col_declines: 'Деклайны',
   vault_col_cards: 'Карт',
   vault_export_log: 'Журнал вывозов',
+
+  // REDESIGN-05-5B4: E2E-чат (docs/CHAT_E2E.md)
+  nav_chat: 'Чат',
+  chat_e2e_badge: 'E2E-шифрование',
+  chat_e2e_hint: 'Сообщения запечатываются на устройстве (X25519/AES-GCM); сервер лишь пересылает конверты',
+  chat_you: 'Вы',
+  chat_no_peers: 'Пока нет воркеров с зарегистрированными ключами',
+  chat_select_room: 'Выберите воркера',
+  chat_empty_room: 'Сообщений пока нет — напишите первым',
+  chat_input_placeholder: 'Сообщение… (Enter — отправить, Shift+Enter — новая строка)',
+  chat_send: 'Отправить',
+  chat_ref_card: 'Карта',
+  chat_ref_order: 'Заказ',
+  chat_ref_profile: 'Профиль',
 }

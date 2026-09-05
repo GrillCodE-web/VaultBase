@@ -1359,4 +1359,27 @@ export const en = {
   upanel_api_error: 'uPanel API error',
   upanel_read_error: 'Failed to read uPanel response',
   upanel_connection_not_found: 'uPanel connection not found',
+
+  // REDESIGN-05-5B4: E2E chat (docs/CHAT_E2E.md)
+  nav_chat: 'Chat',
+  chat_e2e_badge: 'E2E encrypted',
+  chat_e2e_hint:
+    'Messages are sealed on your device (X25519/AES-GCM); the server only relays envelopes',
+  chat_refresh: 'Fetch new',
+  chat_new_messages: '{n} new message(s)',
+  chat_group_room: 'Group room',
+  chat_role_manager: 'manager',
+  chat_you: 'You',
+  chat_no_peers: 'No peers yet — they appear once a worker/manager key is registered',
+  chat_select_room: 'Select a conversation',
+  chat_empty_room: 'No messages yet — say hello',
+  chat_input_placeholder: 'Message… (Enter — send, Shift+Enter — newline)',
+  chat_send: 'Send',
+  chat_ref_card: 'Card',
+  chat_ref_order: 'Order',
+  chat_ref_profile: 'Profile',
+  chat_err_empty_body: 'Message is empty',
+  chat_err_body_too_long: 'Message is too long (max 4000 chars)',
+  chat_err_peer_unknown: 'Peer not found or has no encryption key',
+  chat_err_no_token: 'Not authorized on the sync server',
 }

@@ -130,6 +130,21 @@ CREATE TABLE IF NOT EXISTS report_rollups (
     UNIQUE(installation_id, month)
 );
 CREATE INDEX IF NOT EXISTS idx_report_rollups_month ON report_rollups(month);
+-- REDESIGN-05-5B4: E2E-чат, зеркало воркерской миграции v27 (docs/CHAT_E2E.md).
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id   INTEGER UNIQUE,
+    room        TEXT NOT NULL,
+    peer_iid    TEXT NOT NULL,
+    direction   TEXT NOT NULL CHECK (direction IN ('in','out')),
+    body        TEXT NOT NULL,
+    ref_type    TEXT,
+    ref_id      TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    read_at     DATETIME
+);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_room   ON chat_messages(room, id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_unread ON chat_messages(direction, read_at);
 "#,
             )
             .map_err(|e| format!("init schema: {e}"))?;
