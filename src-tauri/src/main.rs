@@ -310,7 +310,6 @@ fn main() {
             commands::slices::config_shares_fetch,
             commands::pool::pool_status, commands::pool::pool_reserve,
             commands::pool::pool_release, commands::pool::pool_report_outcome,
-            commands::group_panel::group_workers,
             commands::cards::update_card_status, commands::cards::update_card_notes, commands::cards::delete_card,
             commands::cards::bulk_update_cards, commands::cards::bulk_delete_cards, commands::cards::export_cards, commands::cards::enrich_bin,
             commands::cards::archive_dead_cards,

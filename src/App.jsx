@@ -352,7 +352,7 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       try {
         const { check } = await import('@tauri-apps/plugin-updater')
         const update = await check()
-        if (cancelled || !update?.available) return
+        if (cancelled || !update) return
         setUpdateReady(true)
         // Тост один раз на версию — чтобы не повторялся каждые 6 часов.
         const notifiedKey = 'vb_update_notified'

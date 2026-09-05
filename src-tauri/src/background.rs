@@ -455,15 +455,6 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                 }
             }
         }),
-        // REDESIGN-05-5B2: публикация групповой статистики для панели
-        // воркеров (каждые 5 минут; ошибки глушатся внутри publish).
-        CronTask::new("group_stats_publish", crate::commands::group_panel::GROUP_STATS_INTERVAL_SECS, 60, |_h| {
-            if let Some(st) = STATE.get() {
-                let Ok(db) = st.db.lock() else { return };
-                if db.is_locked() { return; }
-                let _ = crate::commands::group_panel::publish_group_stats(&db);
-            }
-        }),
     ]);
 
     // ── Auto-fetch catalog on first run if empty ──

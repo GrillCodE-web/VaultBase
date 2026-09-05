@@ -233,7 +233,7 @@ export default function Updates() {
     let cancelled = false
     checkUpdate()
       .then(update => {
-        if (!update?.available || cancelled) return
+        if (!update || cancelled) return
 
         // Don't show banner if we already installed this exact version this session
         // (prevents infinite loop after relaunch)
@@ -308,7 +308,7 @@ export default function Updates() {
     setChecking(true)
     try {
       const update = await checkUpdate()
-      if (update?.available && localStorage.getItem(INSTALLED_VER_KEY) !== update.version) {
+      if (update && localStorage.getItem(INSTALLED_VER_KEY) !== update.version) {
         setUpdateAvailable(update)
         setDismissed(false)
         toast(`${t('upd_available_toast')}: v${update.version}`, 'success')
