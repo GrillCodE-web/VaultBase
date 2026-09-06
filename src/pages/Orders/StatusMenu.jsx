@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useLang } from '../../hooks/useLang'
 import { usePremiumToast } from '../../hooks/usePremiumToast'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useOrdersStore } from '../../store/orders.js'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 import { ORDER_STATUSES, ORDER_STATUS_DOT_COLORS } from '../../constants/status.js'
 import { ShippedModal } from './ShippedModal.jsx'
@@ -12,7 +13,26 @@ export function StatusMenu({ order, onUpdate, onClose }) {
   const [showShippedModal, setShowShippedModal] = useState(false)
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
+  const updateOrder = useOrdersStore(s => s.updateOrder)
   const submittingRef = useRef(false)
+
+  // Оптимистичная смена статуса: стор мгновенно патчит строку и закрываем
+  // меню; при ошибке updateOrder откатывает локальное состояние. onUpdate
+  // тихо догружает серверную правду (updated_at и пр.) после успеха.
+  // Гард submittingRef ставят вызывающие (handleStatus/handleShipped).
+  const applyStatus = async (status, meta, successMsg) => {
+    onClose()
+    try {
+      await updateOrder(order.id, { status, meta })
+      toast(successMsg || t('status_updated'), 'success')
+      onUpdate()
+    } catch (e) {
+      const error = handleError(e, 'StatusMenu.applyStatus')
+      toast(getErrorMessage(error), 'error')
+    } finally {
+      submittingRef.current = false
+    }
+  }
 
   const handleStatus = async status => {
     if (status === 'shipped') {
@@ -31,48 +51,25 @@ export function StatusMenu({ order, onUpdate, onClose }) {
           cancelLabel: t('confirm_mark_dead_cancel') || 'Keep',
         }
       )
-      try {
-        await invoke('update_order_status', { id: order.id, status, meta: null })
-        if (markDead && order.card_id != null)
+      applyStatus(status, null)
+      if (markDead && order.card_id != null) {
+        try {
           await invoke('update_card_status', { id: order.card_id, status: 'dead' })
-        toast(t('status_updated'), 'success')
-        onUpdate()
-        onClose()
-      } catch (e) {
-        const error = handleError(e, 'OrderModal.handleUpdate')
-        toast(getErrorMessage(error), 'error')
-      } finally {
-        submittingRef.current = false
+        } catch (e) {
+          const error = handleError(e, 'StatusMenu.markCardDead')
+          toast(getErrorMessage(error), 'error')
+        }
       }
       return
     }
-    try {
-      await invoke('update_order_status', { id: order.id, status, meta: null })
-      toast(t('status_updated'), 'success')
-      onUpdate()
-      onClose()
-    } catch (e) {
-      const error = handleError(e, 'Orders.handleStatusChange')
-      toast(getErrorMessage(error), 'error')
-    } finally {
-      submittingRef.current = false
-    }
+    applyStatus(status, null)
   }
 
-  const handleShipped = async meta => {
+  const handleShipped = meta => {
     if (submittingRef.current) return
     submittingRef.current = true
-    try {
-      await invoke('update_order_status', { id: order.id, status: 'shipped', meta })
-      toast(t('order_marked_shipped'), 'success')
-      onUpdate()
-      onClose()
-    } catch (e) {
-      const error = handleError(e, 'Orders.handleShipped')
-      toast(getErrorMessage(error), 'error')
-    } finally {
-      submittingRef.current = false
-    }
+    setShowShippedModal(false)
+    applyStatus('shipped', meta, t('order_marked_shipped'))
   }
 
   return (
