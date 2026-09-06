@@ -311,10 +311,17 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
         // NewsAlert покажет баннер при ближайшем опросе локального кэша.
         "news" => {
             crate::state::spawn_task(move || {
-                let _ = with_db!(db, {
-                    crate::commands::telemetry::fetch_and_store_news(db)
-                        .map(|n| serde_json::json!({ "news": n }))
-                });
+                // with_db! использует `?` — замыкание spawn_task возвращает (),
+                // поэтому тело обёрнуто в Result-замыкание.
+                let r: Result<serde_json::Value, String> = (|| {
+                    with_db!(db, {
+                        crate::commands::telemetry::fetch_and_store_news(db)
+                            .map(|n| serde_json::json!({ "news": n }))
+                    })
+                })();
+                if let Err(e) = r {
+                    eprintln!("[ws_sync] news fetch failed: {e}");
+                }
             });
         }
         // {"type":"auth_error","error":"invalid_token"|"missing_token"}
