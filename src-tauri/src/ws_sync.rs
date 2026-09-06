@@ -20,6 +20,7 @@ use std::time::{Duration, Instant};
 use tungstenite::{connect, Message};
 use tauri::{AppHandle, Emitter};
 use crate::models;
+use crate::state::with_db;
 
 // URL выводится из crate::endpoints (переменная VAULTBASE_SYNC_WS_URL там же).
 // CLEAN-004: Use centralized constants
@@ -304,6 +305,17 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
         // и эмитим chat:message фронту.
         "chat_message" => {
             crate::commands::chat::fetch_on_ws_notify(app.clone());
+        }
+        // {"type":"news","news":{...}} — менеджер опубликовал новость
+        // (manager-api.js publish → broadcastAll). Тянем ленту в фоне,
+        // NewsAlert покажет баннер при ближайшем опросе локального кэша.
+        "news" => {
+            crate::state::spawn_task(move || {
+                let _ = with_db!(db, {
+                    crate::commands::telemetry::fetch_and_store_news(db)
+                        .map(|n| serde_json::json!({ "news": n }))
+                });
+            });
         }
         // {"type":"auth_error","error":"invalid_token"|"missing_token"}
         "auth_error" => {

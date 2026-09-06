@@ -219,6 +219,11 @@ fn connect_and_run(app: &AppHandle, token: &str, url: &str) -> Result<(), String
                             eprintln!("[ws] chat fetch on notify failed: {e}");
                         }
                     }
+                    Some("news") => {
+                        // Менеджер опубликовал новость (server broadcastAll).
+                        // Фронту — событие: страница/Shell перечитают список.
+                        let _ = app.emit("news:published", v.get("news").cloned().unwrap_or(json!(null)));
+                    }
                     Some("auth_error") => {
                         let err = v.get("error").and_then(|e| e.as_str()).unwrap_or("");
                         if err == "invalid_token" {

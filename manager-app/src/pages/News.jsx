@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { api, fmtDateTime } from '../api/server.js'
 
@@ -35,6 +36,20 @@ export default function News() {
   }
 
   useEffect(load, [])
+
+  // Мгновенно перечитываем список, когда WS (ws.rs) сигналит о публикации
+  // новости любым менеджером; + страховочный опрос раз в 30с на случай
+  // отвалившегося WS — ручное «Обновить» не требуется никогда.
+  useEffect(() => {
+    let unlisten
+    listen('news:published', load).then((fn) => { unlisten = fn })
+    const timer = setInterval(load, 30000)
+    return () => {
+      if (unlisten) unlisten()
+      clearInterval(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const flash = (msg) => {
     setToast(msg)

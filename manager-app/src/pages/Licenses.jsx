@@ -115,6 +115,14 @@ export default function Licenses() {
 
   useEffect(load, [])
 
+  // Лицензии меняются снаружи (активация воркером, last_seen по WS/heartbeat) —
+  // обновляем список сами, кнопка «Обновить» остаётся лишь как ручной форс.
+  useEffect(() => {
+    const timer = setInterval(load, 30000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const flash = (msg) => {
     setToast(msg)
     setTimeout(() => setToast(''), 2500)

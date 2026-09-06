@@ -27,6 +27,13 @@ export default function Alerts({ onAlertsChanged, onNavigate }) {
 
   useEffect(load, [status])
 
+  // Алерты приходят извне (воркеры/telemetry) — автообновление каждые 30с.
+  useEffect(() => {
+    const timer = setInterval(load, 30000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
+
   const act = async (alert, action) => {
     if (alert.source === 'local') {
       try {
