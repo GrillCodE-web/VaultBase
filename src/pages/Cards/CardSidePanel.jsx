@@ -13,6 +13,7 @@ import { getBinBadge } from '../../constants/cardTypes.js'
 import { BURN_COUNT_MEDIUM, BURN_COUNT_HIGH } from '../../constants/cards.js'
 import { CARD_STATUS_CSS, ORDER_STATUS_CSS } from '../../constants/status.js'
 import { CardField } from './CardField.jsx'
+import Inspector from '../../components/Inspector.jsx'
 import { handleError, getErrorMessage } from '../../utils/errorHandler.js'
 
 export function CardSidePanel({
@@ -82,10 +83,7 @@ export function CardSidePanel({
     let isMounted = true
     const handler = e => {
       if (!isMounted) return
-      if (e.key === 'Escape') {
-        onClose()
-        return
-      }
+      // Esc обрабатывает Inspector (единый паттерн), здесь — только навигация
       if (e.key === 'ArrowDown') {
         const n = Math.min(idx + 1, cards.length - 1)
         onNavigate(cards[n], n)
@@ -110,57 +108,99 @@ export function CardSidePanel({
     )
   }
 
+  // REDESIGN-05: единый правый инспектор — шапка/ESC/фокус от Inspector,
+  // панель in-flow (контент сдвигается, без оверлейного backdrop).
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className="fixed inset-0 right-[340px] z-[199]"
-        style={{ background: 'var(--overlay-backdrop)' }}
-      />
-      {/* Panel */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Card details"
-        className="fixed right-0 top-0 w-[340px] h-screen bg-card border-l border-border z-[200] flex flex-col animate-[side-panel-in_200ms_ease-out]"
-        style={{ boxShadow: '-8px 0 32px var(--overlay-darker)' }}
-      >
-        {/* Header */}
-        <div className="p-[14px_16px] border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              aria-label="Close panel"
-              className="bg-transparent border-none text-muted cursor-pointer text-16 p-0 leading-none"
-            >
-              ✕
-            </button>
-            <span className="text-12 font-semibold text-text">{t('section_card')}</span>
-            <span className="text-10 text-muted">
-              {idx + 1} / {cards.length}
-            </span>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => idx > 0 && onNavigate(cards[idx - 1], idx - 1)}
-              disabled={idx === 0}
-              aria-label="Previous card"
-              className="btn btn-ghost btn-sm px-[7px] py-[3px]"
-            >
-              ↑
-            </button>
-            <button
-              onClick={() => idx < cards.length - 1 && onNavigate(cards[idx + 1], idx + 1)}
-              disabled={idx === cards.length - 1}
-              aria-label="Next card"
-              className="btn btn-ghost btn-sm px-[7px] py-[3px]"
-            >
-              ↓
-            </button>
-          </div>
-        </div>
-
+    <Inspector
+      open
+      onClose={onClose}
+      title={t('section_card')}
+      subtitle={`${idx + 1} / ${cards.length}`}
+      width={340}
+      headerActions={
+        <>
+          <button
+            onClick={() => idx > 0 && onNavigate(cards[idx - 1], idx - 1)}
+            disabled={idx === 0}
+            aria-label="Previous card"
+            className="btn btn-ghost btn-sm px-[7px] py-[3px]"
+          >
+            ↑
+          </button>
+          <button
+            onClick={() => idx < cards.length - 1 && onNavigate(cards[idx + 1], idx + 1)}
+            disabled={idx === cards.length - 1}
+            aria-label="Next card"
+            className="btn btn-ghost btn-sm px-[7px] py-[3px]"
+          >
+            ↓
+          </button>
+        </>
+      }
+      footer={
+        <>
+          <button
+            className="btn btn-g btn-sm"
+            onClick={() => {
+              onStatusChange(card.id, 'free')
+              onClose()
+            }}
+          >
+            {t('status_free')}
+          </button>
+          <button
+            className="btn btn-r btn-sm"
+            onClick={() => {
+              onStatusChange(card.id, 'dead')
+              onClose()
+            }}
+          >
+            {t('status_dead')}
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              onStatusChange(card.id, 'archive')
+              onClose()
+            }}
+          >
+            {t('status_archive')}
+          </button>
+          <button
+            className="btn btn-b btn-sm"
+            onClick={async () => {
+              try {
+                await invoke('create_profile', { cardId: card.id, notes: null })
+                // usePremiumToast не возвращает поле `toast` — только методы.
+                // Старый вызов toast(...) падал с "toast is not a function".
+                toastSuccess(t('profile_created'))
+                onClose()
+                onNavigate?.('profiles')
+              } catch (e) {
+                const error = handleError(e, 'CardSidePanel.createProfile')
+                const msg =
+                  error.details?.originalMessage === 'card_already_in_use'
+                    ? t('card_already_in_use')
+                    : getErrorMessage(error)
+                toastError(msg)
+              }
+            }}
+          >
+            {t('new_profile')}
+          </button>
+          <button
+            className="btn btn-r btn-sm ml-auto"
+            onClick={() => {
+              onDelete(card.id)
+              onClose()
+            }}
+          >
+            {t('btn_delete')}
+          </button>
+        </>
+      }
+    >
+      <div>
         {/* Card number hero */}
         <div className="p-4 bg-surface border-b border-border">
           <div className="flex items-center gap-2 mb-2">
@@ -207,8 +247,8 @@ export function CardSidePanel({
           </div>
         </div>
 
-        {/* Fields */}
-        <div className="flex-1 overflow-y-auto px-4">
+        {/* Fields (скролл — у .inspector-body) */}
+        <div>
           <div className="pt-1">
             <CardField
               label={t('card_label_expiry')}
@@ -308,69 +348,7 @@ export function CardSidePanel({
             )}
           </div>
         </div>
-
-        {/* Actions footer */}
-        <div className="p-[12px_16px] border-t border-border flex gap-[6px]">
-          <button
-            className="btn btn-g btn-sm"
-            onClick={() => {
-              onStatusChange(card.id, 'free')
-              onClose()
-            }}
-          >
-            {t('status_free')}
-          </button>
-          <button
-            className="btn btn-r btn-sm"
-            onClick={() => {
-              onStatusChange(card.id, 'dead')
-              onClose()
-            }}
-          >
-            {t('status_dead')}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              onStatusChange(card.id, 'archive')
-              onClose()
-            }}
-          >
-            {t('status_archive')}
-          </button>
-          <button
-            className="btn btn-b btn-sm"
-            onClick={async () => {
-              try {
-                await invoke('create_profile', { cardId: card.id, notes: null })
-                // usePremiumToast не возвращает поле `toast` — только методы.
-                // Старый вызов toast(...) падал с "toast is not a function".
-                toastSuccess(t('profile_created'))
-                onClose()
-                onNavigate?.('profiles')
-              } catch (e) {
-                const error = handleError(e, 'CardSidePanel.createProfile')
-                const msg =
-                  error.details?.originalMessage === 'card_already_in_use'
-                    ? t('card_already_in_use')
-                    : getErrorMessage(error)
-                toastError(msg)
-              }
-            }}
-          >
-            {t('new_profile')}
-          </button>
-          <button
-            className="btn btn-r btn-sm ml-auto"
-            onClick={() => {
-              onDelete(card.id)
-              onClose()
-            }}
-          >
-            {t('btn_delete')}
-          </button>
-        </div>
       </div>
-    </>
+    </Inspector>
   )
 }

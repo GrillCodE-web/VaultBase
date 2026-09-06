@@ -16,6 +16,7 @@ import { useLang } from '../hooks/useLang'
  *   onClose()
  *   title, subtitle?: string
  *   width?: px (default 320)
+ *   headerActions?: node (кнопки в шапке, слева от крестика)
  *   footer?: node
  *   children: контент
  */
@@ -25,6 +26,7 @@ export default function Inspector({
   title,
   subtitle,
   width = 320,
+  headerActions,
   footer,
   children,
 }) {
@@ -65,6 +67,7 @@ export default function Inspector({
           <div className="inspector-title">{title}</div>
           {subtitle && <div className="inspector-sub">{subtitle}</div>}
         </div>
+        {headerActions && <div className="inspector-actions">{headerActions}</div>}
         <button className="inspector-close" onClick={onClose} aria-label={t('shortcut_close')}>
           <X size={15} aria-hidden="true" />
         </button>

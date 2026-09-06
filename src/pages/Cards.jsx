@@ -557,280 +557,289 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
   const { from, to } = getPageRange(page, total)
 
   return (
-    <div className="content">
-      {/* Page header */}
-      <div className="ph">
-        <div>
-          <div className="ph-title">
-            CC{' '}
-            <span className="text-muted text-14 font-normal" aria-live="polite">
-              {total.toLocaleString()} {t('nav_cards')}
-            </span>
-            {freeTotal > 0 && (
-              <span className="text-12 text-green-t font-normal ml-2" aria-live="polite">
-                · {freeTotal.toLocaleString()} {t('status_free')}
+    <div className="page-split">
+      <div className="content page-split-main">
+        {/* Page header */}
+        <div className="ph">
+          <div>
+            <div className="ph-title">
+              CC{' '}
+              <span className="text-muted text-14 font-normal" aria-live="polite">
+                {total.toLocaleString()} {t('nav_cards')}
               </span>
-            )}
+              {freeTotal > 0 && (
+                <span className="text-12 text-green-t font-normal ml-2" aria-live="polite">
+                  · {freeTotal.toLocaleString()} {t('status_free')}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="ph-actions">
-          <button
-            onClick={toggleCompact}
-            className={compact ? 'btn btn-b btn-sm' : 'btn btn-ghost btn-sm'}
-          >
-            {compact ? t('cards_view_normal') : t('cards_view_compact')}
-          </button>
-          <button
-            onClick={toggleGroupByBank}
-            className={groupByBank ? 'btn btn-b btn-sm' : 'btn btn-ghost btn-sm'}
-          >
-            {t('cc_group_by_bank')}
-          </button>
-          <button
-            onClick={() => setVisibleCols(CARDER_COLS)}
-            className="btn btn-ghost btn-sm"
-            title={t('cards_carder_view') || 'Carder View'}
-          >
-            {t('cards_carder_view') || 'Carder View'}
-          </button>
-          <div className="relative">
+          <div className="ph-actions">
             <button
-              onClick={() => setShowColPicker(v => !v)}
-              className="btn btn-ghost btn-sm"
-              aria-label={t('cc_columns') || 'Select visible columns'}
-              aria-expanded={showColPicker}
+              onClick={toggleCompact}
+              className={compact ? 'btn btn-b btn-sm' : 'btn btn-ghost btn-sm'}
             >
-              {t('cc_columns')}
-            </button>
-            {showColPicker && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowColPicker(false)} />
-                <ColumnPicker
-                  visible={visibleCols}
-                  allColumns={ALL_COLUMNS}
-                  defaultCols={CARDER_COLS}
-                  t={t}
-                  onChange={cols => setVisibleCols(cols)}
-                />
-              </>
-            )}
-          </div>
-          <div className="flex gap-1.5">
-            <button
-              onClick={handleArchiveDead}
-              className="btn btn-ghost btn-sm"
-              title={t('cc_archive_dead_hint')}
-              aria-label={t('cc_archive_dead') || 'Archive dead cards'}
-            >
-              <Archive size={12} aria-hidden="true" /> {t('cc_archive_dead')}
+              {compact ? t('cards_view_normal') : t('cards_view_compact')}
             </button>
             <button
-              onClick={fetchSlices}
-              disabled={slicesBusy}
-              className="btn btn-ghost btn-sm"
-              title={t('slices_fetch_hint')}
+              onClick={toggleGroupByBank}
+              className={groupByBank ? 'btn btn-b btn-sm' : 'btn btn-ghost btn-sm'}
             >
-              <Download size={12} className={slicesBusy ? 'animate-spin' : ''} />{' '}
-              {t('btn_fetch_slices')}
+              {t('cc_group_by_bank')}
             </button>
-          </div>
-        </div>
-      </div>
-
-      <CardFilters
-        filter={filters}
-        setFilter={setFilters}
-        setPage={setPage}
-        filterMeta={filterMeta}
-        searchInput={searchInput}
-        setSearchInput={setSearchInput}
-        handleSearch={handleSearch}
-        handleResetFilters={handleResetFilters}
-        loading={loading}
-        loadCards={() => fetchCards(true)}
-        t={t}
-      />
-
-      {/* Expiring soon banner */}
-      {activeTab === 'expiring' && (
-        <div className="text-12 text-yellow-t rounded-md mb-2 py-2 px-3 bg-warning border-warning">
-          {t('cards_expiring_banner')}
-        </div>
-      )}
-
-      {/* Bulk action bar — fixed bottom */}
-      {selected.length > 0 && (
-        <div
-          className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100 bottom-6 left-1/2 -translate-x-1/2 py-2.5 px-4 gap-2.5"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="text-accent font-semibold text-12">
-            {selected.length} {t('selected')}
-          </span>
-          <div className="flex gap-1 flex-wrap">
-            <button onClick={() => handleBulkStatus('free')} className="btn btn-g btn-sm">
-              {t('cc_mark_free')}
+            <button
+              onClick={() => setVisibleCols(CARDER_COLS)}
+              className="btn btn-ghost btn-sm"
+              title={t('cards_carder_view') || 'Carder View'}
+            >
+              {t('cards_carder_view') || 'Carder View'}
             </button>
-            <button onClick={() => handleBulkStatus('archive')} className="btn btn-ghost btn-sm">
-              Archive
-            </button>
-            <button onClick={() => handleBulkStatus('dead')} className="btn btn-r btn-sm">
-              {t('cc_mark_dead')}
-            </button>
-            {enrichProgress ? (
-              <span className="text-12 text-muted inline-flex items-center gap-1.5">
-                <RefreshCw size={12} className="animate-spin" />
-                {enrichProgress.done} / {enrichProgress.total}
-              </span>
-            ) : (
+            <div className="relative">
               <button
-                onClick={handleBulkEnrich}
-                className="btn btn-b btn-sm btn-icon"
-                title="Enrich BIN data for selected cards"
-                aria-label="Enrich BIN data for selected cards"
+                onClick={() => setShowColPicker(v => !v)}
+                className="btn btn-ghost btn-sm"
+                aria-label={t('cc_columns') || 'Select visible columns'}
+                aria-expanded={showColPicker}
               >
-                <Zap size={12} /> {t('btn_bin_enrich')}
+                {t('cc_columns')}
               </button>
-            )}
-            <button onClick={() => handleExport('txt')} className="btn btn-b btn-sm">
-              {t('export_txt')}
-            </button>
-            <button onClick={() => handleExport('csv')} className="btn btn-b btn-sm">
-              {t('export_csv')}
-            </button>
-            <button
-              onClick={() => {
-                const selectedCards = cards.filter(c => selected.includes(c.id))
-                if (selectedCards.length) {
-                  exportCardsToPDF(selectedCards).catch(e => handleError(e, 'Cards.exportPDF'))
-                }
-              }}
-              className="btn btn-b btn-sm"
-            >
-              <FileText size={12} /> PDF
-            </button>
-            <button onClick={handleBulkDelete} className="btn btn-r btn-sm">
-              {t('btn_delete')}
-            </button>
-          </div>
-          <button
-            onClick={() => clearSelection()}
-            aria-label="Clear selection"
-            className="ml-auto bg-transparent border-none text-muted cursor-pointer text-14"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* #41 — Table with sticky header */}
-      {cards.length === 0 && !loading ? (
-        <div className="panel p-0">
-          <div className="flex items-center justify-center p-12">
-            <div className="text-center">
-              <div className="text-muted mb-4">
-                <svg
-                  className="mx-auto h-12 w-12"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 10h18M3 14h18m-9-4v8m-7 0a2 2 0 11-4 0 2 2 0 014 0zM3 21h18a2 2 0 002-2V5a2 2 0 00-2-2H3a2 2 0 00-2 2v14a2 2 0 002 2z"
+              {showColPicker && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowColPicker(false)} />
+                  <ColumnPicker
+                    visible={visibleCols}
+                    allColumns={ALL_COLUMNS}
+                    defaultCols={CARDER_COLS}
+                    t={t}
+                    onChange={cols => setVisibleCols(cols)}
                   />
-                </svg>
-              </div>
-              <h3 className="text-base font-semibold text-text">{t('cc_no_cards')}</h3>
-              <p className="text-sm text-muted mt-1">{t('slices_empty_hint')}</p>
-              <button onClick={fetchSlices} disabled={slicesBusy} className="btn btn-b mt-4">
+                </>
+              )}
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={handleArchiveDead}
+                className="btn btn-ghost btn-sm"
+                title={t('cc_archive_dead_hint')}
+                aria-label={t('cc_archive_dead') || 'Archive dead cards'}
+              >
+                <Archive size={12} aria-hidden="true" /> {t('cc_archive_dead')}
+              </button>
+              <button
+                onClick={fetchSlices}
+                disabled={slicesBusy}
+                className="btn btn-ghost btn-sm"
+                title={t('slices_fetch_hint')}
+              >
+                <Download size={12} className={slicesBusy ? 'animate-spin' : ''} />{' '}
                 {t('btn_fetch_slices')}
               </button>
             </div>
           </div>
         </div>
-      ) : (
-        <CardTable
-          cards={orderedCards}
-          loading={loading}
-          onRowMove={moveCardRow}
-          visibleCols={visibleCols}
-          ALL_COLUMNS={ALL_COLUMNS}
-          columnOrder={columnOrder}
-          setColumnOrder={setColumnOrder}
-          groupByBank={groupByBank}
-          t={t}
-          toast={toast}
-          // Cards store
-          toggleSelect={toggleSelect}
-          toggleSelectAll={toggleSelectAll}
-          selected={selected}
-          deletingIds={deletingIds}
-          revealed={revealed}
-          revealCard={revealCard}
-          // UI store
-          statusMenuId={statusMenuId}
-          setStatusMenuId={setStatusMenuId}
-          setShopUsageCardId={setShopUsageCardId}
-          setTimelineCardId={setTimelineCardId}
-          // Handlers
-          handleStatusChange={handleStatusChange}
-          handleDelete={handleDelete}
-          handleCopyToast={handleCopyToast}
-          handleEditNote={handleEditNote}
-          setFilters={setFilters}
-          setPage={setPage}
-          onNavigate={onNavigate}
-          // For side panel
-          setSideCard={handleSetSideCard}
-        />
-      )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-2.5 text-11 text-muted">
-          <span>
-            {t('pag_showing')} {from}–{to} {t('pag_of')} {total}
-          </span>
-          <div className="flex gap-1">
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              {t('pag_prev')}
-            </button>
-            {buildPageNumbers(page, totalPages).map((p, i) =>
-              p === '…' ? (
-                <span key={i} className="text-muted px-1 leading-[28px]">
-                  …
+        <CardFilters
+          filter={filters}
+          setFilter={setFilters}
+          setPage={setPage}
+          filterMeta={filterMeta}
+          searchInput={searchInput}
+          setSearchInput={setSearchInput}
+          handleSearch={handleSearch}
+          handleResetFilters={handleResetFilters}
+          loading={loading}
+          loadCards={() => fetchCards(true)}
+          t={t}
+        />
+
+        {/* Expiring soon banner */}
+        {activeTab === 'expiring' && (
+          <div className="text-12 text-yellow-t rounded-md mb-2 py-2 px-3 bg-warning border-warning">
+            {t('cards_expiring_banner')}
+          </div>
+        )}
+
+        {/* Bulk action bar — fixed bottom */}
+        {selected.length > 0 && (
+          <div
+            className="fixed flex items-center bg-card border-accent rounded-lg shadow-lg z-100 bottom-6 left-1/2 -translate-x-1/2 py-2.5 px-4 gap-2.5"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="text-accent font-semibold text-12">
+              {selected.length} {t('selected')}
+            </span>
+            <div className="flex gap-1 flex-wrap">
+              <button onClick={() => handleBulkStatus('free')} className="btn btn-g btn-sm">
+                {t('cc_mark_free')}
+              </button>
+              <button onClick={() => handleBulkStatus('archive')} className="btn btn-ghost btn-sm">
+                Archive
+              </button>
+              <button onClick={() => handleBulkStatus('dead')} className="btn btn-r btn-sm">
+                {t('cc_mark_dead')}
+              </button>
+              {enrichProgress ? (
+                <span className="text-12 text-muted inline-flex items-center gap-1.5">
+                  <RefreshCw size={12} className="animate-spin" />
+                  {enrichProgress.done} / {enrichProgress.total}
                 </span>
               ) : (
                 <button
-                  key={i}
-                  onClick={() => setPage(p)}
-                  className={`btn btn-ghost btn-sm ${p === page ? 'btn-active' : ''}`}
+                  onClick={handleBulkEnrich}
+                  className="btn btn-b btn-sm btn-icon"
+                  title="Enrich BIN data for selected cards"
+                  aria-label="Enrich BIN data for selected cards"
                 >
-                  {p}
+                  <Zap size={12} /> {t('btn_bin_enrich')}
                 </button>
-              )
-            )}
+              )}
+              <button onClick={() => handleExport('txt')} className="btn btn-b btn-sm">
+                {t('export_txt')}
+              </button>
+              <button onClick={() => handleExport('csv')} className="btn btn-b btn-sm">
+                {t('export_csv')}
+              </button>
+              <button
+                onClick={() => {
+                  const selectedCards = cards.filter(c => selected.includes(c.id))
+                  if (selectedCards.length) {
+                    exportCardsToPDF(selectedCards).catch(e => handleError(e, 'Cards.exportPDF'))
+                  }
+                }}
+                className="btn btn-b btn-sm"
+              >
+                <FileText size={12} /> PDF
+              </button>
+              <button onClick={handleBulkDelete} className="btn btn-r btn-sm">
+                {t('btn_delete')}
+              </button>
+            </div>
             <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
+              onClick={() => clearSelection()}
+              aria-label="Clear selection"
+              className="ml-auto bg-transparent border-none text-muted cursor-pointer text-14"
             >
-              {t('pag_next')}
+              ✕
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Modals */}
-      {/* #61 — Side panel */}
+        {/* #41 — Table with sticky header */}
+        {cards.length === 0 && !loading ? (
+          <div className="panel p-0">
+            <div className="flex items-center justify-center p-12">
+              <div className="text-center">
+                <div className="text-muted mb-4">
+                  <svg
+                    className="mx-auto h-12 w-12"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M3 14h18m-9-4v8m-7 0a2 2 0 11-4 0 2 2 0 014 0zM3 21h18a2 2 0 002-2V5a2 2 0 00-2-2H3a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-base font-semibold text-text">{t('cc_no_cards')}</h3>
+                <p className="text-sm text-muted mt-1">{t('slices_empty_hint')}</p>
+                <button onClick={fetchSlices} disabled={slicesBusy} className="btn btn-b mt-4">
+                  {t('btn_fetch_slices')}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <CardTable
+            cards={orderedCards}
+            loading={loading}
+            onRowMove={moveCardRow}
+            visibleCols={visibleCols}
+            ALL_COLUMNS={ALL_COLUMNS}
+            columnOrder={columnOrder}
+            setColumnOrder={setColumnOrder}
+            groupByBank={groupByBank}
+            t={t}
+            toast={toast}
+            // Cards store
+            toggleSelect={toggleSelect}
+            toggleSelectAll={toggleSelectAll}
+            selected={selected}
+            deletingIds={deletingIds}
+            revealed={revealed}
+            revealCard={revealCard}
+            // UI store
+            statusMenuId={statusMenuId}
+            setStatusMenuId={setStatusMenuId}
+            setShopUsageCardId={setShopUsageCardId}
+            setTimelineCardId={setTimelineCardId}
+            // Handlers
+            handleStatusChange={handleStatusChange}
+            handleDelete={handleDelete}
+            handleCopyToast={handleCopyToast}
+            handleEditNote={handleEditNote}
+            setFilters={setFilters}
+            setPage={setPage}
+            onNavigate={onNavigate}
+            // For side panel
+            setSideCard={handleSetSideCard}
+          />
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-2.5 text-11 text-muted">
+            <span>
+              {t('pag_showing')} {from}–{to} {t('pag_of')} {total}
+            </span>
+            <div className="flex gap-1">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                {t('pag_prev')}
+              </button>
+              {buildPageNumbers(page, totalPages).map((p, i) =>
+                p === '…' ? (
+                  <span key={i} className="text-muted px-1 leading-[28px]">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={i}
+                    onClick={() => setPage(p)}
+                    className={`btn btn-ghost btn-sm ${p === page ? 'btn-active' : ''}`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                {t('pag_next')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modals */}
+        {shopUsageCardId !== null && (
+          <CardShopUsagePanel cardId={shopUsageCardId} onClose={() => setShopUsageCardId(null)} />
+        )}
+        {timelineCardId !== null && (
+          <CardTimelinePanel cardId={timelineCardId} onClose={() => setTimelineCardId(null)} />
+        )}
+      </div>
+
+      {/* #61 — правый инспектор (in-flow, REDESIGN-05) */}
       {sideCard && (
         <CardSidePanel
           card={sideCard}
@@ -845,13 +854,6 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
           onDelete={handleDelete}
           onCopy={handleCopyToast}
         />
-      )}
-
-      {shopUsageCardId !== null && (
-        <CardShopUsagePanel cardId={shopUsageCardId} onClose={() => setShopUsageCardId(null)} />
-      )}
-      {timelineCardId !== null && (
-        <CardTimelinePanel cardId={timelineCardId} onClose={() => setTimelineCardId(null)} />
       )}
     </div>
   )
