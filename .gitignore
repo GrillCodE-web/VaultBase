@@ -30,6 +30,12 @@ desktop.json
 # Claude Code
 .claude/
 
+# Agent tool caches (Р»РѕРєР°Р»СЊРЅС‹Рµ, РЅРµ РєРѕРјРјРёС‚РёРј)
+.serena/
+.abacusai/
+.agents/
+.codex/
+
 # Release artifacts (Р±РёРЅР°СЂРЅРёРєРё вЂ” РЅРµ РІ git, Р·Р°Р»РёРІР°СЋС‚СЃСЏ СЃРєСЂРёРїС‚РѕРј publish-release.py)
 .release-artifacts/
 
@@ -66,3 +72,6 @@ audit-shots-before/
 
 # Release bundles (kept on server, not in repo)
 .release-artifacts/
+
+# Design mockups (локальные прототипы, не для репо)
+design-mockups/
