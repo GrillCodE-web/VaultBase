@@ -197,6 +197,10 @@ module.exports = function initWsTauri(wss, io) {
           group_id: ws.groupId,
         });
 
+        // Presence — только воркерские подключения: панель онлайна про них,
+        // а менеджер, открывший сокет, не должен ловить лишний фрейм.
+        if (!ws.isManager) pushPresence();
+
         // Notify group members
         if (ws.groupId) {
           broadcastToGroup(ws.groupId, { type: 'member_joined', installation_id: ws.installationId }, ws.installationId);
@@ -297,7 +301,10 @@ module.exports = function initWsTauri(wss, io) {
       if (ws.installationId && !ws.replaced) {
         // Удаляем запись, только если она всё ещё указывает на ЭТОТ сокет —
         // иначе сотрём регистрацию более нового подключения того же клиента.
-        if (clients.get(ws.installationId) === ws) clients.delete(ws.installationId);
+        if (clients.get(ws.installationId) === ws) {
+          clients.delete(ws.installationId);
+          if (!ws.isManager) pushPresence();
+        }
         if (ws.groupId) {
           broadcastToGroup(ws.groupId, { type: 'member_left', installation_id: ws.installationId }, ws.installationId);
         }
@@ -355,6 +362,7 @@ function sendToInstallation(iid, msg) {
   }
   return false;
 }
+module.exports.sendToInstallation = sendToInstallation;
 
 // Broadcast to every authenticated WS client (used for news pushes).
 function broadcastAll(wss, msg) {
@@ -364,8 +372,25 @@ function broadcastAll(wss, msg) {
     if (client.readyState === 1 && client.authenticated) client.send(raw);
   });
 }
-module.exports.sendToInstallation = sendToInstallation;
 module.exports.broadcastAll = broadcastAll;
+
+// REDESIGN-05 §4: manager-scoped broadcast — служебные сигналы (alerts,
+// telemetry, presence) воркерам не нужны: их _ => {} их молча проглотит,
+// но незачем гонять лишний трафик по флоту.
+function broadcastToManagers(msg) {
+  for (const [, client] of clients) {
+    if (client.readyState === client.OPEN && client.authenticated && client.isManager) {
+      send(client, msg);
+    }
+  }
+}
+module.exports.broadcastToManagers = broadcastToManagers;
+
+// Presence-push менеджерам при аутентифицированном подключении/отключении.
+// Сигнал без полезной нагрузки — менеджер сам перечитывает список онлайна.
+function pushPresence() {
+  broadcastToManagers({ type: 'presence' });
+}
 // FEAT-010: маршруту /sync/courier_tag нужен group-scoped broadcast.
 module.exports.broadcastToGroup = broadcastToGroup;
 

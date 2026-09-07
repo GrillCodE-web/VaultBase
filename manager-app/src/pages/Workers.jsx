@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { api, getWorkerSnapshots, getWorkerStats, getInsights, fmtDateTime, fmtRelative } from '../api/server.js'
 
@@ -398,6 +399,22 @@ export default function Workers({ navParams }) {
     const timer = setInterval(load, 30000)
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // REDESIGN-05 §4: мгновенное обновление по WS-пушам сервера (presence —
+  // воркер подключился/отключился; telemetry — пришёл heartbeat).
+  useEffect(() => {
+    let unl = []
+    let disposed = false
+    const onPush = () => load()
+    Promise.all([listen('presence:changed', onPush), listen('telemetry:updated', onPush)]).then(fns => {
+      if (disposed) fns.forEach(fn => fn())
+      else unl = fns
+    })
+    return () => {
+      disposed = true
+      unl.forEach(fn => fn())
+    }
   }, [])
 
   // MGR-020: диплинк из алертов/действий — сразу открыть карточку воркера

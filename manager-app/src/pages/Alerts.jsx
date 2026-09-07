@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { api, evaluateAlerts, fmtDateTime, getLocalAlerts, localAlertAction } from '../api/server.js'
 
@@ -31,6 +32,22 @@ export default function Alerts({ onAlertsChanged, onNavigate }) {
   useEffect(() => {
     const timer = setInterval(load, 30000)
     return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
+
+  // REDESIGN-05 §4: сервер пушит alerts_changed (новый/закрытый/ack алерт) —
+  // обновляем список мгновенно, не дожидаясь поллинга.
+  useEffect(() => {
+    let unl
+    let disposed = false
+    listen('alerts:changed', load).then(fn => {
+      if (disposed) fn()
+      else unl = fn
+    })
+    return () => {
+      disposed = true
+      unl?.()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 

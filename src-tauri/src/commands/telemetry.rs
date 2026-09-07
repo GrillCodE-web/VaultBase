@@ -1246,7 +1246,7 @@ pub(crate) fn telemetry_tick_impl(db: &mut Database, force: bool) -> serde_json:
 /// MGR-013: криптостирание по команде сервера и перезапуск. Ack уже ушёл из
 /// send_heartbeat; здесь БД закрывается, файлы перезаписываются и удаляются.
 /// restart() не возвращается — дальше чистое состояние fresh-install.
-fn perform_wipe_and_restart(db: &mut Database, app: &tauri::AppHandle) -> ! {
+pub(crate) fn perform_wipe_and_restart(db: &mut Database, app: &tauri::AppHandle) -> ! {
     db.close_connections();
     let path = crate::state::db_path();
     crate::wipe::wipe_local_data(path.to_str().unwrap_or("vaultbase.db"));

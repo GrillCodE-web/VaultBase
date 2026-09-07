@@ -224,6 +224,17 @@ fn connect_and_run(app: &AppHandle, token: &str, url: &str) -> Result<(), String
                         // Фронту — событие: страница/Shell перечитают список.
                         let _ = app.emit("news:published", v.get("news").cloned().unwrap_or(json!(null)));
                     }
+                    // REDESIGN-05 §4: служебные сигналы сервера (без полезной
+                    // нагрузки — фронт сам перечитывает REST).
+                    Some("alerts_changed") => {
+                        let _ = app.emit("alerts:changed", ());
+                    }
+                    Some("telemetry_update") => {
+                        let _ = app.emit("telemetry:updated", v.get("installation_id").cloned().unwrap_or(json!(null)));
+                    }
+                    Some("presence") => {
+                        let _ = app.emit("presence:changed", ());
+                    }
                     Some("auth_error") => {
                         let err = v.get("error").and_then(|e| e.as_str()).unwrap_or("");
                         if err == "invalid_token" {

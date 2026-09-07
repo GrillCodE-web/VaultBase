@@ -112,6 +112,11 @@ router.post('/heartbeat', (req, res) => {
       update_required = true;
     }
   }
+  // REDESIGN-05 §4: сигнал менеджерам обновить панели (последний контакт,
+  // версии, дашборд). Полезная нагрузка по-прежнему ездит только по REST.
+  try {
+    require('../ws-tauri').broadcastToManagers({ type: 'telemetry_update', installation_id: req.installationId });
+  } catch { /* WS-слой ещё не поднят (тесты) */ }
   res.json({ ok: true, policy, update_required });
 });
 

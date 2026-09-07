@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { safeSetItem, safeGetItem, safeRemoveItem } from '../utils/localStorage'
 import { useCardsStore } from '../store/cards'
 import { useOrdersStore } from '../store/orders'
@@ -197,6 +198,32 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
       clearInterval(timer)
+    }
+  }, [])
+
+  // Realtime (REDESIGN-05 §4): сервер пушит policy_update по WS при смене
+  // политики/force_logout/wipe — бэкенд уже сделал внеочередной heartbeat
+  // (ws_sync.rs), фронт перечитывает снапшот и реагирует на force_logout сразу,
+  // не дожидаясь минутного поллинга выше.
+  useEffect(() => {
+    let unlisten
+    const apply = async () => {
+      try {
+        const p = await invoke('telemetry_get_policy')
+        setPolicy(p)
+        if (p?.force_logout && currentUserRef.current) {
+          toastRef.current(tRef.current('policy_force_logout_toast'), 'error')
+          await logoutRef.current()
+        }
+      } catch (e) {
+        logger.debug('[Auth] policy_update refresh skipped:', e?.message ?? e)
+      }
+    }
+    listen('policy_update', apply).then(u => {
+      unlisten = u
+    })
+    return () => {
+      unlisten?.()
     }
   }, [])
   useEffect(() => {

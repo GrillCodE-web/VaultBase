@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { api, getWorkerSnapshots, getInsights, fmtRelative } from '../api/server.js'
 
@@ -67,7 +68,22 @@ export default function Dashboard({ onSync, onNavigate }) {
   useEffect(() => {
     load()
     const timer = setInterval(load, 30000)
-    return () => clearInterval(timer)
+    // REDESIGN-05 §4: WS-пуши (heartbeat/presence/алерты) — мгновенный рефреш.
+    let unl = []
+    let disposed = false
+    Promise.all([
+      listen('telemetry:updated', load),
+      listen('presence:changed', load),
+      listen('alerts:changed', load),
+    ]).then(fns => {
+      if (disposed) fns.forEach(fn => fn())
+      else unl = fns
+    })
+    return () => {
+      disposed = true
+      clearInterval(timer)
+      unl.forEach(fn => fn())
+    }
   }, [])
 
   if (error) {

@@ -31,6 +31,16 @@ function notifyWorker(req, iid, message) {
   if (io && message.type) io.emit(`manager:${message.type}`, { installation_id: iid });
 }
 
+// REDESIGN-05 §4: сигнал всем менеджерским WS-клиентам (алерты и т.п.).
+// broadcastToManagers работает на модульной clients-мапе, wss не нужен.
+function notifyManagers(message) {
+  try {
+    require('../ws-tauri').broadcastToManagers(message);
+  } catch (e) {
+    console.error('[manager-api] notifyManagers failed:', e.message);
+  }
+}
+
 function normalizeIsoToDb(value) {
   if (value === null || value === undefined || value === '') return null;
   if (typeof value !== 'string') return undefined;
@@ -532,6 +542,7 @@ router.post('/alerts/:id/ack', (req, res) => {
   `).run(req.installationId, req.params.id);
   if (info.changes === 0) return res.status(409).json({ error: 'not_new' });
   audit(req.installationId, 'manager_alert_ack', { alert_id: Number(req.params.id) });
+  notifyManagers({ type: 'alerts_changed' });
   res.json({ ok: true });
 });
 
@@ -542,6 +553,7 @@ router.post('/alerts/:id/close', (req, res) => {
   `).run(req.params.id);
   if (info.changes === 0) return res.status(409).json({ error: 'not_open' });
   audit(req.installationId, 'manager_alert_close', { alert_id: Number(req.params.id) });
+  notifyManagers({ type: 'alerts_changed' });
   res.json({ ok: true });
 });
 

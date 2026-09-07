@@ -324,6 +324,32 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
                 }
             });
         }
+        // {"type":"policy_update"} — менеджер изменил политику/force_logout/wipe
+        // (manager-api.js → notifyWorker). Внеочередной heartbeat применяет
+        // политику сразу, не дожидаясь тика; фронт догоняет по событию.
+        "policy_update" => {
+            let app2 = app.clone();
+            crate::state::spawn_task(move || {
+                let r: Result<serde_json::Value, String> = (|| {
+                    with_db!(db, {
+                        let hb = crate::commands::telemetry::send_heartbeat(db);
+                        let wipe = hb.wipe;
+                        let v = serde_json::to_value(&hb)
+                            .unwrap_or_else(|_| serde_json::json!({ "sent": false }));
+                        if wipe {
+                            crate::commands::telemetry::perform_wipe_and_restart(db, &app2);
+                        }
+                        Ok(v)
+                    })
+                })();
+                match r {
+                    Ok(v) => {
+                        let _ = app2.emit("policy_update", v);
+                    }
+                    Err(e) => eprintln!("[ws_sync] policy heartbeat failed: {e}"),
+                }
+            });
+        }
         // {"type":"auth_error","error":"invalid_token"|"missing_token"}
         "auth_error" => {
             let err = msg["error"].as_str().unwrap_or("");

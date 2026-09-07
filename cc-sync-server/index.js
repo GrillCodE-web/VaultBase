@@ -167,7 +167,10 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`[vaultbase-sync] port ${PORT}`));
 
 // Background alert engine (worker-offline detection)
-require('./alerts-engine').start();
+require('./alerts-engine').start(() => {
+  // REDESIGN-05 §4: alerts:changed — движок заметил новый/закрытый алерт.
+  require('./ws-tauri').broadcastToManagers({ type: 'alerts_changed' });
+});
 
 // MGR-021: фоновая чистка старых телеметрийных конвертов (раз в час)
 require('./retention-engine').start();
