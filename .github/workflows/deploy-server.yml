@@ -45,12 +45,5 @@ jobs:
 
       - name: Install deps and restart
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            set -e
-            cd /opt/cc-sync-server
-            npm install --production --silent
-            pm2 restart cc-sync-server
-            sleep 3
-            curl -sf http://127.0.0.1:3000/health > /dev/null
-            echo "deploy OK, health 200"
-          EOF
+          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            'set -e; cd /opt/cc-sync-server; npm install --production --silent; pm2 restart cc-sync-server; sleep 3; curl -sf http://127.0.0.1:3000/health > /dev/null; echo "deploy OK, health 200"'
