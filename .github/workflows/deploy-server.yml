@@ -1,0 +1,55 @@
+# Deploy cc-sync-server на VPS (MASTER-5). Только вручную — чтобы не было
+# сюрпризов от автодеплоя: Actions → Deploy Server → Run workflow.
+#
+# Требуются GitHub Secrets (Settings → Secrets → Actions):
+#   VPS_HOST        — root@209.74.89.158
+#   VPS_SSH_KEY     — приватный ключ .secrets/vaultbase-deploy.key (локально, не в git)
+
+name: Deploy Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy cc-sync-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Backup remote database
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_HOST }} \
+            'cp /opt/cc-sync-server/data.db /opt/cc-sync-server/data.db.bak-deploy-$(date +%Y%m%d-%H%M%S)'
+
+      - name: Sync server files
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            cc-sync-server/ ${{ secrets.VPS_HOST }}:/opt/cc-sync-server/ \
+            --exclude='node_modules' \
+            --exclude='data.db*' \
+            --exclude='.env' \
+            --exclude='bin_cache.db' \
+            --exclude='test' \
+            --exclude='docs'
+
+      - name: Install deps and restart
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_HOST }} << 'EOF'
+            set -e
+            cd /opt/cc-sync-server
+            npm install --production --silent
+            pm2 restart cc-sync-server
+            sleep 3
+            curl -sf http://127.0.0.1:3000/health > /dev/null
+            echo "deploy OK, health 200"
+          EOF
