@@ -13,6 +13,7 @@ import Priorities from './Priorities.jsx'
 import Updates from './Updates.jsx'
 import Licenses from './Licenses.jsx'
 import Settings from './Settings.jsx'
+import ErrorBoundary from '../components/ErrorBoundary.jsx'
 
 const PAGES = {
   dashboard: Dashboard,
@@ -200,7 +201,9 @@ export default function Shell({ appState, onLock }) {
           <div className="meta mono">{appState.role || 'manager'}</div>
         </div>
         <div className="content">
-          <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={navigate} navParams={navParams} />
+          <ErrorBoundary resetKey={page}>
+            <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={navigate} navParams={navParams} />
+          </ErrorBoundary>
         </div>
       </div>
     </div>
