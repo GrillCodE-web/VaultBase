@@ -9,6 +9,7 @@ import {
   checkAppUpdate,
   installAppUpdate,
 } from '../api/server.js'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 
 const ROLLOUT_STEPS = [0, 10, 25, 50, 100]
 
@@ -94,7 +95,7 @@ export default function Updates() {
       .catch(() => setRolloutMsg(t('err_generic')))
   }
 
-  if (releases === null) return <div className="empty">{t('loading')}</div>
+  if (releases === null) return <SkeletonRows rows={5} />
 
   return (
     <div>

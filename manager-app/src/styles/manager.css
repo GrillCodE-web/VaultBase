@@ -517,6 +517,31 @@ table.data tr.clickable:hover td {
   line-height: 1.6;
 }
 
+/* ── skeleton loading ─────────────────────────────────────────── */
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.skeleton {
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
 .field-inline {
   display: flex;
   gap: 10px;

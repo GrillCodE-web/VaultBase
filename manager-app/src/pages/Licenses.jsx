@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, fmtDateTime, fmtRelative } from '../api/server.js'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 
 function CreateModal({ onClose, onCreated }) {
   const { t } = useLang()
@@ -168,7 +169,7 @@ export default function Licenses() {
 
   const rows = useMemo(() => licenses || [], [licenses])
 
-  if (licenses === null) return <div className="empty">{t('loading')}</div>
+  if (licenses === null) return <SkeletonRows rows={6} />
 
   return (
     <div>

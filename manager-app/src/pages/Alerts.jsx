@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { api, evaluateAlerts, fmtDateTime, getLocalAlerts, localAlertAction } from '../api/server.js'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 
 const STATUSES = ['all', 'new', 'ack', 'closed']
 
@@ -66,7 +67,7 @@ export default function Alerts({ onAlertsChanged, onNavigate }) {
     onAlertsChanged?.()
   }
 
-  if (alerts === null) return <div className="empty">{t('loading')}</div>
+  if (alerts === null) return <SkeletonRows rows={6} />
 
   return (
     <div>

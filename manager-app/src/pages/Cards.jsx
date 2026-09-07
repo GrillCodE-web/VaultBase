@@ -13,6 +13,7 @@ import {
   vaultStats,
   vaultSyncIssueStatus,
 } from '../api/server.js'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 
 const POOLS = ['pool', 'on_worker', 'declined', 'burned', 'exported']
 const TAG = { pool: 'green', on_worker: 'accent', declined: 'amber', burned: 'red', exported: 'gray' }
@@ -133,7 +134,7 @@ export default function Cards() {
     }
   }
 
-  if (stats === null) return <div className="empty">{t('loading')}</div>
+  if (stats === null) return <SkeletonRows rows={6} />
 
   const bs = stats.by_status || {}
   const occupied = stats.occupied_by_worker || []

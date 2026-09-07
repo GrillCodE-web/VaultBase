@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { useLang } from '../hooks/useLang.jsx'
 import { getAnalytics, getFleetComparison, getFleetBinShop } from '../api/server.js'
+import { SkeletonCards } from '../components/Skeleton.jsx'
 
 function Th({ tip, children }) {
   const { t } = useLang()
@@ -127,7 +128,7 @@ export default function Analytics({ onSync }) {
       {error && <div className="error-box">{t('err_generic')}: {error}</div>}
 
       {!data ? (
-        <div className="empty">{t('loading')}</div>
+        <SkeletonCards count={4} />
       ) : data.reports === 0 ? (
         <div className="panel">
           <div className="empty">

@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, getWorkerSnapshots, getWorkerStats, getInsights, fmtDateTime, fmtRelative } from '../api/server.js'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 
 function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
   const { t } = useLang()
@@ -318,7 +319,7 @@ function WorkerStats({ iid }) {
   }, [iid])
 
   if (failed) return <div className="error-box">{t('err_generic')}</div>
-  if (!stats) return <div className="meta" style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('stats_loading')}</div>
+  if (!stats) return <div className="skeleton" style={{ height: 14, width: '60%', margin: '8px 0' }} aria-hidden="true" />
   if (stats.reports === 0) return <div className="meta" style={{ color: 'var(--text-3)', fontSize: 13 }}>{t('worker_stats_empty')}</div>
 
   const tot = stats.totals || {}
@@ -478,7 +479,7 @@ export default function Workers({ navParams }) {
     }
   }
 
-  if (workers === null) return <div className="empty">{t('loading')}</div>
+  if (workers === null) return <SkeletonRows rows={8} />
 
   return (
     <div>

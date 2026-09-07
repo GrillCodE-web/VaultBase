@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { api, getWorkerSnapshots, getInsights, fmtRelative } from '../api/server.js'
+import { SkeletonCards } from '../components/Skeleton.jsx'
 
 const semKey = (v) => String(v).split(/[-+]/)[0].split('.').map((x) => parseInt(x, 10) || 0)
 
@@ -95,7 +96,7 @@ export default function Dashboard({ onSync, onNavigate }) {
     )
   }
 
-  if (!overview) return <div className="empty">{t('loading')}</div>
+  if (!overview) return <SkeletonCards count={4} />
 
   const isOnline = (ow) => {
     const cut = Date.now() - 15 * 60 * 1000

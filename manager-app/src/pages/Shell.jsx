@@ -30,8 +30,19 @@ const PAGES = {
 
 export default function Shell({ appState, onLock }) {
   const { t, lang, setLang } = useLang()
-  const [page, setPage] = useState('dashboard')
+  // Hash routing (P1): страница живёт в #hash — перезагрузка и «назад» не
+  // сбрасывают экран; валидируем по PAGES, чтобы мусор не ломал рендер.
+  const pageFromHash = () => {
+    const h = window.location.hash.replace(/^#\/?/, '')
+    return PAGES[h] ? h : 'dashboard'
+  }
+  const [page, setPageState] = useState(pageFromHash)
   const [navParams, setNavParams] = useState({})
+  const setPage = p => {
+    const next = PAGES[p] ? p : 'dashboard'
+    window.location.hash = `/${next}`
+    setPageState(next)
+  }
   const navigate = (p, params) => {
     setNavParams(params || {})
     setPage(p)
@@ -41,6 +52,13 @@ export default function Shell({ appState, onLock }) {
   const [syncing, setSyncing] = useState(false)
 
   const idleMin = useRef(10)
+
+  // hashchange: системная кнопка «назад» / ручная правка URL меняют страницу.
+  useEffect(() => {
+    const onHash = () => setPageState(pageFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   const refreshAlerts = () => {
     const serverNew = api('GET', '/manager/api/alerts?status=new&limit=100')

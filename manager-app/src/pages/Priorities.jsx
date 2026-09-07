@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api } from '../api/server.js'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 
 const EMPTY = { shop_domain: '', target: '', weight: 5, notes: '' }
 
@@ -71,7 +72,7 @@ export default function Priorities() {
     if (r.status === 200) load()
   }
 
-  if (items === null) return <div className="empty">{t('loading')}</div>
+  if (items === null) return <SkeletonRows rows={5} />
 
   const targetLabel = (p) => {
     if (!p.target) return <span className="tag gray">{t('target_global')}</span>

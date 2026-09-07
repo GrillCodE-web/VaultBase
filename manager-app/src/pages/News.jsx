@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, fmtDateTime } from '../api/server.js'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 
 const EMPTY_FORM = {
   severity: 'info',
@@ -111,7 +112,7 @@ export default function News() {
     if (r.status === 200) setReaders(r.body)
   }
 
-  if (news === null) return <div className="empty">{t('loading')}</div>
+  if (news === null) return <SkeletonRows rows={5} />
 
   const sevTag = (s) => (
     <span className={`tag ${s === 'critical' ? 'red' : s === 'warning' ? 'amber' : 'accent'}`}>

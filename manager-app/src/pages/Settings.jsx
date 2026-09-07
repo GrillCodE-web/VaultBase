@@ -166,7 +166,7 @@ export default function Settings({ appState, onLock }) {
         <h3>{t('key_section')}</h3>
         <div className="auth-sub">{t('key_note')}</div>
         {keys === null ? (
-          <div className="empty">{t('loading')}</div>
+          <div className="skeleton" style={{ height: 14, width: '50%' }} aria-hidden="true" />
         ) : keys.length === 0 ? (
           <div className="warn-box">{t('key_upload_warning')}</div>
         ) : (
