@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLang } from './hooks/useLang.jsx'
+import { ConfirmProvider } from './hooks/useConfirm.jsx'
 import { getAppState } from './api/server.js'
 import Activate from './pages/Activate.jsx'
 import SetupMaster from './pages/SetupMaster.jsx'
@@ -35,14 +36,20 @@ export default function App() {
     return <div className="center-screen">{t('loading')}</div>
   }
 
+  let content
   switch (state.phase) {
     case 'not_activated':
-      return <Activate appState={state} onDone={load} />
+      content = <Activate appState={state} onDone={load} />
+      break
     case 'needs_master':
-      return <SetupMaster onDone={load} />
+      content = <SetupMaster onDone={load} />
+      break
     case 'locked':
-      return <Unlock onDone={load} />
+      content = <Unlock onDone={load} />
+      break
     default:
-      return <Shell appState={state} onLock={load} />
+      content = <Shell appState={state} onLock={load} />
   }
+  // ConfirmProvider снаружи всех фаз: confirm нужен и на Unlock (wipe).
+  return <ConfirmProvider>{content}</ConfirmProvider>
 }

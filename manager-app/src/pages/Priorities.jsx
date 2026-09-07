@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
+import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api } from '../api/server.js'
 
 const EMPTY = { shop_domain: '', target: '', weight: 5, notes: '' }
 
 export default function Priorities() {
   const { t } = useLang()
+  const { confirm } = useConfirm()
   const [items, setItems] = useState(null)
   const [workers, setWorkers] = useState([])
   const [form, setForm] = useState(EMPTY)
@@ -60,7 +62,11 @@ export default function Priorities() {
   }
 
   const remove = async (id) => {
-    if (!window.confirm(t('prio_delete_confirm'))) return
+    if (!(await confirm(t('prio_delete_confirm'), {
+      danger: true,
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
+    }))) return
     const r = await api('DELETE', `/manager/api/priorities/${id}`)
     if (r.status === 200) load()
   }

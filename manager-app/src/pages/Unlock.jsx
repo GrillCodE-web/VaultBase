@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
+import { useConfirm } from '../hooks/useConfirm.jsx'
 import { unlockApp, wipeLocalData } from '../api/server.js'
 
 export default function Unlock({ onDone }) {
   const { t, lang, setLang } = useLang()
+  const { confirm } = useConfirm()
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -23,7 +25,11 @@ export default function Unlock({ onDone }) {
   }
 
   const wipe = async () => {
-    if (!window.confirm(t('wipe_confirm'))) return
+    if (!(await confirm(t('wipe_confirm'), {
+      danger: true,
+      confirmLabel: t('wipe_confirm_action'),
+      cancelLabel: t('cancel'),
+    }))) return
     try {
       await wipeLocalData()
       onDone()

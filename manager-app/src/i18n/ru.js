@@ -4,6 +4,7 @@ export const dict = {
   saved: 'Сохранено',
   save: 'Сохранить',
   cancel: 'Отмена',
+  confirm: 'Подтвердить',
   close: 'Закрыть',
   delete: 'Удалить',
   edit: 'Изменить',

@@ -124,6 +124,12 @@ const ADMIN_PATH = process.env.ADMIN_PATH || '/ghostadmin/1asfd-54-local';
 app.use(ADMIN_PATH,             require('./routes/admin-auth'));
 app.use(`${ADMIN_PATH}/api`,    require('./routes/admin-api'));
 app.use(`${ADMIN_PATH}/upload`, require('./routes/upload'));
+// Завендоренные ассеты (шрифты/иконки/графики) — публичные: нужны и на
+// странице логина, которая без сессии через requireAdmin не пройдёт.
+app.use(`${ADMIN_PATH}/vendor`, express.static(path.join(__dirname, 'admin', 'vendor'), {
+  maxAge: '7d',
+  immutable: true,
+}));
 app.use(ADMIN_PATH, requireAdmin, express.static(path.join(__dirname, 'admin'), {
   // login.html is reachable via GET /login; blocking the direct filename keeps
   // one canonical URL for the page.

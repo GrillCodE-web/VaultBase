@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
+import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, fmtDateTime } from '../api/server.js'
 
 const EMPTY_FORM = {
@@ -14,6 +15,7 @@ const EMPTY_FORM = {
 
 export default function News() {
   const { t } = useLang()
+  const { confirm } = useConfirm()
   const [news, setNews] = useState(null)
   const [workers, setWorkers] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
@@ -95,7 +97,11 @@ export default function News() {
   }
 
   const remove = async (id) => {
-    if (!window.confirm(t('news_delete_confirm'))) return
+    if (!(await confirm(t('news_delete_confirm'), {
+      danger: true,
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
+    }))) return
     const r = await api('DELETE', `/manager/api/news/${id}`)
     if (r.status === 200) load()
   }

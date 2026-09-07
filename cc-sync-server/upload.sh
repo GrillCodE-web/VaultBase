@@ -89,6 +89,11 @@ for f in "${FILES[@]}"; do
   ok "$f"
 done
 
+# ── admin vendor assets (завендоренные chart.js/lucide/шрифты) ──
+eval "$SSH 'mkdir -p $REMOTE_DIR/admin/vendor/fonts'" 2>/dev/null
+eval "$SCP -r '$SCRIPT_DIR/admin/vendor'/* '$REMOTE:$REMOTE_DIR/admin/vendor/'"
+ok "admin/vendor (chart.js, lucide, fonts)"
+
 # ── restart app ─────────────────────────────────────────
 echo ""
 echo -e "${B}${C}━━━  Restarting PM2  ━━━${NC}"

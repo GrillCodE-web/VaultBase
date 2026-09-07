@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
+import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, getConfigValues, lockApp, setConfigValue, setServerUrl, wipeLocalData } from '../api/server.js'
 
 const ALERT_CFG_KEYS = ['alert_decline_pct', 'alert_dead_pct', 'alert_webhook_url', 'alert_notify_os', 'idle_lock_min']
 
 export default function Settings({ appState, onLock }) {
   const { t } = useLang()
+  const { confirm } = useConfirm()
   const [url, setUrl] = useState(appState.server_url || '')
   const [savedUrl, setSavedUrl] = useState(false)
   const [error, setError] = useState('')
@@ -67,8 +69,9 @@ export default function Settings({ appState, onLock }) {
   }
 
   const wipe = async () => {
-    if (!window.confirm(t('wipe_confirm'))) return
-    if (!window.confirm(t('wipe_confirm_final'))) return
+    const opts = { danger: true, confirmLabel: t('wipe_confirm_action'), cancelLabel: t('cancel') }
+    if (!(await confirm(t('wipe_confirm'), opts))) return
+    if (!(await confirm(t('wipe_confirm_final'), opts))) return
     await lockApp()
     try {
       await wipeLocalData()

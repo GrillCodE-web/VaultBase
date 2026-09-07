@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLang } from '../hooks/useLang.jsx'
+import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, fmtDateTime, fmtRelative } from '../api/server.js'
 
 function CreateModal({ onClose, onCreated }) {
@@ -101,6 +102,7 @@ function CreateModal({ onClose, onCreated }) {
 
 export default function Licenses() {
   const { t, lang } = useLang()
+  const { confirm } = useConfirm()
   const [licenses, setLicenses] = useState(null)
   const [modal, setModal] = useState(false)
   const [toast, setToast] = useState('')
@@ -129,7 +131,11 @@ export default function Licenses() {
   }
 
   const revoke = async (lic) => {
-    if (!window.confirm(t('lic_revoke_confirm', { label: lic.label || lic.installation_id.slice(0, 16) }))) return
+    if (!(await confirm(t('lic_revoke_confirm', { label: lic.label || lic.installation_id.slice(0, 16) }), {
+      danger: true,
+      confirmLabel: t('lic_revoke'),
+      cancelLabel: t('cancel'),
+    }))) return
     const r = await api('POST', `/manager/api/licenses/${lic.installation_id}/revoke`)
     if (r.status === 200) {
       flash(t('lic_revoked'))

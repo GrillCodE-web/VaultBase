@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
+import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, getWorkerSnapshots, getWorkerStats, getInsights, fmtDateTime, fmtRelative } from '../api/server.js'
 
 function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
@@ -363,6 +364,7 @@ function WorkerStats({ iid }) {
 
 export default function Workers({ navParams }) {
   const { t, lang } = useLang()
+  const { confirm } = useConfirm()
   const [workers, setWorkers] = useState(null)
   const [snapshots, setSnapshots] = useState({})
   const [selected, setSelected] = useState(null)
@@ -455,7 +457,7 @@ export default function Workers({ navParams }) {
   }, [workers, onlyWorkers, sortBy, lang])
 
   const forceLogout = async (iid) => {
-    if (!window.confirm(t('policy_force_logout_confirm'))) return
+    if (!(await confirm(t('policy_force_logout_confirm'), { cancelLabel: t('cancel') }))) return
     const r = await api('POST', `/manager/api/workers/${iid}/force-logout`)
     if (r.status === 200) {
       setToast(t('bribed'))
@@ -464,7 +466,11 @@ export default function Workers({ navParams }) {
   }
 
   const handleWipe = async (iid) => {
-    if (!window.confirm(t('wipe_worker_confirm'))) return
+    if (!(await confirm(t('wipe_worker_confirm'), {
+      danger: true,
+      confirmLabel: t('wipe_confirm_action'),
+      cancelLabel: t('cancel'),
+    }))) return
     const r = await api('POST', `/manager/api/workers/${iid}/wipe`, { confirm: true })
     if (r.status === 200) {
       setToast(t('wipe_requested'))
