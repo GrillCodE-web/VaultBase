@@ -1,9 +1,10 @@
-# Deploy cc-sync-server на VPS (MASTER-5). Только вручную — чтобы не было
-# сюрпризов от автодеплоя: Actions → Deploy Server → Run workflow.
+﻿# Deploy cc-sync-server РЅР° VPS (MASTER-5). РўРѕР»СЊРєРѕ РІСЂСѓС‡РЅСѓСЋ вЂ” С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ
+# СЃСЋСЂРїСЂРёР·РѕРІ РѕС‚ Р°РІС‚РѕРґРµРїР»РѕСЏ: Actions в†’ Deploy Server в†’ Run workflow.
 #
-# Требуются GitHub Secrets (Settings → Secrets → Actions):
-#   VPS_HOST        — root@209.74.89.158
-#   VPS_SSH_KEY     — приватный ключ .secrets/vaultbase-deploy.key (локально, не в git)
+# РўСЂРµР±СѓСЋС‚СЃСЏ GitHub Secrets (Settings в†’ Secrets в†’ Actions):
+#   VPS_HOST        вЂ” 209.74.89.158 (С‡РёСЃС‚С‹Р№ С…РѕСЃС‚, Р±РµР· user@)
+#   VPS_USER        вЂ” root
+#   VPS_SSH_KEY     вЂ” РїСЂРёРІР°С‚РЅС‹Р№ РєР»СЋС‡ .secrets/vaultbase-deploy.key (Р»РѕРєР°Р»СЊРЅРѕ, РЅРµ РІ git)
 
 name: Deploy Server
 
@@ -27,14 +28,14 @@ jobs:
 
       - name: Backup remote database
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_HOST }} \
+          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
             'cp /opt/cc-sync-server/data.db /opt/cc-sync-server/data.db.bak-deploy-$(date +%Y%m%d-%H%M%S)'
 
       - name: Sync server files
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
-            cc-sync-server/ ${{ secrets.VPS_HOST }}:/opt/cc-sync-server/ \
+            cc-sync-server/ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/cc-sync-server/ \
             --exclude='node_modules' \
             --exclude='data.db*' \
             --exclude='.env' \
@@ -44,7 +45,7 @@ jobs:
 
       - name: Install deps and restart
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             set -e
             cd /opt/cc-sync-server
             npm install --production --silent
