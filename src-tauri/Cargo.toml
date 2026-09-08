@@ -35,7 +35,7 @@ serde_json    = "1"
 aes-gcm       = "0.10"
 bcrypt        = "0.15"
 sha2          = "0.10"
-hkdf          = "0.12"   # MGR-004: HKDF-SHA256 для запечатанных конвертов телеметрии
+hkdf          = "0.13"   # MGR-004: HKDF-SHA256 для запечатанных конвертов телеметрии
 x25519-dalek  = { version = "2", features = ["static_secrets"] }  # MGR-004: эфемерный X25519 (sealed box → менеджер)
 pbkdf2        = { version = "0.12", features = ["simple"] }
 hmac          = "0.12"
