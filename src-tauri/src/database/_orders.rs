@@ -755,6 +755,27 @@ impl Database {
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
 
+    /// REDESIGN-05 (c5j, 8B): календарь доставок — checkpoints за период
+    /// [from, to) по ISO-префиксу дня. Не-ISO event_at от carrier'ов в
+    /// выборку не попадают (lexicographic range) — это осознанный trade-off.
+    pub fn get_calendar_events(&self, from: &str, to: &str) -> Result<Vec<crate::models::CalendarEvent>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT substr(COALESCE(NULLIF(c.event_at,''), c.checked_at), 1, 10) AS day,
+                    c.order_id, o.order_number, c.tracking_number, c.carrier,
+                    c.status, c.location, c.description
+             FROM tracking_checkpoints c
+             JOIN orders o ON o.id = c.order_id
+             WHERE day >= ?1 AND day < ?2
+             ORDER BY day, c.id"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![from, to], |r| Ok(crate::models::CalendarEvent {
+            date: r.get(0)?, order_id: r.get(1)?, order_number: r.get(2)?,
+            tracking_number: r.get(3)?, carrier: r.get(4)?, status: r.get(5)?,
+            location: r.get(6)?, description: r.get(7)?,
+        })).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
     /// Проставить orders.delivered_at один раз (первый delivered от поллера).
     pub fn mark_order_delivered_at(&self, order_id: i64) -> Result<(), String> {
         self.conn.execute(

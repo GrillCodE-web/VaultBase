@@ -50,6 +50,7 @@ const Cards = lazy(() => import('./pages/Cards'))
 const Profiles = lazy(() => import('./pages/Profiles'))
 const Drops = lazy(() => import('./pages/Drops'))
 const Orders = lazy(() => import('./pages/Orders'))
+const Calendar = lazy(() => import('./pages/Calendar'))
 const Catalog = lazy(() => import('./pages/Catalog'))
 const Shops = lazy(() => import('./pages/Shops'))
 const ProxyList = lazy(() => import('./pages/Proxies'))
@@ -66,6 +67,7 @@ import {
   CreditCard,
   Users,
   ShoppingCart,
+  CalendarDays,
   Store,
   Shield,
   Truck,
@@ -102,6 +104,7 @@ const PAGE_MAP = {
   profiles: Profiles,
   drops: Drops,
   orders: Orders,
+  calendar: Calendar,
   catalog: Catalog,
   shops: Shops,
   proxies: ProxyList,
@@ -944,6 +947,13 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           badgeKey: 'pending_orders',
           badgeColor: 'y',
           hint: 'G O',
+        },
+        {
+          key: 'calendar',
+          icon: CalendarDays,
+          page: 'calendar',
+          label: t('nav_calendar'),
+          badgeKey: null,
         },
         // shops остаётся видимым всем: get_shops требует лишь входа — справочник
         // нужен при оформлении заказа. Правом закрыты только правки внутри.

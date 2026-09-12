@@ -46,6 +46,23 @@ pub(crate) fn get_order(id: i64) -> Result<OrderDetail, String> {
     with_db!(db, { db.get_order(id) })
 }
 
+// REDESIGN-05 (c5j, 8B): календарь доставок — события трекинга за месяц.
+// month = "YYYY-MM"; диапазон [from, to) — день считается в SQL по ISO-префиксу.
+#[tauri::command]
+pub(crate) fn get_calendar_events(month: String) -> Result<Vec<CalendarEvent>, String> {
+    require_user()?;
+    let (ys, ms) = month.split_once('-').ok_or("bad_month_format")?;
+    let (y, m): (i64, i64) = (
+        ys.parse().map_err(|_| "bad_month_format")?,
+        ms.parse().map_err(|_| "bad_month_format")?,
+    );
+    if !(1..=12).contains(&m) || !(2000..=2100).contains(&y) { return Err("bad_month_format".into()); }
+    let from = format!("{:04}-{:02}-01", y, m);
+    let (ny, nm) = if m == 12 { (y + 1, 1) } else { (y, m + 1) };
+    let to = format!("{:04}-{:02}-01", ny, nm);
+    with_db!(db, { db.get_calendar_events(&from, &to) })
+}
+
 #[tauri::command]
 pub(crate) fn get_latest_order_by_profile(profile_id: String) -> Result<Option<Order>, String> {
     require_user()?;

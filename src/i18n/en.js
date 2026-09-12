@@ -5,6 +5,7 @@ export const en = {
   nav_profiles: 'Profiles',
   nav_drops: 'Drops',
   nav_orders: 'Orders',
+  nav_calendar: 'Delivery calendar',
   nav_shops: 'Shops',
   nav_emails: 'Email Pool',
   nav_proxies: 'Proxies',
@@ -793,6 +794,11 @@ export const en = {
 
   // REDESIGN-05-1: каркас 05 «Adaptive»
   nav_group_sales: 'Sales',
+  cal_prev_month: 'Previous month',
+  cal_next_month: 'Next month',
+  cal_today: 'Today',
+  cal_events_on: 'Tracking events on',
+  cal_no_events: 'No tracking events this day',
   nav_group_pool: 'Pool',
   nav_group_infra: 'Infrastructure',
   nav_group_system: 'System',

@@ -1663,6 +1663,20 @@ pub struct TrackingCheckpoint {
     pub checked_at: String,
 }
 
+/// REDESIGN-05 (c5j, 8B): событие календаря доставок — checkpoint,
+/// спроецированный на день (ISO-префикс event_at, иначе checked_at).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CalendarEvent {
+    pub date: String,
+    pub order_id: i64,
+    pub order_number: Option<String>,
+    pub tracking_number: String,
+    pub carrier: Option<String>,
+    pub status: String,
+    pub location: Option<String>,
+    pub description: Option<String>,
+}
+
 /// Кандидат в сессию перебивки: заказ с сигналом out_for_delivery/delivered.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ReworkCandidate {

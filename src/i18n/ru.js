@@ -5,6 +5,7 @@ export const ru = {
   nav_profiles: 'Профили',
   nav_drops: 'Дропы',
   nav_orders: 'Заказы',
+  nav_calendar: 'Календарь доставок',
   nav_shops: 'Магазины',
   nav_emails: 'Email-пул',
   nav_proxies: 'Прокси',
@@ -791,6 +792,11 @@ export const ru = {
 
   // REDESIGN-05-1: каркас 05 «Adaptive»
   nav_group_sales: 'Продажи',
+  cal_prev_month: 'Предыдущий месяц',
+  cal_next_month: 'Следующий месяц',
+  cal_today: 'Сегодня',
+  cal_events_on: 'События трекинга за',
+  cal_no_events: 'В этот день событий нет',
   nav_group_pool: 'Пул',
   nav_group_infra: 'Инфраструктура',
   nav_group_system: 'Система',

@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 export const ordersApi = {
   getOrders: (filters, page, perPage) => invoke('get_orders', { filter: filters, page, perPage }),
   getOrder: id => invoke('get_order', { id }),
+  getCalendarEvents: month => invoke('get_calendar_events', { month }),
   createOrder: data => invoke('create_order', { data }),
   updateOrderStatus: (id, status) => invoke('update_order_status', { id, status }),
   deleteOrder: id => invoke('delete_order', { id }),
