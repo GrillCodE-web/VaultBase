@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang.jsx'
 import { useConfirm } from '../hooks/useConfirm.jsx'
 import { api, getWorkerSnapshots, getWorkerStats, getInsights, fmtDateTime, fmtRelative } from '../api/server.js'
@@ -27,13 +28,14 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
       return ''
     }
   })
-  const [perms, setPerms] = useState(() => {
+  // 7rn/c5j (8B): редактор прав — три-состояния: нет ключа = «по умолчанию»,
+  // true = принудительно разрешить, false = принудительно запретить.
+  const [permsObj, setPermsObj] = useState(() => {
     try {
-      return worker.permissions_override
-        ? JSON.stringify(JSON.parse(worker.permissions_override), null, 2)
-        : ''
+      const o = worker.permissions_override ? JSON.parse(worker.permissions_override) : null
+      return o && typeof o === 'object' && !Array.isArray(o) ? o : {}
     } catch {
-      return worker.permissions_override || ''
+      return {}
     }
   })
   const [busy, setBusy] = useState(false)
@@ -42,18 +44,7 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
   const submit = async () => {
     setBusy(true)
     setError('')
-    let permsOverride = null
-    if (perms.trim()) {
-      try {
-        const parsed = JSON.parse(perms)
-        if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not object')
-        permsOverride = parsed
-      } catch {
-        setError(t('policy_bad_json'))
-        setBusy(false)
-        return
-      }
-    }
+    const permsOverride = Object.keys(permsObj).length > 0 ? permsObj : null
     const body = {
       banned,
       banned_reason: banned ? (reason || null) : null,
@@ -238,12 +229,7 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
 
         <div className="field">
           <label>{t('policy_perms')}</label>
-          <textarea
-            className="code"
-            value={perms}
-            onChange={(e) => setPerms(e.target.value)}
-            placeholder={'{"orders.delete": false}'}
-          />
+          <PermMatrix value={permsObj} onChange={setPermsObj} />
         </div>
 
         {error && <div className="error-box">{error}</div>}
@@ -258,6 +244,55 @@ function PolicyModal({ worker, onClose, onChanged, scoreRow }) {
 }
 
 const ONLINE_WINDOW_MS = 15 * 60 * 1000
+
+// c5j (8B): редактор прав «роль × действие» — матрица из 14 рабочих ключей
+// (мёртвые view_all_orders/manage_users/manage_permissions/view_reports не
+// показываем — см. docs/PERMISSIONS.md §4). Три состояния на ключ.
+const PERM_GROUPS = [
+  ['perm_grp_cards', ['view_cards_pool', 'take_cards', 'transfer_cards', 'view_own_cards_full']],
+  ['perm_grp_orders', ['create_orders']],
+  ['perm_grp_dirs', ['manage_shops', 'manage_emails', 'manage_proxies']],
+  ['perm_grp_stats', ['view_stats_global', 'export_data']],
+  ['perm_grp_couriers', ['view_couriers', 'manage_couriers', 'view_packages', 'create_packages']],
+]
+
+function PermMatrix({ value, onChange }) {
+  const { t } = useLang()
+  const cycle = key => {
+    const next = { ...value }
+    if (next[key] === undefined) next[key] = true
+    else if (next[key] === true) next[key] = false
+    else delete next[key]
+    onChange(next)
+  }
+  return (
+    <div className="perm-matrix">
+      {PERM_GROUPS.map(([grp, keys]) => (
+        <div key={grp} className="perm-grp">
+          <div className="perm-grp-label">{t(grp)}</div>
+          {keys.map(k => {
+            const state = value[k] === undefined ? 'default' : value[k] ? 'allow' : 'deny'
+            return (
+              <div key={k} className="perm-row">
+                <span className="perm-name">{t('perm_' + k)}</span>
+                <button
+                  type="button"
+                  className={`perm-tristate perm-${state}`}
+                  onClick={() => cycle(k)}
+                  title={t(`perm_state_${state}`)}
+                  aria-label={`${t('perm_' + k)}: ${t(`perm_state_${state}`)}`}
+                >
+                  {t(`perm_state_${state}`)}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      ))}
+      <div className="hint">{t('perm_matrix_hint')}</div>
+    </div>
+  )
+}
 
 const isOnline = (hbLastSeen) => {
   if (!hbLastSeen) return false
@@ -457,6 +492,21 @@ export default function Workers({ navParams }) {
     return list
   }, [workers, onlyWorkers, sortBy, lang])
 
+  // Виртуализация длинного списка: при >100 строк рендерим только видимые,
+  // отступы — spacer-строками, чтобы ширины колонок не ломались.
+  const tableScrollRef = useRef(null)
+  const virtual = rows.length > 100
+  const rowVirtualizer = useVirtualizer({
+    count: virtual ? rows.length : 0,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: () => 49,
+    overscan: 12,
+  })
+  const vItems = virtual ? rowVirtualizer.getVirtualItems() : []
+  const padTop = vItems.length ? vItems[0].start : 0
+  const padBottom = vItems.length ? rowVirtualizer.getTotalSize() - vItems[vItems.length - 1].end : 0
+  const visibleRows = virtual ? vItems.map((vi) => rows[vi.index]) : rows
+
   const forceLogout = async (iid) => {
     if (!(await confirm(t('policy_force_logout_confirm'), { cancelLabel: t('cancel') }))) return
     const r = await api('POST', `/manager/api/workers/${iid}/force-logout`)
@@ -502,6 +552,10 @@ export default function Workers({ navParams }) {
         {rows.length === 0 ? (
           <div className="empty">{t('no_workers')}</div>
         ) : (
+          <div
+            ref={virtual ? tableScrollRef : null}
+            style={virtual ? { maxHeight: 'calc(100vh - 180px)', overflowY: 'auto' } : undefined}
+          >
           <table className="data">
             <thead>
               <tr>
@@ -516,7 +570,12 @@ export default function Workers({ navParams }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((w) => {
+              {virtual && padTop > 0 && (
+                <tr aria-hidden="true">
+                  <td colSpan={8} style={{ height: padTop, padding: 0, border: 0 }} />
+                </tr>
+              )}
+              {visibleRows.map((w) => {
                 const banned = w.banned === 1
                 const versionExempt = w.version_exempt === 1
                 return (
@@ -578,8 +637,14 @@ export default function Workers({ navParams }) {
                   </tr>
                 )
               })}
+              {virtual && padBottom > 0 && (
+                <tr aria-hidden="true">
+                  <td colSpan={8} style={{ height: padBottom, padding: 0, border: 0 }} />
+                </tr>
+              )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
