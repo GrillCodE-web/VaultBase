@@ -32,7 +32,7 @@ r2d2_sqlite   = "0.24"
 hex           = "0.4"
 serde         = { version = "1", features = ["derive"] }
 serde_json    = "1"
-aes-gcm       = "0.10"
+aes-gcm       = "0.11"
 bcrypt        = "0.15"
 sha2          = "0.10"
 hkdf          = "0.12"   # MGR-004: HKDF-SHA256 для запечатанных конвертов телеметрии
