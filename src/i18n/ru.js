@@ -381,6 +381,12 @@ export const ru = {
   col_margin: 'Маржа',
   smart_suggestions: 'Умные подсказки',
   suggestion_no_history: 'Недостаточно истории для этой комбинации',
+  wiki_title: 'Wiki',
+  wiki_empty: 'Заметок пока нет — добавьте знания о магазине (AVS, звонки, переадресация)',
+  wiki_history: 'История',
+  wiki_no_history: 'Прежних версий нет',
+  wiki_saved: 'Заметки сохранены',
+  wiki_meta: '{by} · {at}',
 
   // Orders
   orders: 'Заказы',
@@ -722,6 +728,12 @@ export const ru = {
   dashboard_awaiting: 'ожидают',
   dashboard_empty_hint: 'Импортируйте первые карты, чтобы начать работу',
   dashboard_recent_orders: 'Последние заказы',
+  day_start_title: 'Старт дня',
+  day_start_rework: 'Перебивки сегодня',
+  day_start_declines: 'Деклайны за ночь',
+  day_start_offline: 'Воркеры offline',
+  day_start_offline_sub: 'онлайн {online} из {total}',
+  day_start_revenue: 'Выручка вчера',
   dashboard_view_all: 'Смотреть все',
 
   // Proxy extras

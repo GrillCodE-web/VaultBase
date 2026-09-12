@@ -385,6 +385,14 @@ export function getTauriMockScript() {
       state.shops = state.shops.filter(function (x) { return x.id !== a.id })
       return true
     },
+    // ── q77: wiki магазинов (пустые дефолты) ──
+    get_shop_wiki: function () { return null },
+    set_shop_wiki: function () { return true },
+    get_shop_wiki_history: function () { return [] },
+    // ── q77: стартовый экран дня ──
+    get_day_start_stats: function () {
+      return { rework_today: 0, declines_overnight: 0, workers_online: 1, workers_total: 1, revenue_yesterday: 0 }
+    },
     get_shop_risk_score: function () { return 25 },
     get_shop_smart_suggestions: function () { return [] },
     search_catalog_shops: function () { return [] },

@@ -175,6 +175,45 @@ impl Database {
         Ok(())
     }
 
+    // ── q77: wiki магазина ─────────────────────────
+    // Дата/время правки — CURRENT_TIMESTAMP в SQL (автоматически).
+
+    pub fn get_shop_wiki(&self, shop_id: i64) -> Result<Option<crate::models::ShopWikiEntry>, String> {
+        let r = self.conn.query_row(
+            "SELECT shop_id, content, updated_by, updated_at FROM shop_wiki WHERE shop_id=?1",
+            params![shop_id],
+            |r| Ok(crate::models::ShopWikiEntry {
+                shop_id: r.get(0)?, content: r.get(1)?, updated_by: r.get(2)?, updated_at: r.get(3)?,
+            }),
+        );
+        match r { Ok(v) => Ok(Some(v)), Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None), Err(e) => Err(e.to_string()) }
+    }
+
+    pub fn set_shop_wiki(&self, shop_id: i64, content: &str, author: &str) -> Result<(), String> {
+        // снапшот предыдущей версии в историю до перезаписи
+        self.conn.execute(
+            "INSERT INTO shop_wiki_history(shop_id, content, edited_by, edited_at)
+             SELECT shop_id, content, updated_by, updated_at FROM shop_wiki WHERE shop_id=?1",
+            params![shop_id],
+        ).map_err(|e| e.to_string())?;
+        self.conn.execute(
+            "INSERT INTO shop_wiki(shop_id, content, updated_by, updated_at) VALUES(?1,?2,?3,CURRENT_TIMESTAMP)
+             ON CONFLICT(shop_id) DO UPDATE SET content=excluded.content, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP",
+            params![shop_id, content, author],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_shop_wiki_history(&self, shop_id: i64) -> Result<Vec<crate::models::ShopWikiHistoryEntry>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, shop_id, content, edited_by, edited_at FROM shop_wiki_history WHERE shop_id=?1 ORDER BY edited_at DESC, id DESC LIMIT 50"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![shop_id], |r| Ok(crate::models::ShopWikiHistoryEntry {
+            id: r.get(0)?, shop_id: r.get(1)?, content: r.get(2)?, edited_by: r.get(3)?, edited_at: r.get(4)?,
+        })).map_err(|e| e.to_string())?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
     pub fn add_shop_product(&self, shop_id: i64, product: &ProductInput) -> Result<Product, String> {
         self.conn.execute(
             "INSERT INTO shop_products(shop_id,asin,name,amazon_price,shop_price,url,notes,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,datetime('now'))",

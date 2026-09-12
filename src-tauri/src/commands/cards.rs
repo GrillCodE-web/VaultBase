@@ -555,6 +555,26 @@ pub(crate) fn delete_shop(id: i64) -> Result<(), String> {
     with_db!(db, { db.delete_shop(id) })
 }
 
+// q77: wiki магазина — читать может любой воркер, править любой участник.
+// author = текущий пользователь, дата/время — в SQL (CURRENT_TIMESTAMP).
+#[tauri::command]
+pub(crate) fn get_shop_wiki(shop_id: i64) -> Result<Option<models::ShopWikiEntry>, String> {
+    require_user()?;
+    with_db!(db, { db.get_shop_wiki(shop_id) })
+}
+
+#[tauri::command]
+pub(crate) fn set_shop_wiki(shop_id: i64, content: String) -> Result<(), String> {
+    let user = require_user()?;
+    with_db!(db, { db.set_shop_wiki(shop_id, &content, &user.username) })
+}
+
+#[tauri::command]
+pub(crate) fn get_shop_wiki_history(shop_id: i64) -> Result<Vec<models::ShopWikiHistoryEntry>, String> {
+    require_user()?;
+    with_db!(db, { db.get_shop_wiki_history(shop_id) })
+}
+
 #[tauri::command]
 pub(crate) fn add_shop_product(shop_id: i64, product: ProductInput) -> Result<Product, String> {
     require_perm(models::perms::MANAGE_SHOPS)?;

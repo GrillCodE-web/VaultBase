@@ -405,6 +405,138 @@ function ShopModal({ initial, onSave, onClose }) {
   )
 }
 
+// ─── q77: Wiki магазина (база знаний + история правок) ────────────────────
+
+function ShopWikiBlock({ shopId }) {
+  const { t } = useLang()
+  const { toast } = usePremiumToast()
+  const [wiki, setWiki] = useState(null)
+  const [draft, setDraft] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [history, setHistory] = useState(null)
+
+  const loadWiki = useCallback(async () => {
+    setEditing(false)
+    setHistory(null)
+    try {
+      const w = await invoke('get_shop_wiki', { shopId })
+      setWiki(w)
+      setDraft(w?.content || '')
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[Shops] Failed to load wiki:', e)
+      setWiki(null)
+    }
+  }, [shopId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- сброс и загрузка wiki при смене магазина
+    loadWiki()
+  }, [loadWiki])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await invoke('set_shop_wiki', { shopId, content: draft })
+      toast(t('wiki_saved'), 'success')
+      setEditing(false)
+      const w = await invoke('get_shop_wiki', { shopId })
+      setWiki(w)
+    } catch (e) {
+      const error = handleError(e, 'Shops.saveWiki')
+      toast(getErrorMessage(error), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleHistory = () => {
+    if (history !== null) {
+      setHistory(null)
+      return
+    }
+    invoke('get_shop_wiki_history', { shopId })
+      .then(setHistory)
+      .catch(e => {
+        if (import.meta.env.DEV) console.error('[Shops] Failed to load wiki history:', e)
+      })
+  }
+
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="ptitle m-0">{t('wiki_title')}</p>
+        <div className="flex gap-1">
+          <button className="btn btn-ghost btn-sm" onClick={toggleHistory}>
+            {t('wiki_history')}
+          </button>
+          {!editing && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                setDraft(wiki?.content || '')
+                setEditing(true)
+              }}
+            >
+              {t('btn_edit')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {editing ? (
+        <div>
+          <textarea
+            className="textarea w-full"
+            rows={6}
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+          />
+          <div className="flex gap-1 mt-2">
+            <button className="btn btn-b btn-sm" onClick={handleSave} disabled={saving}>
+              {t('btn_save')}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+            >
+              {t('btn_cancel')}
+            </button>
+          </div>
+        </div>
+      ) : wiki?.content ? (
+        <div className="panel p-3 text-13 whitespace-pre-wrap">{wiki.content}</div>
+      ) : (
+        <div className="text-muted text-12 py-2">{t('wiki_empty')}</div>
+      )}
+
+      {!editing && wiki?.updated_at && (
+        <p className="text-10 text-muted mt-1 mb-0">
+          {t('wiki_meta', { by: wiki.updated_by || '—', at: wiki.updated_at })}
+        </p>
+      )}
+
+      {history !== null && (
+        <div className="mt-2">
+          {history.length === 0 ? (
+            <div className="text-muted text-12 py-2">{t('wiki_no_history')}</div>
+          ) : (
+            history.map(h => (
+              <div key={h.id} className="border-b py-2">
+                <p className="text-10 text-muted m-0">
+                  {t('wiki_meta', { by: h.edited_by || '—', at: h.edited_at })}
+                </p>
+                <div className="text-12 whitespace-pre-wrap">{h.content}</div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Shop detail panel ────────────────────────────────────────────────────
 
 function ShopDetailPanel({ shopId, onNavigate }) {
@@ -665,6 +797,8 @@ function ShopDetailPanel({ shopId, onNavigate }) {
           )}
         </div>
       </div>
+
+      <ShopWikiBlock shopId={shopId} />
 
       {productModal === 'add' && (
         <ProductModal

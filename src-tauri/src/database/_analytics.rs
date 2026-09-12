@@ -122,6 +122,48 @@ impl Database {
         })
     }
 
+    // q77: стартовый экран дня. Границы по заказам — в локальном времени,
+    // как period_dates() (конвенция всей аналитики); users.last_seen
+    // пишется через CURRENT_TIMESTAMP (UTC) — порог онлайна тоже UTC.
+    pub fn get_day_start_stats(&self) -> Result<DayStartStats, String> {
+        use chrono::{Local, Duration};
+        let now = Local::now();
+        let yesterday = now - Duration::days(1);
+        // «ночь» = со вчерашних 18:00 локального времени
+        let night_start = yesterday.format("%Y-%m-%d 18:00:00").to_string();
+        let y_start = yesterday.format("%Y-%m-%d 00:00:00").to_string();
+        let y_end = yesterday.format("%Y-%m-%d 23:59:59").to_string();
+
+        let rework_today = self.get_rework_candidates()?.len() as i64;
+
+        let declines_overnight: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM orders WHERE status='declined' AND created_at>=?1",
+            params![night_start], |r| r.get(0),
+        ).unwrap_or(0);
+
+        // выручка вчера — та же семантика, что revenue в get_dashboard_stats
+        let revenue_yesterday: f64 = self.conn.query_row(
+            "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE created_at>=?1 AND created_at<=?2",
+            params![y_start, y_end], |r| r.get(0),
+        ).unwrap_or(0.0);
+
+        let online_threshold = (chrono::Utc::now() - Duration::minutes(15))
+            .format("%Y-%m-%d %H:%M:%S").to_string();
+        let workers_online: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM users WHERE is_active=1 AND last_seen>=?1",
+            params![online_threshold], |r| r.get(0),
+        ).unwrap_or(0);
+        let workers_total: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM users WHERE is_active=1", [], |r| r.get(0),
+        ).unwrap_or(0);
+
+        Ok(DayStartStats {
+            rework_today, declines_overnight,
+            workers_online, workers_total,
+            revenue_yesterday,
+        })
+    }
+
     pub fn get_revenue_chart(&self, period: &str, from: Option<&str>, to: Option<&str>) -> Result<Vec<RevenuePoint>, String> {
         let (start, end) = period_dates(period, from, to);
         let (date_and, p_strs) = date_and_clause(&start, &end, "created_at");

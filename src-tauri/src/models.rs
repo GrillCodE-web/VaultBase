@@ -881,6 +881,24 @@ pub struct PaginatedLog {
 //  Advanced Analytics (D2/D3)
 // ─────────────────────────────────────────
 
+// q77: wiki магазина
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ShopWikiEntry {
+    pub shop_id: i64,
+    pub content: String,
+    pub updated_by: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ShopWikiHistoryEntry {
+    pub id: i64,
+    pub shop_id: i64,
+    pub content: String,
+    pub edited_by: Option<String>,
+    pub edited_at: String,
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct BinPerf {
     pub bin: String,
@@ -1112,6 +1130,16 @@ pub struct DashboardStats {
     pub revenue_trend: Option<f64>,
     pub delivered_trend: Option<f64>,
     pub alerts: Vec<Alert>,
+}
+
+// q77: стартовый экран дня — утренняя сводка для воркера
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DayStartStats {
+    pub rework_today: i64,
+    pub declines_overnight: i64,
+    pub workers_online: i64,
+    pub workers_total: i64,
+    pub revenue_yesterday: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

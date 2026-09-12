@@ -382,6 +382,12 @@ export const en = {
   col_margin: 'Margin',
   smart_suggestions: 'Smart Suggestions',
   suggestion_no_history: 'Not enough order history for this combination yet',
+  wiki_title: 'Wiki',
+  wiki_empty: 'No notes yet — add shop knowledge (AVS, calls, redirects)',
+  wiki_history: 'History',
+  wiki_no_history: 'No previous versions',
+  wiki_saved: 'Notes saved',
+  wiki_meta: 'by {by} · {at}',
 
   // Orders
   orders: 'Orders',
@@ -725,6 +731,12 @@ export const en = {
   dashboard_empty_hint: 'Import your first credit cards to get started',
   dashboard_recent_orders: 'Recent Orders',
   dashboard_view_all: 'View all',
+  day_start_title: 'Day start',
+  day_start_rework: 'Reworks today',
+  day_start_declines: 'Declines overnight',
+  day_start_offline: 'Workers offline',
+  day_start_offline_sub: '{online} of {total} online',
+  day_start_revenue: 'Revenue yesterday',
 
   // Proxy extras
   proxy_pool_count: '{n} proxies in pool',

@@ -31,6 +31,14 @@ pub(crate) fn get_dashboard_stats(period: String, from: Option<String>, to: Opti
     guard.get_dashboard_stats(&period, from.as_deref(), to.as_deref())
 }
 
+// q77: стартовый экран дня — доступен любому залогиненному (как sidebar badges)
+#[tauri::command]
+pub(crate) fn get_day_start_stats() -> Result<DayStartStats, String> {
+    require_user()?;
+    let guard = state().db.lock().map_err(|e| e.to_string())?;
+    guard.get_day_start_stats()
+}
+
 #[tauri::command]
 pub(crate) fn get_revenue_chart(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<RevenuePoint>, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;

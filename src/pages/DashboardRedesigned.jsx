@@ -36,6 +36,7 @@ import {
 import { CollapsePanel, PremiumStatCard, SmartAlertCard } from './Dashboard/cards'
 import { WidgetGrid } from './Dashboard/WidgetGrid.jsx'
 import { AnomaliesWidget } from './Dashboard/AnomaliesWidget.jsx'
+import { DayStartPanel } from './Dashboard/DayStartPanel.jsx'
 import { ShopIntelWidget } from './Dashboard/ShopIntelWidget.jsx'
 import { UpanelApiStatusWidget } from './Dashboard/upanelApiStatus'
 
@@ -286,6 +287,9 @@ export default function DashboardRedesigned({ onNavigate }) {
           </button>
         </div>
       </div>
+
+      {/* ── q77: стартовый экран дня ── */}
+      <DayStartPanel onNavigate={onNavigate} />
 
       {/* ── Empty state ── */}
       {isEmpty && (
