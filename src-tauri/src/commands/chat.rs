@@ -26,7 +26,9 @@ use crate::database::Database;
 use crate::models::{ChatMessage, ChatPeer};
 use crate::state::{require_user, spawn_task, with_db};
 use serde_json::{json, Value};
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
+#[cfg(not(test))]
+use tauri::Manager;
 
 const HTTP_TIMEOUT_SECS: u64 = 30;
 const MAX_BODY_CHARS: usize = 4000;
