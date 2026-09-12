@@ -1,6 +1,9 @@
-﻿import { useLang } from '../../hooks/useLang'
+﻿import { useState } from 'react'
+import { useLang } from '../../hooks/useLang'
 import { formatCurrency, formatNumber } from '../../utils/formatting'
 import { getDeliveryRateColor, getExpiryColor } from '../../constants/colors'
+import { dashboardApi } from '../../api/dashboard'
+import { handleError } from '../../utils/errorHandler'
 
 // ─── Analytics tables ─────────────────────────────────────────
 
@@ -231,6 +234,24 @@ export function DomainTable({ data }) {
 
 export function BinPerfTable({ data }) {
   const { t } = useLang()
+  // c5j: раскрытие строки — разрез «успех BIN × магазин» (get_bin_shop_performance)
+  const [expanded, setExpanded] = useState(null)
+  const [breakdowns, setBreakdowns] = useState({})
+
+  const toggle = bin => {
+    if (expanded === bin) {
+      setExpanded(null)
+      return
+    }
+    setExpanded(bin)
+    if (!breakdowns[bin]) {
+      dashboardApi
+        .getBinShopPerformance(bin)
+        .then(rows => setBreakdowns(prev => ({ ...prev, [bin]: rows })))
+        .catch(e => handleError(e, 'BinPerfTable'))
+    }
+  }
+
   if (!data?.length)
     return <p className="text-11 text-muted py-2">{t('dash_not_enough_data_yet')}</p>
   return (
@@ -249,26 +270,90 @@ export function BinPerfTable({ data }) {
         </thead>
         <tbody>
           {data.map(b => (
-            <tr key={b.bin}>
-              <td className="mono text-12">{b.bin}</td>
-              <td className="text-text-2">{b.bank_name || '—'}</td>
-              <td className="text-right">{b.total_orders}</td>
-              <td className="text-right text-green-t">{b.delivered}</td>
-              <td className="text-right text-red-t">{b.declined}</td>
-              <td className="text-right mono">${b.total_revenue.toFixed(2)}</td>
-              <td className="text-right">
-                <span
-                  className="font-semibold"
-                  style={{ color: getDeliveryRateColor(b.delivery_rate) }}
-                >
-                  {b.delivery_rate.toFixed(1)}%
-                </span>
-              </td>
-            </tr>
+            <BinPerfRow
+              key={b.bin}
+              b={b}
+              t={t}
+              expanded={expanded === b.bin}
+              breakdown={breakdowns[b.bin]}
+              onToggle={toggle}
+            />
           ))}
         </tbody>
       </table>
     </div>
+  )
+}
+
+function BinPerfRow({ b, t, expanded, breakdown, onToggle }) {
+  return (
+    <>
+      <tr>
+        <td>
+          <button
+            type="button"
+            className="mono text-12 text-accent"
+            onClick={() => onToggle(b.bin)}
+            aria-expanded={expanded}
+            aria-label={t('binperf_expand')}
+            title={t('binperf_expand')}
+          >
+            {expanded ? '▾' : '▸'} {b.bin}
+          </button>
+        </td>
+        <td className="text-text-2">{b.bank_name || '—'}</td>
+        <td className="text-right">{b.total_orders}</td>
+        <td className="text-right text-green-t">{b.delivered}</td>
+        <td className="text-right text-red-t">{b.declined}</td>
+        <td className="text-right mono">${b.total_revenue.toFixed(2)}</td>
+        <td className="text-right">
+          <span className="font-semibold" style={{ color: getDeliveryRateColor(b.delivery_rate) }}>
+            {b.delivery_rate.toFixed(1)}%
+          </span>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={7} className="px-2">
+            {!breakdown ? (
+              <p className="text-11 text-muted py-1">{t('msg_loading')}</p>
+            ) : breakdown.length === 0 ? (
+              <p className="text-11 text-muted py-1">{t('binperf_no_shops')}</p>
+            ) : (
+              <table className="tbl w-full">
+                <thead>
+                  <tr>
+                    <th>{t('binperf_col_shop')}</th>
+                    <th className="text-right">{t('binperf_col_orders')}</th>
+                    <th className="text-right">{t('binperf_col_ok')}</th>
+                    <th className="text-right">{t('binperf_col_fail')}</th>
+                    <th className="text-right">{t('binperf_col_rate')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {breakdown.map(s => (
+                    <tr key={s.shop_name}>
+                      <td className="text-text-2">{s.shop_name}</td>
+                      <td className="text-right">{s.total}</td>
+                      <td className="text-right text-green-t">{s.ok}</td>
+                      <td className="text-right text-red-t">{s.fail}</td>
+                      <td className="text-right">
+                        <span
+                          className="font-semibold"
+                          style={{ color: getDeliveryRateColor(s.success_rate) }}
+                        >
+                          {s.success_rate.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 

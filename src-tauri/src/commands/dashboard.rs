@@ -100,6 +100,13 @@ pub(crate) fn get_bin_performance() -> Result<Vec<models::BinPerf>, String> {
     with_db!(db, { db.get_bin_performance() })
 }
 
+// REDESIGN-05 (c5j): разрез BIN × магазин для раскрывающихся строк BinPerfTable
+#[tauri::command]
+pub(crate) fn get_bin_shop_performance(bin: String) -> Result<Vec<models::BinShopPerf>, String> {
+    require_user()?;
+    with_db!(db, { db.get_bin_shop_performance(&bin) })
+}
+
 #[tauri::command]
 pub(crate) fn get_sla_stats(period: String, from: Option<String>, to: Option<String>) -> Result<SlaStats, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;

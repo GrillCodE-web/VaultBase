@@ -10,6 +10,7 @@ export const dashboardApi = {
   getByDomain: params => invoke('get_by_domain', params),
   getExpiringCards: days => invoke('get_expiring_cards_dashboard', { days }),
   getBinPerformance: () => invoke('get_bin_performance'),
+  getBinShopPerformance: bin => invoke('get_bin_shop_performance', { bin }),
   getUsersStats: () => invoke('get_users_stats'),
   exportCsv: params => invoke('export_dashboard_csv', params),
 }

@@ -1264,6 +1264,13 @@ export const ru = {
   // I18N-002..004
   dash_not_enough_data: 'Недостаточно данных (нужно ≥3 заказов на комбинацию)',
   dash_not_enough_data_yet: 'Пока недостаточно данных',
+  binperf_expand: 'Показать разрез по магазинам',
+  binperf_col_shop: 'Магазин',
+  binperf_col_orders: 'Ордеров',
+  binperf_col_ok: 'Успешных',
+  binperf_col_fail: 'Отклонено',
+  binperf_col_rate: 'Успех %',
+  binperf_no_shops: 'По этому BIN пока нет ордеров',
   btn_bin_enrich: 'BIN Обогащение',
   btn_batch_import: 'Пакетный импорт',
   batch_import_title: 'Пакетный импорт заказов',

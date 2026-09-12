@@ -892,6 +892,16 @@ pub struct BinPerf {
     pub delivery_rate: f64,
 }
 
+// REDESIGN-05 (c5j): разрез BIN × магазин («успех BIN × магазин из истории ордеров»)
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct BinShopPerf {
+    pub shop_name: String,
+    pub total: u32,
+    pub ok: u32,
+    pub fail: u32,
+    pub success_rate: f64,
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ShopWinLoss {
     pub shop_id: i64,

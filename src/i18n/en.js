@@ -1263,6 +1263,13 @@ export const en = {
   // I18N-002..004: remaining hardcoded strings
   dash_not_enough_data: 'Not enough data (need ≥3 orders per combination)',
   dash_not_enough_data_yet: 'Not enough data yet',
+  binperf_expand: 'Show per-shop breakdown',
+  binperf_col_shop: 'Shop',
+  binperf_col_orders: 'Orders',
+  binperf_col_ok: 'Success',
+  binperf_col_fail: 'Failed',
+  binperf_col_rate: 'Success %',
+  binperf_no_shops: 'No orders for this BIN yet',
   btn_bin_enrich: 'BIN Enrich',
   btn_batch_import: 'Batch Import',
   batch_import_title: 'Batch Import Orders',

@@ -444,7 +444,42 @@ impl Database {
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
     }
 
-    pub fn get_shop_win_loss(&self) -> Result<Vec<crate::models::ShopWinLoss>, String> {
+    // REDESIGN-05 (c5j): разрез конкретного BIN по магазинам.
+    // ok = shipped/delivered/received; fail = declined/cancelled/failed/chargeback/refunded;
+    // success_rate считается по «решённым» (ok+fail), в пути не учитывается.
+    pub fn get_bin_shop_performance(&self, bin: &str) -> Result<Vec<crate::models::BinShopPerf>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.name,
+                    COUNT(o.id) as total,
+                    SUM(CASE WHEN o.status IN ('shipped','delivered','received') THEN 1 ELSE 0 END) as ok,
+                    SUM(CASE WHEN o.status IN ('declined','cancelled','failed','chargeback','refunded') THEN 1 ELSE 0 END) as fail
+             FROM orders o
+             JOIN profiles p ON p.id = o.profile_id
+             JOIN credit_cards c ON c.id = p.card_id
+             JOIN shops s ON s.id = o.shop_id
+             WHERE c.bin = ?1
+             GROUP BY s.id
+             ORDER BY total DESC
+             LIMIT 12"
+        ).map_err(|e| e.to_string())?;
+
+        let rows = stmt.query_map(params![bin], |r| {
+            let total: u32 = r.get::<_, u32>(1).unwrap_or(0);
+            let ok: u32 = r.get::<_, u32>(2).unwrap_or(0);
+            let fail: u32 = r.get::<_, u32>(3).unwrap_or(0);
+            let decided = ok + fail;
+            let rate = if decided > 0 { (ok as f64 / decided as f64) * 100.0 } else { 0.0 };
+            Ok(crate::models::BinShopPerf {
+                shop_name: r.get(0)?,
+                total,
+                ok,
+                fail,
+                success_rate: rate,
+            })
+        }).map_err(|e| e.to_string())?;
+
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    }
         let mut stmt = self.conn.prepare(
             "SELECT s.id, s.name,
                     COUNT(o.id) as total,
