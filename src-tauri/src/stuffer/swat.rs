@@ -1,5 +1,7 @@
 // SWAT provider — клиент панели StockHub (dash.stockhubdeal.com).
-// Docs: docs/API_STUFFER.md
+// Docs: docs/archive/API_STUFFER.md (актуальная схема — апдейт панели
+// 2026-09: методы package/add_track, депозитные поля packages,
+// labels[].carrier вместо label_carrier, tracks — объекты {track, carrier}).
 //
 // The single entry point is `{base_url}?json=<method>&api_key=<key>`. All
 // responses are JSON. Errors come back either as an HTTP 4xx/5xx status or as
@@ -14,7 +16,7 @@ use super::{Provider, ProviderCapabilities};
 pub const DEFAULT_BASE_URL: &str = crate::constants::STUFFER_BASE_URL;
 const TIMEOUT_SECS: u64 = crate::constants::TRACKING_REQUEST_TIMEOUT_SECS;
 
-/// Допустимые pay_option панели SWAT (docs/API_STUFFER.md, «new_package»).
+/// Допустимые pay_option панели SWAT (docs/archive/API_STUFFER.md, «new_package»).
 /// Панель жёстко валидирует значения: произвольные -> 400 Invalid pay_option.
 pub const PAY_OPTIONS: &[&str] = &["%", "forwarding", "test", "50/50_admin", "50/50_stuffer", "sale"];
 
@@ -80,12 +82,16 @@ pub struct CourierAvailable {
     pub public_description: String,
 }
 
+/// Лейбл внутри объекта `packages` (не путать с файлами метода `labels`).
+/// Апдейт панели 2026-09 переименовал `label_carrier` в `carrier` — принимаем
+/// оба ключа (alias), наружу отдаём только `carrier`. Плейсхолдерные треки
+/// приходят как `[HIDDEN TRACK]` (сдача без удалённого лейбла).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PackageLabel {
     #[serde(default)]
     pub track: String,
-    #[serde(default)]
-    pub label_carrier: String,
+    #[serde(default, alias = "label_carrier")]
+    pub carrier: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -103,9 +109,9 @@ pub struct PackageComment {
 }
 
 /// Десериализация `tracks`: панель меняла формат — старый `["1Z...", "N/A"]`
-/// (строки), новый `[{"track": "1Z...", "carrier": "UPS"}]` (объекты).
-/// Принимаем оба, наружу отдаём только номера треков.
-fn de_tracks<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+/// (строки), актуальный `[{"track": "1Z...", "carrier": "UPS"}]` (объекты,
+/// docs/archive/API_STUFFER.md). Принимаем оба; у строк перевозчик пустой.
+fn de_tracks<'de, D>(deserializer: D) -> Result<Vec<TrackInput>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -116,6 +122,8 @@ where
         Obj {
             #[serde(default)]
             track: String,
+            #[serde(default)]
+            carrier: String,
         },
     }
 
@@ -125,8 +133,8 @@ where
         .into_iter()
         .flatten()
         .map(|t| match t {
-            RawTrack::Text(s) => s,
-            RawTrack::Obj { track } => track,
+            RawTrack::Text(track) => TrackInput { track, carrier: String::new() },
+            RawTrack::Obj { track, carrier } => TrackInput { track, carrier },
         })
         .collect())
 }
@@ -138,10 +146,37 @@ pub struct Package {
     pub name: String,
     #[serde(default)]
     pub status: String,
-    // Поля панели (docs/API_STUFFER.md, «packages»). У старых ответов их нет —
-    // дефолты; UI показывает «—» там, где значение не пришло.
+    // Поля панели (docs/archive/API_STUFFER.md, «packages»/«package»).
     #[serde(default)]
-    pub courier_id: i64,
+    pub price: f64,
+    // Депозитные поля (апдейт панели 2026-09). is_deposited=false →
+    // deposit_amount/deposited_date приходят null.
+    #[serde(default)]
+    pub percent: f64,
+    #[serde(default)]
+    pub is_deposited: bool,
+    #[serde(default)]
+    pub deposit_amount: Option<f64>,
+    #[serde(default)]
+    pub deposited_date: Option<String>,
+    // Лейблы и их хеш — снова часть актуальной схемы «packages»
+    // (skip_serializing_if — наружу уходят только непустые).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<PackageLabel>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub labels_hash: String,
+    /// Трек-номера с перевозчиками ({track, carrier}); у плейсхолдера —
+    /// track "N/A". Старый строковый формат тоже принимается (de_tracks).
+    #[serde(default, deserialize_with = "de_tracks")]
+    pub tracks: Vec<TrackInput>,
+    #[serde(default)]
+    pub comments: Vec<PackageComment>,
+    // Поля прошлой схемы «packages» (форма создания): апдейт 2026-09 их не
+    // документирует, но декодируем с дефолтами на случай смешанных панелей.
+    // courier_id — Option: отсутствие поля не должно затирать снапшот связи
+    // заказ↔посылка (COALESCE в refresh_package_snapshots).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub courier_id: Option<i64>,
     #[serde(default)]
     pub holder_name: String,
     #[serde(default)]
@@ -150,8 +185,6 @@ pub struct Package {
     pub quantity: i64,
     #[serde(default)]
     pub shop: String,
-    #[serde(default)]
-    pub price: f64,
     #[serde(default)]
     pub delivery_date: String,
     #[serde(default)]
@@ -164,16 +197,6 @@ pub struct Package {
     pub upc: String,
     #[serde(default)]
     pub created_date: String,
-    // Legacy-поля старой схемы ответа: новой панелью не отдаются, но
-    // декодируются (skip_serializing_if — наружу уходят только непустые).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub labels: Vec<PackageLabel>,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub labels_hash: String,
-    #[serde(default, deserialize_with = "de_tracks")]
-    pub tracks: Vec<String>,
-    #[serde(default)]
-    pub comments: Vec<PackageComment>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -186,16 +209,34 @@ pub struct LabelFile {
     pub file: String, // base64-encoded PDF (may be empty)
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+/// Трек-номер с перевозчиком. Используется в обе стороны: элемент
+/// `PackageInput.tracks` (new_package) и нормализованный элемент
+/// `Package.tracks` / ответ `add_track` (панель нормализует: трек — trim +
+/// upper, carrier — lower).
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct TrackInput {
+    #[serde(default)]
     pub track: String,
+    #[serde(default)]
     pub carrier: String,
 }
 
+/// Ответ метода `add_track`: только что добавленный трек и полный список
+/// треков пакета после добавления (docs/archive/API_STUFFER.md).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AddTrackResult {
+    #[serde(default)]
+    pub track: TrackInput,
+    #[serde(default)]
+    pub tracks: Vec<TrackInput>,
+}
+
 /// Тело `new_package`: незаполненные Optional-поля НЕ сериализуем вовсе
-/// (а не null) — так панель применяет свои дефолты из docs/API_STUFFER.md
-/// (pay_option "%", price 1, вес "0", трек-плейсхолдер "n/a"). Раньше null
-/// полей приводил к жёсткой валидации после смены схемы на панели.
+/// (а не null) — так панель применяет свои дефолты из
+/// docs/archive/API_STUFFER.md (pay_option "%", price 1, вес "0",
+/// трек-плейсхолдер "N/A"/"unknown"). Раньше null полей приводил к жёсткой
+/// валидации после смены схемы на панели. Треки проходят ту же серверную
+/// нормализацию/валидацию, что и add_track.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PackageInput {
     pub courier_id: i64,
@@ -280,12 +321,25 @@ impl Provider for SwatProvider {
         list_packages(&self.base_url, &self.api_key)
     }
 
+    fn get_package(&self, package_id: i64) -> Result<Package, String> {
+        get_package(&self.base_url, &self.api_key, package_id)
+    }
+
     fn get_labels(&self, package_id: i64) -> Result<Vec<LabelFile>, String> {
         get_labels(&self.base_url, &self.api_key, package_id)
     }
 
     fn create_package(&self, package: &PackageInput) -> Result<i64, String> {
         create_package(&self.base_url, &self.api_key, package)
+    }
+
+    fn add_track(
+        &self,
+        package_id: i64,
+        track: &str,
+        carrier: &str,
+    ) -> Result<AddTrackResult, String> {
+        add_track(&self.base_url, &self.api_key, package_id, track, carrier)
     }
 }
 
@@ -431,6 +485,18 @@ pub fn list_packages(base_url: &str, api_key: &str) -> Result<Vec<Package>, Stri
     extract(get(&url)?, "packages")
 }
 
+/// Пакет по ID (метод `package`, апдейт панели 2026-09). В отличие от
+/// `packages` (до 500 свежих записей) находит и архивные пакеты стаффера.
+pub fn get_package(base_url: &str, api_key: &str, package_id: i64) -> Result<Package, String> {
+    let url = build_url(
+        base_url,
+        "package",
+        api_key,
+        &[("package_id", package_id.to_string())],
+    );
+    extract(get(&url)?, "package")
+}
+
 pub fn get_labels(base_url: &str, api_key: &str, package_id: i64) -> Result<Vec<LabelFile>, String> {
     let url = build_url(
         base_url,
@@ -448,6 +514,31 @@ pub fn create_package(base_url: &str, api_key: &str, package: &PackageInput) -> 
     json.get("package_id")
         .and_then(|v| v.as_i64())
         .ok_or_else(|| "stuffer_missing_field: package_id".to_string())
+}
+
+/// Добавить трек-номер к существующему пакету (метод `add_track`, апдейт
+/// панели 2026-09). Плейсхолдер "N/A" при первом реальном треке удаляется
+/// панелью; повторные треки дополняют список. Валидация длины/формата —
+/// серверная (400 Invalid track / Invalid carrier / Invalid track format
+/// for carrier), мы только прокидываем ошибку наверх.
+pub fn add_track(
+    base_url: &str,
+    api_key: &str,
+    package_id: i64,
+    track: &str,
+    carrier: &str,
+) -> Result<AddTrackResult, String> {
+    let url = build_url(base_url, "add_track", api_key, &[]);
+    let payload = serde_json::json!({
+        "package_id": package_id,
+        "track": track,
+        "carrier": carrier,
+    });
+    let json = post_json(&url, &payload)?;
+    Ok(AddTrackResult {
+        track: extract(json.clone(), "track")?,
+        tracks: extract(json, "tracks")?,
+    })
 }
 
 #[cfg(test)]
@@ -535,9 +626,9 @@ mod tests {
                     "id": 100,
                     "name": "Test Pkg",
                     "status": "new",
-                    "labels": [{"track": "1Z999", "label_carrier": "UPS"}],
+                    "labels": [{"track": "1Z999", "carrier": "UPS"}],
                     "labels_hash": "abc123",
-                    "tracks": ["1Z999"],
+                    "tracks": [{"track": "1Z999", "carrier": "UPS"}],
                     "comments": [
                         {"id": 1, "date": "2026-08-01", "comment_text": "Hello", "sender": "admin", "access": "public"}
                     ]
@@ -548,17 +639,119 @@ mod tests {
         assert_eq!(packages.len(), 1);
         assert_eq!(packages[0].id, 100);
         assert_eq!(packages[0].name, "Test Pkg");
-        assert_eq!(packages[0].tracks, vec!["1Z999"]);
+        assert_eq!(
+            packages[0].tracks,
+            vec![TrackInput { track: "1Z999".into(), carrier: "UPS".into() }]
+        );
         assert_eq!(packages[0].labels[0].track, "1Z999");
+        assert_eq!(packages[0].labels[0].carrier, "UPS");
+        assert_eq!(packages[0].labels_hash, "abc123");
         assert_eq!(packages[0].comments[0].comment_text, "Hello");
     }
 
-    /// Ответ панели по актуальной docs/API_STUFFER.md: tracks — массив
-    /// объектов {"track","carrier"}, labels/labels_hash отсутствуют.
-    /// Раньше такой ответ валил весь список: stuffer_decode_error
-    /// "invalid type: map, expected a string".
+    /// Переходный период: старый ключ `label_carrier` принимаем как alias
+    /// (апдейт панели переименовал его в `carrier`).
     #[test]
-    fn test_extract_packages_new_tracks_format() {
+    fn test_package_label_carrier_alias() {
+        let json = json!({
+            "packages": [
+                {"id": 1, "labels": [{"track": "1ZOLD", "label_carrier": "UPS"}]},
+                {"id": 2, "labels": [{"track": "1ZNEW", "carrier": "fedex"}]}
+            ]
+        });
+        let packages: Vec<Package> = extract(json, "packages").unwrap();
+        assert_eq!(packages[0].labels[0].carrier, "UPS");
+        assert_eq!(packages[1].labels[0].carrier, "fedex");
+    }
+
+    /// Ответ панели по актуальной docs/archive/API_STUFFER.md (апдейт
+    /// 2026-09): депозитные поля, labels с carrier, tracks — объекты
+    /// {"track","carrier"}. Второй пакет — недепонированный: deposit_amount и
+    /// deposited_date приходят null.
+    #[test]
+    fn test_extract_packages_current_schema() {
+        let json = json!({
+            "success": true,
+            "packages": [
+                {
+                    "id": 11517,
+                    "name": "Apple iPhone 13 Pro, QTY:2",
+                    "status": "checked",
+                    "price": 999.99,
+                    "percent": 15,
+                    "is_deposited": true,
+                    "deposit_amount": 210.00,
+                    "deposited_date": "2026-08-10 18:49:07",
+                    "labels": [
+                        {"track": "1Z999AA10123456784", "carrier": "UPS"},
+                        {"track": "[HIDDEN TRACK]", "carrier": "FedEx"}
+                    ],
+                    "labels_hash": "abc123def456",
+                    "tracks": [
+                        {"track": "1Z999AA10123456784", "carrier": "ups"},
+                        {"track": "6129999888777666555", "carrier": "fedex"}
+                    ],
+                    "comments": [
+                        {"id": 1, "date": "11.08.2026 14:32", "comment_text": "Ок, принял", "sender": "admin", "access": "admin,support"}
+                    ]
+                },
+                {
+                    "id": 10809,
+                    "name": "Apple iPad Pro, QTY:4",
+                    "status": "received",
+                    "price": 0,
+                    "percent": 10,
+                    "is_deposited": false,
+                    "deposit_amount": null,
+                    "deposited_date": null,
+                    "labels": [],
+                    "labels_hash": "",
+                    "tracks": [{"track": "N/A", "carrier": "unknown"}],
+                    "comments": []
+                }
+            ]
+        });
+        let packages: Vec<Package> = extract(json, "packages").unwrap();
+        assert_eq!(packages.len(), 2);
+        let p = &packages[0];
+        assert_eq!(p.id, 11517);
+        assert_eq!(p.price, 999.99);
+        assert_eq!(p.percent, 15.0);
+        assert!(p.is_deposited);
+        assert_eq!(p.deposit_amount, Some(210.0));
+        assert_eq!(p.deposited_date.as_deref(), Some("2026-08-10 18:49:07"));
+        assert_eq!(p.labels.len(), 2);
+        assert_eq!(p.labels[1].track, "[HIDDEN TRACK]");
+        assert_eq!(p.labels[1].carrier, "FedEx");
+        assert_eq!(p.labels_hash, "abc123def456");
+        assert_eq!(
+            p.tracks,
+            vec![
+                TrackInput { track: "1Z999AA10123456784".into(), carrier: "ups".into() },
+                TrackInput { track: "6129999888777666555".into(), carrier: "fedex".into() },
+            ]
+        );
+        assert_eq!(p.comments[0].access, "admin,support");
+
+        let p2 = &packages[1];
+        assert!(!p2.is_deposited);
+        assert_eq!(p2.deposit_amount, None);
+        assert_eq!(p2.deposited_date, None);
+        // Плейсхолдер панели — "N/A"/"unknown".
+        assert_eq!(
+            p2.tracks,
+            vec![TrackInput { track: "N/A".into(), carrier: "unknown".into() }]
+        );
+        // Поля прошлой схемы не пришли — дефолты без ошибки декода.
+        assert_eq!(p2.courier_id, None);
+        assert_eq!(p2.shop, "");
+        assert_eq!(p2.created_date, "");
+    }
+
+    /// Поля прошлой схемы «packages» (courier_id, holder_name, ...) больше не
+    /// документированы, но если панель их отдаёт — декодируются как раньше.
+    #[test]
+    fn test_extract_packages_legacy_fields_still_decode() {
         let json = json!({
             "success": true,
             "packages": [
@@ -582,39 +775,30 @@ mod tests {
                         {"track": "1Z999AA10123456784", "carrier": "UPS"}
                     ],
                     "comments": []
-                },
-                {
-                    "id": 10809,
-                    "name": "Apple iPad Pro, QTY:4",
-                    "status": "received",
-                    "tracks": [{"track": "n/a", "carrier": ""}],
-                    "comments": []
                 }
             ]
         });
         let packages: Vec<Package> = extract(json, "packages").unwrap();
-        assert_eq!(packages.len(), 2);
-        assert_eq!(packages[0].id, 11517);
-        assert_eq!(packages[0].tracks, vec!["1Z999AA10123456784"]);
-        assert_eq!(packages[0].labels.len(), 0);
-        assert_eq!(packages[1].tracks, vec!["n/a"]);
-        // Новые поля панели (docs/API_STUFFER.md, «packages»).
-        assert_eq!(packages[0].courier_id, 982);
-        assert_eq!(packages[0].holder_name, "Petr Vasichkin");
-        assert_eq!(packages[0].weight, "1.5");
-        assert_eq!(packages[0].quantity, 2);
-        assert_eq!(packages[0].shop, "amazon");
-        assert_eq!(packages[0].price, 999.99);
-        assert_eq!(packages[0].delivery_date, "2026-08-10");
-        assert_eq!(packages[0].pay_option, "%");
-        assert_eq!(packages[0].pickup, 0);
-        assert_eq!(packages[0].asin, "B09G9HD6PD");
-        assert_eq!(packages[0].upc, "195949123456");
-        assert_eq!(packages[0].created_date, "2026-08-11 14:32:15");
-        // У второго пакета полей нет — дефолты без ошибки декода.
-        assert_eq!(packages[1].shop, "");
-        assert_eq!(packages[1].price, 0.0);
-        assert_eq!(packages[1].created_date, "");
+        let p = &packages[0];
+        assert_eq!(p.courier_id, Some(982));
+        assert_eq!(p.holder_name, "Petr Vasichkin");
+        assert_eq!(p.weight, "1.5");
+        assert_eq!(p.quantity, 2);
+        assert_eq!(p.shop, "amazon");
+        assert_eq!(p.delivery_date, "2026-08-10");
+        assert_eq!(p.pay_option, "%");
+        assert_eq!(p.pickup, 0);
+        assert_eq!(p.asin, "B09G9HD6PD");
+        assert_eq!(p.upc, "195949123456");
+        assert_eq!(p.created_date, "2026-08-11 14:32:15");
+        assert_eq!(
+            p.tracks,
+            vec![TrackInput { track: "1Z999AA10123456784".into(), carrier: "UPS".into() }]
+        );
+        // Депозитные поля не пришли — дефолты.
+        assert!(!p.is_deposited);
+        assert_eq!(p.percent, 0.0);
+        assert_eq!(p.deposit_amount, None);
     }
 
     /// Смесь старого и нового форматов, null-элементы и null-поле — всё
@@ -627,7 +811,13 @@ mod tests {
             ]
         });
         let packages: Vec<Package> = extract(json, "packages").unwrap();
-        assert_eq!(packages[0].tracks, vec!["1ZOLD", "1ZNEW"]);
+        assert_eq!(
+            packages[0].tracks,
+            vec![
+                TrackInput { track: "1ZOLD".into(), carrier: String::new() },
+                TrackInput { track: "1ZNEW".into(), carrier: "UPS".into() },
+            ]
+        );
 
         let json = json!({"packages": [{"id": 2, "tracks": null}]});
         let packages: Vec<Package> = extract(json, "packages").unwrap();
@@ -645,6 +835,58 @@ mod tests {
         assert_eq!(labels.len(), 1);
         assert_eq!(labels[0].track, "1Z111");
         assert_eq!(labels[0].file, "dGVzdA==");
+    }
+
+    /// Метод `package` (апдейт панели 2026-09): одиночный объект под ключом
+    /// "package" — та же схема, что у элемента `packages`.
+    #[test]
+    fn test_extract_single_package() {
+        let json = json!({
+            "success": true,
+            "package": {
+                "id": 11517,
+                "name": "Apple iPhone 13 Pro, QTY:2",
+                "status": "shipped",
+                "price": 999.99,
+                "percent": 15,
+                "is_deposited": true,
+                "deposit_amount": 210.00,
+                "deposited_date": "2026-08-10 18:49:07",
+                "labels": [{"track": "1Z999AA10123456784", "carrier": "UPS"}],
+                "labels_hash": "abc123def456",
+                "tracks": [{"track": "1Z999AA10123456784", "carrier": "ups"}],
+                "comments": []
+            }
+        });
+        let pkg: Package = extract(json, "package").unwrap();
+        assert_eq!(pkg.id, 11517);
+        assert_eq!(pkg.status, "shipped");
+        assert!(pkg.is_deposited);
+        assert_eq!(
+            pkg.tracks,
+            vec![TrackInput { track: "1Z999AA10123456784".into(), carrier: "ups".into() }]
+        );
+    }
+
+    /// Ответ `add_track`: добавленный трек + полный список после добавления.
+    #[test]
+    fn test_add_track_result_decode() {
+        let json = json!({
+            "success": true,
+            "track": {"track": "1Z999AA10123456784", "carrier": "ups"},
+            "tracks": [
+                {"track": "1Z999AA10123456784", "carrier": "ups"},
+                {"track": "6129999888777666555", "carrier": "fedex"}
+            ]
+        });
+        let result = AddTrackResult {
+            track: extract(json.clone(), "track").unwrap(),
+            tracks: extract(json, "tracks").unwrap(),
+        };
+        assert_eq!(result.track.track, "1Z999AA10123456784");
+        assert_eq!(result.track.carrier, "ups");
+        assert_eq!(result.tracks.len(), 2);
+        assert_eq!(result.tracks[1].carrier, "fedex");
     }
 
     #[test]
@@ -709,7 +951,7 @@ mod tests {
 
     #[test]
     fn test_pay_options_match_doc() {
-        // Жёсткий енум панели в docs/API_STUFFER.md — метод new_package.
+        // Жёсткий енум панели в docs/archive/API_STUFFER.md — метод new_package.
         assert_eq!(
             PAY_OPTIONS,
             &["%", "forwarding", "test", "50/50_admin", "50/50_stuffer", "sale"]

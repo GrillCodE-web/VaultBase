@@ -125,6 +125,35 @@ pub(crate) fn stuffer_list_packages() -> Result<Vec<crate::stuffer::Package>, St
     active_provider()?.list_packages()
 }
 
+/// Одна посылка по ID (метод `package`, апдейт панели 2026-09) — находит и
+/// архивные посылки, которых нет в свежем списке list_packages.
+#[tauri::command]
+pub(crate) fn stuffer_get_package(package_id: i64) -> Result<crate::stuffer::Package, String> {
+    require_perm(models::perms::VIEW_PACKAGES)?;
+    active_provider()?.get_package(package_id)
+}
+
+/// Добавить трек к существующей посылке (метод `add_track`, апдейт панели
+/// 2026-09). Возвращает добавленный трек и полный список треков посылки.
+#[tauri::command]
+pub(crate) fn stuffer_add_track(
+    package_id: i64,
+    track: String,
+    carrier: String,
+) -> Result<crate::stuffer::AddTrackResult, String> {
+    require_perm(models::perms::CREATE_PACKAGES)?;
+    let result = active_provider()?.add_track(package_id, track.trim(), carrier.trim())?;
+    with_db!(db, {
+        let _ = db.log_event(
+            "stuffer.track_added",
+            &format!("Track added to package {}", package_id),
+            Some("stuffer"),
+            Some(&package_id.to_string()),
+        );
+    });
+    Ok(result)
+}
+
 #[tauri::command]
 pub(crate) fn stuffer_get_labels(package_id: i64) -> Result<Vec<crate::stuffer::LabelFile>, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;

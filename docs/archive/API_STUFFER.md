@@ -2,6 +2,12 @@
 
 REST-подобный JSON API для интеграции стафферов с панелью. Все запросы проходят через единую точку входа и различаются параметром `json` в query string.
 
+> Актуальная редакция (апдейт панели 2026-09). Ключевые изменения: новые методы
+> `package` и `add_track`; в `packages` добавлены депозитные поля (`percent`,
+> `is_deposited`, `deposit_amount`, `deposited_date`) и поля `labels` /
+> `labels_hash`; `tracks` — объекты `{track, carrier}`; поле
+> `labels[].label_carrier` переименовано в `labels[].carrier`.
+
 ## Базовый URL
 
 ```
@@ -213,12 +219,15 @@ Content-Type: application/json
 | 400  | `{"error": "Invalid courier_id"}`     | `courier_id` не передан или ≤ 0     |
 | 404  | `{"error": "Courier not found"}`      | Курьер с указанным ID не существует |
 | 403  | `{"error": "Couriers limit reached"}` | Достигнут лимит добавления курьеров |
+| 400  | `{"error": "Courier not available"}`  | Курьер недоступен для добавления    |
+
+Если курьер ранее был скрыт стаффером, повторный вызов с тем же `courier_id` восстанавливает связь (идемпотентный успех).
 
 ---
 
 ### 4. Список пакетов — `packages`
 
-Возвращает пакеты, принадлежащие данному стафферу (до 500 записей). Сортировка: новые сверху.
+Возвращает до **500** последних пакетов стаффера (не архивных), отсортированных по `package_id DESC`.
 
 **Запрос**
 
@@ -233,36 +242,54 @@ GET /api/stuffer/?json=packages&api_key={api_key}
   "success": true,
   "packages": [
     {
-      "id": 11517,
-      "courier_id": 982,
-      "name": "Apple iPhone 13 Pro",
-      "status": "new",
-      "holder_name": "Petr Vasichkin",
-      "weight": "1.5",
-      "quantity": 2,
-      "shop": "amazon",
+      "id": 11516,
+      "name": "Apple iPhone 13 Pro, QTY:2",
+      "status": "checked",
       "price": 999.99,
-      "delivery_date": "2026-08-10",
-      "pay_option": "%",
-      "pickup": 0,
-      "asin": "B09G9HD6PD",
-      "upc": "195949123456",
-      "created_date": "2026-08-11 14:32:15",
-      "tracks": [
+      "percent": 15,
+      "is_deposited": true,
+      "deposit_amount": 210.0,
+      "deposited_date": "2026-08-10 18:49:07",
+      "labels": [
         {
           "track": "1Z999AA10123456784",
           "carrier": "UPS"
         }
       ],
+      "labels_hash": "abc123...",
+      "tracks": [
+        {
+          "track": "1Z999AA10123456784",
+          "carrier": "ups"
+        }
+      ],
       "comments": [
         {
-          "id": 1,
-          "date": "11.08.2026 14:32",
-          "comment_text": "Ок, принял",
+          "id": 814,
+          "date": "01.07.2020 11:57",
+          "comment_text": "Проверьте вес",
           "sender": "admin",
-          "access": "admin,support"
+          "access": "admin,stuffer,support"
         }
       ]
+    },
+    {
+      "id": 10809,
+      "name": "Apple iPad Pro, QTY:4",
+      "status": "received",
+      "price": 799.0,
+      "percent": 0,
+      "is_deposited": false,
+      "deposit_amount": null,
+      "deposited_date": null,
+      "labels_hash": "",
+      "tracks": [
+        {
+          "track": "N/A",
+          "carrier": "unknown"
+        }
+      ],
+      "comments": []
     }
   ]
 }
@@ -270,25 +297,26 @@ GET /api/stuffer/?json=packages&api_key={api_key}
 
 **Поля пакета**
 
-| Поле            | Тип    | Описание                                                               |
-| --------------- | ------ | ---------------------------------------------------------------------- |
-| `id`            | int    | ID пакета                                                              |
-| `courier_id`    | int    | ID назначенного курьера                                                |
-| `name`          | string | Название пакета                                                        |
-| `status`        | string | Статус пакета (`new`, `shipped`, `sent` и т.д.)                        |
-| `holder_name`   | string | Имя получателя                                                         |
-| `weight`        | string | Вес                                                                    |
-| `quantity`      | int    | Количество                                                             |
-| `shop`          | string | Магазин                                                                |
-| `price`         | float  | Цена                                                                   |
-| `delivery_date` | string | Дата доставки                                                          |
-| `pay_option`    | string | Способ оплаты                                                          |
-| `pickup`        | int    | Флаг самовывоза (0/1)                                                  |
-| `asin`          | string | ASIN товара                                                            |
-| `upc`           | string | UPC товара                                                             |
-| `created_date`  | string | Дата создания (`YYYY-MM-DD HH:MM:SS`)                                  |
-| `tracks`        | array  | Трек-номера (может отсутствовать)                                      |
-| `comments`      | array  | Комментарии от admin/support (собственные комментарии стаффера скрыты) |
+| Поле               | Тип          | Описание                                                                                     |
+| ------------------ | ------------ | -------------------------------------------------------------------------------------------- |
+| `id`               | int          | ID пакета                                                                                    |
+| `name`             | string       | Название пакета                                                                              |
+| `status`           | string       | Текущий статус пакета                                                                        |
+| `price`            | float        | Цена пакета (`package_price`)                                                                |
+| `percent`          | float        | Процент стаффера (`package_stuffer_percent`)                                                 |
+| `is_deposited`     | bool         | Была ли выплата стафферу за пак                                                              |
+| `deposit_amount`   | float\|null  | Сумма выплаты из `stuffer_balance_history`; `null` если не депозит или транзакция не найдена |
+| `deposited_date`   | string\|null | Дата и время депозита (`Y-m-d H:i:s`); `null` если не депозит                                |
+| `labels`           | array        | Массив лейблов (может отсутствовать, если лейблов нет)                                       |
+| `labels[].track`   | string       | Трек-номер лейбла (может быть `[HIDDEN TRACK]` если скрыт для стаффера)                      |
+| `labels[].carrier` | string       | Перевозчик лейбла                                                                            |
+| `labels_hash`      | string       | Хеш лейблов для отслеживания изменений                                                       |
+| `tracks`           | array        | Массив входящих треков                                                                       |
+| `tracks[].track`   | string       | Трек-номер                                                                                   |
+| `tracks[].carrier` | string       | Перевозчик                                                                                   |
+| `comments`         | array        | Комментарии от admin/support (собственные комментарии стаффера скрыты)                       |
+
+> **Breaking change:** `tracks` теперь содержит объекты `{track, carrier}`, а поле `labels[].label_carrier` переименовано в `labels[].carrier`.
 
 **Поля комментария**
 
@@ -308,7 +336,127 @@ GET /api/stuffer/?json=packages&api_key={api_key}
 
 ---
 
-### 5. Лейблы пакета — `labels`
+### 5. Пакет по ID — `package`
+
+Возвращает один пакет, принадлежащий данному стафферу. Формат объекта совпадает с элементом массива метода `packages`. Метод не ограничен последними 500 пакетами и может вернуть архивный пакет стаффера.
+
+**Запрос**
+
+```
+GET /api/stuffer/?json=package&package_id={package_id}&api_key={api_key}
+```
+
+| Параметр     | Где   | Обязательный | Описание  |
+| ------------ | ----- | ------------ | --------- |
+| `package_id` | query | да           | ID пакета |
+
+**Пример ответа**
+
+```json
+{
+  "success": true,
+  "package": {
+    "id": 11516,
+    "name": "Apple iPhone 13 Pro, QTY:2",
+    "status": "checked",
+    "price": 999.99,
+    "percent": 15,
+    "is_deposited": true,
+    "deposit_amount": 210.0,
+    "deposited_date": "2026-08-10 18:49:07",
+    "labels": [
+      {
+        "track": "1Z999AA10123456784",
+        "carrier": "UPS"
+      }
+    ],
+    "labels_hash": "abc123...",
+    "tracks": [
+      {
+        "track": "1Z999AA10123456784",
+        "carrier": "ups"
+      }
+    ],
+    "comments": []
+  }
+}
+```
+
+Поля объекта `package` описаны в разделе `packages`.
+
+**Ошибки**
+
+| HTTP | Ответ                                        | Причина                                     |
+| ---- | -------------------------------------------- | ------------------------------------------- |
+| 400  | `{"error": "Invalid package_id"}`            | `package_id` не передан или меньше единицы  |
+| 404  | `{"error": "Package not found"}`             | Пакет не найден или не принадлежит стафферу |
+| 200  | `{"success": false, "error": "<сообщение>"}` | Ошибка при обработке лейблов                |
+
+---
+
+### 6. Добавление трека — `add_track`
+
+Добавляет один входящий трек существующему пакету стаффера.
+
+**Запрос**
+
+```
+POST /api/stuffer/?json=add_track&api_key={api_key}
+Content-Type: application/json
+```
+
+**Тело запроса**
+
+```json
+{
+  "package_id": 11516,
+  "track": "1Z999AA10123456784",
+  "carrier": "ups"
+}
+```
+
+| Поле         | Тип    | Обязательный | Описание                          |
+| ------------ | ------ | ------------ | --------------------------------- |
+| `package_id` | int    | да           | ID пакета стаффера                |
+| `track`      | string | да           | Трек-номер длиной менее 50 знаков |
+| `carrier`    | string | да           | Ключ перевозчика из панели        |
+
+Трек нормализуется: пробелы удаляются, буквы приводятся к верхнему регистру. Carrier приводится к нижнему регистру. Повторная отправка того же трека не создаёт дубликат. При добавлении первого реального трека placeholder `n/a / unknown` удаляется.
+
+Формат трека строго проверяется для `fedex`, `ups`, `usps`, `ontrac`, `dhl`, `lasership` и `amazon(tba)`. Для `unknown` применяются общие эвристики (минимальная длина, наличие букв, запрет служебных и повторяющихся значений). Для остальных зарегистрированных перевозчиков проверяются длина и допустимые символы. Placeholder `N/A` через `add_track` добавить нельзя.
+
+**Пример успешного ответа**
+
+```json
+{
+  "success": true,
+  "track": {
+    "track": "1Z999AA10123456784",
+    "carrier": "ups"
+  },
+  "tracks": [
+    {
+      "track": "1Z999AA10123456784",
+      "carrier": "ups"
+    }
+  ]
+}
+```
+
+**Ошибки**
+
+| HTTP | Ответ                                                             | Причина                                     |
+| ---- | ----------------------------------------------------------------- | ------------------------------------------- |
+| 400  | `{"error": "Invalid package_id"}`                                 | `package_id` не передан или меньше единицы  |
+| 404  | `{"error": "Package not found"}`                                  | Пакет не найден или не принадлежит стафферу |
+| 400  | `{"error": "Invalid track"}`                                      | Пустой, слишком длинный или невалидный трек |
+| 400  | `{"error": "Invalid carrier"}`                                    | Перевозчик отсутствует в настройках панели  |
+| 400  | `{"error": "Invalid track format for carrier", "carrier": "ups"}` | Трек не соответствует формату перевозчика   |
+| 500  | `{"error": "Track not added"}`                                    | Трек не удалось сохранить                   |
+
+---
+
+### 7. Лейблы пакета — `labels`
 
 Возвращает лейблы конкретного пакета, принадлежащего данному стафферу. Файлы лейблов кодируются в base64.
 
@@ -353,7 +501,7 @@ GET /api/stuffer/?json=labels&package_id={package_id}&api_key={api_key}
 
 ---
 
-### 6. Создание пакета — `new_package` (рекомендуемый)
+### 8. Создание пакета — `new_package` (рекомендуемый)
 
 Создаёт новый пакет для назначенного курьера. Тело запроса передаётся как JSON.
 
@@ -417,9 +565,11 @@ Content-Type: application/json
 | `upc`                | string | нет          | `""`                                    | UPC товара                                            |
 | `pickup_address`     | string | нет          | `""`                                    | Адрес самовывоза                                      |
 | `pickup_holder_name` | string | нет          | `""`                                    | Имя для самовывоза                                    |
-| `tracks`             | array  | нет          | `[{"track":"n/a","carrier":"unknown"}]` | Трек-номера; если не переданы — создаётся placeholder |
-| `tracks[].track`     | string | нет          | `"n/a"`                                 | Трек-номер                                            |
+| `tracks`             | array  | нет          | `[{"track":"N/A","carrier":"unknown"}]` | Трек-номера; если не переданы — создаётся placeholder |
+| `tracks[].track`     | string | нет          | `"N/A"`                                 | Трек-номер                                            |
 | `tracks[].carrier`   | string | нет          | `"unknown"`                             | Перевозчик                                            |
+
+Переданные треки проходят ту же серверную проверку, что и `add_track`. Для `fedex`, `ups`, `usps`, `ontrac`, `dhl`, `lasership` и `amazon(tba)` проверяется формат конкретного перевозчика; для остальных — общие ограничения. Если `tracks` отсутствует или пуст, автоматически сохраняется разрешённый placeholder `N/A / unknown`.
 
 **Допустимые значения `pay_option`**
 
@@ -447,19 +597,22 @@ Content-Type: application/json
 
 **Ошибки**
 
-| HTTP | Ответ                               | Причина                             |
-| ---- | ----------------------------------- | ----------------------------------- |
-| 400  | `{"error": "Shop is required"}`     | Поле `shop` не передано или пустое  |
-| 400  | `{"error": "Invalid pay_option"}`   | Недопустимое значение `pay_option`  |
-| 404  | `{"error": "Courier not assigned"}` | Курьер не назначен данному стафферу |
-| 404  | `{"error": "Courier not found"}`    | Курьер с указанным ID не существует |
-| 500  | `{"error": "Package not added"}`    | Пакет не удалось сохранить          |
+| HTTP | Ответ                                                             | Причина                                     |
+| ---- | ----------------------------------------------------------------- | ------------------------------------------- |
+| 400  | `{"error": "Shop is required"}`                                   | Поле `shop` не передано или пустое          |
+| 400  | `{"error": "Invalid pay_option"}`                                 | Недопустимое значение `pay_option`          |
+| 400  | `{"error": "Invalid track"}`                                      | Пустой, слишком длинный или невалидный трек |
+| 400  | `{"error": "Invalid carrier"}`                                    | Перевозчик отсутствует в настройках панели  |
+| 400  | `{"error": "Invalid track format for carrier", "carrier": "ups"}` | Трек не соответствует формату перевозчика   |
+| 404  | `{"error": "Courier not assigned"}`                               | Курьер не назначен данному стафферу         |
+| 404  | `{"error": "Courier not found"}`                                  | Курьер с указанным ID не существует         |
+| 500  | `{"error": "Package not added"}`                                  | Пакет не удалось сохранить                  |
 
 > При невалидном JSON в теле запроса сервер вернёт ошибку парсинга.
 
 ---
 
-### 7. Создание пакета — `add_package` (устаревший)
+### 9. Создание пакета — `add_package` (устаревший)
 
 > **Deprecated.** Сохранён для обратной совместимости. Используйте `new_package`.
 
@@ -494,6 +647,8 @@ package[tracks][0][carrier]=UPS
 | `available_couriers` | GET        | Доступные для добавления (краткий)   |
 | `add_courier`        | POST       | Добавление курьера (JSON body)       |
 | `packages`           | GET        | Список пакетов (до 500)              |
+| `package`            | GET        | Один пакет по ID                     |
+| `add_track`          | POST       | Добавление трека к пакету            |
 | `labels`             | GET        | Лейблы пакета                        |
 | `new_package`        | POST       | Создание пакета (JSON body)          |
 | `add_package`        | POST       | Создание пакета (legacy)             |
@@ -524,6 +679,20 @@ curl -X POST "http://localhost:1174/api/stuffer/?json=add_courier&api_key=YOUR_A
 
 ```bash
 curl "http://localhost:1174/api/stuffer/?json=packages&api_key=YOUR_API_KEY"
+```
+
+**curl — пакет по ID:**
+
+```bash
+curl "http://localhost:1174/api/stuffer/?json=package&package_id=11516&api_key=YOUR_API_KEY"
+```
+
+**curl — добавление трека:**
+
+```bash
+curl -X POST "http://localhost:1174/api/stuffer/?json=add_track&api_key=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"package_id":11516,"track":"1Z999AA10123456784","carrier":"ups"}'
 ```
 
 **curl — лейблы пакета:**

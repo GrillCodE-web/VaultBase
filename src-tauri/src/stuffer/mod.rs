@@ -1,6 +1,6 @@
 // Stuffer providers — integration with external stuffer panels (couriers/drops).
 //
-// Провайдеры (см. docs/API_STUFFER.md и PARALLEL_WORK.md / FEAT-013):
+// Провайдеры (см. docs/archive/API_STUFFER.md и PARALLEL_WORK.md / FEAT-013):
 //   * `swat`  — панель StockHub (dash.stockhubdeal.com), прежний «stuffer».
 //               Ключи конфига: stuffer_api_key / stuffer_base_url (пока
 //               принадлежат SWAT; при появлении второго провайдера —
@@ -18,8 +18,8 @@
 mod swat;
 
 pub use swat::{
-    CourierAvailable, CourierFull, LabelFile, Package, PackageComment, PackageInput, PackageLabel,
-    PackagesCount, SwatProvider, TrackInput, DEFAULT_BASE_URL,
+    AddTrackResult, CourierAvailable, CourierFull, LabelFile, Package, PackageComment, PackageInput,
+    PackageLabel, PackagesCount, SwatProvider, TrackInput, DEFAULT_BASE_URL,
 };
 
 /// Возможности провайдера: енумы, которые различаются между панелями и потому
@@ -75,8 +75,19 @@ pub trait Provider: Send + Sync {
     fn list_available_couriers(&self) -> Result<Vec<CourierAvailable>, String>;
     fn add_courier(&self, courier_id: i64) -> Result<CourierFull, String>;
     fn list_packages(&self) -> Result<Vec<Package>, String>;
+    /// Одна посылка по ID (метод `package`, апдейт панели 2026-09). В отличие
+    /// от list_packages (до 500 свежих) находит и архивные посылки стаффера.
+    fn get_package(&self, package_id: i64) -> Result<Package, String>;
     fn get_labels(&self, package_id: i64) -> Result<Vec<LabelFile>, String>;
     fn create_package(&self, package: &PackageInput) -> Result<i64, String>;
+    /// Добавить трек к существующей посылке (метод `add_track`, апдейт панели
+    /// 2026-09). Возвращает добавленный трек и полный список треков посылки.
+    fn add_track(
+        &self,
+        package_id: i64,
+        track: &str,
+        carrier: &str,
+    ) -> Result<AddTrackResult, String>;
 
     /// Live-тест пишущих методов (FEAT-012): add_courier + new_package.
     /// Провайдер-агностичный — собирается из методов трейта, поэтому работает
@@ -272,6 +283,9 @@ mod tests {
         fn list_packages(&self) -> Result<Vec<Package>, String> {
             Ok(vec![])
         }
+        fn get_package(&self, _package_id: i64) -> Result<Package, String> {
+            serde_json::from_value(serde_json::json!({ "id": 0 })).map_err(|e| e.to_string())
+        }
         fn get_labels(&self, _package_id: i64) -> Result<Vec<LabelFile>, String> {
             Ok(vec![])
         }
@@ -283,6 +297,14 @@ mod tests {
                 Ok(id) => Ok(*id),
                 Err(e) => Err(e.clone()),
             }
+        }
+        fn add_track(
+            &self,
+            _package_id: i64,
+            _track: &str,
+            _carrier: &str,
+        ) -> Result<AddTrackResult, String> {
+            Err("mock: add_track not used".into())
         }
     }
 

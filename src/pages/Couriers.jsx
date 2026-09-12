@@ -467,7 +467,12 @@ export default function Couriers({ activeTab, onNavigate }) {
               <span>
                 <span className={`st st-${p.status || 'used'}`}>{p.status}</span>
               </span>
-              <span className="mono text-xs">{(p.tracks || []).join(', ') || '—'}</span>
+              <span className="mono text-xs">
+                {(p.tracks || [])
+                  .map(tr => (tr && typeof tr === 'object' ? tr.track : tr))
+                  .filter(Boolean)
+                  .join(', ') || '—'}
+              </span>
               <span className="mono text-xs">{p.created_date || '—'}</span>
               <span className="pkg-row-actions">
                 {p.comments?.length > 0 && (

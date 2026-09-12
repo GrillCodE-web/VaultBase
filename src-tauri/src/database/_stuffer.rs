@@ -120,10 +120,13 @@ impl Database {
     /// Обновить снапшоты связей из свежего списка посылок панели
     /// (status/track/courier). Связи с отсутствующими на панели посылками
     /// не трогаем — панель может отдавать список постранично.
+    /// Апдейт панели 2026-09: tracks — объекты {track, carrier}; courier_id
+    /// в «packages» больше не документирован (None → COALESCE сохраняет
+    /// прежнее значение снапшота).
     pub fn refresh_package_snapshots(&self, provider: &str, packages: &[crate::stuffer::Package]) -> Result<u32, String> {
         let mut updated: u32 = 0;
         for p in packages {
-            let track = p.tracks.first().map(|s| s.as_str());
+            let track = p.tracks.first().map(|t| t.track.as_str());
             let n = self.conn.execute(
                 "UPDATE order_package_link SET status=?1, track=COALESCE(?2,track), \
                  courier_id=COALESCE(?3,courier_id), updated_at=datetime('now') \
@@ -436,6 +439,26 @@ mod opl_tests {
         assert_eq!(link.status.as_deref(), Some("shipped"));
         assert_eq!(link.courier_id, Some(9));
         assert_eq!(link.track.as_deref(), Some("1ZNEW"));
+    }
+
+    /// Посылка без courier_id в ответе панели (актуальная схема 2026-09 —
+    /// поле больше не документировано) не должна затирать курьера в снапшоте.
+    #[test]
+    fn test_refresh_package_snapshots_keeps_courier_when_absent() {
+        let (_dir, db) = test_db();
+        let oid = make_order(&db, &make_profile(&db, 1));
+        db.link_order_package(oid, "swat", 44, Some(7), None, None).unwrap();
+
+        let pkgs: Vec<crate::stuffer::Package> = vec![
+            serde_json::from_value(serde_json::json!({ "id": 44, "status": "checked" })).unwrap(),
+        ];
+        assert!(pkgs[0].courier_id.is_none());
+        let n = db.refresh_package_snapshots("swat", &pkgs).unwrap();
+        assert_eq!(n, 1);
+
+        let link = db.list_links_for_order(oid).unwrap().remove(0);
+        assert_eq!(link.status.as_deref(), Some("checked"));
+        assert_eq!(link.courier_id, Some(7));
     }
 
     #[test]
