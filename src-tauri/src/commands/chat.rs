@@ -8,9 +8,16 @@
 //! (routes/chat.js): хранит только шифротекст + метаданные маршрутизации.
 //!
 //! Payload внутри конверта (JSON):
-//!   { "v": 1, "body": "…", "ref": { "type": "order"|"card"|"profile", "id": "…" }? }
+//!   { "v": 1, "body": "...", "ref": { "type": "order"|"card"|"profile", "id": "..." }? }
+//!   { "v": 1, "type": "read_receipt", "ids": [server_id...] }  ← квитанция о
+//!   прочтении (CHAT-2.0, CHAT_E2E.md §9): не сообщение, в ленту не попадает.
 //!
 //! Доставка at-least-once: входящие дедуплицируются по UNIQUE(server_id).
+//! Трекинг исходящих (миграция v30, chat_outgoing_targets): server_id каждого
+//! конверта fan-out'а хранится локально; delivered подтягивается опросом
+//! GET /sync/chat/outbox (серверная пометка выдачи блоба), read — входящими
+//! read_receipt-конвертами. Изменения агрегатов уходят на фронт событием
+//! "chat:status" { updates: [{ msg_id, total, delivered, read }] }.
 //! Ротация ключа: unseal по server key_id не удался → сброс
 //! CHAT_KEY_REGISTERED и перевыпуск X25519-пары; повторный fetch подтянет
 //! сообщения, запечатанные уже под новый ключ.
@@ -27,6 +34,10 @@ const MAX_REF_LEN: usize = 64;
 const ROOM_GROUP_PREFIX: &str = "group:";
 /// Курсор фетча входящих (server_id последнего забранного).
 const CHAT_SINCE_KEY: &str = "chat_last_server_id";
+/// Курсор outbox-опроса (метка времени — delivered_at обновляет старые строки).
+const CHAT_OUTBOX_SINCE_KEY: &str = "chat_outbox_since";
+/// TTL read_receipt-конвертов: служебные, долго жить не должны.
+const RECEIPT_TTL_HOURS: u32 = 72;
 const ALLOWED_REF_TYPES: [&str; 3] = ["order", "card", "profile"];
 // Конфиг-ключи дублируют commands/slices.rs (там они private) — это тот же
 // X25519-ключ воркера, что и для срезов. Держать синхронно со slices.rs.
@@ -223,6 +234,29 @@ pub(crate) fn chat_send(
             ref_type.as_deref(),
             ref_id.as_deref(),
         )?;
+        // Трекинг (dhs): ids ответа соответствуют порядку envelopes — каждому
+        // получателю свой server_id. Расхождение длин — не фатал: сообщение
+        // отправлено, трекинг просто будет неполным (залогируем).
+        let server_ids: Vec<i64> = parsed
+            .get("ids")
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|v| v.as_i64()).collect())
+            .unwrap_or_default();
+        if server_ids.len() == targets.len() && !server_ids.is_empty() {
+            let pairs: Vec<(String, i64)> = targets
+                .iter()
+                .map(|p| p.installation_id.clone())
+                .zip(server_ids)
+                .collect();
+            db.chat_insert_outgoing_targets(local_id, &pairs)?;
+        } else if !server_ids.is_empty() {
+            let _ = db.log_event(
+                "chat.tracking_partial",
+                &format!("msg {local_id}: ids {} != targets {}", server_ids.len(), targets.len()),
+                Some("chat"),
+                None,
+            );
+        }
         let msg = db
             .chat_get(local_id)?
             .ok_or("chat_insert_lost")?;
@@ -251,7 +285,9 @@ pub(crate) fn chat_list(room: Option<String>, limit: Option<u32>) -> Result<Vec<
     })
 }
 
-/// Пометить входящие прочитанными (по локальным id).
+/// Пометить входящие прочитанными (по локальным id). Каждому автору
+/// помеченных сообщений уходит E2E read_receipt (best-effort: ошибка отправки
+/// квитанции не валит команду — локальное прочтение уже зафиксировано).
 #[tauri::command]
 pub(crate) fn chat_mark_read(app: tauri::AppHandle, ids: Vec<i64>) -> Result<u32, String> {
     require_user()?;
@@ -259,12 +295,79 @@ pub(crate) fn chat_mark_read(app: tauri::AppHandle, ids: Vec<i64>) -> Result<u32
         if db.is_locked() {
             return Err("database_locked".into());
         }
-        db.chat_mark_read(&ids)
+        // Сначала собираем refs (кто автор, какие server_id) — после mark они
+        // уже «прочитаны», и отличить свежепомеченные нельзя.
+        let refs = db.chat_incoming_unread_refs(&ids)?;
+        let n = db.chat_mark_read(&ids)?;
+        if n > 0 && !refs.is_empty() {
+            if let (Ok(token), Ok(self_iid)) = (
+                auth_token(db),
+                crate::license::get_or_create_installation_id(db),
+            ) {
+                send_read_receipts(db, &token, &self_iid, refs);
+            }
+        }
+        Ok::<u32, String>(n)
     })?;
     if n > 0 {
         let _ = app.emit("chat:read", json!({ "ids": ids, "updated": n }));
     }
     Ok(n)
+}
+
+/// E2E read_receipt каждому автору (CHAT_E2E.md §9). Синхронно внутри
+/// команды — как и остальной HTTP в chat.rs; конверт служебный, TTL 72ч.
+/// Ошибки по отдельному адресату не прерывают остальных.
+fn send_read_receipts(db: &Database, token: &str, self_iid: &str, refs: Vec<(i64, String)>) {
+    let mut by_sender: std::collections::BTreeMap<String, Vec<i64>> = Default::default();
+    for (server_id, sender) in refs {
+        by_sender.entry(sender).or_default().push(server_id);
+    }
+    let book = match fetch_peer_book(db, token) {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = db.log_event("chat.receipt_failed", &e, Some("chat"), None);
+            return;
+        }
+    };
+    for (sender, ids) in by_sender {
+        let res = (|| -> Result<(), String> {
+            let peer = book
+                .peers
+                .iter()
+                .find(|p| p.installation_id == sender)
+                .ok_or("peer_unknown")?;
+            let payload = json!({ "v": 1, "type": "read_receipt", "ids": ids }).to_string();
+            let req_body = json!({
+                "room": dm_room(self_iid, &sender),
+                "ttl_hours": RECEIPT_TTL_HOURS,
+                "envelopes": [{
+                    "target_iid": sender,
+                    "key_id": peer.key_id,
+                    "sealed_data": seal_for_peer(peer, &payload)?,
+                }],
+            });
+            let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/send"))
+                .set("Authorization", &format!("Bearer {}", token))
+                .set("Content-Type", "application/json")
+                .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
+                .send_string(&req_body.to_string())
+                .map_err(|e| format!("receipt_send: {e}"))?;
+            let parsed: Value = resp.into_json().map_err(|e| format!("receipt_parse: {e}"))?;
+            if parsed.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+                return Err("receipt_rejected".into());
+            }
+            Ok(())
+        })();
+        if let Err(e) = res {
+            let _ = db.log_event(
+                "chat.receipt_failed",
+                &format!("to {sender}: {e}"),
+                Some("chat"),
+                None,
+            );
+        }
+    }
 }
 
 /// Бейдж непрочитанных (сайдбар). До разблокировки БД отдаёт 0, а не ошибку.
@@ -291,11 +394,35 @@ pub(crate) fn chat_fetch(app: tauri::AppHandle) -> Result<Value, String> {
 // ─────────────────────────────────────────
 
 fn fetch_and_store(app: Option<&tauri::AppHandle>) -> Result<Value, String> {
-    let (result, new_messages) = with_db!(db, {
+    let (result, new_messages, status_updates) = with_db!(db, {
         if db.is_locked() {
             return Err("database_locked".into());
         }
-        fetch_locked(db, false)
+        let (res, msgs, mut changed) = fetch_locked(db, false)?;
+        // Outbox-опрос: delivered-пометки наших исходящих. Ошибка не валит
+        // fetch входящих — трекинг догонится следующим опросом.
+        match fetch_outbox_locked(db) {
+            Ok(ids) => {
+                for id in ids {
+                    if !changed.contains(&id) {
+                        changed.push(id);
+                    }
+                }
+            }
+            Err(e) => {
+                let _ = db.log_event("chat.outbox_failed", &e, Some("chat"), None);
+            }
+        }
+        let updates: Vec<Value> = changed
+            .iter()
+            .filter_map(|mid| match db.chat_out_status(*mid) {
+                Ok((total, delivered, read)) => Some(json!({
+                    "msg_id": mid, "total": total, "delivered": delivered, "read": read,
+                })),
+                Err(_) => None,
+            })
+            .collect();
+        Ok::<(Value, Vec<ChatMessage>, Vec<Value>), String>((res, msgs, updates))
     })?;
     if let Some(app) = app {
         for m in &new_messages {
@@ -304,14 +431,81 @@ fn fetch_and_store(app: Option<&tauri::AppHandle>) -> Result<Value, String> {
         if !new_messages.is_empty() {
             let _ = app.emit("chat:unread", json!({ "added": new_messages.len() }));
         }
+        if !status_updates.is_empty() {
+            let _ = app.emit("chat:status", json!({ "updates": status_updates }));
+        }
     }
     Ok(result)
+}
+
+/// Outbox-опрос: серверные delivered_at наших исходящих. Курсор — метка
+/// времени (сервер сравнивает по COALESCE(delivered_at, created_at) > cursor).
+/// Минимальное ручное кодирование — формат datetime контролируем нами.
+fn fetch_outbox_locked(db: &Database) -> Result<Vec<i64>, String> {
+    let token = auth_token(db)?;
+    let since = db
+        .get_config(CHAT_OUTBOX_SINCE_KEY)
+        .map_err(|e| e.to_string())?
+        .unwrap_or_default();
+    let mut url = crate::endpoints::endpoint("/sync/chat/outbox");
+    if !since.is_empty() {
+        let enc = since.replace(' ', "%20").replace(':', "%3A");
+        url = format!("{url}?updated_since={enc}");
+    }
+    let resp = ureq::get(&url)
+        .set("Authorization", &format!("Bearer {}", token))
+        .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
+        .call()
+        .map_err(|e| format!("outbox_fetch_failed: {e}"))?;
+    let body: Value = resp.into_json().map_err(|e| format!("outbox_parse: {e}"))?;
+    let rows = body
+        .get("messages")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut delivered_rows: Vec<(i64, String)> = Vec::new();
+    let mut max_mark = since.clone();
+    for r in &rows {
+        let created = r["created_at"].as_str().unwrap_or("");
+        let delivered = r["delivered_at"].as_str().unwrap_or("");
+        let mark = if delivered.is_empty() { created } else { delivered };
+        if mark > max_mark.as_str() {
+            max_mark = mark.to_string();
+        }
+        if let (Some(sid), false) = (r["id"].as_i64(), delivered.is_empty()) {
+            delivered_rows.push((sid, delivered.to_string()));
+        }
+    }
+    let changed = db.chat_mark_targets_delivered(&delivered_rows)?;
+    if max_mark != since {
+        db.set_config(CHAT_OUTBOX_SINCE_KEY, &max_mark)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(changed)
+}
+
+/// read_receipt-конверт? Возвращает ids для служебного payload'а, иначе None.
+fn parse_read_receipt_ids(payload: &Value) -> Option<Vec<i64>> {
+    if payload.get("type")?.as_str()? != "read_receipt" {
+        return None;
+    }
+    let ids: Vec<i64> = payload
+        .get("ids")?
+        .as_array()?
+        .iter()
+        .filter_map(|v| v.as_i64())
+        .filter(|i| *i > 0)
+        .collect();
+    Some(ids)
 }
 
 /// Общая логика fetch. retried_after_rotation — защёлка от цикла: при
 /// массовых ошибках unseal один раз ротируем X25519-ключ (потерянный
 /// приватник, CHAT_E2E.md «Угроза №3») и повторяем fetch.
-fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Value, Vec<ChatMessage>), String> {
+/// Третий элемент кортежа — msg_id исходящих, чей статус read изменился
+/// входящими read_receipt'ами (для события chat:status).
+fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Value, Vec<ChatMessage>, Vec<i64>), String> {
     let token = auth_token(db)?;
     let priv_hex = crate::commands::slices::ensure_slice_key(db)?;
     let since: i64 = db
@@ -335,6 +529,7 @@ fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Valu
         .unwrap_or_default();
 
     let mut new_messages: Vec<ChatMessage> = Vec::new();
+    let mut receipt_updates: Vec<i64> = Vec::new();
     let mut max_seen = since;
     let mut unseal_failures = 0usize;
 
@@ -359,6 +554,17 @@ fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Valu
             let payload_str = crate::commands::telemetry::unseal_envelope(&priv_hex, &env)?;
             let payload: Value =
                 serde_json::from_str(&payload_str).map_err(|e| format!("payload_parse: {e}"))?;
+            // Служебный read_receipt: не сообщение, в ленту не попадает —
+            // проставляем read_at на наших исходящих конвертах.
+            if let Some(ids) = parse_read_receipt_ids(&payload) {
+                let changed = db.chat_mark_targets_read(&ids)?;
+                for mid in changed {
+                    if !receipt_updates.contains(&mid) {
+                        receipt_updates.push(mid);
+                    }
+                }
+                return Ok(None);
+            }
             let text = payload["body"].as_str().unwrap_or("").to_string();
             if text.is_empty() {
                 return Err("empty_body".into());
@@ -417,6 +623,7 @@ fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Valu
             "since_id": max_seen,
         }),
         new_messages,
+        receipt_updates,
     ))
 }
 
@@ -538,5 +745,80 @@ mod chat_tests {
         assert!(validate_ref(&Some("nope".into()), &Some("12".into())).is_err());
         assert!(validate_ref(&Some("order".into()), &None).is_err());
         assert!(validate_ref(&None, &Some("12".into())).is_err());
+    }
+
+    // ── CHAT-2.0 (dhs): трекинг исходящих ────────────────────────────────
+
+    #[test]
+    fn test_outgoing_targets_status_flow() {
+        let (_d, db) = test_db();
+        let msg_id = db.chat_insert_outgoing("group:g1", "", "всем", None, None).unwrap();
+        // До привязки конвертов: «просто отправлено».
+        let m = db.chat_get(msg_id).unwrap().unwrap();
+        assert_eq!(m.out_total, Some(0));
+        assert_eq!(m.out_delivered, Some(0));
+        assert_eq!(m.out_read, Some(0));
+
+        db.chat_insert_outgoing_targets(
+            msg_id,
+            &[("peer-a".into(), 501), ("peer-b".into(), 502)],
+        )
+        .unwrap();
+        let (total, delivered, read) = db.chat_out_status(msg_id).unwrap();
+        assert_eq!((total, delivered, read), (2, 0, 0));
+
+        // delivered по outbox: идемпотентно, возвращает изменённые msg_id.
+        let changed = db
+            .chat_mark_targets_delivered(&[(501, "2026-09-12 12:00:01.123".into())])
+            .unwrap();
+        assert_eq!(changed, vec![msg_id]);
+        let changed2 = db
+            .chat_mark_targets_delivered(&[(501, "2026-09-12 12:00:02.000".into())])
+            .unwrap();
+        assert!(changed2.is_empty(), "повторный delivered не перезаписывает");
+        // Пустой ts (ещё не доставлено) — пропуск.
+        assert!(db.chat_mark_targets_delivered(&[(502, String::new())]).unwrap().is_empty());
+        assert_eq!(db.chat_out_status(msg_id).unwrap(), (2, 1, 0));
+
+        // read по read_receipt ids.
+        let changed = db.chat_mark_targets_read(&[502]).unwrap();
+        assert_eq!(changed, vec![msg_id]);
+        assert!(db.chat_mark_targets_read(&[502]).unwrap().is_empty());
+        assert!(db.chat_mark_targets_read(&[9999]).unwrap().is_empty(), "чужой server_id игнорится");
+        assert_eq!(db.chat_out_status(msg_id).unwrap(), (2, 1, 1));
+
+        // В листинге агрегаты приезжают вместе с сообщением.
+        let m = db.chat_list(Some("group:g1"), 50).unwrap()[0].clone();
+        assert_eq!((m.out_total, m.out_delivered, m.out_read), (Some(2), Some(1), Some(1)));
+    }
+
+    #[test]
+    fn test_incoming_unread_refs() {
+        let (_d, db) = test_db();
+        let in_id = db
+            .chat_insert_incoming(77, "dm:me:peer", "peer", "их", None, None, "")
+            .unwrap()
+            .unwrap();
+        let out_id = db.chat_insert_outgoing("dm:me:peer", "peer", "моё", None, None).unwrap();
+        let refs = db.chat_incoming_unread_refs(&[in_id, out_id]).unwrap();
+        assert_eq!(refs, vec![(77, "peer".to_string())], "только непрочитанные входящие");
+        // После mark_read refs пусты — квитанция не уйдёт повторно.
+        db.chat_mark_read(&[in_id]).unwrap();
+        assert!(db.chat_incoming_unread_refs(&[in_id]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_parse_read_receipt_ids() {
+        let p = json!({ "v": 1, "type": "read_receipt", "ids": [1, 2, -5, "x"] });
+        assert_eq!(parse_read_receipt_ids(&p), Some(vec![1, 2]));
+        // Обычное сообщение — не квитанция.
+        let msg = json!({ "v": 1, "body": "привет" });
+        assert_eq!(parse_read_receipt_ids(&msg), None);
+        // Неизвестный служебный тип будущих версий — не квитанция.
+        let future = json!({ "v": 1, "type": "edit", "body": "..." });
+        assert_eq!(parse_read_receipt_ids(&future), None);
+        // Битый ids — None (упадёт в payload_parse-ветку лога, не в ленту).
+        let bad = json!({ "v": 1, "type": "read_receipt", "ids": "nope" });
+        assert_eq!(parse_read_receipt_ids(&bad), None);
     }
 }

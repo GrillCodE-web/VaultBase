@@ -1003,6 +1003,15 @@ pub struct ChatMessage {
     pub created_at: String,
     /// NULL = непрочитано (только для входящих; исходящие всегда прочитаны).
     pub read_at: Option<String>,
+    /// CHAT-2.0 (dhs): трекинг исходящих. Только direction='out': сколько
+    /// конвертов ушло / доставлено на устройства / прочитано (read_receipt).
+    /// NULL у входящих; у исходящих до v30 — Some(0/0/0) = «просто отправлено».
+    #[serde(default)]
+    pub out_total: Option<i64>,
+    #[serde(default)]
+    pub out_delivered: Option<i64>,
+    #[serde(default)]
+    pub out_read: Option<i64>,
 }
 
 /// Участник чата из серверного каталога ключей (GET /sync/chat/peers).

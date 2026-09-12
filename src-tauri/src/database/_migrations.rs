@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 29;
+    const LATEST_VERSION: u32 = 30;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -80,6 +80,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
         (23, migration_v23), (24, migration_v24), (25, migration_v25),
         (26, migration_v26), (27, migration_v27), (28, migration_v28), (29, migration_v29),
+        (30, migration_v30),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -1114,6 +1115,28 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 edited_at   DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_wiki_history_shop ON shop_wiki_history(shop_id, edited_at);
+        "#)?;
+        Ok(())
+    }
+
+    // CHAT-2.0 (manager-work-dhs): трекинг доставки/прочтения исходящих.
+    // Одно локальное исходящее сообщение размножается fan-out'ом в N серверных
+    // конвертов (по одному на получателя) — каждому соответствует строка здесь.
+    // delivered_at: серверная пометка из GET /sync/chat/outbox (получатель
+    // забрал блоб). read_at: E2E read_receipt-конверт от получателя
+    // (CHAT_E2E.md §9). server_id глобально уникален на сервере — по нему
+    // read_receipt ids раскладываются обратно по строкам.
+    fn migration_v30(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS chat_outgoing_targets (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                msg_id       INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+                target_iid   TEXT NOT NULL,
+                server_id    INTEGER NOT NULL UNIQUE,
+                delivered_at DATETIME,
+                read_at      DATETIME
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_out_targets_msg ON chat_outgoing_targets(msg_id);
         "#)?;
         Ok(())
     }

@@ -115,3 +115,11 @@
 
 В группе каждый участник шлёт read_receipt только автору сообщения; автор
 агрегирует «прочитали N из M» по своей адресной книге пиров.
+
+Клиентская часть (воркер, миграция v30): таблица `chat_outgoing_targets`
+(msg_id, target_iid, server_id, delivered_at, read_at) — строка на каждый
+конверт fan-out'а. Outbox опрашивается вместе с fetch входящих
+(`chat_fetch`/WS-notify), курсор `chat_outbox_since`. Read_receipt шлёт
+`chat_mark_read` автору помеченных (best-effort, TTL 72ч). Изменения
+агрегатов уходят во фронт событием `chat:status { updates: [{msg_id, total,
+delivered, read}] }`; сообщение несёт поля `out_total/out_delivered/out_read`.
