@@ -436,7 +436,11 @@ fn fetch_and_store(app: Option<&tauri::AppHandle>) -> Result<Value, String> {
         }
         // CHAT-2.0 (3ak): нативное OS-уведомление о новом входящем, когда окно
         // не в фокусе. Best-effort: любая ошибка проглатывается — уведомление
-        // не должно влиять на приём сообщений.
+        // не должно влиять на приём сообщений. Только в живом рантайме: в
+        // юнит-тестах AppHandle пустой, а tauri-plugin-notification на части
+        // CI-окружений паникует при обращении к плагину — тестируется
+        // (и линкуется) только на реальном приложении.
+        #[cfg(not(test))]
         if let Some(m) = new_messages.last() {
             if m.direction == "in" {
                 notify_incoming_message(app, m, db);
@@ -450,6 +454,7 @@ fn fetch_and_store(app: Option<&tauri::AppHandle>) -> Result<Value, String> {
 /// видит ленту), пользователь залогинен, конфиг os_notify_chat != "0" (дефолт
 /// вкл, паттерн UX-012). Заголовок — кто и куда, тело — 80 символов. Клик по
 /// нотификации обрабатывается на фронте (App.jsx): show+focus+переход в чат.
+#[cfg(not(test))]
 fn notify_incoming_message(app: &tauri::AppHandle, m: &ChatMessage, db: &Database) {
     use tauri_plugin_notification::NotificationExt;
     let should = match app.get_webview_window("main") {
@@ -492,6 +497,7 @@ fn notify_incoming_message(app: &tauri::AppHandle, m: &ChatMessage, db: &Databas
 
 /// Короткая подпись пира без доступа к книге: первые 8 символов iid
 /// (фронт/лейблы приходят из UI, здесь только индикатор).
+#[cfg(not(test))]
 fn short_label(iid: &str) -> String {
     if iid.len() > 12 {
         format!("{}…{}", &iid[..6], &iid[iid.len() - 4..])
