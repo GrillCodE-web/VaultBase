@@ -92,6 +92,8 @@ export const dict = {
 
   sync_action: 'Sync telemetry',
   syncing: 'Syncing…',
+  theme_toggle: 'Toggle light/dark theme',
+  lang_toggle: 'Switch language',
   sync_result: 'Sync done: {workers} workers, {reports} reports, {fails} undecryptable',
   lock_action: 'Lock',
   lock_now: 'Lock now',

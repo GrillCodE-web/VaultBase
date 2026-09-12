@@ -24,6 +24,35 @@
   --mono: 'SF Mono', 'Cascadia Code', Consolas, monospace;
 }
 
+/* 7rn: светлая тема — переопределяем только токены, компоненты не трогаем */
+[data-theme='light'] {
+  --bg: #f3f5fa;
+  --bg-panel: #ffffff;
+  --bg-elevated: #edf0f7;
+  --bg-hover: #e2e8f3;
+  --border: #d3dae7;
+  --border-strong: #bac4d6;
+  --text: #1c2434;
+  --text-2: #4d5a72;
+  --text-3: #7d8aa0;
+  --accent: #2f6fe0;
+  --accent-hover: #245ec4;
+  --green: #0f9d68;
+  --green-bg: rgba(15, 157, 104, 0.12);
+  --red: #d8435b;
+  --red-bg: rgba(216, 67, 91, 0.1);
+  --amber: #b4761b;
+  --amber-bg: rgba(180, 118, 27, 0.12);
+  --purple: #7a5af5;
+  --purple-bg: rgba(122, 90, 245, 0.1);
+}
+
+/* 7rn (a11y): видимый фокус для клавиатурной навигации */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 * {
   box-sizing: border-box;
 }

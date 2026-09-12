@@ -92,6 +92,8 @@ export const dict = {
 
   sync_action: 'Синк телеметрии',
   syncing: 'Синк…',
+  theme_toggle: 'Переключить светлую/тёмную тему',
+  lang_toggle: 'Сменить язык',
   sync_result: 'Синк завершён: работников {workers}, отчётов {reports}, не расшифровано {fails}',
   lock_action: 'Заблокировать',
   lock_now: 'Заблокировать сейчас',

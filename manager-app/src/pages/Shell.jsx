@@ -52,6 +52,25 @@ export default function Shell({ appState, onLock }) {
   const [syncInfo, setSyncInfo] = useState('')
   const [syncing, setSyncing] = useState(false)
 
+  // 7rn: светлая тема (переопределение токенов через data-theme на <html>)
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('vb-mgr-theme') === 'light' ? 'light' : 'dark'
+    } catch {
+      return 'dark'
+    }
+  })
+
+  useEffect(() => {
+    if (theme === 'light') document.documentElement.dataset.theme = 'light'
+    else delete document.documentElement.dataset.theme
+    try {
+      localStorage.setItem('vb-mgr-theme', theme)
+    } catch {
+      /* localStorage недоступен */
+    }
+  }, [theme])
+
   const idleMin = useRef(10)
 
   // hashchange: системная кнопка «назад» / ручная правка URL меняют страницу.
@@ -171,6 +190,7 @@ export default function Shell({ appState, onLock }) {
             key={id}
             className={`nav-item ${page === id ? 'active' : ''}`}
             onClick={() => setPage(id)}
+            aria-current={page === id ? 'page' : undefined}
           >
             {t(label)}
             {id === 'alerts' && alertsNew > 0 && <span className="badge">{alertsNew}</span>}
@@ -194,8 +214,25 @@ export default function Shell({ appState, onLock }) {
       <div className="main">
         <div className="topbar">
           <div className="title">{t('nav_' + page)}</div>
-          {syncInfo && <div className="meta">{syncInfo}</div>}
-          <button className="btn small" onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}>
+          {syncInfo && (
+            <div className="meta" role="status">
+              {syncInfo}
+            </div>
+          )}
+          <button
+            className="btn small"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            aria-label={t('theme_toggle')}
+            title={t('theme_toggle')}
+          >
+            {theme === 'light' ? '☀' : '☾'}
+          </button>
+          <button
+            className="btn small"
+            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+            aria-label={t('lang_toggle')}
+            title={t('lang_toggle')}
+          >
             {lang === 'ru' ? 'EN' : 'RU'}
           </button>
           <div className="meta mono">{appState.role || 'manager'}</div>
