@@ -8,9 +8,16 @@
 //!   воркер    GET  /sync/chat/peers              → каталог ключей (группа + менеджеры)
 //!   воркер    POST /sync/chat/send               → fan-out: до 50 конвертов за раз
 //!   воркер    GET  /sync/chat/messages?since_id= → входящие блобы (at-least-once, TTL)
+//!   воркер    GET  /sync/chat/outbox?updated_since= → мои исходящие + delivered_at
 //!   менеджер  GET  /manager/api/chat/peers       → все активные воркеры с ключами
 //!   менеджер  POST /manager/api/chat/send        → один конверт одному воркеру
 //!   менеджер  GET  /manager/api/chat/messages    → входящие блобы менеджера
+//!   менеджер  GET  /manager/api/chat/outbox      → исходящие менеджера + delivered_at
+//!
+//! CHAT-2.0 (manager-work-0bp): delivered = серверная пометка delivered_at в
+//! момент выдачи блоба получателю (fetch). Read — E2E: клиент шлёт обратно
+//! sealed-конверт с payload {"v":1,"type":"read_receipt","ids":[server_id...]},
+//! сервер релеит его как обычное сообщение и ничего о нём не знает.
 //!
 //! Живые уведомления — WS {"type":"chat_message"} (воркер) и socket.io
 //! "manager:chat_message" (менеджер); полезная нагрузка всё равно забирается
@@ -134,13 +141,49 @@ function insertMessages(db, rows) {
 
 function fetchMessages(db, iid, sinceId, limit) {
   purgeExpired(db);
-  return db.prepare(`
+  const rows = db.prepare(`
     SELECT id, room, sender_iid, sealed_data, ref_type, ref_id, created_at
     FROM chat_messages
     WHERE target_iid = ? AND id > ?
     ORDER BY id ASC
     LIMIT ?
   `).all(iid, sinceId, limit);
+  // Delivered = блоб выдан устройству. At-least-once: повторные fetch'и не
+  // перезаписывают первый delivered_at (условие IS NULL). Разрешение %f
+  // (миллисекунды), чтобы delivered_at строго > created_at той же секунды —
+  // иначе курсор updated_since в outbox терял бы мгновенные доставки.
+  if (rows.length > 0) {
+    const placeholders = rows.map(() => '?').join(',');
+    db.prepare(`
+      UPDATE chat_messages SET delivered_at = strftime('%Y-%m-%d %H:%M:%f', 'now')
+      WHERE delivered_at IS NULL AND id IN (${placeholders})
+    `).run(...rows.map((r) => r.id));
+  }
+  return rows;
+}
+
+// Исходящие отправителя для квитанций: курсор — метка времени, а не id, потому
+// что delivered_at обновляется на УЖЕ известных клиенту строках. Возвращаем всё,
+// что создано или доставлено после updated_since. sealed_data не отдаём никогда.
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?Z?$/;
+
+function fetchOutbox(db, iid, updatedSince, limit) {
+  purgeExpired(db);
+  return db.prepare(`
+    SELECT id, room, target_iid, ref_type, ref_id, created_at, delivered_at
+    FROM chat_messages
+    WHERE sender_iid = ? AND COALESCE(delivered_at, created_at) > ?
+    ORDER BY id ASC
+    LIMIT ?
+  `).all(iid, updatedSince, limit);
+}
+
+function outboxHandler(req, res) {
+  const raw = req.query.updated_since;
+  const updatedSince = typeof raw === 'string' && DATETIME_RE.test(raw)
+    ? raw.replace('T', ' ').replace('Z', '').trim()
+    : '1970-01-01 00:00:00';
+  res.json({ messages: fetchOutbox(getDb(), req.installationId, updatedSince, MAX_FETCH_LIMIT) });
 }
 
 function latestKeysPerInstall(db, table, iids) {
@@ -262,6 +305,10 @@ workerRouter.get('/chat/messages', (req, res) => {
   res.json({ messages });
 });
 
+// GET /sync/chat/outbox?updated_since=<datetime> — мои исходящие: статус
+// delivered для своих сообщений (read приходит E2E-конвертом от получателя).
+workerRouter.get('/chat/outbox', outboxHandler);
+
 // ── Manager ──────────────────────────────────────────────────────────────────
 
 // GET /manager/api/chat/peers — все активные воркеры с активными ключами.
@@ -327,5 +374,8 @@ managerRouter.get('/chat/messages', (req, res) => {
   const messages = fetchMessages(getDb(), req.installationId, sinceId, MAX_FETCH_LIMIT);
   res.json({ messages });
 });
+
+// GET /manager/api/chat/outbox?updated_since=<datetime> — исходящие менеджера.
+managerRouter.get('/chat/outbox', outboxHandler);
 
 module.exports = { managerRouter, workerRouter };

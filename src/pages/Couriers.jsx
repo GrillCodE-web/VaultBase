@@ -75,6 +75,16 @@ export default function Couriers({ activeTab, onNavigate }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [creating, setCreating] = useState(false)
 
+  // Апдейт панели 2026-09 (docs/archive/API_STUFFER.md): add_track — трек к
+  // существующей посылке; get_package — одиночная выборка по ID, находит и
+  // архивные посылки, которых нет в свежем списке (list_packages — до 500).
+  const [trackFor, setTrackFor] = useState(null)
+  const [trackForm, setTrackForm] = useState({ track: '', carrier: '' })
+  const [trackSending, setTrackSending] = useState(false)
+  const [findId, setFindId] = useState('')
+  const [findingId, setFindingId] = useState(false)
+  const [refreshingId, setRefreshingId] = useState(null)
+
   const notify = useCallback((e, ctx) => toastErr(getErrorMessage(handleError(e, ctx))), [toastErr])
 
   // Пока не знаем статус ключа — null. true/false после проверки.
@@ -170,6 +180,76 @@ export default function Couriers({ activeTab, onNavigate }) {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+
+  // Вставить/заменить посылку в локальном списке (новая сверху, как у панели).
+  const upsertPackage = pkg =>
+    setPackages(prev => {
+      const i = prev.findIndex(x => x.id === pkg.id)
+      if (i === -1) return [pkg, ...prev]
+      const next = prev.slice()
+      next[i] = pkg
+      return next
+    })
+
+  // Обновить одну строку из панели (метод `package`, апдейт 2026-09).
+  const refreshPackage = async id => {
+    setRefreshingId(id)
+    try {
+      upsertPackage(await invoke('stuffer_get_package', { packageId: id }))
+      toastOk(t('pkg_updated'))
+    } catch (e) {
+      notify(e, 'Couriers.get_package')
+    } finally {
+      setRefreshingId(null)
+    }
+  }
+
+  // Найти посылку по ID — в т.ч. архивную, которой нет в свежем списке.
+  const findPackage = async () => {
+    const id = parseInt(findId, 10)
+    if (!id || id < 1) return
+    setFindingId(true)
+    try {
+      upsertPackage(await invoke('stuffer_get_package', { packageId: id }))
+      toastOk(`${t('pkg_loaded')} #${id}`)
+      setFindId('')
+    } catch (e) {
+      notify(e, 'Couriers.find_package')
+    } finally {
+      setFindingId(false)
+    }
+  }
+
+  const openAddTrack = p => {
+    setTrackForm({ track: '', carrier: '' })
+    setTrackFor(p.id)
+  }
+
+  // Метод `add_track` (апдейт панели 2026-09): ответ содержит полный список
+  // треков посылки — им обновляем строку без перезагрузки всего списка.
+  const submitTrack = async () => {
+    if (!trackForm.track.trim() || !trackForm.carrier.trim()) {
+      toastErr(t('pkg_track_fill'))
+      return
+    }
+    setTrackSending(true)
+    try {
+      const res = await invoke('stuffer_add_track', {
+        packageId: trackFor,
+        track: trackForm.track.trim(),
+        carrier: trackForm.carrier.trim(),
+      })
+      setPackages(prev =>
+        prev.map(p => (p.id === trackFor ? { ...p, tracks: res?.tracks || p.tracks } : p))
+      )
+      toastOk(t('pkg_track_added'))
+      setTrackFor(null)
+    } catch (e) {
+      notify(e, 'Couriers.add_track')
+    } finally {
+      setTrackSending(false)
+    }
   }
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -432,9 +512,28 @@ export default function Couriers({ activeTab, onNavigate }) {
   return (
     <div className="content">
       <div className="flex items-center justify-between mb-3">
-        <button className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {t('couriers_refresh')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />{' '}
+            {t('couriers_refresh')}
+          </button>
+          <input
+            className="mono"
+            style={{ width: 110 }}
+            placeholder={t('pkg_id')}
+            value={findId}
+            onChange={e => setFindId(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={e => e.key === 'Enter' && findPackage()}
+          />
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={findingId || !findId.trim()}
+            onClick={findPackage}
+          >
+            {findingId ? <Loader2 size={14} className="animate-spin" /> : null}
+            {t('pkg_find_by_id')}
+          </button>
+        </div>
         {hasPerm('create_packages') && (
           <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>
             <Plus size={14} /> {t('pkg_new')}
@@ -482,6 +581,23 @@ export default function Couriers({ activeTab, onNavigate }) {
                     onClick={() => setCommentsFor(p)}
                   >
                     <MessageSquare size={13} /> {p.comments.length}
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  title={t('couriers_refresh')}
+                  disabled={refreshingId === p.id}
+                  onClick={() => refreshPackage(p.id)}
+                >
+                  <RefreshCw size={13} className={refreshingId === p.id ? 'animate-spin' : ''} />
+                </button>
+                {hasPerm('create_packages') && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    title={t('pkg_add_track')}
+                    onClick={() => openAddTrack(p)}
+                  >
+                    <Plus size={13} /> {t('pkg_track_number')}
                   </button>
                 )}
                 <button className="btn btn-ghost btn-sm" onClick={() => openLabels(p.id)}>
@@ -545,6 +661,46 @@ export default function Couriers({ activeTab, onNavigate }) {
             ))}
           </div>
         )}
+      </Modal>
+
+      {/* Add-track panel (метод add_track, апдейт панели 2026-09) */}
+      <Modal
+        isOpen={trackFor != null}
+        onClose={() => setTrackFor(null)}
+        title={`${t('pkg_add_track')} · #${trackFor ?? ''}`}
+        size="sm"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setTrackFor(null)}>
+              {t('pkg_cancel')}
+            </button>
+            <button className="btn btn-primary" disabled={trackSending} onClick={submitTrack}>
+              {trackSending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {trackSending ? t('pkg_adding') : t('pkg_add_track')}
+            </button>
+          </>
+        }
+      >
+        <div className="cou-form-grid">
+          <label className="cou-form-field">
+            <span>{t('pkg_track_number')} *</span>
+            <input
+              value={trackForm.track}
+              onChange={e => setTrackForm(f => ({ ...f, track: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && submitTrack()}
+              autoFocus
+            />
+          </label>
+          <label className="cou-form-field">
+            <span>{t('pkg_track_carrier')} *</span>
+            <input
+              value={trackForm.carrier}
+              placeholder="ups / fedex / usps / ..."
+              onChange={e => setTrackForm(f => ({ ...f, carrier: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && submitTrack()}
+            />
+          </label>
+        </div>
       </Modal>
 
       {/* New package form */}

@@ -657,6 +657,20 @@ function migrate(db) {
       PRAGMA user_version = 25;
     `);
   }
+
+  // CHAT-2.0 (specs/chat-2.0.md, manager-work-0bp): delivered-квитанции.
+  // Сервер помечает момент, когда получатель ЗАБРАЛ блоб fetch'ем, — это и есть
+  // «доставлено на устройство» для отправителя (опрос /sync/chat/outbox).
+  // Read-квитанции сервером не трогают: едут обратно отправителю обычными
+  // sealed-конвертами (payload type 'read_receipt') — opaque-relay сохраняется.
+  if (ver < 26) {
+    db.exec(`
+      ALTER TABLE chat_messages ADD COLUMN delivered_at DATETIME;
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_sender ON chat_messages(sender_iid, id);
+
+      PRAGMA user_version = 26;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

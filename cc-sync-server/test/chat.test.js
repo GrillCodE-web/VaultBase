@@ -297,3 +297,106 @@ test('auth: без токена — 401, менеджерский токен н�
   const wrkOnMgr = await req('GET', '/manager/api/chat/peers', W1_TOKEN);
   assert.ok([401, 403].includes(wrkOnMgr.status));
 });
+
+// ── CHAT-2.0 (manager-work-0bp): delivered/read квитанции ────────────────────
+
+test('outbox: исходящие без sealed_data, delivered_at появляется после fetch получателем', async () => {
+  const room = dmRoom(W1_IID, W2_IID);
+  const s = await req('POST', '/sync/chat/send', W1_TOKEN, {
+    room,
+    envelopes: [{ target_iid: W2_IID, key_id: W2_KEY_ID, sealed_data: envelope(W2_KEY_ID, 'ob1') }],
+  });
+  assert.equal(s.status, 201);
+  const id = s.json.ids[0];
+
+  let ob = await req('GET', '/sync/chat/outbox', W1_TOKEN);
+  assert.equal(ob.status, 200);
+  let row = ob.json.messages.find((m) => m.id === id);
+  assert.ok(row, 'своя исходящая строка видна');
+  assert.equal(row.delivered_at, null, 'до fetch получателем — не доставлено');
+  assert.equal(row.sealed_data, undefined, 'sealed_data не отдаётся в outbox');
+  assert.equal(row.target_iid, W2_IID);
+
+  await req('GET', '/sync/chat/messages?since_id=0', W2_TOKEN);
+
+  ob = await req('GET', '/sync/chat/outbox', W1_TOKEN);
+  row = ob.json.messages.find((m) => m.id === id);
+  assert.ok(row.delivered_at, 'delivered_at выставлен после выдачи блоба устройству');
+});
+
+test('outbox: курсор updated_since ловит свежие delivered_at и отсекает старое', async () => {
+  const room = dmRoom(W1_IID, W2_IID);
+  const s = await req('POST', '/sync/chat/send', W1_TOKEN, {
+    room,
+    envelopes: [{ target_iid: W2_IID, key_id: W2_KEY_ID, sealed_data: envelope(W2_KEY_ID, 'ob2') }],
+  });
+  const id = s.json.ids[0];
+
+  // Будущее → пусто.
+  const future = await req('GET', `/sync/chat/outbox?updated_since=${encodeURIComponent('2999-01-01 00:00:00')}`, W1_TOKEN);
+  assert.equal(future.json.messages.length, 0);
+
+  // Мусорный курсор не роняет роут — трактуется как «с начала времён».
+  const bad = await req('GET', '/sync/chat/outbox?updated_since=not-a-date', W1_TOKEN);
+  assert.equal(bad.status, 200);
+  assert.ok(bad.json.messages.some((m) => m.id === id));
+
+  // После fetch получателем строка всплывает по курсору created_at + 1 сек
+  // (delivered_at > курсора), хотя id строки давно известен клиенту.
+  await req('GET', '/sync/chat/messages?since_id=0', W2_TOKEN);
+  const db = getDb();
+  const created = db.prepare('SELECT created_at FROM chat_messages WHERE id = ?').get(id).created_at;
+  const ob = await req('GET', `/sync/chat/outbox?updated_since=${encodeURIComponent(created)}`, W1_TOKEN);
+  const row = ob.json.messages.find((m) => m.id === id);
+  assert.ok(row && row.delivered_at, 'обновление delivered_at видно по курсору');
+});
+
+test('read receipt едет обратно отправителю обычным sealed-конвертом (opaque)', async () => {
+  const room = dmRoom(W1_IID, W2_IID);
+  const s = await req('POST', '/sync/chat/send', W1_TOKEN, {
+    room,
+    envelopes: [{ target_iid: W2_IID, key_id: W2_KEY_ID, sealed_data: envelope(W2_KEY_ID, 'rc-subj') }],
+  });
+  const id = s.json.ids[0];
+  await req('GET', '/sync/chat/messages?since_id=0', W2_TOKEN);
+
+  // Реальный клиент прячет {"type":"read_receipt","ids":[id]} внутрь ct;
+  // сервер видит только форму конверта — проверяем именно релей обратно.
+  const r = await req('POST', '/sync/chat/send', W2_TOKEN, {
+    room,
+    envelopes: [{ target_iid: W1_IID, key_id: W1_KEY_ID, sealed_data: envelope(W1_KEY_ID, `read_receipt:${id}`) }],
+    ttl_hours: 72, // квитанции живут меньше обычных сообщений
+  });
+  assert.equal(r.status, 201);
+
+  const f = await req('GET', '/sync/chat/messages?since_id=0', W1_TOKEN);
+  const receipt = f.json.messages.find(
+    (m) => m.room === room && m.sender_iid === W2_IID
+      && JSON.parse(m.sealed_data).ct === Buffer.from(`ciphertext-read_receipt:${id}`).toString('base64')
+  );
+  assert.ok(receipt, 'квитанция долетела до отправителя через существующий релей');
+});
+
+test('manager outbox: исходящие менеджера, delivered_at после fetch воркером', async () => {
+  const s = await req('POST', '/manager/api/chat/send', MGR_TOKEN, {
+    target_iid: W1_IID,
+    key_id: W1_KEY_ID,
+    sealed_data: envelope(W1_KEY_ID, 'ob-mgr'),
+  });
+  assert.equal(s.status, 201);
+  const id = s.json.id;
+
+  let ob = await req('GET', '/manager/api/chat/outbox', MGR_TOKEN);
+  let row = ob.json.messages.find((m) => m.id === id);
+  assert.ok(row && row.delivered_at === null);
+
+  await req('GET', '/sync/chat/messages?since_id=0', W1_TOKEN);
+  ob = await req('GET', '/manager/api/chat/outbox', MGR_TOKEN);
+  row = ob.json.messages.find((m) => m.id === id);
+  assert.ok(row.delivered_at, 'менеджер видит доставку воркеру');
+
+  const noAuth = await req('GET', '/sync/chat/outbox', null);
+  assert.equal(noAuth.status, 401);
+  const wrkOnMgr = await req('GET', '/manager/api/chat/outbox', W1_TOKEN);
+  assert.ok([401, 403].includes(wrkOnMgr.status));
+});
