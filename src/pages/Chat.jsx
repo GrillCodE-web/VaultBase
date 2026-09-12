@@ -29,6 +29,31 @@ function fmtTime(value) {
   return sameDay ? hm : `${d.toLocaleDateString([], { day: '2-digit', month: '2-digit' })} ${hm}`
 }
 
+// CHAT-2.0 (k9c): галочки статуса исходящего. out_* — агрегаты по конвертам
+// fan-out'а (NULL у старых сообщений/входящих → одинарная «отправлено»).
+// Группа (total > 1): рядом счётчик delivered/read — N/M, языконезависимый.
+function OutStatus({ m }) {
+  if (m.direction !== 'out') return null
+  const total = m.out_total ?? 0
+  const delivered = m.out_delivered ?? 0
+  const read = m.out_read ?? 0
+  const allRead = total > 0 && read === total
+  const allDelivered = total > 0 && delivered === total
+  return (
+    <span
+      aria-hidden="true"
+      title={total > 0 ? `${delivered}/${total} · ${read}/${total}` : undefined}
+      className="inline-block ml-1 leading-none"
+      style={{ fontWeight: allRead ? 700 : 400 }}
+    >
+      {allRead || allDelivered ? '✓✓' : '✓'}
+      {total > 1 && read > 0 ? (
+        <span className="text-[10px] ml-0.5">{`${read}/${total}`}</span>
+      ) : null}
+    </span>
+  )
+}
+
 // Известные коды ошибок backend → i18n; остальное — сырой текст через handler.
 function chatErrorMessage(e, t) {
   const raw = e instanceof Error ? e.message : String(e)
@@ -117,6 +142,18 @@ export default function Chat() {
       if (ids.size === 0) return
       const now = new Date().toISOString()
       setMessages(prev => prev.map(m => (ids.has(m.id) && !m.read_at ? { ...m, read_at: now } : m)))
+    }).then(fn => !cancelled && unlisteners.push(fn))
+    // CHAT-2.0 (k9c): статусы исходящих — delivered/read агрегаты от backend'а.
+    listen('chat:status', e => {
+      const updates = e.payload?.updates
+      if (!Array.isArray(updates) || updates.length === 0) return
+      const byId = new Map(updates.map(u => [u.msg_id, u]))
+      setMessages(prev =>
+        prev.map(m => {
+          const u = byId.get(m.id)
+          return u ? { ...m, out_total: u.total, out_delivered: u.delivered, out_read: u.read } : m
+        })
+      )
     }).then(fn => !cancelled && unlisteners.push(fn))
     return () => {
       cancelled = true
@@ -360,6 +397,7 @@ export default function Chat() {
                           }`}
                         >
                           {fmtTime(m.created_at)}
+                          <OutStatus m={m} />
                         </div>
                       </div>
                     </div>

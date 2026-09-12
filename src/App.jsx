@@ -342,6 +342,36 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
     return () => clearInterval(id)
   }, [loadBadges])
 
+  // CHAT-2.0 (k9c): мгновенный бейдж непрочитанных — chat-события backend'а
+  // (chat:message / chat:read / chat:status) дёргают loadBadges сразу, а не
+  // по 30-сек интервалу (он остаётся fallback'ом). Берсты коалесцируем.
+  const badgeTimerRef = useRef(null)
+  useEffect(() => {
+    const schedule = () => {
+      if (badgeTimerRef.current) return
+      badgeTimerRef.current = setTimeout(() => {
+        badgeTimerRef.current = null
+        loadBadges()
+      }, 400)
+    }
+    const unlisteners = []
+    let cancelled = false
+    for (const ev of ['chat:message', 'chat:read', 'chat:status']) {
+      listen(ev, schedule).then(fn => {
+        if (cancelled) fn()
+        else unlisteners.push(fn)
+      })
+    }
+    return () => {
+      cancelled = true
+      unlisteners.forEach(fn => fn())
+      if (badgeTimerRef.current) {
+        clearTimeout(badgeTimerRef.current)
+        badgeTimerRef.current = null
+      }
+    }
+  }, [loadBadges])
+
   // ── Глобальная проверка обновлений ─────────────────────────
   // Раньше обновления проверялись ТОЛЬКО на странице Updates.jsx — если
   // пользователь там не был, он не видел ни баннера, ни уведомления, ни
