@@ -39,6 +39,9 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   // MGR-005: активная политика воркера (ban/update/override/квоты/force_logout)
   const [policy, setPolicy] = useState(null)
+  // c5j: причина завершения сессии — баннер на экране логина
+  // ('force_logout' — перебито менеджером/другим входом, 'expired' — истекла)
+  const [sessionEndNotice, setSessionEndNotice] = useState(null)
 
   const refreshPolicy = useCallback(async () => {
     try {
@@ -57,6 +60,7 @@ export function AuthProvider({ children }) {
         deviceInfo: navigator.userAgent ?? null,
       })
       setCurrentUser(result)
+      setSessionEndNotice(null)
       persistExpiry(result)
       refreshPolicy() // MGR-005: политика восстановлена бэкендом — подтягиваем сразу
       // FINAL-013: Check if token was saved, warn if localStorage is full
@@ -98,6 +102,7 @@ export function AuthProvider({ children }) {
       })
       if (!result) return null
       setCurrentUser(result)
+      setSessionEndNotice(null)
       persistExpiry(result)
       refreshPolicy() // MGR-005
       try {
@@ -118,6 +123,7 @@ export function AuthProvider({ children }) {
       if (!token) return null
       const result = await invoke('resume_session', { token })
       setCurrentUser(result)
+      setSessionEndNotice(null)
       persistExpiry(result)
       refreshPolicy() // MGR-005
       return result
@@ -186,6 +192,7 @@ export function AuthProvider({ children }) {
         setPolicy(p)
         if (p?.force_logout && currentUserRef.current) {
           toastRef.current(tRef.current('policy_force_logout_toast'), 'error')
+          setSessionEndNotice('force_logout')
           await logoutRef.current()
         }
       } catch (e) {
@@ -213,6 +220,7 @@ export function AuthProvider({ children }) {
         setPolicy(p)
         if (p?.force_logout && currentUserRef.current) {
           toastRef.current(tRef.current('policy_force_logout_toast'), 'error')
+          setSessionEndNotice('force_logout')
           await logoutRef.current()
         }
       } catch (e) {
@@ -242,6 +250,7 @@ export function AuthProvider({ children }) {
       } catch (e) {
         const msg = String(e?.message ?? e)
         if (msg.includes('session_expired')) {
+          setSessionEndNotice('expired')
           await logoutRef.current()
         } else {
           console.warn('[Auth] Session refresh failed:', msg)
@@ -264,6 +273,7 @@ export function AuthProvider({ children }) {
         isAdmin,
         policy,
         refreshPolicy,
+        sessionEndNotice,
       }}
     >
       {children}

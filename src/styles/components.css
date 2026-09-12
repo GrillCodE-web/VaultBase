@@ -4834,6 +4834,18 @@
   font-weight: 600;
 }
 
+/* c5j: причина завершения сессии на экране логина (перебивка/истечение) */
+.session-end-notice {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--yellow-dim);
+  color: var(--yellow-t);
+  border: 1px solid var(--yellow-border);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /* MGR-006: баннер новостей от менеджера (по severity) */
 .news-alerts {
   display: flex;

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { useLang } from '../hooks/useLang'
 
 export default function UserLogin({ onLoggedIn }) {
-  const { login } = useAuth()
+  const { login, sessionEndNotice } = useAuth()
+  const { t } = useLang()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
@@ -41,6 +43,16 @@ export default function UserLogin({ onLoggedIn }) {
         <p className="auth-subtitle mb-6 text-muted text-13">
           Введите логин и пароль вашего аккаунта
         </p>
+
+        {sessionEndNotice && (
+          <p role="alert" className="session-end-notice">
+            {t(
+              sessionEndNotice === 'force_logout'
+                ? 'session_ended_force_logout'
+                : 'session_ended_expired'
+            )}
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="relative">

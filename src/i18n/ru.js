@@ -463,6 +463,9 @@ export const ru = {
   policy_update_body:
     'Менеджер требует версию приложения {version} или новее. Обновите приложение, чтобы продолжить работу.',
   policy_force_logout_toast: 'Менеджер завершил вашу сессию.',
+  session_ended_force_logout:
+    'Сессия завершена: вас разлогинил менеджер или выполнен вход с другого устройства. Войдите снова.',
+  session_ended_expired: 'Сессия истекла. Войдите снова.',
   news_dismiss: 'Отметить прочитанным',
   settings_license: 'Лицензия',
   settings_license_status: 'Статус',
@@ -1121,7 +1124,6 @@ export const ru = {
   dashboard_no_drop: 'Без дропа',
 
   // Orders
-  export_coming_soon: 'Экспорт скоро появится',
   orders_deselect_all: 'Снять выделение',
   select_all: 'Выбрать все',
   primary_drop: 'Основной дроп',

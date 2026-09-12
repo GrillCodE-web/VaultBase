@@ -464,6 +464,9 @@ export const en = {
   policy_update_body:
     'The manager requires app version {version} or newer. Please update the app to continue.',
   policy_force_logout_toast: 'The manager has signed you out.',
+  session_ended_force_logout:
+    'Session ended: you were signed out by the manager or by a sign-in from another device. Sign in again.',
+  session_ended_expired: 'Session expired. Sign in again.',
   news_dismiss: 'Mark as read',
   settings_license: 'License',
   settings_license_status: 'Status',
@@ -1120,7 +1123,6 @@ export const en = {
   dashboard_no_drop: 'No Drop',
 
   // Orders
-  export_coming_soon: 'Export coming soon',
   orders_deselect_all: 'Deselect All',
   select_all: 'Select all',
   primary_drop: 'Primary Drop',
