@@ -797,6 +797,146 @@ impl Database {
     // ─────────────────────────────────────────
 
     pub fn global_search(&self, query: &str) -> Result<SearchResults, String> {
+        // REDESIGN-05 (c5j): сначала FTS5 (миграция v28); любой сбой —
+        // откат на LIKE (таблицы нет, запрос без токенов, 0 хитов).
+        match self.global_search_fts(query) {
+            Ok(Some(res)) => Ok(res),
+            _ => self.global_search_like(query),
+        }
+    }
+
+    /// FTS5-путь: MATCH по global_fts → догрузка сущностей по id (JSON-формы
+    /// идентичны LIKE-пути). Ok(None) = «пусть отработает LIKE».
+    fn global_search_fts(&self, query: &str) -> Result<Option<SearchResults>, String> {
+        use serde_json::json;
+
+        let expr = Self::fts_match_expr(query).ok_or_else(|| "empty fts query".to_string())?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT entity, entity_id FROM global_fts WHERE global_fts MATCH ?1 ORDER BY rank LIMIT 48")
+            .map_err(|e| e.to_string())?;
+        let hits: Vec<(String, i64)> = stmt
+            .query_map(params![expr], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        if hits.is_empty() {
+            return Ok(None);
+        }
+
+        let mut cards = Vec::new();
+        let mut orders = Vec::new();
+        let mut shops = Vec::new();
+        let mut emails = Vec::new();
+        let mut proxies = Vec::new();
+
+        let mut card_stmt = self.conn.prepare(
+            "SELECT id,last4,bin,bank_name,card_type,status FROM credit_cards WHERE id=?1"
+        ).map_err(|e| e.to_string())?;
+        let mut order_stmt = self.conn.prepare(
+            "SELECT o.id,o.order_number,o.status,s.name FROM orders o LEFT JOIN shops s ON o.shop_id=s.id WHERE o.id=?1"
+        ).map_err(|e| e.to_string())?;
+        let mut shop_stmt = self.conn.prepare(
+            "SELECT id,name,domain FROM shops WHERE id=?1"
+        ).map_err(|e| e.to_string())?;
+        let mut email_stmt = self.conn.prepare(
+            "SELECT id,email_hash,label FROM email_pool WHERE id=?1"
+        ).map_err(|e| e.to_string())?;
+        let mut proxy_stmt = self.conn.prepare(
+            "SELECT id,host,port,label FROM proxies WHERE id=?1"
+        ).map_err(|e| e.to_string())?;
+
+        for (entity, eid) in hits {
+            match entity.as_str() {
+                "card" if cards.len() < 8 => {
+                    if let Ok(v) = card_stmt.query_row(params![eid], |r| {
+                        Ok(json!({
+                            "id": r.get::<_,i64>(0)?, "last4": r.get::<_,Option<String>>(1)?,
+                            "bin": r.get::<_,Option<String>>(2)?, "bank_name": r.get::<_,Option<String>>(3)?,
+                            "card_type": r.get::<_,Option<String>>(4)?, "status": r.get::<_,String>(5)?,
+                            "_type": "card",
+                        }))
+                    }) { cards.push(v); }
+                }
+                "order" if orders.len() < 6 => {
+                    if let Ok(v) = order_stmt.query_row(params![eid], |r| {
+                        Ok(json!({
+                            "id": r.get::<_,i64>(0)?, "order_number": r.get::<_,Option<String>>(1)?,
+                            "status": r.get::<_,String>(2)?, "shop_name": r.get::<_,Option<String>>(3)?,
+                            "_type": "order",
+                        }))
+                    }) { orders.push(v); }
+                }
+                "shop" if shops.len() < 5 => {
+                    if let Ok(v) = shop_stmt.query_row(params![eid], |r| {
+                        Ok(json!({"id": r.get::<_,i64>(0)?, "name": r.get::<_,String>(1)?, "domain": r.get::<_,String>(2)?, "_type": "shop"}))
+                    }) { shops.push(v); }
+                }
+                "email" if emails.len() < 5 => {
+                    if let Ok(v) = email_stmt.query_row(params![eid], |r| {
+                        Ok(json!({"id": r.get::<_,i64>(0)?, "label": r.get::<_,Option<String>>(2)?, "_type": "email"}))
+                    }) { emails.push(v); }
+                }
+                "proxy" if proxies.len() < 5 => {
+                    if let Ok(v) = proxy_stmt.query_row(params![eid], |r| {
+                        Ok(json!({"id": r.get::<_,i64>(0)?, "host": r.get::<_,String>(1)?, "port": r.get::<_,i64>(2)?, "label": r.get::<_,Option<String>>(3)?, "_type": "proxy"}))
+                    }) { proxies.push(v); }
+                }
+                _ => {}
+            }
+        }
+
+        // Профили зашифрованы — в FTS не попадают, ищем как раньше.
+        let profiles = self.search_profiles(query)?;
+        Ok(Some(SearchResults { cards, profiles, orders, shops, emails, proxies }))
+    }
+
+    /// Построение MATCH-выражения: токены по пробелам, только буквы/цифры,
+    /// каждый в кавычках с префиксом: `"tok"*` (AND-семантика FTS5).
+    fn fts_match_expr(query: &str) -> Option<String> {
+        let toks: Vec<String> = query
+            .split_whitespace()
+            .map(|t| t.chars().filter(|c| c.is_alphanumeric()).collect::<String>())
+            .filter(|t| !t.is_empty())
+            .map(|t| format!("\"{}\"*", t))
+            .collect();
+        if toks.is_empty() { None } else { Some(toks.join(" ")) }
+    }
+
+    /// Profiles — поиск по drop recipient_name/notes с расшифровкой в Rust
+    /// (FIX AUDIT-15: LIKE по шифротексту не работает).
+    fn search_profiles(&self, query: &str) -> Result<Vec<serde_json::Value>, String> {
+        use serde_json::json;
+
+        let mut profiles = Vec::new();
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT p.id, d.recipient_name, d.city, d.country, p.notes
+             FROM profiles p LEFT JOIN drops d ON d.profile_id=p.id"
+        ).map_err(|e| e.to_string())?;
+        type ProfileSearchRow = (String, Option<String>, Option<String>, Option<String>, Option<String>);
+        let rows: Vec<ProfileSearchRow> =
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+                .map_err(|e| e.to_string())?
+                .filter_map(|r| r.ok())
+                .collect();
+        let ql = query.to_lowercase();
+        for (pid, name_enc, city, country, notes) in rows {
+            let name = name_enc.as_deref()
+                .map(|n| self.decrypt_field(n).unwrap_or_else(|_| n.to_string()));
+            let name_lower = name.as_deref().unwrap_or("").to_lowercase();
+            let notes_lower = notes.as_deref().unwrap_or("").to_lowercase();
+            if name_lower.contains(&ql) || notes_lower.contains(&ql) {
+                profiles.push(json!({
+                    "id": pid, "name": name, "city": city, "country": country,
+                    "notes": notes, "_type": "profile",
+                }));
+                if profiles.len() >= 5 { break; }
+            }
+        }
+        Ok(profiles)
+    }
+
+    fn global_search_like(&self, query: &str) -> Result<SearchResults, String> {
         use serde_json::json;
 
         // FIX TC-01: Escape LIKE wildcards to prevent SQL injection via pattern matching
@@ -867,34 +1007,7 @@ impl Database {
             Ok(json!({"id": r.get::<_,i64>(0)?, "host": r.get::<_,String>(1)?, "port": r.get::<_,i64>(2)?, "label": r.get::<_,Option<String>>(3)?, "_type": "proxy"}))
         }).map_err(|e| e.to_string())?.flatten() { proxies.push(v); }
 
-        // Profiles — search by drop recipient_name or notes
-        // FIX AUDIT-15: recipient_name зашифрован — LIKE по шифротексту не работал.
-        // Расшифровываем имена и фильтруем в Rust.
-        let mut profiles = Vec::new();
-        let mut stmt = self.conn.prepare(
-            "SELECT DISTINCT p.id, d.recipient_name, d.city, d.country, p.notes
-             FROM profiles p LEFT JOIN drops d ON d.profile_id=p.id"
-        ).map_err(|e| e.to_string())?;
-        type ProfileSearchRow = (String, Option<String>, Option<String>, Option<String>, Option<String>);
-        let rows: Vec<ProfileSearchRow> =
-            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
-                .map_err(|e| e.to_string())?
-                .filter_map(|r| r.ok())
-                .collect();
-        let ql = query.to_lowercase();
-        for (pid, name_enc, city, country, notes) in rows {
-            let name = name_enc.as_deref()
-                .map(|n| self.decrypt_field(n).unwrap_or_else(|_| n.to_string()));
-            let name_lower = name.as_deref().unwrap_or("").to_lowercase();
-            let notes_lower = notes.as_deref().unwrap_or("").to_lowercase();
-            if name_lower.contains(&ql) || notes_lower.contains(&ql) {
-                profiles.push(json!({
-                    "id": pid, "name": name, "city": city, "country": country,
-                    "notes": notes, "_type": "profile",
-                }));
-                if profiles.len() >= 5 { break; }
-            }
-        }
+        let profiles = self.search_profiles(query)?;
 
         Ok(SearchResults { cards, profiles, orders, shops, emails, proxies })
     }

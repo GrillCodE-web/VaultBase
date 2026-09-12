@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 27;
+    const LATEST_VERSION: u32 = 28;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -79,7 +79,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (16, migration_v16), (17, migration_v17), (18, migration_v18),
         (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
         (23, migration_v23), (24, migration_v24), (25, migration_v25),
-        (26, migration_v26), (27, migration_v27),
+        (26, migration_v26), (27, migration_v27), (28, migration_v28),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -992,6 +992,102 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
             );
             CREATE INDEX IF NOT EXISTS idx_chat_messages_room   ON chat_messages(room, id);
             CREATE INDEX IF NOT EXISTS idx_chat_messages_unread ON chat_messages(direction, read_at);
+        "#)?;
+        Ok(())
+    }
+
+    // REDESIGN-05 (c5j): FTS5-индекс для ⌘K global_search. Покрывает только
+    // plaintext-колонки (PAN/имена зашифрованы и индексируемым быть не могут):
+    // cards(last4/bin/bank), orders(number/track/carrier/notes), shops,
+    // email_pool, proxies. rowid = entity_code*1e9 + id (все id INTEGER PK).
+    // Если FTS5 не собран в sqlcipher — миграция no-op, поиск остаётся на LIKE.
+    fn migration_v28(conn: &Connection) -> SqlResult<()> {
+        if conn
+            .execute_batch("CREATE VIRTUAL TABLE temp.fts5_probe USING fts5(x); DROP TABLE temp.fts5_probe;")
+            .is_err()
+        {
+            return Ok(());
+        }
+        conn.execute_batch(r#"
+            CREATE VIRTUAL TABLE IF NOT EXISTS global_fts
+            USING fts5(entity, entity_id UNINDEXED, title, body, tokenize='unicode61');
+
+            INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              SELECT 1000000000 + id, 'card', id, coalesce(last4,''),
+                     trim(coalesce(bin,'')||' '||coalesce(bank_name,'')) FROM credit_cards;
+            INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              SELECT 2000000000 + id, 'order', id, coalesce(order_number,''),
+                     trim(coalesce(tracking_number,'')||' '||coalesce(carrier,'')||' '||coalesce(notes,'')) FROM orders;
+            INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              SELECT 3000000000 + id, 'shop', id, coalesce(name,''), coalesce(domain,'') FROM shops;
+            INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              SELECT 4000000000 + id, 'email', id, coalesce(label,''), coalesce(email,'') FROM email_pool;
+            INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              SELECT 5000000000 + id, 'proxy', id, coalesce(label,''), coalesce(host,'') FROM proxies;
+
+            CREATE TRIGGER IF NOT EXISTS fts_cards_ai AFTER INSERT ON credit_cards BEGIN
+              INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              VALUES (1000000000 + new.id, 'card', new.id, coalesce(new.last4,''),
+                      trim(coalesce(new.bin,'')||' '||coalesce(new.bank_name,'')));
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_cards_au AFTER UPDATE OF last4, bin, bank_name ON credit_cards BEGIN
+              UPDATE global_fts SET title = coalesce(new.last4,''),
+                     body = trim(coalesce(new.bin,'')||' '||coalesce(new.bank_name,''))
+              WHERE rowid = 1000000000 + new.id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_cards_ad AFTER DELETE ON credit_cards BEGIN
+              DELETE FROM global_fts WHERE rowid = 1000000000 + old.id;
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS fts_orders_ai AFTER INSERT ON orders BEGIN
+              INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              VALUES (2000000000 + new.id, 'order', new.id, coalesce(new.order_number,''),
+                      trim(coalesce(new.tracking_number,'')||' '||coalesce(new.carrier,'')||' '||coalesce(new.notes,'')));
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_orders_au AFTER UPDATE OF order_number, tracking_number, carrier, notes ON orders BEGIN
+              UPDATE global_fts SET title = coalesce(new.order_number,''),
+                     body = trim(coalesce(new.tracking_number,'')||' '||coalesce(new.carrier,'')||' '||coalesce(new.notes,''))
+              WHERE rowid = 2000000000 + new.id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_orders_ad AFTER DELETE ON orders BEGIN
+              DELETE FROM global_fts WHERE rowid = 2000000000 + old.id;
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS fts_shops_ai AFTER INSERT ON shops BEGIN
+              INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              VALUES (3000000000 + new.id, 'shop', new.id, coalesce(new.name,''), coalesce(new.domain,''));
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_shops_au AFTER UPDATE OF name, domain ON shops BEGIN
+              UPDATE global_fts SET title = coalesce(new.name,''), body = coalesce(new.domain,'')
+              WHERE rowid = 3000000000 + new.id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_shops_ad AFTER DELETE ON shops BEGIN
+              DELETE FROM global_fts WHERE rowid = 3000000000 + old.id;
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS fts_emails_ai AFTER INSERT ON email_pool BEGIN
+              INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              VALUES (4000000000 + new.id, 'email', new.id, coalesce(new.label,''), coalesce(new.email,''));
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_emails_au AFTER UPDATE OF label, email ON email_pool BEGIN
+              UPDATE global_fts SET title = coalesce(new.label,''), body = coalesce(new.email,'')
+              WHERE rowid = 4000000000 + new.id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_emails_ad AFTER DELETE ON email_pool BEGIN
+              DELETE FROM global_fts WHERE rowid = 4000000000 + old.id;
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS fts_proxies_ai AFTER INSERT ON proxies BEGIN
+              INSERT INTO global_fts(rowid, entity, entity_id, title, body)
+              VALUES (5000000000 + new.id, 'proxy', new.id, coalesce(new.label,''), coalesce(new.host,''));
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_proxies_au AFTER UPDATE OF label, host ON proxies BEGIN
+              UPDATE global_fts SET title = coalesce(new.label,''), body = coalesce(new.host,'')
+              WHERE rowid = 5000000000 + new.id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS fts_proxies_ad AFTER DELETE ON proxies BEGIN
+              DELETE FROM global_fts WHERE rowid = 5000000000 + old.id;
+            END;
         "#)?;
         Ok(())
     }
