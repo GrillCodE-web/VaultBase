@@ -1,14 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { copyToClipboard, copyText } from '../clipboard.js'
 
 describe('Clipboard Utilities', () => {
   beforeEach(() => {
-    // Mock clipboard API
-    global.navigator = {
+    // Mock clipboard API (vitest 5: window.navigator — getter-only, прямое
+    // присваивание падает; stubGlobal подменяет корректно)
+    vi.stubGlobal('navigator', {
       clipboard: {
         writeText: vi.fn(),
       },
-    }
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   describe('copyToClipboard', () => {
