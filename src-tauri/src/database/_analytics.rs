@@ -522,6 +522,8 @@ impl Database {
 
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
     }
+
+    pub fn get_shop_win_loss(&self) -> Result<Vec<crate::models::ShopWinLoss>, String> {
         let mut stmt = self.conn.prepare(
             "SELECT s.id, s.name,
                     COUNT(o.id) as total,
