@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { handleError } from './utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { onAction } from '@tauri-apps/plugin-notification'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LangProvider, useLang } from './hooks/useLang'
 import { SmartToastProvider, useToast } from './hooks/useSmartToast'
@@ -371,6 +372,29 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       }
     }
   }, [loadBadges])
+
+  // CHAT-2.0 (3ak): клик по OS-уведомлению о чате — развернуть окно и
+  // открыть страницу чата. onAction — официальный слушатель плагина v2.
+  useEffect(() => {
+    let unlisten = null
+    let cancelled = false
+    onAction(() => {
+      const win = getCurrentWindow()
+      win.show().catch(() => {})
+      win.setFocus().catch(() => {})
+      handlePageChange('chat')
+    })
+      .then(pl => {
+        if (cancelled) pl.unregister()
+        else unlisten = pl
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      if (unlisten) unlisten.unregister()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Глобальная проверка обновлений ─────────────────────────
   // Раньше обновления проверялись ТОЛЬКО на странице Updates.jsx — если

@@ -170,7 +170,8 @@ app.use((req, res) => res.status(404).end());
 app.use((err, req, res, _next) => { console.error(err.stack || err.message); res.status(500).end(); });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`[vaultbase-sync] port ${PORT}`));
+const HOST = process.env.HOST || '0.0.0.0';
+server.listen(PORT, HOST, () => console.log(`[vaultbase-sync] ${HOST}:${PORT}`));
 
 // Background alert engine (worker-offline detection)
 require('./alerts-engine').start(() => {

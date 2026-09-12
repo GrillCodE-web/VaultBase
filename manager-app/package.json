@@ -1,7 +1,7 @@
 {
   "name": "vaultbase-manager",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.12",
     "@tauri-apps/api": "^2.9.0",
     "@tauri-apps/plugin-notification": "^2.3.1",
     "react": "^19.2.0",

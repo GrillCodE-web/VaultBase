@@ -26,7 +26,7 @@ use crate::database::Database;
 use crate::models::{ChatMessage, ChatPeer};
 use crate::state::{require_user, spawn_task, with_db};
 use serde_json::{json, Value};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 const HTTP_TIMEOUT_SECS: u64 = 30;
 const MAX_BODY_CHARS: usize = 4000;
@@ -434,8 +434,70 @@ fn fetch_and_store(app: Option<&tauri::AppHandle>) -> Result<Value, String> {
         if !status_updates.is_empty() {
             let _ = app.emit("chat:status", json!({ "updates": status_updates }));
         }
+        // CHAT-2.0 (3ak): нативное OS-уведомление о новом входящем, когда окно
+        // не в фокусе. Best-effort: любая ошибка проглатывается — уведомление
+        // не должно влиять на приём сообщений.
+        if let Some(m) = new_messages.last() {
+            if m.direction == "in" {
+                notify_incoming_message(app, m, db);
+            }
+        }
     }
     Ok(result)
+}
+
+/// Условия показа: окно НЕ сфокусировано или скрыто (иначе пользователь и так
+/// видит ленту), пользователь залогинен, конфиг os_notify_chat != "0" (дефолт
+/// вкл, паттерн UX-012). Заголовок — кто и куда, тело — 80 символов. Клик по
+/// нотификации обрабатывается на фронте (App.jsx): show+focus+переход в чат.
+fn notify_incoming_message(app: &tauri::AppHandle, m: &ChatMessage, db: &Database) {
+    use tauri_plugin_notification::NotificationExt;
+    let should = match app.get_webview_window("main") {
+        // Скрытое окно или окно без фокуса → показываем. Ошибка запроса
+        // состояния окна → считаем «не видно» (лучше лишнее уведомление).
+        Some(w) => !w.is_visible().unwrap_or(false) || !w.is_focused().unwrap_or(false),
+        None => false,
+    };
+    if !should {
+        return;
+    }
+    let logged_in = crate::state::state()
+        .current_user
+        .lock()
+        .map(|u| u.is_some())
+        .unwrap_or(false);
+    if !logged_in {
+        return;
+    }
+    let enabled = db
+        .get_config("os_notify_chat")
+        .ok()
+        .flatten()
+        .map(|v| v != "0")
+        .unwrap_or(true);
+    if !enabled {
+        return;
+    }
+    let mut body = m.body.clone();
+    if body.chars().count() > 80 {
+        body = body.chars().take(79).collect::<String>() + "…";
+    }
+    let _ = app
+        .notification()
+        .builder()
+        .title(format!("💬 {} · {}", short_label(&m.peer_iid), m.room))
+        .body(body)
+        .show();
+}
+
+/// Короткая подпись пира без доступа к книге: первые 8 символов iid
+/// (фронт/лейблы приходят из UI, здесь только индикатор).
+fn short_label(iid: &str) -> String {
+    if iid.len() > 12 {
+        format!("{}…{}", &iid[..6], &iid[iid.len() - 4..])
+    } else {
+        iid.to_string()
+    }
 }
 
 /// Outbox-опрос: серверные delivered_at наших исходящих. Курсор — метка

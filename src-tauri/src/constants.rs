@@ -11,10 +11,10 @@
 
 /// VaultBase sync server URL
 /// FIX B-CONFIG: Was hardcoded in sync.rs, now configurable
-pub const SYNC_SERVER_URL: &str = "https://sec201-www.otpmanager.pro";
+pub const SYNC_SERVER_URL: &str = "https://162.0.213.238.sslip.io:8448";
 
 /// Default server URL for HTTP sync
-pub const DEFAULT_SERVER_URL: &str = "https://sec201-www.otpmanager.pro";
+pub const DEFAULT_SERVER_URL: &str = "https://162.0.213.238.sslip.io:8448";
 
 /// Base URL for Stuffer API integration
 pub const STUFFER_BASE_URL: &str = "https://dash.stockhubdeal.com/api/stuffer/";

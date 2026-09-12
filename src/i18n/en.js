@@ -987,6 +987,9 @@ export const en = {
   notify_os_package_desc: 'System notification when a tracking status changes',
   notify_os_errors: 'Sync & connection errors',
   notify_os_errors_desc: 'System notification on sync server or mailbox failures',
+  notify_os_chat: 'Chat messages',
+  notify_os_chat_desc:
+    'System notification for incoming chat messages when the window is not focused',
   notify_mail_title: 'New email',
   notify_mail_body: '{from}: {subject}',
   notify_package_title: 'Package status updated',

@@ -116,6 +116,8 @@ export default function Settings() {
   const [osNotifyMail, setOsNotifyMail] = useState(true)
   const [osNotifyPackage, setOsNotifyPackage] = useState(true)
   const [osNotifyErrors, setOsNotifyErrors] = useState(true)
+  // CHAT-2.0 (3ak): OS-уведомление о новом сообщении чата
+  const [osNotifyChat, setOsNotifyChat] = useState(true)
   // FEAT-006/007: пороги ежедневных напоминаний (cron в background.rs)
   const [reminderCardDays, setReminderCardDays] = useState('14')
   const [reminderTrackingDays, setReminderTrackingDays] = useState('5')
@@ -176,6 +178,9 @@ export default function Settings() {
       }),
       invoke('get_config', { key: 'os_notify_errors' }).then(v => {
         if (!cancelled) setOsNotifyErrors(v !== '0')
+      }),
+      invoke('get_config', { key: 'os_notify_chat' }).then(v => {
+        if (!cancelled) setOsNotifyChat(v !== '0')
       }),
       invoke('get_config', { key: 'reminder_card_expiry_days' }).then(v => {
         if (!cancelled && v) setReminderCardDays(v)
@@ -269,6 +274,16 @@ export default function Settings() {
       await invoke('set_config', { key: 'os_notify_errors', value: val ? '1' : '0' })
     } catch (e) {
       const error = handleError(e, 'Settings.toggleOsNotifyErrors')
+      toastErr(getErrorMessage(error))
+    }
+  }
+
+  const handleOsNotifyChat = async val => {
+    setOsNotifyChat(val)
+    try {
+      await invoke('set_config', { key: 'os_notify_chat', value: val ? '1' : '0' })
+    } catch (e) {
+      const error = handleError(e, 'Settings.toggleOsNotifyChat')
       toastErr(getErrorMessage(error))
     }
   }
@@ -925,6 +940,20 @@ export default function Settings() {
                 type="checkbox"
                 checked={osNotifyErrors}
                 onChange={e => handleOsNotifyErrors(e.target.checked)}
+              />
+              <span className="track" />
+            </label>
+          </div>
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-title">{t('notify_os_chat')}</div>
+              <div className="setting-desc">{t('notify_os_chat_desc')}</div>
+            </div>
+            <label className="toggle-wrap">
+              <input
+                type="checkbox"
+                checked={osNotifyChat}
+                onChange={e => handleOsNotifyChat(e.target.checked)}
               />
               <span className="track" />
             </label>

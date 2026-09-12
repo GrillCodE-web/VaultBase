@@ -1,6 +1,6 @@
 use crate::db::Database;
 
-pub const DEFAULT_SERVER_URL: &str = "https://sec201-www.otpmanager.pro";
+pub const DEFAULT_SERVER_URL: &str = "https://162.0.213.238.sslip.io:8448";
 
 pub struct HttpResponse {
     pub status: u16,

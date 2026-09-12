@@ -988,6 +988,8 @@ export const ru = {
   notify_os_package_desc: 'Системное уведомление при смене статуса трекинга',
   notify_os_errors: 'Ошибки sync и подключений',
   notify_os_errors_desc: 'Системное уведомление при сбое sync-сервера или почтового ящика',
+  notify_os_chat: 'Сообщения чата',
+  notify_os_chat_desc: 'Системное уведомление о входящем сообщении, когда окно не в фокусе',
   notify_mail_title: 'Новое письмо',
   notify_mail_body: '{from}: {subject}',
   notify_package_title: 'Статус посылки обновлён',
