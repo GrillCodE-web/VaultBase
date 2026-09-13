@@ -781,6 +781,45 @@
 /* MGR-018 (этап E1): .row-flash / @keyframes row-flash выпилены вместе с
    групповым sync'ом (подсветка «живых» обновлений строк). */
 
+/* ── Modal enter ────────────────────────────────────────────
+   Затемнение проявляется по opacity (без transform — оверлей
+   position:fixed, никаких containing-block сюрпризов). Окно —
+   opacity + лёгкий scale/подъём; fill-mode backwards (НЕ forwards),
+   чтобы после анимации transform вернулся в none и .modal не стал
+   containing block'ом для возможных position:fixed внутри. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Тост въезжает из правого края (контейнер top-right) + fade.
+   backwards — по конце transform возвращается в none. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* ── Additional Animations ──────────────────────────────── */
 
 /* ── Utility Classes ────────────────────────────────────── */

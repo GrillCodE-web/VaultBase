@@ -76,8 +76,9 @@ pub const IMAP_RECOVERY_INTERVAL_SECS: u64 = 120;
 /// Sync initial startup delay (5 seconds - allow app unlock)
 pub const SYNC_STARTUP_DELAY_SECS: u64 = 5;
 
-/// Sync check interval between attempts (2 minutes)
-pub const SYNC_CHECK_INTERVAL_SECS: u64 = 120;
+/// Sync check interval between attempts (30 seconds — footprints/статусы
+/// доезжают до антифрода почти сразу; входящие данные и так идут через WS).
+pub const SYNC_CHECK_INTERVAL_SECS: u64 = 30;
 
 /// Sync pause after failures (10 minutes)
 pub const SYNC_FAILURE_PAUSE_SECS: u64 = 600;

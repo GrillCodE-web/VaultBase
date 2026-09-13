@@ -33,6 +33,7 @@ import { NotificationCenter } from './components/NotificationCenter.jsx'
 import { TasksIndicator } from './components/TasksIndicator.jsx'
 // REDESIGN-05-6: panic-модалка (хоткей/трей), tray:sync, глобальный D&D импорт
 import { DesktopBridge } from './components/DesktopBridge.jsx'
+import { WindowControls } from './components/WindowControls.jsx'
 // SPRINT3-DAY2: Structured logging
 import { createLogger } from './utils/logger'
 // UX-012: нативные OS-уведомления (новая почта, статус посылки, ошибки sync)
@@ -1918,6 +1919,8 @@ export default function App() {
               <AppInner />
               {/* REDESIGN-05-6: доступен и на экране блокировки (panic) */}
               <DesktopBridge />
+              {/* Слитая шапка окна (кнопки свернуть/развернуть/закрыть) на win/linux */}
+              <WindowControls />
             </AuthProvider>
           </ConfirmProvider>
         </SmartToastProvider>

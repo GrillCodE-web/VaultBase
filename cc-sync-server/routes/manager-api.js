@@ -1,7 +1,7 @@
 const express = require('express');
 const { getDb } = require('../database');
 const { requireManagerToken } = require('../middleware');
-const { deriveActivationKey } = require('./activate');
+const { deriveActivationKey, normalizeChallenge } = require('./activate');
 
 const router = express.Router();
 router.use(requireManagerToken);
@@ -798,7 +798,9 @@ router.post('/licenses', (req, res) => {
     return res.status(400).json({ error: 'installation_id_and_challenge_required' });
   }
   const iid = installation_id.trim();
-  const ch = challenge.trim().toUpperCase();
+  // Нормализуем challenge (убираем дефисы/пробелы, верхний регистр): воркер
+  // показывает код с дефисами, а /activate ищет лицензию по «чистому» hex.
+  const ch = normalizeChallenge(challenge);
   if (iid.length < 4 || iid.length > 128 || !/^[\w-]+$/.test(iid)) {
     return res.status(400).json({ error: 'installation_id_invalid' });
   }

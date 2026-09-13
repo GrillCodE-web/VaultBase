@@ -76,6 +76,8 @@ impl Database {
         // FIX B25 + PHASE 1: записываем footprint при каждом создании заказа с order_status
         let _ = self.record_order_footprint(oid, &input.profile_id, input.shop_id,
             input.email_pool_id, input.drop_id, input.proxy_id, "pending");
+        // FIX FOOTPRINT-WAKE-01: будим sync-поток — новый footprint уедет почти сразу.
+        crate::background::wake_sync();
 
         self.build_order(oid)
     }
@@ -297,8 +299,26 @@ impl Database {
             // фиксируются в automation_rule_runs и last_error правила.
             let _ = self.run_automation_rules_for_order(id, prev_status.as_deref(), status);
         }
+        // FIX FOOTPRINT-STATUS-01: footprint писался один раз при создании заказа
+        // со статусом "pending" и на сервере навсегда замерзал. При смене статуса
+        // переотправляем его: обновляем order_status и ставим synced=0, чтобы
+        // антифрод на сервере видел финальный исход (declined/delivered/received).
+        if prev_status.as_deref() != Some(status) {
+            self.requeue_footprint_status(id, status);
+        }
         let _ = self.log_event("order.status_changed", &format!("Order {} → {}", id, status), Some("order"), Some(&id.to_string()));
         Ok(())
+    }
+
+    /// FIX FOOTPRINT-STATUS-01: переставляет footprint заказа в очередь отправки
+    /// с новым статусом. Ошибки не всплывают — синк не должен ломать бизнес-поток.
+    fn requeue_footprint_status(&self, order_id: i64, status: &str) {
+        let _ = self.conn.execute(
+            "UPDATE shop_footprints SET order_status=?1, synced=0 WHERE order_id=?2",
+            params![status, order_id],
+        );
+        // FIX FOOTPRINT-WAKE-01: будим sync-поток — статус уедет почти сразу.
+        crate::background::wake_sync();
     }
 
     /// MGR-014: одна строка структурной истории статусов заказа.
@@ -365,6 +385,8 @@ impl Database {
         for (&oid, old) in prev.iter() {
             if old != status {
                 self.record_status_history(oid, Some(old), status, changed_by, "bulk");
+                // FIX FOOTPRINT-STATUS-01: переотправляем footprint с новым статусом
+                self.requeue_footprint_status(oid, status);
             }
         }
 
@@ -440,6 +462,8 @@ impl Database {
             ).map_err(|e| e.to_string())?;
             if prev_status.as_deref() != Some(status) {
                 self.record_status_history(oid, prev_status.as_deref(), status, None, "tracking");
+                // FIX FOOTPRINT-STATUS-01: переотправляем footprint с новым статусом
+                self.requeue_footprint_status(oid, status);
             }
             let _ = self.log_event(
                 "order.tracking_updated",

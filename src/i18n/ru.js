@@ -459,6 +459,7 @@ export const ru = {
   activate_title: 'Требуется активация',
   activate_subtitle: 'Эта копия VaultBase должна быть активирована.',
   activate_your_code: 'Ваш код установки:',
+  activate_copy_all: 'Скопировать всё для саппорта',
   activate_instruction: 'Отправьте этот код администратору, чтобы получить ключ активации.',
   activate_key_label: 'Ключ активации',
   activate_key_invalid: 'Введите полный 16-символьный ключ активации.',

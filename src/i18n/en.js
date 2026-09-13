@@ -460,6 +460,7 @@ export const en = {
   activate_title: 'Activation Required',
   activate_subtitle: 'This copy of VaultBase must be activated.',
   activate_your_code: 'Your installation code:',
+  activate_copy_all: 'Copy all for support',
   activate_instruction: 'Send this code to your administrator to receive an activation key.',
   activate_key_label: 'Activation Key',
   activate_key_invalid: 'Enter a complete 16-character activation key.',

@@ -21,6 +21,18 @@ const activateLimiter = rateLimit({
  * HMAC-SHA256(installation_id + challenge, SERVER_SECRET) → first 16 hex chars
  * formatted as XXXX-XXXX-XXXX-XXXX
  */
+/**
+ * Канонизация challenge: воркер показывает код с дефисами
+ * (XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX), а лицензия на сервере хранится как
+ * «чистый» hex в верхнем регистре. Без нормализации точное сравнение
+ * `challenge = ?` не находит строку → 404 not_found → клиент видит
+ * `server_error_404`. Приводим к одному виду ВЕЗДЕ, где challenge участвует
+ * в поиске лицензии или в выводе activation_key.
+ */
+function normalizeChallenge(challenge) {
+  return String(challenge || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+}
+
 function deriveActivationKey(installation_id, challenge) {
   const secret = process.env.SERVER_SECRET;
   if (!secret) {
@@ -55,10 +67,11 @@ router.post('/', activateLimiter, (req, res) => {
     return res.status(400).json({ error: 'worker_pubkey_invalid' });
   }
 
+  const ch = normalizeChallenge(challenge);
   const db = getDb();
   const row = db.prepare(
     'SELECT * FROM licenses WHERE installation_id = ? AND challenge = ?'
-  ).get(installation_id, challenge);
+  ).get(installation_id, ch);
 
   if (!row) {
     return res.status(404).json({ error: 'not_found' });
@@ -67,7 +80,7 @@ router.post('/', activateLimiter, (req, res) => {
     return res.status(401).json({ error: 'revoked' });
   }
 
-  const expected = deriveActivationKey(installation_id, challenge);
+  const expected = deriveActivationKey(installation_id, ch);
   const keyBuf = Buffer.from(activation_key);
   const expBuf = Buffer.from(expected);
   if (keyBuf.length !== expBuf.length || !crypto.timingSafeEqual(keyBuf, expBuf)) {
@@ -117,3 +130,4 @@ router.post('/', activateLimiter, (req, res) => {
 
 module.exports = router;
 module.exports.deriveActivationKey = deriveActivationKey;
+module.exports.normalizeChallenge = normalizeChallenge;

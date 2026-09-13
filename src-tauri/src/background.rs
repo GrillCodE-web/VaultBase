@@ -21,6 +21,29 @@ use std::path::PathBuf;
 use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
+/// FIX FOOTPRINT-WAKE-01: пинок фонового sync-потока для near-real-time отправки.
+/// Создание заказа/смена статуса ставит флаг → поток просыпается почти сразу,
+/// не дожидаясь полного интервала. Только AtomicBool — без блокировок и каналов.
+pub static SYNC_WAKE: AtomicBool = AtomicBool::new(false);
+
+/// Разбудить sync-поток немедленно (вызывается после изменений footprint-очереди).
+pub fn wake_sync() {
+    SYNC_WAKE.store(true, Ordering::SeqCst);
+}
+
+/// Прерываемое ожидание: спит до `secs` секунд, но выходит раньше, если пришёл
+/// пинок через `wake_sync()`. Проверяет флаг раз в секунду.
+fn interruptible_sync_sleep(secs: u64) {
+    for _ in 0..secs {
+        if SYNC_WAKE.swap(false, Ordering::SeqCst) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    // сбрасываем флаг, если он выставился ровно к концу ожидания
+    SYNC_WAKE.store(false, Ordering::SeqCst);
+}
+
 pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
     // ── Autolock thread ──
     // SPRINT3-DAY4: Use autolock_timeout from config
@@ -151,8 +174,9 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
             }
             // Пауза между проверками — в конце цикла, чтобы первая проверка
             // онлайна прошла сразу после старта (см. коммент выше).
-            // FIX CONFIG: Use constant for sync check interval
-            std::thread::sleep(std::time::Duration::from_secs(crate::constants::SYNC_CHECK_INTERVAL_SECS));
+            // FIX FOOTPRINT-WAKE-01: прерываемое ожидание — заказ/смена статуса
+            // будят поток немедленно через wake_sync() (near-real-time отправка).
+            interruptible_sync_sleep(crate::constants::SYNC_CHECK_INTERVAL_SECS);
         }
     });
 

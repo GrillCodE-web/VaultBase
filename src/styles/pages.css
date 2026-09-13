@@ -914,7 +914,10 @@
       0 0 60px transparent;
     position: relative;
     z-index: var(--z-modal);
-    animation: none;
+    /* Мягкое появление вместо жёсткого среза после загрузочного спиннера.
+       fadeIn (opacity 0→1, глобальный keyframe из tokens.css) — без
+       transform, чтобы не создавать containing block для position:fixed. */
+    animation: fadeIn 0.26s ease both;
   }
 
   .auth-card::before {

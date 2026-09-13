@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { Copy, Check, KeyRound, ShieldCheck } from 'lucide-react'
+import { getVersion } from '@tauri-apps/api/app'
+import { Copy, Check, KeyRound, ShieldCheck, ClipboardCopy } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 
 // Auto-format XXXX-XXXX-XXXX-XXXX as user types
@@ -22,6 +23,8 @@ export default function Activate({ onActivated }) {
   const [installationId, setInstallationId] = useState('')
   const [copied, setCopied] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
+  const [copiedAll, setCopiedAll] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
   const [activationKey, setActivationKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -41,6 +44,9 @@ export default function Activate({ onActivated }) {
         console.error('[Activate] Failed to get installation ID:', e)
         setInstallationId('Error — restart app')
       })
+    getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion(''))
   }, [])
 
   const handleCopy = useCallback(() => {
@@ -58,6 +64,21 @@ export default function Activate({ onActivated }) {
       setTimeout(() => setCopiedId(false), 2000)
     })
   }, [installationId])
+
+  const handleCopyAll = useCallback(() => {
+    const block = [
+      'VaultBase — License activation request',
+      `Challenge code : ${challengeCode || '—'}`,
+      `Installation ID: ${installationId || '—'}`,
+      appVersion ? `App version    : ${appVersion}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+    navigator.clipboard.writeText(block).then(() => {
+      setCopiedAll(true)
+      setTimeout(() => setCopiedAll(false), 2000)
+    })
+  }, [challengeCode, installationId, appVersion])
 
   const handleKeyChange = e => {
     const formatted = formatKey(e.target.value)
@@ -142,6 +163,15 @@ export default function Activate({ onActivated }) {
               </div>
             </div>
           )}
+
+          {/* Скопировать весь блок для саппорта одной кнопкой */}
+          <button
+            onClick={handleCopyAll}
+            className={`btn btn-ghost btn-sm w-full mt-3 justify-center${copiedAll ? ' bg-success-bg text-success border-success-bg' : ''}`}
+          >
+            {copiedAll ? <Check size={13} /> : <ClipboardCopy size={13} />}
+            {copiedAll ? t('copied') || 'Copied' : t('activate_copy_all') || 'Copy all for support'}
+          </button>
         </div>
 
         {/* Instruction */}

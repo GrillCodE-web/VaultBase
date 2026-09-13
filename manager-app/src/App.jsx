@@ -7,6 +7,7 @@ import Activate from './pages/Activate.jsx'
 import SetupMaster from './pages/SetupMaster.jsx'
 import Unlock from './pages/Unlock.jsx'
 import Shell from './pages/Shell.jsx'
+import WindowControls from './components/WindowControls.jsx'
 
 export default function App() {
   const { t } = useLang()
@@ -24,21 +25,27 @@ export default function App() {
 
   if (error) {
     return (
-      <div className="center-screen">
-        <div className="auth-card">
-          <div className="error-box">{error}</div>
-          <button className="btn primary" onClick={load}>{t('retry')}</button>
+      <>
+        <WindowControls />
+        <div className="center-screen">
+          <div className="auth-card">
+            <div className="error-box">{error}</div>
+            <button className="btn primary" onClick={load}>{t('retry')}</button>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (!state) {
     return (
-      <div className="center-screen" role="status">
-        <span className="spinner" aria-hidden="true" />
-        <span>{t('loading')}</span>
-      </div>
+      <>
+        <WindowControls />
+        <div className="center-screen" role="status">
+          <span className="spinner" aria-hidden="true" />
+          <span>{t('loading')}</span>
+        </div>
+      </>
     )
   }
 
@@ -59,7 +66,10 @@ export default function App() {
   // ConfirmProvider снаружи всех фаз: confirm нужен и на Unlock (wipe).
   return (
     <ToastProvider>
-      <ConfirmProvider>{content}</ConfirmProvider>
+      <ConfirmProvider>
+        {content}
+        <WindowControls />
+      </ConfirmProvider>
     </ToastProvider>
   )
 }

@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { getDb, hashToken, getServerConfig, setServerConfig } = require('../database');
 const { requireAdmin } = require('../middleware');
-const { deriveActivationKey } = require('./activate');
+const { deriveActivationKey, normalizeChallenge } = require('./activate');
 const cache = require('../cache');
 
 const router = express.Router();
@@ -107,16 +107,20 @@ router.post('/licenses', (req, res) => {
   // выдать первую manager-лицензию (бутстрап-дыра: /manager/api/licenses
   // требует уже существующий manager-токен).
   const licRole = ['admin', 'operator', 'manager'].includes(role) ? role : 'operator';
+  // Нормализуем challenge (дефисы/пробелы → «чистый» hex, верхний регистр):
+  // воркер показывает код с дефисами, а /activate ищет лицензию по чистому hex.
+  const iid = installation_id.trim();
+  const ch = normalizeChallenge(challenge);
   const db = getDb();
   try {
     db.prepare('INSERT INTO licenses (installation_id,challenge,label,role) VALUES (?,?,?,?)').run(
-      installation_id.trim(), challenge.trim().toUpperCase(), label || '', licRole
+      iid, ch, label || '', licRole
     );
   } catch(e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'installation_id already exists' });
     throw e;
   }
-  const activation_key = deriveActivationKey(installation_id.trim(), challenge.trim().toUpperCase());
+  const activation_key = deriveActivationKey(iid, ch);
   cache.invalidate('admin:licenses');
   cache.invalidate('admin:stats');
   res.json({ ok: true, activation_key });
@@ -167,7 +171,7 @@ router.post('/licenses/:id/rebind', (req, res) => {
   }
   db.prepare(
     'UPDATE licenses SET installation_id=?, challenge=?, token_hash=NULL, prev_token_hash=NULL, rotated_at=NULL WHERE installation_id=?'
-  ).run(installation_id, challenge.trim(), req.params.id);
+  ).run(installation_id, normalizeChallenge(challenge), req.params.id);
   db.prepare('INSERT INTO audit_log (action, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
     .run('license_rebind', JSON.stringify({ from: req.params.id, to: installation_id, by: req.adminUser || 'admin' }));
   cache.invalidate('admin:licenses');

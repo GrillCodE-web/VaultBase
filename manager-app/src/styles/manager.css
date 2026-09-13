@@ -1532,3 +1532,64 @@ textarea.code {
   color: var(--red);
   background: var(--red-bg);
 }
+
+/* ── Кастомная «слитая» шапка окна (Windows/Linux) ──────────────
+   На macOS не рендерится (нативные трафик-лайты). */
+.win-drag-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  z-index: 1;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.win-controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  display: flex;
+  height: 32px;
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.win-ctl {
+  width: 46px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: default;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.win-ctl:hover {
+  background: var(--hover, rgba(255, 255, 255, 0.08));
+  color: var(--text);
+}
+
+.win-ctl-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.win-ctl-close:active {
+  background: #f1707a;
+  color: #fff;
+}
+
+/* Освобождаем справа место под кнопки окна. */
+[data-chrome='custom'] .topbar {
+  padding-right: 150px;
+}

@@ -67,19 +67,14 @@ pub(crate) fn set_config(key: String, value: String) -> Result<(), String> {
     })
 }
 
-// SEC-020/BUG-003: Seed data only available in debug builds
+// SEC-020/BUG-003: раньше seed был доступен только в debug-сборках. Демо-данные
+// нужны и в релизе (онбординг: чтобы пользователь увидел интерфейс на живых
+// записях), поэтому команда доступна везде, но остаётся под require_user() и
+// ручным подтверждением во фронте — автозасева нет.
 #[tauri::command]
 pub(crate) fn seed_test_data(force: bool) -> Result<String, String> {
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = force;
-        return Err("seed_test_data is disabled in production builds".to_string());
-    }
-    #[cfg(debug_assertions)]
-    {
-        require_user()?;
-        with_db!(db, { db.seed_test_data(force) })
-    }
+    require_user()?;
+    with_db!(db, { db.seed_test_data(force) })
 }
 
 #[tauri::command]

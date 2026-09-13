@@ -1894,14 +1894,18 @@
   }
 
   /* ── Spinner ────────────────────────────────────────────── */
-  /* animation убран — единственный источник анимации теперь
-   tokens-redesign.css (spin 1s steps(12) с !important) */
+  /* Крутящаяся анимация обязана жить здесь, в обычном состоянии.
+     Ранее её вынесли, оставив spin только в @media
+     (prefers-reduced-motion: reduce) в tokens.css — из-за чего у
+     обычного пользователя загрузочное кольцо стояло замороженным
+     (и «крутилось» лишь при включённом reduce-motion). */
   .spinner {
     width: 40px;
     height: 40px;
     border-radius: 50%;
     border: 2px solid var(--accent);
     border-top-color: transparent;
+    animation: spin 0.8s linear infinite;
   }
 
   .spinner-sm {
@@ -1911,6 +1915,7 @@
     border: 2px solid var(--accent);
     border-top-color: transparent;
     flex-shrink: 0;
+    animation: spin 0.8s linear infinite;
   }
 
   .spinner-container {
@@ -2072,7 +2077,9 @@
 
   .actions-dropdown {
     box-shadow: var(--shadow-lg);
-    animation: none;
+    /* Консистентно с .menu-dropdown — тот же поп-ин вместо жёсткого среза.
+       menu-pop завершается на transform:none, containing-block не остаётся. */
+    animation: menu-pop 0.13s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .actions-menu-item {
@@ -3184,7 +3191,7 @@
     padding-top: 100px;
     background: var(--overlay-darker);
     backdrop-filter: blur(12px);
-    animation: none;
+    animation: overlay-in 0.16s ease-out backwards;
   }
 
   /* ── Search Box ─────────────────────────────────────────── */
@@ -3198,7 +3205,7 @@
     box-shadow:
       var(--shadow-lg),
       0 0 60px transparent;
-    animation: none;
+    animation: modal-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     position: relative;
   }
 
@@ -3408,7 +3415,7 @@
     display: flex;
     align-items: flex-start;
     gap: var(--sp-3);
-    animation: none;
+    animation: toast-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     pointer-events: all;
     position: relative;
     overflow: hidden;
@@ -3441,11 +3448,11 @@
    ═══════════════════════════════════════════════════════════ */
 
   .overlay-enter {
-    animation: none;
+    animation: overlay-in 0.16s ease-out backwards;
   }
 
   .modal-enter {
-    animation: none;
+    animation: modal-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 
   .modal-leave {
@@ -5606,4 +5613,74 @@
   padding: 6px 8px;
   border-radius: 6px;
   background: var(--card);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Кастомная «слитая» шапка окна (Windows/Linux)
+   На macOS не рендерится (нативные трафик-лайты, titleBarStyle: Overlay).
+   ═══════════════════════════════════════════════════════════ */
+
+/* Полоса перетаскивания вдоль верхнего края — низкий z-index, чтобы
+   интерактивные элементы топбара получали клики, а пустой верх тянул окно. */
+.win-drag-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  z-index: 1;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.win-controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  display: flex;
+  height: 32px;
+  z-index: var(--z-tooltip);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.win-ctl {
+  width: 46px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: default;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.win-ctl:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.win-ctl:active {
+  background: var(--hover-row);
+}
+
+.win-ctl-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.win-ctl-close:active {
+  background: #f1707a;
+  color: #fff;
+}
+
+/* Освобождаем справа место под кнопки окна, чтобы они не легли на аватар. */
+[data-chrome='custom'] .app-topbar {
+  padding-right: 150px;
 }

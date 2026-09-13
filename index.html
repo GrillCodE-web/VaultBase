@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/vaultbase-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VaultBase</title>
+    <!-- Фон первого кадра до монтирования React: окно показывается сразу
+         (visible:true), а перед mount идёт async-проверка кеша — без этого
+         WebView2 заливает окно белым и на открытии видна вспышка. Тёмная
+         тема — дефолт приложения (useTheme → 'dark'). -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #0c0d10;
+        color-scheme: dark;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
