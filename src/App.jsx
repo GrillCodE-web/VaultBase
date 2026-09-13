@@ -1793,9 +1793,18 @@ function AppInner() {
       console.error('[license] verify_after_unlock failed:', e)
       gate = 'needs_network'
     }
-    if (gate === 'revoked') { setView('revoked'); return }
-    if (gate === 'not_activated') { setView('activate'); return }
-    if (gate === 'needs_network') { setView('needs_network'); return }
+    if (gate === 'revoked') {
+      setView('revoked')
+      return
+    }
+    if (gate === 'not_activated') {
+      setView('activate')
+      return
+    }
+    if (gate === 'needs_network') {
+      setView('needs_network')
+      return
+    }
     if (gate === 'offline') setOfflineMode(true)
 
     // C: apply always_on_top from saved config
@@ -1808,8 +1817,9 @@ function AppInner() {
     }
 
     // MOBILE-03: iOS — подтянуть срезы из пула сразу после разблокировки,
-    // не дожидаясь ручного открытия страницы срезов
-    if (isIOS) {
+    // не дожидаясь ручного открытия страницы срезов. Определение платформы —
+    // по userAgent (это десктопный Tauri-клиент; мобильная сборка отдельно).
+    if (/iPhone|iPad|iPod/i.test(window.navigator?.userAgent || '')) {
       invoke('request_pool_slice').catch(e =>
         console.warn('[pool] auto-claim after unlock failed:', e)
       )
@@ -1880,7 +1890,7 @@ function AppInner() {
   if (view === 'checking') return <Spinner />
   if (view === 'activate') return <Activate onActivated={() => setView('auth')} />
   if (view === 'revoked') return <RevokedScreen />
-if (view === 'needs_network') return <NeedsNetworkScreen />
+  if (view === 'needs_network') return <NeedsNetworkScreen />
   if (view === 'auth') return <Login onUnlocked={handleUnlocked} />
   if (view === 'user_login') return <UserLogin onLoggedIn={handleUserLoggedIn} />
 
