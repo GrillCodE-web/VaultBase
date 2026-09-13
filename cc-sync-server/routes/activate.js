@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
-const { getDb, hashToken } = require('../database');
+const { getDb, hashToken, isKillSwitchOn } = require('../database');
 
 const router = express.Router();
 
@@ -37,6 +37,10 @@ function deriveActivationKey(installation_id, challenge) {
 
 // POST /activate
 router.post('/', activateLimiter, (req, res) => {
+  if (isKillSwitchOn()) {
+    return res.status(503).json({ error: 'service_halted' });
+  }
+
   const { installation_id, challenge, activation_key, worker_pubkey } = req.body || {};
 
   if (!installation_id || !challenge || !activation_key) {

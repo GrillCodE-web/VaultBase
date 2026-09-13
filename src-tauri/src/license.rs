@@ -42,6 +42,7 @@ struct ActivateResponse {
 #[derive(Debug, Serialize)]
 struct VerifyRequest {
     token: String,
+    installation_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,6 +50,10 @@ struct VerifyResponse {
     valid: bool,
     #[serde(default)]
     role: Option<String>,
+    #[serde(default)]
+    new_token: Option<String>,
+    #[serde(default)]
+    offline_until: Option<String>,
 }
 
 /// Нормализует роль из ответа сервера: только admin/operator.
@@ -226,7 +231,9 @@ pub fn retry_verify(db: &Database) -> Result<LicenseStatus, String> {
 }
 
 fn do_verify(db: &Database, token: String) -> Result<LicenseStatus, String> {
-    let body = VerifyRequest { token };
+    // SEC-ITER1: привязка к железу — сервер сверяет installation_id
+    let iid = get_or_create_installation_id(db).unwrap_or_default();
+    let body = VerifyRequest { token, installation_id: iid };
 
     match ureq::post(&verify_url())
         .set("Content-Type", "application/json")
@@ -238,19 +245,77 @@ fn do_verify(db: &Database, token: String) -> Result<LicenseStatus, String> {
                 .map_err(|_| "invalid_server_response".to_string())?;
 
             if verify_resp.valid {
+                // Ротация: сервер мог перевыпустить токен — перезаписываем
+                if let Some(nt) = verify_resp.new_token.as_deref().filter(|t| !t.is_empty()) {
+                    if let Ok(enc) = db.encrypt_field(nt) {
+                        let _ = db.set_config("license_token", &enc);
+                    }
+                }
+                // Офлайн-пермит: сервер задаёт дедлайн автономной работы
+                let _ = db.set_config("offline_until", verify_resp.offline_until.as_deref().unwrap_or(""));
                 store_license_role(db, verify_resp.role.as_deref());
                 Ok(LicenseStatus::Active)
             } else {
                 Ok(LicenseStatus::Revoked)
             }
         }
-        Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => {
+        Err(ureq::Error::Status(code, resp)) if code == 401 || code == 403 => {
+            // SEC-ITER1: читаем код причины; мёртвая лицензия → стираем токен,
+            // чтобы следующий старт показал экран активации, а не пускал дальше
+            let reason = resp.into_string().ok()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                .and_then(|v| v.get("error").and_then(|e| e.as_str().map(String::from)))
+                .unwrap_or_default();
+            if matches!(reason.as_str(), "revoked" | "invalid_token" | "device_mismatch" | "license_expired") {
+                let _ = db.set_config("license_token", "");
+            }
             Ok(LicenseStatus::Revoked)
         }
         Err(ureq::Error::Transport(_)) => Ok(LicenseStatus::Offline),
         Err(e) => {
             eprintln!("[license] verify transport error: {:?}", e);
             Ok(LicenseStatus::Offline)
+        }
+    }
+}
+
+/// SEC-ITER1: офлайн-гейт. Разрешает автономную работу только при живом
+/// серверном пермите (offline_until из последнего verify). Истёк/нет — сеть обязательна.
+pub fn offline_permit_valid(db: &Database) -> bool {
+    db.get_config("offline_until").ok().flatten()
+        .filter(|s| !s.is_empty())
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+        .map(|exp| exp > chrono::Utc::now())
+        .unwrap_or(false)
+}
+
+/// SEC-ITER1: строгая проверка после разблокировки мастер-паролем.
+/// revoked → токен стёрт; нет сети → смотрим пермит; пермита нет → блок.
+#[cfg_attr(debug_assertions, allow(clippy::needless_return))]
+pub fn verify_after_unlock(db: &Database) -> Result<&'static str, String> {
+    #[cfg(debug_assertions)]
+    {
+        let _ = db;
+        return Ok("active");
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let raw_token = match db.get_config("license_token").map_err(|e| e.to_string())? {
+            Some(t) if !t.is_empty() => t,
+            _ => return Ok("not_activated"),
+        };
+        let token = match &db.encryption {
+            Some(enc) => enc.decrypt(&raw_token).unwrap_or(raw_token),
+            None => raw_token,
+        };
+        match do_verify(db, token)? {
+            LicenseStatus::Active => Ok("active"),
+            LicenseStatus::Revoked => Ok("revoked"),
+            LicenseStatus::Offline => {
+                if offline_permit_valid(db) { Ok("offline") } else { Ok("needs_network") }
+            }
+            LicenseStatus::NotActivated => Ok("not_activated"),
         }
     }
 }

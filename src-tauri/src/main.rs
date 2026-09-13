@@ -374,6 +374,7 @@ fn main() {
             commands::telemetry::get_shop_priorities,
             commands::license::get_installation_id, commands::license::get_challenge_code, commands::license::activate_license,
             commands::license::get_license_status, commands::license::retry_license_connection,
+            commands::license::verify_license_after_unlock,
             commands::misc::global_search, commands::misc::open_float_window, commands::misc::open_main_window_page, commands::misc::get_server_version, commands::misc::get_app_version,
             commands::automation::get_card_shop_usage, commands::automation::get_email_footprint_stats, commands::automation::get_shop_risk_score, commands::automation::get_card_timeline,
             // REDESIGN-05-5B4: E2E-чат (сервер хранит только sealed-конверты)

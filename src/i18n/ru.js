@@ -1431,6 +1431,8 @@ export const ru = {
   chat_input_placeholder: 'Сообщение… (Enter — отправить, Shift+Enter — новая строка)',
   chat_send: 'Отправить',
   chat_typing: 'печатает…',
+  chat_online: 'в сети',
+  chat_last_seen: 'был(а) в {at}',
   chat_ref_card: 'Карта',
   chat_ref_order: 'Заказ',
   chat_ref_profile: 'Профиль',

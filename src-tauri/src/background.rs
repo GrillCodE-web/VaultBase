@@ -156,6 +156,34 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
         }
     });
 
+    // SEC-ITER1: license heartbeat — verify каждые 6ч, пока приложение открыто.
+    // revoked пробивается без перезапуска: токен стирается в do_verify,
+    // приложение блокируется и уходит на экран revoked.
+    let h = handle.clone();
+    std::thread::spawn(move || {
+        const HEARTBEAT_SECS: u64 = 6 * 60 * 60;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(HEARTBEAT_SECS));
+            if let Some(st) = STATE.get() {
+                if let Ok(mut db) = st.db.lock() {
+                    if db.is_locked() { continue; }
+                    match license::verify_after_unlock(&db) {
+                        Ok("revoked") => {
+                            db.clear_encryption();
+                            drop(db);
+                            st.is_locked.store(true, Ordering::SeqCst);
+                            let _ = h.emit("license_revoked", ());
+                        }
+                        Ok("needs_network") => {
+                            let _ = h.emit("server_offline", ());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    });
+
     // SPRINT3-DAY4: License check thread - use config interval
     let h = handle.clone();
     std::thread::spawn(move || {

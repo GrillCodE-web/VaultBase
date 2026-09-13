@@ -1432,6 +1432,8 @@ export const en = {
   chat_input_placeholder: 'Message… (Enter — send, Shift+Enter — newline)',
   chat_send: 'Send',
   chat_typing: 'typing…',
+  chat_online: 'online',
+  chat_last_seen: 'last seen {at}',
   chat_ref_card: 'Card',
   chat_ref_order: 'Order',
   chat_ref_profile: 'Profile',

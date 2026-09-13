@@ -124,8 +124,8 @@ router.post('/licenses', (req, res) => {
 
 // PATCH /admin/api/licenses/:id — edit label and/or role
 router.patch('/licenses/:id', (req, res) => {
-  const { label, role } = req.body || {};
-  if (label === undefined && role === undefined) return res.status(400).json({ error: 'label or role required' });
+  const { label, role, expires_at } = req.body || {};
+  if (label === undefined && role === undefined && expires_at === undefined) return res.status(400).json({ error: 'label, role or expires_at required' });
   const db = getDb();
   if (label !== undefined) {
     db.prepare('UPDATE licenses SET label=? WHERE installation_id=?').run(label.trim(), req.params.id);
@@ -134,9 +134,45 @@ router.patch('/licenses/:id', (req, res) => {
     if (!['admin', 'operator', 'manager'].includes(role)) return res.status(400).json({ error: 'role must be admin, operator or manager' });
     db.prepare('UPDATE licenses SET role=? WHERE installation_id=?').run(role, req.params.id);
   }
+  if (expires_at !== undefined) {
+    // Time-bomb: ISO-дата или null (бессрочно). Просроченная лицензия получает
+    // 403 license_expired на /verify даже при живом сервере.
+    if (expires_at !== null && Number.isNaN(Date.parse(expires_at))) return res.status(400).json({ error: 'expires_at must be ISO date or null' });
+    db.prepare('UPDATE licenses SET expires_at=? WHERE installation_id=?').run(expires_at, req.params.id);
+    db.prepare('INSERT INTO audit_log (action, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+      .run('license_expiry', JSON.stringify({ installation_id: req.params.id, expires_at, by: req.adminUser || 'admin' }));
+  }
   cache.invalidate('admin:licenses');
   cache.invalidate('admin:stats');
   res.json({ ok: true });
+});
+
+// Ребинд лицензии на другое устройство (P3.9): после смены железа клиент
+// показывает новый installation_id и challenge (код активации привязан к
+// железу), менеджер перебивает привязку здесь. Старый токен умирает —
+// перевыпускается при повторной активации на новом устройстве.
+router.post('/licenses/:id/rebind', (req, res) => {
+  const { installation_id, challenge } = req.body || {};
+  if (!installation_id || typeof installation_id !== 'string' || installation_id.length < 8) {
+    return res.status(400).json({ error: 'installation_id required' });
+  }
+  if (!challenge || typeof challenge !== 'string' || challenge.length < 8) {
+    return res.status(400).json({ error: 'challenge required' });
+  }
+  const db = getDb();
+  const row = db.prepare('SELECT installation_id FROM licenses WHERE installation_id=?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'not_found' });
+  if (db.prepare('SELECT 1 FROM licenses WHERE installation_id=?').get(installation_id)) {
+    return res.status(409).json({ error: 'target_exists' });
+  }
+  db.prepare(
+    'UPDATE licenses SET installation_id=?, challenge=?, token_hash=NULL, prev_token_hash=NULL, rotated_at=NULL WHERE installation_id=?'
+  ).run(installation_id, challenge.trim(), req.params.id);
+  db.prepare('INSERT INTO audit_log (action, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+    .run('license_rebind', JSON.stringify({ from: req.params.id, to: installation_id, by: req.adminUser || 'admin' }));
+  cache.invalidate('admin:licenses');
+  cache.invalidate('admin:stats');
+  res.json({ ok: true, installation_id });
 });
 
 router.post('/licenses/:id/revoke', (req, res) => {
@@ -611,10 +647,15 @@ router.post('/licenses/:id/rotate-token', (req, res) => {
 // ws_require_nonce=1: WS auth обязан эхом возвращать одноразовый nonce из
 // auth_challenge (включать после обновления флота воркеров).
 const SERVER_CONFIG_KEYS = ['kill_switch', 'ws_require_nonce'];
+// Числовые ключи (не тоглы 0/1): TTL офлайн-пермита в часах (0 = офлайн запрещён),
+// период авто-ротации лицензионных токенов в днях.
+const SERVER_CONFIG_NUMERIC_KEYS = ['offline_ttl_hours', 'token_rotate_days'];
 
 const serverConfigGet = (req, res) => {
   const out = {};
   for (const k of SERVER_CONFIG_KEYS) out[k] = getServerConfig(k, '0');
+  out.offline_ttl_hours = getServerConfig('offline_ttl_hours', '72');
+  out.token_rotate_days = getServerConfig('token_rotate_days', '30');
   res.json(out);
 };
 
@@ -623,6 +664,14 @@ router.get('/config', serverConfigGet);
 
 const serverConfigSet = (req, res) => {
   const { key, value } = req.body || {};
+  if (SERVER_CONFIG_NUMERIC_KEYS.includes(key)) {
+    if (!/^\d{1,5}$/.test(String(value))) return res.status(400).json({ error: 'invalid_value' });
+    setServerConfig(key, String(value));
+    getDb().prepare(
+      'INSERT INTO audit_log (action, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)'
+    ).run('server_config', JSON.stringify({ key, value: String(value), by: req.adminUser || 'admin' }));
+    return res.json({ ok: true, key, value: String(value) });
+  }
   if (!SERVER_CONFIG_KEYS.includes(key)) return res.status(400).json({ error: 'unknown_key' });
   if (value !== '0' && value !== '1') return res.status(400).json({ error: 'invalid_value' });
   setServerConfig(key, value);

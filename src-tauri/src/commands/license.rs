@@ -50,3 +50,9 @@ pub(crate) fn get_license_status() -> Result<LicenseStatus, String> {
 pub(crate) fn retry_license_connection() -> Result<LicenseStatus, String> {
     with_db!(db, { crate::license::retry_verify(db) })
 }
+
+/// SEC-ITER1: строгий гейт после unlock — 'active' | 'offline' | 'needs_network' | 'revoked' | 'not_activated'
+#[tauri::command]
+pub(crate) fn verify_license_after_unlock() -> Result<String, String> {
+    with_db!(db, { crate::license::verify_after_unlock(db).map(String::from) })
+}

@@ -151,6 +151,33 @@ function RevokedScreen() {
   )
 }
 
+// SEC-ITER1: блокирующий экран «нет офлайн-пермита» — сервер недоступен,
+// а разрешения на автономную работу нет или оно истекло.
+function NeedsNetworkScreen() {
+  const { t } = useLang()
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg">
+      <div className="revoked-card">
+        <div className="revoked-icon-box">
+          <AlertTriangle size={28} style={{ color: HEX_COLORS.yellow }} />
+        </div>
+        <h1 className="revoked-title">{t('needs_network_title') || 'Требуется подключение'}</h1>
+        <p className="revoked-text">
+          {t('needs_network_body') ||
+            'Сервер недоступен, а разрешение на автономную работу истекло или не выдавалось. Подключитесь к сети и повторите.'}
+        </p>
+        <button
+          className="btn btn-primary"
+          style={{ marginTop: 16, width: '100%' }}
+          onClick={() => window.location.reload()}
+        >
+          {t('retry') || 'Повторить'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── MGR-005: блокирующий экран «обнови приложение» ─────────────
 // Сервер ставит update_required, когда X-App-Version ниже policy.min_version
 // (воркеры с version_exempt сюда не попадают — сервер их не помечает).
@@ -1757,6 +1784,20 @@ function AppInner() {
   }, [view, currentUser])
 
   const handleUnlocked = async () => {
+    // SEC-ITER1: после разблокировки — строгая проверка лицензии на сервере.
+    // revoked → токен стёрт, экран блокировки; нет сети без пермита → блок.
+    let gate = 'active'
+    try {
+      gate = await invoke('verify_license_after_unlock')
+    } catch (e) {
+      console.error('[license] verify_after_unlock failed:', e)
+      gate = 'needs_network'
+    }
+    if (gate === 'revoked') { setView('revoked'); return }
+    if (gate === 'not_activated') { setView('activate'); return }
+    if (gate === 'needs_network') { setView('needs_network'); return }
+    if (gate === 'offline') setOfflineMode(true)
+
     // C: apply always_on_top from saved config
     try {
       const aot = await invoke('get_config', { key: 'always_on_top' })
@@ -1765,6 +1806,15 @@ function AppInner() {
       handleError(e)
       // Config read failed - continue without always_on_top
     }
+
+    // MOBILE-03: iOS — подтянуть срезы из пула сразу после разблокировки,
+    // не дожидаясь ручного открытия страницы срезов
+    if (isIOS) {
+      invoke('request_pool_slice').catch(e =>
+        console.warn('[pool] auto-claim after unlock failed:', e)
+      )
+    }
+
     // Try to resume existing session from localStorage
     const existing = await resumeSession()
     if (existing) {
@@ -1830,6 +1880,7 @@ function AppInner() {
   if (view === 'checking') return <Spinner />
   if (view === 'activate') return <Activate onActivated={() => setView('auth')} />
   if (view === 'revoked') return <RevokedScreen />
+if (view === 'needs_network') return <NeedsNetworkScreen />
   if (view === 'auth') return <Login onUnlocked={handleUnlocked} />
   if (view === 'user_login') return <UserLogin onLoggedIn={handleUserLoggedIn} />
 

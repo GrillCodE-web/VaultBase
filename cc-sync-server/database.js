@@ -671,6 +671,18 @@ function migrate(db) {
       PRAGMA user_version = 26;
     `);
   }
+
+  // SEC-ITER1: лицензионные ужесточения — привязка устройства, ротация токенов,
+  // офлайн-пермиты, last_ip для алертов о смене IP.
+  if (ver < 27) {
+    db.exec(`
+      ALTER TABLE licenses ADD COLUMN last_ip TEXT;
+      ALTER TABLE licenses ADD COLUMN prev_token_hash TEXT;
+      ALTER TABLE licenses ADD COLUMN rotated_at DATETIME;
+      ALTER TABLE licenses ADD COLUMN expires_at DATETIME;
+      PRAGMA user_version = 27;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому
