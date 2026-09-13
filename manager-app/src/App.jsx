@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLang } from './hooks/useLang.jsx'
 import { ConfirmProvider } from './hooks/useConfirm.jsx'
+import { ToastProvider } from './hooks/useToast.jsx'
 import { getAppState } from './api/server.js'
 import Activate from './pages/Activate.jsx'
 import SetupMaster from './pages/SetupMaster.jsx'
@@ -33,7 +34,12 @@ export default function App() {
   }
 
   if (!state) {
-    return <div className="center-screen">{t('loading')}</div>
+    return (
+      <div className="center-screen" role="status">
+        <span className="spinner" aria-hidden="true" />
+        <span>{t('loading')}</span>
+      </div>
+    )
   }
 
   let content
@@ -51,5 +57,9 @@ export default function App() {
       content = <Shell appState={state} onLock={load} />
   }
   // ConfirmProvider снаружи всех фаз: confirm нужен и на Unlock (wipe).
-  return <ConfirmProvider>{content}</ConfirmProvider>
+  return (
+    <ToastProvider>
+      <ConfirmProvider>{content}</ConfirmProvider>
+    </ToastProvider>
+  )
 }

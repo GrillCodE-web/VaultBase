@@ -1,19 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { useLang } from '../hooks/useLang.jsx'
-import { api, getConfigValues, getLocalAlerts, lockApp, syncTelemetry } from '../api/server.js'
-import Dashboard from './Dashboard.jsx'
-import Workers from './Workers.jsx'
-import Cards from './Cards.jsx'
-import Analytics from './Analytics.jsx'
-import News from './News.jsx'
-import Alerts from './Alerts.jsx'
-import Chat from './Chat.jsx'
-import Priorities from './Priorities.jsx'
-import Updates from './Updates.jsx'
-import Licenses from './Licenses.jsx'
-import Settings from './Settings.jsx'
+import { useToast } from '../hooks/useToast.jsx'
+import { api, checkAppUpdate, getConfigValues, getLocalAlerts, lockApp, syncTelemetry } from '../api/server.js'
+import CommandPalette from '../components/CommandPalette.jsx'
 import ErrorBoundary from '../components/ErrorBoundary.jsx'
+
+// Code splitting: каждая страница грузится отдельным чанком по первому обращению.
+const Dashboard = lazy(() => import('./Dashboard.jsx'))
+const Workers = lazy(() => import('./Workers.jsx'))
+const Cards = lazy(() => import('./Cards.jsx'))
+const Analytics = lazy(() => import('./Analytics.jsx'))
+const News = lazy(() => import('./News.jsx'))
+const Alerts = lazy(() => import('./Alerts.jsx'))
+const Chat = lazy(() => import('./Chat.jsx'))
+const Priorities = lazy(() => import('./Priorities.jsx'))
+const Updates = lazy(() => import('./Updates.jsx'))
+const Licenses = lazy(() => import('./Licenses.jsx'))
+const Settings = lazy(() => import('./Settings.jsx'))
 
 const PAGES = {
   dashboard: Dashboard,
@@ -31,6 +36,7 @@ const PAGES = {
 
 export default function Shell({ appState, onLock }) {
   const { t, lang, setLang } = useLang()
+  const { toast } = useToast()
   // Hash routing (P1): страница живёт в #hash — перезагрузка и «назад» не
   // сбрасывают экран; валидируем по PAGES, чтобы мусор не ломал рендер.
   const pageFromHash = () => {
@@ -39,7 +45,7 @@ export default function Shell({ appState, onLock }) {
   }
   const [page, setPageState] = useState(pageFromHash)
   const [navParams, setNavParams] = useState({})
-  const setPage = p => {
+  const setPage = (p) => {
     const next = PAGES[p] ? p : 'dashboard'
     window.location.hash = `/${next}`
     setPageState(next)
@@ -48,18 +54,21 @@ export default function Shell({ appState, onLock }) {
     setNavParams(params || {})
     setPage(p)
   }
-  const [alertsNew, setAlertsNew] = useState(0)
-  const [syncInfo, setSyncInfo] = useState('')
-  const [syncing, setSyncing] = useState(false)
 
-  // 7rn: светлая тема (переопределение токенов через data-theme на <html>)
+  // Светлая тема (data-theme на <html>); стартовая — сохранённая, иначе из
+  // системных настроек (prefers-color-scheme).
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem('vb-mgr-theme') === 'light' ? 'light' : 'dark'
+      const saved = localStorage.getItem('vb-mgr-theme')
+      if (saved === 'light' || saved === 'dark') return saved
     } catch {
-      return 'dark'
+      /* localStorage недоступен */
     }
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   })
+  const [alertsNew, setAlertsNew] = useState(0)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState(null)
 
   useEffect(() => {
     if (theme === 'light') document.documentElement.dataset.theme = 'light'
@@ -72,6 +81,17 @@ export default function Shell({ appState, onLock }) {
   }, [theme])
 
   const idleMin = useRef(10)
+  // SPEC-B (0s9): предупреждение об автоблоке за 60с + продление кликом —
+  // паритет с воркером (autolock-pill). deadline=null → таймер снят/выключен.
+  const [idleDeadline, setIdleDeadline] = useState(null)
+  const [idleNow, setIdleNow] = useState(() => Date.now())
+  const idleArmRef = useRef(null)
+
+  useEffect(() => {
+    if (!idleDeadline) return undefined
+    const iv = setInterval(() => setIdleNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [idleDeadline])
 
   // hashchange: системная кнопка «назад» / ручная правка URL меняют страницу.
   useEffect(() => {
@@ -106,17 +126,24 @@ export default function Shell({ appState, onLock }) {
     let timer
     const arm = () => {
       clearTimeout(timer)
-      if (idleMin.current <= 0) return
+      if (idleMin.current <= 0) {
+        setIdleDeadline(null)
+        return
+      }
+      setIdleDeadline(Date.now() + idleMin.current * 60000)
       timer = setTimeout(async () => {
+        setIdleDeadline(null)
         await lockApp().catch(() => {})
         onLock()
       }, idleMin.current * 60000)
     }
+    idleArmRef.current = arm
     const events = ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart']
     events.forEach((e) => window.addEventListener(e, arm, { passive: true }))
     arm()
     return () => {
       clearTimeout(timer)
+      idleArmRef.current = null
       events.forEach((e) => window.removeEventListener(e, arm))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,26 +167,110 @@ export default function Shell({ appState, onLock }) {
     })
   }
 
+  // Ручной синк (палитра / empty-state страниц): результат — тостом.
   const doSync = async () => {
-    setSyncing(true)
-    setSyncInfo('')
     try {
       const res = await syncTelemetry()
-      setSyncInfo(t('sync_result', {
-        workers: res.workers,
-        reports: res.reports,
-        fails: res.unseal_failures + res.sealed_to_other_key,
-      }))
       notifyNewAlerts(res.new_alerts)
       refreshAlerts()
+      toast(
+        t('toast_sync_ok', {
+          workers: res.workers,
+          reports: res.reports,
+          fails: res.unseal_failures + res.sealed_to_other_key,
+        }),
+        'success'
+      )
     } catch (e) {
-      setSyncInfo(`${t('err_generic')}: ${e}`)
-    } finally {
-      setSyncing(false)
+      toast(`${t('toast_sync_fail')}: ${e}`, 'error')
     }
   }
 
   const Page = PAGES[page] ?? Dashboard
+
+  const doLock = async () => {
+    await lockApp().catch(() => {})
+    onLock()
+  }
+
+  // Авто-синк телеметрии: realtime по WS-событию сервера (debounce 5с) +
+  // fallback каждые 5 мин. Тихий — без тостов, чтобы не спамить.
+  const alertsRef = useRef({ refreshAlerts, notifyNewAlerts })
+  alertsRef.current = { refreshAlerts, notifyNewAlerts }
+
+  useEffect(() => {
+    const silentSync = () => {
+      syncTelemetry()
+        .then((res) => {
+          alertsRef.current.notifyNewAlerts(res.new_alerts)
+          alertsRef.current.refreshAlerts()
+        })
+        .catch(() => {})
+    }
+    silentSync()
+    let debounceTimer = null
+    let unlistenFn = null
+    let disposed = false
+    listen('telemetry:updated', () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(silentSync, 5000)
+    }).then((fn) => {
+      if (disposed) fn()
+      else unlistenFn = fn
+    })
+    const interval = setInterval(silentSync, 5 * 60 * 1000)
+    return () => {
+      disposed = true
+      unlistenFn?.()
+      clearTimeout(debounceTimer)
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Фоновая проверка обновлений приложения: на старте и раз в час.
+  useEffect(() => {
+    let disposed = false
+    const check = () => {
+      checkAppUpdate()
+        .then((r) => {
+          if (!disposed) setUpdateInfo(r?.available ? r : null)
+        })
+        .catch(() => {})
+    }
+    check()
+    const timer = setInterval(check, 60 * 60 * 1000)
+    return () => {
+      disposed = true
+      clearInterval(timer)
+    }
+  }, [])
+
+  // Ctrl+K / Cmd+K — палитра команд
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const paletteActions = [
+    { id: 'sync', label: t('sync_action'), run: () => doSync() },
+    { id: 'lock', label: t('lock_action'), run: doLock },
+    {
+      id: 'theme',
+      label: t('theme_toggle'),
+      run: () => setTheme((v) => (v === 'dark' ? 'light' : 'dark')),
+    },
+    {
+      id: 'lang',
+      label: t('lang_toggle'),
+      run: () => setLang(lang === 'ru' ? 'en' : 'ru'),
+    },
+  ]
 
   const nav = useMemo(
     () => [
@@ -177,6 +288,12 @@ export default function Shell({ appState, onLock }) {
     ],
     []
   )
+
+  const paletteNav = nav.map(([id, label]) => ({
+    page: id,
+    label: t(label),
+    run: () => navigate(id),
+  }))
 
   return (
     <div className="shell">
@@ -197,16 +314,7 @@ export default function Shell({ appState, onLock }) {
           </button>
         ))}
         <div className="spacer" />
-        <button className="nav-item" onClick={doSync} disabled={syncing}>
-          {syncing ? t('syncing') : t('sync_action')}
-        </button>
-        <button
-          className="nav-item"
-          onClick={async () => {
-            await lockApp()
-            onLock()
-          }}
-        >
+        <button className="nav-item" onClick={doLock}>
           {t('lock_action')}
         </button>
       </aside>
@@ -214,11 +322,34 @@ export default function Shell({ appState, onLock }) {
       <div className="main">
         <div className="topbar">
           <div className="title">{t('nav_' + page)}</div>
-          {syncInfo && (
-            <div className="meta" role="status">
-              {syncInfo}
-            </div>
+          {updateInfo && (
+            <button
+              type="button"
+              className="update-banner"
+              onClick={() => navigate('updates')}
+              title={t('update_banner_action')}
+            >
+              {t('update_available', { version: updateInfo.version })}
+            </button>
           )}
+          {idleDeadline && idleDeadline - idleNow <= 60000 && (
+            <button
+              type="button"
+              className="autolock-pill mono"
+              onClick={() => idleArmRef.current?.()}
+              title={t('autolock_extend_hint')}
+            >
+              {t('autolock_in', { s: Math.max(0, Math.ceil((idleDeadline - idleNow) / 1000)) })}
+            </button>
+          )}
+          <button
+            className="btn small"
+            onClick={() => setPaletteOpen(true)}
+            aria-label={t('palette_open_hint')}
+            title={t('palette_open_hint')}
+          >
+            ⌘K
+          </button>
           <button
             className="btn small"
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
@@ -239,10 +370,28 @@ export default function Shell({ appState, onLock }) {
         </div>
         <div className="content">
           <ErrorBoundary resetKey={page}>
-            <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={navigate} navParams={navParams} />
+            <Suspense
+              fallback={
+                <div className="center-screen" role="status">
+                  <span className="spinner" aria-hidden="true" />
+                </div>
+              }
+            >
+              <div className="page-enter" key={page}>
+                <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={navigate} navParams={navParams} />
+              </div>
+            </Suspense>
           </ErrorBoundary>
         </div>
       </div>
+
+      {paletteOpen && (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          actions={paletteActions}
+          navItems={paletteNav}
+        />
+      )}
     </div>
   )
 }

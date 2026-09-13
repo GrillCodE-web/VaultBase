@@ -34,7 +34,12 @@ export default function SetupMaster({ onDone }) {
       await setupMasterPassword(password)
       onDone()
     } catch (e) {
-      setError(t(String(e).includes('pwd_') ? String(e) : 'err_generic') + (String(e).includes('pwd_') ? '' : ` (${e})`))
+      const msg = String(e)
+      setError(
+        msg === 'rate_limit_exceeded'
+          ? t('err_rate_limit')
+          : t(msg.includes('pwd_') ? msg : 'err_generic') + (msg.includes('pwd_') ? '' : ` (${e})`)
+      )
     } finally {
       setBusy(false)
     }

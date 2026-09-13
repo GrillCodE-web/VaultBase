@@ -8,6 +8,7 @@ mod db;
 mod http;
 mod insights;
 mod license;
+mod rate_limiter;
 mod state;
 mod telemetry;
 mod vault;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
@@ -18,11 +18,12 @@ function Th({ tip, children }) {
 }
 
 const STATUS_COLORS = {
-  delivered: '#3ddc97',
-  shipped: '#4f8cff',
-  pending: '#ffb454',
-  declined: '#ff5d73',
-  cancelled: '#b48cff',
+  // SPEC-B (6pi): РїР°Р»РёС‚СЂР° = С‚С‘РјРЅР°СЏ С‚РµРјР° РІРѕСЂРєРµСЂР° (tokens.css [data-theme='dark'])
+  delivered: '#32d74b',
+  shipped: '#7c7ff2',
+  pending: '#ffd60a',
+  declined: '#ff453a',
+  cancelled: '#bf5af2',
   refunded: '#8aa0b5',
 }
 
@@ -79,7 +80,7 @@ export default function Analytics({ onSync }) {
     return Object.entries(data.orders_by_status).map(([status, count]) => ({
       status,
       count,
-      color: STATUS_COLORS[status] || '#66738f',
+      color: STATUS_COLORS[status] || 'rgba(236,238,242,0.4)',
     }))
   }, [data])
 
@@ -118,7 +119,7 @@ export default function Analytics({ onSync }) {
           ))}
         </div>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="btn" />
-        <span className="meta">→</span>
+        <span className="meta">в†’</span>
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="btn" />
         <button className="btn primary" disabled={busy} onClick={load}>{t('apply')}</button>
         <div className="grow" />
@@ -185,12 +186,12 @@ export default function Analytics({ onSync }) {
                   <div className="num">{data.funnel.taken}</div>
                   <div className="lbl">{t('funnel_taken')}</div>
                 </div>
-                <div className="funnel-arrow">→ {data.funnel.used_rate}%</div>
+                <div className="funnel-arrow">в†’ {data.funnel.used_rate}%</div>
                 <div className="funnel-step">
                   <div className="num">{data.funnel.used}</div>
                   <div className="lbl">{t('funnel_used')}</div>
                 </div>
-                <div className="funnel-arrow">→ {data.funnel.delivered_rate}%</div>
+                <div className="funnel-arrow">в†’ {data.funnel.delivered_rate}%</div>
                 <div className="funnel-step">
                   <div className="num accent">{data.funnel.delivered}</div>
                   <div className="lbl">{t('funnel_delivered')}</div>
@@ -212,20 +213,20 @@ export default function Analytics({ onSync }) {
                   <AreaChart data={daysData}>
                     <defs>
                       <linearGradient id="gOrders" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#4f8cff" stopOpacity={0.5} />
-                        <stop offset="100%" stopColor="#4f8cff" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#7c7ff2" stopOpacity={0.5} />
+                        <stop offset="100%" stopColor="#7c7ff2" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#232c44" />
-                    <XAxis dataKey="date" stroke="#66738f" fontSize={11} />
-                    <YAxis stroke="#66738f" fontSize={11} allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.09)" />
+                    <XAxis dataKey="date" stroke="rgba(236,238,242,0.4)" fontSize={11} />
+                    <YAxis stroke="rgba(236,238,242,0.4)" fontSize={11} allowDecimals={false} />
                     <Tooltip
-                      contentStyle={{ background: '#161d2e', border: '1px solid #2f3a58', borderRadius: 8 }}
-                      labelStyle={{ color: '#e6ebf5' }}
+                      contentStyle={{ background: '#16181d', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8 }}
+                      labelStyle={{ color: '#eceef2' }}
                     />
                     <Legend />
-                    <Area type="monotone" dataKey="orders" stroke="#4f8cff" fill="url(#gOrders)" strokeWidth={2} />
-                    <Area type="monotone" dataKey="dead" stroke="#ff5d73" fillOpacity={0.12} fill="#ff5d73" strokeWidth={1.5} />
+                    <Area type="monotone" dataKey="orders" stroke="#7c7ff2" fill="url(#gOrders)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="dead" stroke="#ff453a" fillOpacity={0.12} fill="#ff453a" strokeWidth={1.5} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -236,12 +237,12 @@ export default function Analytics({ onSync }) {
               <div className="chart-box">
                 <ResponsiveContainer>
                   <BarChart data={statusData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#232c44" />
-                    <XAxis dataKey="status" stroke="#66738f" fontSize={11} />
-                    <YAxis stroke="#66738f" fontSize={11} allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.09)" />
+                    <XAxis dataKey="status" stroke="rgba(236,238,242,0.4)" fontSize={11} />
+                    <YAxis stroke="rgba(236,238,242,0.4)" fontSize={11} allowDecimals={false} />
                     <Tooltip
-                      contentStyle={{ background: '#161d2e', border: '1px solid #2f3a58', borderRadius: 8 }}
-                      labelStyle={{ color: '#e6ebf5' }}
+                      contentStyle={{ background: '#16181d', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8 }}
+                      labelStyle={{ color: '#eceef2' }}
                     />
                     <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                       {statusData.map((entry) => (
@@ -360,10 +361,10 @@ export default function Analytics({ onSync }) {
                         </span>
                       </td>
                       <td>{w.drops}</td>
-                      <td className="mono">{w.funnel_used_rate}% → {w.funnel_delivered_rate}%</td>
-                      <td>{w.avg_hours_to_delivered ?? '—'}</td>
+                      <td className="mono">{w.funnel_used_rate}% в†’ {w.funnel_delivered_rate}%</td>
+                      <td>{w.avg_hours_to_delivered ?? 'вЂ”'}</td>
                       <td className="mono">
-                        {w.app_version || '—'}
+                        {w.app_version || 'вЂ”'}
                         {w.version_outdated && (
                           <span className="tag red" style={{ marginLeft: 6 }}>{t('version_outdated')}</span>
                         )}
@@ -461,13 +462,13 @@ export default function Analytics({ onSync }) {
                       <td className="mono">{b}</td>
                       {heatMatrix.shops.map((s) => {
                         const c = heatMatrix.map[`${b}|${s}`]
-                        if (!c) return <td key={s} className="heat-empty">·</td>
+                        if (!c) return <td key={s} className="heat-empty">В·</td>
                         const cls = c.success_rate >= 70 ? 'heat-g' : c.success_rate >= 40 ? 'heat-a' : 'heat-r'
                         return (
                           <td key={s}>
                             <span
                               className={`heat-cell ${cls}`}
-                              title={`${c.bin} × ${c.shop}: ${c.orders} / ok ${c.ok} / declined ${c.declined}`}
+                              title={`${c.bin} Г— ${c.shop}: ${c.orders} / ok ${c.ok} / declined ${c.declined}`}
                             >
                               {c.success_rate}%
                             </span>

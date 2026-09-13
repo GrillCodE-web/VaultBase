@@ -4,6 +4,7 @@ use crate::db::{self, Database, Sidecar};
 use crate::http;
 use crate::insights;
 use crate::license;
+use crate::rate_limiter;
 use crate::state::{with_open, AppState, DbState};
 use crate::telemetry;
 use crate::vault;
@@ -151,6 +152,9 @@ pub fn activate_license(state: State<'_, AppState>, activation_key: String) -> R
 
 #[tauri::command]
 pub fn setup_master_password(state: State<'_, AppState>, password: String) -> Result<Value, String> {
+    // SPEC-B (d62): 5 попыток/мин — как unlock в воркере
+    rate_limiter::check("setup_master_password")?;
+
     let path = db::db_path()?;
     if db::is_encrypted(&path) {
         return Err("already_initialized".into());
@@ -202,6 +206,10 @@ pub fn setup_master_password(state: State<'_, AppState>, password: String) -> Re
 
 #[tauri::command]
 pub fn unlock_app(state: State<'_, AppState>, password: String) -> Result<Value, String> {
+    // SPEC-B (d62): 5 попыток/мин против перебора мастер-пароля
+    // (воркер: auth.rs unlock_app → rate_limiter Strict)
+    rate_limiter::check("unlock_app")?;
+
     let path = db::db_path()?;
     if !std::path::Path::new(&path).exists() {
         return Err("not_initialized".into());

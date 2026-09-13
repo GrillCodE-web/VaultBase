@@ -361,6 +361,8 @@ export const dict = {
   alert_decline_pct_label: 'Спайк деклайна, % (умолч. 50)',
   alert_dead_pct_label: 'Доля мёртвых, % (умолч. 30)',
   idle_lock_min_label: 'Автоблок, мин (0 = выкл)',
+  autolock_in: 'Блокировка через {s}с',
+  autolock_extend_hint: 'Отсчёт авто-блокировки. Клик — продлить.',
   alert_webhook_label: 'Webhook URL (необязательно)',
   alert_notify_os_label: 'OS-уведомления о новых алертах (только пока разблокировано)',
   notify_alerts_title: 'VaultBase Manager: новые алерты',

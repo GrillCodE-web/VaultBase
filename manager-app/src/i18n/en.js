@@ -361,6 +361,8 @@ export const dict = {
   alert_decline_pct_label: 'Decline spike, % (default 50)',
   alert_dead_pct_label: 'Dead-card ratio, % (default 30)',
   idle_lock_min_label: 'Auto-lock, min (0 = off)',
+  autolock_in: 'Lock in {s}s',
+  autolock_extend_hint: 'Auto-lock countdown. Click to extend.',
   alert_webhook_label: 'Webhook URL (optional)',
   alert_notify_os_label: 'OS notifications for new alerts (only while unlocked)',
   notify_alerts_title: 'VaultBase Manager: new alerts',

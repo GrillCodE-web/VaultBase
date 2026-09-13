@@ -18,7 +18,14 @@ export default function Unlock({ onDone }) {
       await unlockApp(password)
       onDone()
     } catch (e) {
-      setError(String(e) === 'wrong_master_password' ? t('err_wrong_master_password') : `${t('err_generic')} (${e})`)
+      const msg = String(e)
+      setError(
+        msg === 'wrong_master_password'
+          ? t('err_wrong_master_password')
+          : msg === 'rate_limit_exceeded'
+            ? t('err_rate_limit')
+            : `${t('err_generic')} (${e})`
+      )
     } finally {
       setBusy(false)
     }
