@@ -343,6 +343,36 @@
     margin-bottom: var(--sp-6);
   }
 
+  /* ─── SPEC-A (tyw): карточки профилей на главной ──────────── */
+  .hq-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--sp-3);
+  }
+  .hq-card {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg, 12px);
+    cursor: pointer;
+    text-align: left;
+    transition:
+      border-color 0.15s,
+      transform 0.1s ease;
+  }
+  .hq-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .hq-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
   /* ─── Premium Stat Card ───────────────────────────────────── */
   .stat-card-premium {
     position: relative;

@@ -7,8 +7,8 @@ const MAX_PRESETS = 20
  * REDESIGN-05-4 (порция 4): шаблоны ордеров «магазин + профиль + дроп»
  * (не путать с backend-шаблонами items save_order_template — те про список
  * товаров). Хранятся локально, применяются из ⌘K: палитра диспатчит
- * APPLY_ORDER_PRESET_EVENT, страница Orders открывает CreateOrderModal
- * с предзаполнением.
+ * APPLY_ORDER_PRESET_EVENT, страница Profiles открывает QuickOrderModal
+ * в профиле пресета с предзаполнением (SPEC-A, 7cx).
  *
  * preset: { id, name, profile_id, profile_label, shop_id, shop_domain,
  *           shop_name, drop_id, created_at }

@@ -272,8 +272,9 @@ export default function CommandPalette({ onClose, onNavigate, actions = [], navI
       onNavigate(entry.nav.page)
       onClose()
     } else if (entry.kind === 'preset') {
-      // Пресет ордера → Orders открывает CreateOrderModal с предзаполнением
-      onNavigate('orders')
+      // SPEC-A (7cx): пресет ордера → Profiles открывает QuickOrderModal
+      // в профиле пресета (создание заказа живёт в контексте профиля)
+      onNavigate('profiles')
       window.dispatchEvent(
         new window.CustomEvent(APPLY_ORDER_PRESET_EVENT, { detail: entry.preset })
       )

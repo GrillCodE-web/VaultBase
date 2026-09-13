@@ -15,6 +15,8 @@ export const useOrdersStore = create((set, get) => ({
     profile_id: null,
     card_id: null,
     search: null,
+    date_from: null,
+    date_to: null,
   },
   page: 1,
   perPage: 50,
@@ -40,6 +42,8 @@ export const useOrdersStore = create((set, get) => ({
         profile_id: null,
         card_id: null,
         search: null,
+        date_from: null,
+        date_to: null,
       },
       page: 1,
     }),
@@ -66,14 +70,17 @@ export const useOrdersStore = create((set, get) => ({
     const state = get()
     const { filters, page, perPage, cache } = state
 
-    // FINAL-007: Deterministic cache key — sort keys and normalize nulls
-    const normalizedFilters = Object.keys(filters)
+    // SPEC-A (7cx): UI-фильтры используют '' как «не выбрано» (OrderFilters),
+    // а Rust Some('') для status превращает в `o.status=''` → пустая выборка.
+    // Нормализуем пустые строки в null ДО ключа кэша и invoke.
+    const cleanFilters = Object.keys(filters)
       .sort()
       .reduce((acc, k) => {
-        acc[k] = filters[k] ?? null
+        const v = filters[k]
+        acc[k] = v === '' || v === undefined ? null : v
         return acc
       }, {})
-    const cacheKey = JSON.stringify({ f: normalizedFilters, p: page, pp: perPage })
+    const cacheKey = JSON.stringify({ f: cleanFilters, p: page, pp: perPage })
     const cached = cache[cacheKey]
 
     // Return cached data if valid and not forcing refresh
@@ -88,7 +95,7 @@ export const useOrdersStore = create((set, get) => ({
     set({ loading: true })
 
     try {
-      const res = await invoke('get_orders', { filter: filters, page, perPage })
+      const res = await invoke('get_orders', { filter: cleanFilters, page, perPage })
 
       // FINAL-004: Evict oldest entries if cache is full
       const newCache = { ...cache }

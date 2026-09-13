@@ -21,8 +21,9 @@ import { CARD_STATUS_COLORS, ORDER_STATUS_CSS } from '../../constants/status.js'
 import { DropForm } from './DropForm.jsx'
 import { ImportDropsModal } from './ImportDropsModal.jsx'
 import { DuplicateDropsModal } from './DuplicateDropsModal.jsx'
+import { QuickOrderModal } from './QuickOrderModal.jsx'
 
-export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
+export function ProfileDetailPanel({ profileId, onRefresh, onNavigate: _onNavigate }) {
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editNotes, setEditNotes] = useState(false)
@@ -33,6 +34,8 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
   const [showDupDrops, setShowDupDrops] = useState(false)
   const [dupDropGroups, setDupDropGroups] = useState([])
   const [ltvData, setLtvData] = useState(null)
+  // SPEC-A (9ql): создание заказа в контексте профиля (не уводим на страницу Orders)
+  const [showQuickOrder, setShowQuickOrder] = useState(false)
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
@@ -377,7 +380,8 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
             </div>
             <button
               className="btn btn-ghost btn-sm flex items-center gap-1"
-              onClick={() => onNavigate?.('orders', { profileId })}
+              onClick={() => setShowQuickOrder(true)}
+              title={drops.length === 0 ? t('orders_profile_no_drops') : undefined}
             >
               <ShoppingCart size={12} /> New Order
             </button>
@@ -394,6 +398,9 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
                 <Package size={24} className="block opacity-30 mx-auto mb-2" />
                 No orders yet
               </div>
+            )}
+            {orders.length > 0 && drops.length === 0 && (
+              <div className="text-11 text-warning mb-2">{t('orders_profile_no_drops')}</div>
             )}
             {orders.map(o => (
               <div key={o.id} className="order-list-item">
@@ -432,6 +439,20 @@ export function ProfileDetailPanel({ profileId, onRefresh, onNavigate }) {
       )}
       {showDupDrops && (
         <DuplicateDropsModal groups={dupDropGroups} onClose={() => setShowDupDrops(false)} />
+      )}
+      {showQuickOrder && (
+        <QuickOrderModal
+          profile={{
+            id: profileId,
+            holder_masked: detail.profile.holder_masked,
+            last4: detail.profile.last4 || detail.card?.last4,
+          }}
+          onClose={() => setShowQuickOrder(false)}
+          onCreated={() => {
+            load()
+            onRefresh?.()
+          }}
+        />
       )}
     </div>
   )

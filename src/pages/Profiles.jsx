@@ -22,6 +22,7 @@ import { QuickOrderModal } from './Profiles/QuickOrderModal.jsx'
 import { DuplicateProfilesModal } from './Profiles/DuplicateProfilesModal.jsx'
 import { CompareProfilesModal } from './Profiles/CompareProfilesModal.jsx'
 import { usePersistedState } from '../hooks/usePersistedState.js'
+import { APPLY_ORDER_PRESET_EVENT } from '../utils/orderPresets.js'
 
 // REDESIGN-05-4 (порция 2): выбор колонок таблицы профилей (localStorage).
 // select/expand/actions всегда видимы и в пикер не попадают (lockedIds).
@@ -59,6 +60,7 @@ export default function ProfileList({
   // REDESIGN-05-4 (порция 3): сравнение профилей — id пары для модалки
   const [compareIds, setCompareIds] = useState(null)
   const [quickOrderProfile, setQuickOrderProfile] = useState(null)
+  const [quickOrderPreset, setQuickOrderPreset] = useState(null)
   const [enrichProgress, setEnrichProgress] = useState(null)
   const [visibleCols, setVisibleCols] = usePersistedState(
     'profiles_visible_cols',
@@ -164,6 +166,19 @@ export default function ProfileList({
         fetchAbortRef.current.abort()
       }
     }
+  }, [])
+
+  // SPEC-A (7cx): пресет ордера из ⌘K — открываем QuickOrderModal в профиле
+  // пресета (создание заказа живёт в контексте профиля, не на странице Orders).
+  useEffect(() => {
+    const handler = e => {
+      const preset = e.detail
+      if (!preset?.profile_id) return
+      setQuickOrderProfile({ id: preset.profile_id })
+      setQuickOrderPreset(preset)
+    }
+    window.addEventListener(APPLY_ORDER_PRESET_EVENT, handler)
+    return () => window.removeEventListener(APPLY_ORDER_PRESET_EVENT, handler)
   }, [])
 
   // CLEAN-002: смена таба — паттерн «adjust state during render» вместо
@@ -523,7 +538,11 @@ export default function ProfileList({
       {quickOrderProfile && (
         <QuickOrderModal
           profile={quickOrderProfile}
-          onClose={() => setQuickOrderProfile(null)}
+          preset={quickOrderPreset}
+          onClose={() => {
+            setQuickOrderProfile(null)
+            setQuickOrderPreset(null)
+          }}
           onCreated={() => load()}
         />
       )}

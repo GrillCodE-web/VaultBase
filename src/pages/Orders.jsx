@@ -13,11 +13,10 @@ import { exportToCSV } from '../utils/csv.js'
 import { BatchImportModal } from './Orders/BatchImportModal.jsx'
 import { OrderFilters } from './Orders/OrderFilters.jsx'
 import { OrdersTable } from './Orders/OrdersTable.jsx'
-import { CreateOrderModal } from './Orders/CreateOrderModal.jsx'
-import { RepeatOrderModal } from './Orders/RepeatOrderModal.jsx'
+import { QuickOrderModal } from './Profiles/QuickOrderModal.jsx'
+import { ActionInbox } from './Dashboard/ActionInbox.jsx'
 import { useOrdersStore } from '../store/orders.js'
 import { usePersistedState } from '../hooks/usePersistedState.js'
-import { APPLY_ORDER_PRESET_EVENT } from '../utils/orderPresets.js'
 
 // REDESIGN-05-4 (порция 2): выбор колонок таблицы ордеров (localStorage).
 // select/actions всегда видимы и в пикер не попадают (lockedIds).
@@ -38,11 +37,7 @@ const ORDER_COLUMNS = [
 ]
 const ORDER_DEFAULT_COLS = ORDER_COLUMNS.map(c => c.id)
 
-export default function OrderList({
-  onNavigate: _onNavigate,
-  activeTab = 'list',
-  openCreate = false,
-}) {
+export default function OrderList({ onNavigate, activeTab = 'list', status: statusProp = null }) {
   const { t } = useLang()
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
@@ -70,20 +65,12 @@ export default function OrderList({
   } = useOrdersStore()
 
   // Local UI state (not in store)
-  const [showCreate, setShowCreate] = useState(!!openCreate)
-  const [orderPreset, setOrderPreset] = useState(null)
-  const [shopOptions, setShopOptions] = useState([])
+  // SPEC-A (7cx): создание заказа переехало в контекст профиля (QuickOrderModal);
+  // здесь остаётся только мониторинг + repeat в профиле исходного заказа.
   const [repeatOrder, setRepeatOrder] = useState(null)
+  const [shopOptions, setShopOptions] = useState([])
   const [showBatchImport, setShowBatchImport] = useState(false)
   const [visibleCols, setVisibleCols] = usePersistedState('orders_visible_cols', ORDER_DEFAULT_COLS)
-
-  // CLEAN-002: открытие модалки по пропу openCreate — паттерн «adjust state
-  // during render» (react.dev) вместо синхронного setState в useEffect
-  const [prevOpenCreate, setPrevOpenCreate] = useState(null)
-  if (openCreate !== prevOpenCreate) {
-    setPrevOpenCreate(openCreate)
-    if (openCreate) setShowCreate(true)
-  }
 
   // ARCH-013: debounced search через общий хук
   const applySearchToStore = useCallback(
@@ -93,17 +80,6 @@ export default function OrderList({
   const { searchInput, setSearch: setSearchInput } = useTableFilters(applySearchToStore, {}, 300)
 
   // ── Effects ────────────────────────────────────────────────────
-
-  // REDESIGN-05-4 (порция 4): «создать по шаблону» из ⌘K — палитра
-  // диспатчит событие, открываем CreateOrderModal с предзаполнением
-  useEffect(() => {
-    const onApply = e => {
-      setOrderPreset(e.detail || null)
-      setShowCreate(true)
-    }
-    window.addEventListener(APPLY_ORDER_PRESET_EVENT, onApply)
-    return () => window.removeEventListener(APPLY_ORDER_PRESET_EVENT, onApply)
-  }, [])
 
   // Load orders on mount and fetch shop options
   useEffect(() => {
@@ -125,15 +101,15 @@ export default function OrderList({
     setFilters({ status: newStatus })
   }, [activeTab, setFilters])
 
+  // SPEC-A (tyw): навигация из инбокса главной — onNavigate('orders', { status })
+  // Объявлен ПОСЛЕ activeTab-эффекта, чтобы на маунте выигрывал явный статус.
+  useEffect(() => {
+    if (statusProp) setFilters({ status: statusProp })
+  }, [statusProp, setFilters])
+
   // ── Page-specific keyboard shortcuts ──────────────────────────────────
 
   const pageShortcuts = [
-    {
-      keys: ['o'],
-      handler: () => setShowCreate(true),
-      requireNoInput: true,
-      page: 'orders',
-    },
     {
       keys: ['b'],
       handler: () => setShowBatchImport(true),
@@ -218,6 +194,15 @@ export default function OrderList({
     )
   }
 
+  // SPEC-A (7cx): repeat возможен только в контексте профиля исходного заказа
+  const handleRepeat = o => {
+    if (!o.profile_id) {
+      toast(t('order_repeat_no_profile'), 'info')
+      return
+    }
+    setRepeatOrder(o)
+  }
+
   const totalPages = getTotalPages(total, DEFAULT_PAGE_SIZE)
 
   const allSelected = orders.length > 0 && selected.length === orders.length
@@ -231,10 +216,9 @@ export default function OrderList({
         </div>
         <div className="ph-actions">
           <button
-            className="btn btn-g"
-            onClick={() => setShowCreate(true)}
-            data-shortcut="new"
-            title="Create order (o)"
+            className="btn btn-ghost btn-sm"
+            onClick={() => onNavigate?.('profiles')}
+            title={t('orders_create_hint')}
           >
             + {t('create_order')}
           </button>
@@ -255,6 +239,9 @@ export default function OrderList({
           </button>
         </div>
       </div>
+
+      {/* SPEC-A (tyw): инбокс проблемных заказов над фильтрами — мониторинг */}
+      <ActionInbox onNavigate={onNavigate} />
 
       {/* Filters */}
       <OrderFilters
@@ -298,11 +285,11 @@ export default function OrderList({
         allSelected={allSelected}
         toggleSelect={toggleSelect}
         toggleSelectAll={toggleSelectAll}
-        onRepeat={setRepeatOrder}
+        onRepeat={handleRepeat}
         onDelete={handleDelete}
         onUpdate={() => fetchOrders(true)}
         onPatchLocal={patchOrderLocal}
-        onCreate={() => setShowCreate(true)}
+        onCreate={() => onNavigate?.('profiles')}
         visibleCols={visibleCols}
       />
 
@@ -315,21 +302,11 @@ export default function OrderList({
         onPageChange={p => setPage(p)}
       />
 
-      {showCreate && (
-        <CreateOrderModal
-          preset={orderPreset}
-          onCreated={() => fetchOrders(true)}
-          onClose={() => {
-            setShowCreate(false)
-            setOrderPreset(null)
-          }}
-        />
-      )}
-
-      {/* E1: Repeat Order modal */}
+      {/* SPEC-A (7cx): repeat открывает QuickOrderModal в профиле исходного заказа */}
       {repeatOrder && (
-        <RepeatOrderModal
-          order={repeatOrder}
+        <QuickOrderModal
+          profile={{ id: repeatOrder.profile_id }}
+          repeatFrom={repeatOrder}
           onCreated={() => fetchOrders(true)}
           onClose={() => setRepeatOrder(null)}
         />
