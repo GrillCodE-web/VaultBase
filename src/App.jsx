@@ -375,10 +375,14 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
 
   // CHAT-2.0 (3ak): клик по OS-уведомлению о чате — развернуть окно и
   // открыть страницу чата. onAction — официальный слушатель плагина v2.
+  // Срабатывает на ЛЮБОЕ уведомление приложения, поэтому фильтруем по
+  // 💬-префиксу заголовка (см. i18n notify_chat_title) — клики по уведомлениям
+  // почты/посылок/sync не должны перекидывать в чат.
   useEffect(() => {
     let unlisten = null
     let cancelled = false
-    onAction(() => {
+    onAction(n => {
+      if (!n || typeof n.title !== 'string' || !n.title.startsWith('💬')) return
       const win = getCurrentWindow()
       win.show().catch(() => {})
       win.setFocus().catch(() => {})
@@ -648,6 +652,22 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
           title: t('notify_sync_failed_title'),
           body: String((p && p.message) || '').slice(0, 120),
         })
+      }),
+      // CHAT-2.0 (3ak): входящее сообщение чата — только когда окно не в
+      // фокусе (иначе пользователь и так видит ленту). Тогл: os_notify_chat.
+      listen('chat:message', e => {
+        const p = e.payload
+        if (!p || p.direction !== 'in') return
+        if (document.visibilityState === 'visible' && document.hasFocus()) return
+        const body = String(p.body || '')
+        osNotify(
+          'os_notify_chat',
+          t('notify_chat_title', {
+            peer: String(p.peer_iid || '').slice(0, 8),
+            room: p.room || '',
+          }),
+          body.length > 80 ? `${body.slice(0, 77)}...` : body
+        )
       }),
     ])
       .then(fns => {

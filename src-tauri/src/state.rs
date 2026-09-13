@@ -268,6 +268,8 @@ const CONFIG_READABLE: &[&str] = &[
     "badge_notify_imap", "badge_notify_tracking",
     "stuffer_base_url",
     "stuffer_provider",
+    // UX-012/CHAT-2.0 (3ak): тоглы OS-уведомлений из Settings.
+    "os_notify_mail", "os_notify_package", "os_notify_errors", "os_notify_chat",
 ];
 
 /// Ключи-секреты: записать можно, прочитать значение — нельзя.
@@ -288,6 +290,8 @@ const CONFIG_WRITABLE: &[&str] = &[
     "dash_collapsed_sources", "dash_collapsed_expiring",
     "badge_notify_imap", "badge_notify_tracking",
     "stuffer_provider",
+    // UX-012/CHAT-2.0 (3ak): тоглы OS-уведомлений из Settings.
+    "os_notify_mail", "os_notify_package", "os_notify_errors", "os_notify_chat",
 ];
 
 pub(crate) fn is_config_readable(key: &str) -> bool {

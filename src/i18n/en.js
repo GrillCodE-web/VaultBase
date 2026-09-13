@@ -990,6 +990,7 @@ export const en = {
   notify_os_chat: 'Chat messages',
   notify_os_chat_desc:
     'System notification for incoming chat messages when the window is not focused',
+  notify_chat_title: '💬 {peer} · {room}',
   notify_mail_title: 'New email',
   notify_mail_body: '{from}: {subject}',
   notify_package_title: 'Package status updated',
