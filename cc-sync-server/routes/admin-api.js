@@ -8,6 +8,27 @@ const cache = require('../cache');
 const router = express.Router();
 router.use(requireAdmin);
 
+// ── Health (SPA status-dot) ───────────────────────────────────────────────────
+router.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime(), ts: Date.now() });
+});
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+router.get('/audit', (req, res) => {
+  const rows = getDb().prepare(
+    'SELECT action, details, created_at FROM audit_log ORDER BY created_at DESC LIMIT 500'
+  ).all();
+  res.json({ audit: rows });
+});
+
+// ── CSV export (SPA links /api/export?type=licenses|invites) ─────────────────
+router.get('/export', (req, res) => {
+  const type = req.query.type;
+  if (type === 'licenses') return res.redirect('licenses/export.csv');
+  if (type === 'invites') return res.redirect('invites/export.csv');
+  res.status(400).json({ error: 'unknown_type' });
+});
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 router.get('/stats', (req, res) => {
   const cached = cache.get('admin:stats');
@@ -365,11 +386,18 @@ router.delete('/versions/:version', (req, res) => {
 // ── Footprints ────────────────────────────────────────────────────────────────
 router.get('/footprints', (req, res) => {
   const db = getDb();
-  const { domain } = req.query;
+  const { domain, view } = req.query;
+  if (view === 'domains') {
+    const rows = db.prepare(`
+      SELECT shop_domain AS domain, COUNT(*) AS count, MAX(created_at) AS last_at
+      FROM footprints GROUP BY shop_domain ORDER BY last_at DESC LIMIT 500
+    `).all();
+    return res.json(rows);
+  }
   const rows = domain
     ? db.prepare('SELECT * FROM footprints WHERE shop_domain LIKE ? ORDER BY created_at DESC LIMIT 2000').all(`%${domain}%`)
     : db.prepare('SELECT * FROM footprints ORDER BY created_at DESC LIMIT 2000').all();
-  res.json(rows);
+  res.json(rows.map(r => ({ ...r, domain: r.shop_domain, hash: r.hash_value })));
 });
 
 // ── Activity ──────────────────────────────────────────────────────────────────
@@ -386,7 +414,10 @@ router.get('/activity', (req, res) => {
     ORDER BY created_at DESC LIMIT 60
   `).all().forEach(r => rows.push({
     event_type: 'footprint_saved',
+    action: 'footprint_saved',
     description: `Saved ${r.cnt} footprint(s) for ${r.shop_domain}`,
+    details: `Saved ${r.cnt} footprint(s) for ${r.shop_domain}`,
+    installation_id: null,
     user_token: r.user_token, created_at: r.created_at,
   }));
 
@@ -396,7 +427,10 @@ router.get('/activity', (req, res) => {
     ORDER BY last_seen DESC LIMIT 40
   `).all().forEach(r => rows.push({
     event_type: 'verify',
+    action: 'verify',
     description: `License verified: ${r.label || r.installation_id.slice(0,20)}`,
+    details: `License verified: ${r.label || r.installation_id.slice(0,20)}`,
+    installation_id: r.installation_id,
     user_token: r.token, created_at: r.created_at,
   }));
 
@@ -407,18 +441,21 @@ router.get('/activity', (req, res) => {
     ORDER BY used_at DESC LIMIT 40
   `).all().forEach(r => rows.push({
     event_type: 'invite_used',
+    action: 'invite_used',
     description: `Invite used${r.label ? ': ' + r.label : ''} — ${r.code}`,
+    details: `Invite used${r.label ? ': ' + r.label : ''} — ${r.code}`,
+    installation_id: null,
     user_token: null, created_at: r.created_at,
   }));
 
   rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const filtered = type === 'all' ? rows : rows.filter(r => r.event_type.includes(type));
-  res.json(filtered.slice(0, 100));
+  res.json({ activity: filtered.slice(0, 100) });
 });
 
 // ── Sync Groups ────────────────────────────────────────────────────────────────
 
-router.get('/sync-groups', (req, res) => {
+const syncGroupsList = (req, res) => {
   const db = getDb();
   const groups = db.prepare('SELECT * FROM sync_groups ORDER BY created_at DESC').all();
   const result = groups.map(g => {
@@ -426,12 +463,22 @@ router.get('/sync-groups', (req, res) => {
       'SELECT installation_id, joined_at FROM sync_group_members WHERE group_id = ?'
     ).all(g.id);
     const card_count = db.prepare('SELECT COUNT(*) AS n FROM sync_cards WHERE group_id = ?').get(g.id).n;
-    return { ...g, members, card_count };
+    return { ...g, members, member_count: members.length, card_count };
   });
   res.json(result);
+};
+
+router.get('/sync-groups', syncGroupsList);
+router.get('/sync/groups', syncGroupsList);
+
+router.get('/sync/groups/:id/members', (req, res) => {
+  const members = getDb().prepare(
+    'SELECT installation_id, joined_at FROM sync_group_members WHERE group_id = ?'
+  ).all(req.params.id);
+  res.json({ members });
 });
 
-router.post('/sync-groups', (req, res) => {
+const syncGroupCreate = (req, res) => {
   const db = getDb();
   const { name, installation_ids } = req.body || {};
   const group_id = require('crypto').randomUUID();
@@ -446,17 +493,23 @@ router.post('/sync-groups', (req, res) => {
     }
   }
   res.json({ ok: true, group_id, group_key });
-});
+};
 
-router.delete('/sync-groups/:id', (req, res) => {
+router.post('/sync-groups', syncGroupCreate);
+router.post('/sync/groups', syncGroupCreate);
+
+const syncGroupDelete = (req, res) => {
   const db = getDb();
   db.prepare('DELETE FROM sync_cards WHERE group_id = ?').run(req.params.id);
   db.prepare('DELETE FROM sync_group_members WHERE group_id = ?').run(req.params.id);
   db.prepare('DELETE FROM sync_groups WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
-});
+};
 
-router.post('/sync-groups/:id/members', (req, res) => {
+router.delete('/sync-groups/:id', syncGroupDelete);
+router.delete('/sync/groups/:id', syncGroupDelete);
+
+const syncGroupMemberAdd = (req, res) => {
   const db = getDb();
   const { installation_id } = req.body || {};
   if (!installation_id) return res.status(400).json({ error: 'installation_id required' });
@@ -472,13 +525,19 @@ router.post('/sync-groups/:id/members', (req, res) => {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'already_member' });
     throw e;
   }
-});
+};
 
-router.delete('/sync-groups/:id/members/:iid', (req, res) => {
+router.post('/sync-groups/:id/members', syncGroupMemberAdd);
+router.post('/sync/groups/:id/members', syncGroupMemberAdd);
+
+const syncGroupMemberRemove = (req, res) => {
   getDb().prepare('DELETE FROM sync_group_members WHERE group_id = ? AND installation_id = ?')
     .run(req.params.id, req.params.iid);
   res.json({ ok: true });
-});
+};
+
+router.delete('/sync-groups/:id/members/:iid', syncGroupMemberRemove);
+router.delete('/sync/groups/:id/members/:iid', syncGroupMemberRemove);
 
 // ── Live Connections ───────────────────────────────────────────────────────────
 router.get('/connections', (req, res) => {
@@ -553,13 +612,16 @@ router.post('/licenses/:id/rotate-token', (req, res) => {
 // auth_challenge (включать после обновления флота воркеров).
 const SERVER_CONFIG_KEYS = ['kill_switch', 'ws_require_nonce'];
 
-router.get('/server-config', (req, res) => {
+const serverConfigGet = (req, res) => {
   const out = {};
   for (const k of SERVER_CONFIG_KEYS) out[k] = getServerConfig(k, '0');
   res.json(out);
-});
+};
 
-router.post('/server-config', (req, res) => {
+router.get('/server-config', serverConfigGet);
+router.get('/config', serverConfigGet);
+
+const serverConfigSet = (req, res) => {
   const { key, value } = req.body || {};
   if (!SERVER_CONFIG_KEYS.includes(key)) return res.status(400).json({ error: 'unknown_key' });
   if (value !== '0' && value !== '1') return res.status(400).json({ error: 'invalid_value' });
@@ -568,7 +630,10 @@ router.post('/server-config', (req, res) => {
     'INSERT INTO audit_log (action, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)'
   ).run('server_config', JSON.stringify({ key, value, by: req.adminUser || 'admin' }));
   res.json({ ok: true, key, value });
-});
+};
+
+router.post('/server-config', serverConfigSet);
+router.post('/config', serverConfigSet);
 
 // FIX A-MED-06 отменён 2026-08-07: эндпоинт `POST /licenses/:id/set-auto-rotate`
 // удалён, вместе с ним не удалена только колонка `licenses.auto_rotate`
