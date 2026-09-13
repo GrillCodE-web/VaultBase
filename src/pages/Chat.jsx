@@ -19,6 +19,19 @@ const dmRoom = (a, b) => `dm:${[a, b].sort().join(':')}`
 const shortIid = iid => (iid && iid.length > 12 ? `${iid.slice(0, 6)}…${iid.slice(-4)}` : iid || '')
 
 // created_at приходит из SQLite CURRENT_TIMESTAMP (UTC без 'Z').
+// CHAT-2.0 (g80): троттлинг исходящих «печатает…» — вынесен из компонента:
+// Date.now() в теле компонента ловит react-hooks/purity (false positive на
+// event-хендлерах), а модульная функция линтеру прозрачна. Приложение
+// однооконное, модульного состояния достаточно.
+const TYPING_THROTTLE_MS = 3000
+let typingLastSentAt = 0
+function typingThrottleOk() {
+  const now = Date.now()
+  if (now - typingLastSentAt < TYPING_THROTTLE_MS) return false
+  typingLastSentAt = now
+  return true
+}
+
 function fmtTime(value) {
   if (!value) return ''
   const iso = String(value).replace(' ', 'T') + (String(value).endsWith('Z') ? '' : 'Z')
@@ -77,7 +90,8 @@ export default function Chat() {
   // CHAT-2.0 (g80): «печатает…» — iid пира, пока горит его 5-секундный таймер.
   const [typingFrom, setTypingFrom] = useState(null)
   const typingTimerRef = useRef(null)
-  const typingSentRef = useRef(0) // троттлинг исходящих сигналов (3с)
+  // CHAT-2.0 (3pt): presence — дельты chat:presence поверх снапшота peers.
+  const [presence, setPresence] = useState({})
 
   const feedRef = useRef(null)
   // Ref'ы для стабильных listener'ов (patтерн FIX P0-5 из Imap.jsx).
@@ -167,6 +181,14 @@ export default function Chat() {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
       typingTimerRef.current = setTimeout(() => setTypingFrom(null), 5000)
     }).then(fn => !cancelled && unlisteners.push(fn))
+    // CHAT-2.0 (3pt): presence-дельта от ws_sync. Ушедший в оффлайн: метка
+    // last_seen остаётся из последнего снапшота peers (сервер пишет её на
+    // disconnect), обновится при следующем chat_peers.
+    listen('chat:presence', e => {
+      const p = e.payload
+      if (!p?.installation_id) return
+      setPresence(prev => ({ ...prev, [p.installation_id]: !!p.online }))
+    }).then(fn => !cancelled && unlisteners.push(fn))
     return () => {
       cancelled = true
       unlisteners.forEach(fn => fn())
@@ -233,6 +255,17 @@ export default function Chat() {
     [messages, selectedRoom]
   )
 
+  // CHAT-2.0 (3pt): итоговый онлайн пира — дельта chat:presence поверх
+  // снапшота из chat_peers; last_seen только из снапшота.
+  const peerOnline = useCallback(
+    iid => presence[iid] ?? peersData?.peers?.find(x => x.installation_id === iid)?.online ?? false,
+    [presence, peersData]
+  )
+  const peerLastSeen = useCallback(
+    iid => peersData?.peers?.find(x => x.installation_id === iid)?.last_seen ?? null,
+    [peersData]
+  )
+
   const peerLabel = useCallback(
     iid => {
       const p = peersData?.peers?.find(x => x.installation_id === iid)
@@ -292,8 +325,7 @@ export default function Chat() {
   const handleDraftChange = e => {
     const v = e.target.value.slice(0, MAX_BODY_CHARS)
     setDraft(v)
-    if (v && current?.kind === 'dm' && Date.now() - typingSentRef.current > 3000) {
-      typingSentRef.current = Date.now()
+    if (v && current?.kind === 'dm' && typingThrottleOk()) {
       invoke('chat_typing', { peerIid: current.peerIid }).catch(() => {})
     }
   }
@@ -351,6 +383,14 @@ export default function Chat() {
                   ) : (
                     <MessagesSquare size={14} className="text-muted shrink-0" />
                   )}
+                  {/* CHAT-2.0 (3pt): зелёная точка онлайна у DM-пиров */}
+                  {r.kind === 'dm' && peerOnline(r.peerIid) && (
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: 'var(--green)' }}
+                      title={t('chat_online')}
+                    />
+                  )}
                   <span className="text-13 font-medium text-text truncate">{r.label}</span>
                   {r.role === 'manager' && (
                     <span className="text-11 text-muted shrink-0">({t('chat_role_manager')})</span>
@@ -385,6 +425,30 @@ export default function Chat() {
             </div>
           ) : (
             <>
+              {/* CHAT-2.0 (3pt): шапка диалога — имя + присутствие (DM) */}
+              {current.kind === 'dm' && (
+                <div className="shrink-0 border-b border-border bg-surface px-4 py-2 flex items-center gap-2">
+                  <span className="text-13 font-medium text-text truncate">{current.label}</span>
+                  {peerOnline(current.peerIid) ? (
+                    <span
+                      className="text-11 flex items-center gap-1.5"
+                      style={{ color: 'var(--green-t)' }}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: 'var(--green)' }}
+                      />
+                      {t('chat_online')}
+                    </span>
+                  ) : (
+                    peerLastSeen(current.peerIid) && (
+                      <span className="text-11 text-muted">
+                        {t('chat_last_seen', { at: fmtTime(peerLastSeen(current.peerIid)) })}
+                      </span>
+                    )
+                  )}
+                </div>
+              )}
               <div ref={feedRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
                 {roomMessages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted text-sm">

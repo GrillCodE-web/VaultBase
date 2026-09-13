@@ -99,6 +99,8 @@ fn fetch_peer_book(_db: &Database, token: &str) -> Result<PeerBook, String> {
                 pubkey: p["pubkey"].as_str()?.to_string(),
                 label: p["label"].as_str().unwrap_or("").to_string(),
                 role: p["role"].as_str().unwrap_or("worker").to_string(),
+                online: p["online"].as_bool().unwrap_or(false),
+                last_seen: p["last_seen"].as_str().map(String::from),
             })
         })
         .collect();

@@ -1022,6 +1022,12 @@ pub struct ChatPeer {
     pub pubkey: String,
     pub label: String,
     pub role: String, // 'manager' | 'worker'
+    // CHAT-2.0 (iul/3pt): presence с сервера. serde(default): старые ответы
+    // сервера без этих полей десериализуются в offline.
+    #[serde(default)]
+    pub online: bool,
+    #[serde(default)]
+    pub last_seen: Option<String>,
 }
 
 // ─────────────────────────────────────────

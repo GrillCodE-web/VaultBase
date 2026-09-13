@@ -316,6 +316,19 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
                 let _ = app.emit("chat:typing", serde_json::json!({ "room": room, "from": from }));
             }
         }
+        // CHAT-2.0 (iul/3pt): {"type":"presence_change","installation_id",
+        // "online": bool} — вошёл/вышел член моей группы. Без БД: снапшот
+        // онлайна фронт добирает через chat_peers, здесь только дельта.
+        "presence_change" => {
+            let iid = msg["installation_id"].as_str().unwrap_or("");
+            if !iid.is_empty() {
+                let online = msg["online"].as_bool().unwrap_or(false);
+                let _ = app.emit(
+                    "chat:presence",
+                    serde_json::json!({ "installation_id": iid, "online": online }),
+                );
+            }
+        }
         // {"type":"news","news":{...}} — менеджер опубликовал новость
         // (manager-api.js publish → broadcastAll). Тянем ленту в фоне,
         // NewsAlert покажет баннер при ближайшем опросе локального кэша.
