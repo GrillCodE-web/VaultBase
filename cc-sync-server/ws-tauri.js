@@ -39,6 +39,31 @@ function send(ws, obj) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj));
 }
 
+// CHAT-2.0 (iul): last_seen освежается и по живому WS-трафику (pong на
+// keep-alive и т.п.), не только на auth/HTTP — иначе воркер с висящим
+// сокетом без HTTP-запросов выглядит оффлайн. Не чаще раза в 60с на
+// установку: каждый pong писать в БД слишком расточительно.
+const LAST_SEEN_TOUCH_MS = 60_000;
+const lastSeenTouch = new Map(); // installation_id -> ts последней записи
+
+function touchLastSeen(iid, { force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - (lastSeenTouch.get(iid) || 0) < LAST_SEEN_TOUCH_MS) return;
+  lastSeenTouch.set(iid, now);
+  try {
+    getDb().prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE installation_id = ?').run(iid);
+  } catch (e) {
+    console.error('[ws-tauri] last_seen touch failed:', e.message);
+  }
+}
+
+// CHAT-2.0 (iul): членам группы рассылается смена присутствия (для чат-UI;
+// member_joined/member_left — наследие карточного sync, остаётся).
+function pushPresenceToGroup(groupId, iid, online) {
+  if (!groupId) return;
+  broadcastToGroup(groupId, { type: 'presence_change', installation_id: iid, online }, iid);
+}
+
 module.exports = function initWsTauri(wss, io) {
   wss.on('connection', (ws, req) => {
     const ip = clientIp(req);
@@ -204,11 +229,16 @@ module.exports = function initWsTauri(wss, io) {
         // Notify group members
         if (ws.groupId) {
           broadcastToGroup(ws.groupId, { type: 'member_joined', installation_id: ws.installationId }, ws.installationId);
+          pushPresenceToGroup(ws.groupId, ws.installationId, true);
         }
         return;
       }
 
       if (!ws.authenticated) return;
+
+      // Любой живой кадр (pong на keep-alive, full_pull, ...) освежает
+      // last_seen — throttled, см. touchLastSeen.
+      touchLastSeen(ws.installationId);
 
       // ── Ping ──────────────────────────────────────────────────
       if (msg.type === 'ping') {
@@ -304,9 +334,12 @@ module.exports = function initWsTauri(wss, io) {
         if (clients.get(ws.installationId) === ws) {
           clients.delete(ws.installationId);
           if (!ws.isManager) pushPresence();
+          // Финальный last_seen «ушёл в оффлайн сейчас» — без троттлинга.
+          touchLastSeen(ws.installationId, { force: true });
         }
         if (ws.groupId) {
           broadcastToGroup(ws.groupId, { type: 'member_left', installation_id: ws.installationId }, ws.installationId);
+          pushPresenceToGroup(ws.groupId, ws.installationId, false);
         }
       }
     });

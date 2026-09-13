@@ -16,12 +16,16 @@ const hashToken = (t) => crypto.createHash('sha256').update(String(t)).digest('h
 
 const licenses = new Map([
   [hashToken('tok-ok'), { installation_id: 'inst-ok', is_active: 1 }],
+  [hashToken('tok-ok2'), { installation_id: 'inst-ok2', is_active: 1 }],
   [hashToken('tok-dead'), { installation_id: 'inst-dead', is_active: 0 }],
   [hashToken('tok-mgr'), { installation_id: 'inst-mgr', is_active: 1, role: 'manager' }],
   [hashToken('tok-banned'), { installation_id: 'inst-banned', is_active: 1 }],
   [hashToken('tok-boom'), { installation_id: 'inst-boom', is_active: 1 }],
 ]);
-const members = new Map([['inst-ok', { group_id: 'g1' }]]);
+const members = new Map([
+  ['inst-ok', { group_id: 'g1' }],
+  ['inst-ok2', { group_id: 'g1' }],
+]);
 const bannedWorkers = new Map([['inst-banned', { banned_reason: 'fraud_suspected' }]]);
 
 const fakeDb = {
@@ -224,6 +228,33 @@ test('MGR-008: kill-switch rejects worker WS auth with service_halted', async (t
   assert.equal(msg.type, 'auth_error');
   assert.equal(msg.error, 'service_halted');
   await closed(ws);
+});
+
+test('CHAT-2.0 (iul): presence_change уходит группе при connect/disconnect', async () => {
+  const a = await connect();
+  assert.equal((await authenticate(a, 'tok-ok')).type, 'auth_ok');
+  const b = await connect();
+  assert.equal((await authenticate(b, 'tok-ok2')).type, 'auth_ok');
+
+  const until = (pred) => {
+    const deadline = Date.now() + 3000;
+    const step = () => {
+      const left = deadline - Date.now();
+      if (left <= 0) throw new Error('timeout waiting frame');
+      const frame = a.next();
+      const bail = new Promise((_, rj) => setTimeout(() => rj(new Error('timeout waiting frame')), left));
+      return Promise.race([frame, bail]).then((m) => (pred(m) ? m : step()));
+    };
+    return step();
+  };
+
+  const join = await until((m) => m.type === 'presence_change' && m.installation_id === 'inst-ok2');
+  assert.equal(join.online, true);
+
+  b.close();
+  const left = await until((m) => m.type === 'presence_change' && m.installation_id === 'inst-ok2');
+  assert.equal(left.online, false);
+  a.close();
 });
 
 test('SEC-023: >20 msg/sec closes with 4002 and reconnect is backoff-banned', async (t) => {

@@ -435,3 +435,26 @@ test('typing: изоляция групп и доступ к менеджеру'
   const notMine = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: 'group:grp-other', target_iid: W2_IID });
   assert.equal(notMine.status, 403);
 });
+
+// CHAT-2.0 (iul): presence — peers отдаёт online/last_seen обоим сторонам.
+test('peers: online/last_seen присутствуют у каждого пира (worker-роут)', async () => {
+  const r = await req('GET', '/sync/chat/peers', W1_TOKEN);
+  assert.equal(r.status, 200);
+  assert.ok(r.json.peers.length > 0);
+  for (const p of r.json.peers) {
+    assert.equal(typeof p.online, 'boolean', `online у ${p.installation_id}`);
+    assert.ok('last_seen' in p, `last_seen у ${p.installation_id}`);
+  }
+  // WS в этом тесте не поднят — все оффлайн, но last_seen свежий от HTTP.
+  assert.ok(r.json.peers.every((p) => p.online === false));
+});
+
+test('peers: online/last_seen на manager-роуте', async () => {
+  const r = await req('GET', '/manager/api/chat/peers', MGR_TOKEN);
+  assert.equal(r.status, 200);
+  assert.ok(r.json.peers.length > 0);
+  for (const p of r.json.peers) {
+    assert.equal(typeof p.online, 'boolean');
+    assert.ok('last_seen' in p);
+  }
+});

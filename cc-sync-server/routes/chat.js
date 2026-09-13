@@ -191,12 +191,23 @@ function latestKeysPerInstall(db, table, iids) {
   const placeholders = iids.map(() => '?').join(',');
   return db.prepare(`
     SELECT k.installation_id, k.id AS key_id, k.pubkey, k.label AS key_label,
-           l.label AS label, l.role
+           l.label AS label, l.role, l.last_seen
     FROM ${table} k
     JOIN licenses l ON l.installation_id = k.installation_id AND l.is_active = 1
     WHERE k.is_active = 1 AND k.installation_id IN (${placeholders})
       AND k.id = (SELECT MAX(k2.id) FROM ${table} k2 WHERE k2.installation_id = k.installation_id AND k2.is_active = 1)
   `).all(...iids);
+}
+
+// CHAT-2.0 (iul): снапшот онлайна из WS-подключений. В юнит-тестах ws-tauri
+// не инициализирован — тогда все оффлайн, но поле online присутствует.
+function onlineSet() {
+  try {
+    const { getOnlineInstallations } = require('../ws-tauri');
+    return new Set(getOnlineInstallations().map((o) => o.installation_id));
+  } catch {
+    return new Set();
+  }
 }
 
 // ── Worker ───────────────────────────────────────────────────────────────────
@@ -224,6 +235,7 @@ workerRouter.get('/chat/peers', (req, res) => {
     workers = latestKeysPerInstall(db, 'worker_keys', iids)
       .filter((w) => !managerPeerIids.has(w.installation_id));
   }
+  const online = onlineSet();
   res.json({
     self: req.installationId,
     group_id: gid,
@@ -233,6 +245,9 @@ workerRouter.get('/chat/peers', (req, res) => {
       pubkey: p.pubkey,
       label: p.label || '',
       role: p.role === 'manager' ? 'manager' : 'worker',
+      // CHAT-2.0 (iul): presence — online по живому WS, last_seen из licenses.
+      online: online.has(p.installation_id),
+      last_seen: p.last_seen || null,
     })),
   });
 });
@@ -367,6 +382,7 @@ managerRouter.get('/chat/peers', (req, res) => {
     "SELECT installation_id FROM licenses WHERE role != 'manager' AND is_active = 1"
   ).all().map((r) => r.installation_id);
   const workers = latestKeysPerInstall(db, 'worker_keys', iids);
+  const online = onlineSet();
   res.json({
     self: req.installationId,
     peers: workers.map((p) => ({
@@ -375,6 +391,9 @@ managerRouter.get('/chat/peers', (req, res) => {
       pubkey: p.pubkey,
       label: p.label || '',
       role: 'worker',
+      // CHAT-2.0 (iul): presence, как и на worker-роуте.
+      online: online.has(p.installation_id),
+      last_seen: p.last_seen || null,
     })),
   });
 });
