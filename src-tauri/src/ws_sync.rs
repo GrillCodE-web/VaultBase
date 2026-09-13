@@ -306,6 +306,16 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
         "chat_message" => {
             crate::commands::chat::fetch_on_ws_notify(app.clone());
         }
+        // CHAT-2.0 (g80): {"type":"chat_typing","room","from"} — эфемерный
+        // сигнал «печатает…». Без БД и HTTP — сразу на фронт; таймаут
+        // показа (5с) на стороне UI.
+        "chat_typing" => {
+            let room = msg["room"].as_str().unwrap_or("");
+            let from = msg["from"].as_str().unwrap_or("");
+            if !room.is_empty() && !from.is_empty() {
+                let _ = app.emit("chat:typing", serde_json::json!({ "room": room, "from": from }));
+            }
+        }
         // {"type":"news","news":{...}} — менеджер опубликовал новость
         // (manager-api.js publish → broadcastAll). Тянем ленту в фоне,
         // NewsAlert покажет баннер при ближайшем опросе локального кэша.

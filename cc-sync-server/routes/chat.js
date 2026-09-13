@@ -309,6 +309,55 @@ workerRouter.get('/chat/messages', (req, res) => {
 // delivered для своих сообщений (read приходит E2E-конвертом от получателя).
 workerRouter.get('/chat/outbox', outboxHandler);
 
+// CHAT-2.0 (g80): POST /sync/chat/typing — { room, target_iid }. Эфемерный
+// сигнал «печатает…»: НИЧЕГО не храним, релеим по WS получателю кадром
+// {"type":"chat_typing", room, from}. Те же правила адресации, что у
+// /chat/send (своя группа или менеджер). Серверный троттлинг 2с на пару
+// sender→target — защита от спама; клиент троттлит сам (3с).
+const TYPING_THROTTLE_MS = 2000;
+const typingLast = new Map(); // "sender>target" -> ts; чистим лениво
+workerRouter.post('/chat/typing', (req, res) => {
+  const body = req.body || {};
+  const room = typeof body.room === 'string' ? body.room : '';
+  if (!ROOM_RE.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  const targetIid = typeof body.target_iid === 'string' ? body.target_iid : '';
+  const sender = req.installationId;
+  if (!targetIid || targetIid === sender) return res.status(400).json({ error: 'target_invalid' });
+  if (room.startsWith('dm:') && !room.split(':').slice(1).includes(sender)) {
+    return res.status(400).json({ error: 'dm_room_without_sender' });
+  }
+  const db = getDb();
+  const myGroup = groupOf(db, sender);
+  if (room.startsWith('group:') && room !== `group:${myGroup}`) {
+    return res.status(403).json({ error: 'not_my_group' });
+  }
+  const target = licenseByIid(db, targetIid);
+  if (!target) return res.status(404).json({ error: 'unknown_installation', target_iid: targetIid });
+  if (!target.is_active) return res.status(400).json({ error: 'license_revoked', target_iid: targetIid });
+  const sameGroup = myGroup && groupOf(db, targetIid) === myGroup;
+  const targetIsManagerSide = target.role === 'manager' || target.role === 'admin';
+  if (!sameGroup && !targetIsManagerSide) {
+    return res.status(403).json({ error: 'target_not_allowed', target_iid: targetIid });
+  }
+  const key = `${sender}>${targetIid}`;
+  const now = Date.now();
+  if (now - (typingLast.get(key) || 0) < TYPING_THROTTLE_MS) {
+    return res.json({ ok: true, throttled: true });
+  }
+  typingLast.set(key, now);
+  if (typingLast.size > 5000) {
+    for (const [k, ts] of typingLast) if (now - ts > 60_000) typingLast.delete(k);
+  }
+  const wss = req.app.get('wssTauri');
+  if (wss) {
+    const { sendToInstallation } = require('../ws-tauri');
+    sendToInstallation(targetIid, { type: 'chat_typing', room, from: sender });
+  }
+  const io = req.app.get('io');
+  if (io) io.emit('manager:chat_typing', { installation_id: targetIid, room, from: sender });
+  res.json({ ok: true });
+});
+
 // ── Manager ──────────────────────────────────────────────────────────────────
 
 // GET /manager/api/chat/peers — все активные воркеры с активными ключами.

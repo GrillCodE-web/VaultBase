@@ -370,6 +370,34 @@ fn send_read_receipts(db: &Database, token: &str, self_iid: &str, refs: Vec<(i64
     }
 }
 
+/// CHAT-2.0 (g80): «печатает…» — эфемерный сигнал пиру в DM. Best-effort:
+/// ошибки сети только логируются, UI не должен падать из-за индикатора.
+/// Троттлинг: фронт шлёт не чаще 3с, сервер релеит не чаще 2с на пару.
+#[tauri::command]
+pub(crate) fn chat_typing(peer_iid: String) -> Result<(), String> {
+    require_user()?;
+    if peer_iid.len() > MAX_REF_LEN {
+        return Err("peer_invalid".into());
+    }
+    with_db!(db, {
+        if db.is_locked() {
+            return Ok(());
+        }
+        let token = auth_token(db)?;
+        let self_iid = crate::license::get_or_create_installation_id(db)?;
+        let req_body = json!({ "room": dm_room(&self_iid, &peer_iid), "target_iid": peer_iid });
+        let res = ureq::post(&crate::endpoints::endpoint("/sync/chat/typing"))
+            .set("Authorization", &format!("Bearer {}", token))
+            .set("Content-Type", "application/json")
+            .timeout(std::time::Duration::from_secs(10))
+            .send_string(&req_body.to_string());
+        if let Err(e) = res {
+            let _ = db.log_event("chat.typing_failed", &e.to_string(), Some("chat"), None);
+        }
+        Ok(())
+    })
+}
+
 /// Бейдж непрочитанных (сайдбар). До разблокировки БД отдаёт 0, а не ошибку.
 #[tauri::command]
 pub(crate) fn chat_unread_count() -> Result<u32, String> {

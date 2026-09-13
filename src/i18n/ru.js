@@ -1430,6 +1430,7 @@ export const ru = {
   chat_empty_room: 'Сообщений пока нет — напишите первым',
   chat_input_placeholder: 'Сообщение… (Enter — отправить, Shift+Enter — новая строка)',
   chat_send: 'Отправить',
+  chat_typing: 'печатает…',
   chat_ref_card: 'Карта',
   chat_ref_order: 'Заказ',
   chat_ref_profile: 'Профиль',

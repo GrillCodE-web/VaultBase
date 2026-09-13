@@ -1431,6 +1431,7 @@ export const en = {
   chat_empty_room: 'No messages yet — say hello',
   chat_input_placeholder: 'Message… (Enter — send, Shift+Enter — newline)',
   chat_send: 'Send',
+  chat_typing: 'typing…',
   chat_ref_card: 'Card',
   chat_ref_order: 'Order',
   chat_ref_profile: 'Profile',

@@ -74,6 +74,10 @@ export default function Chat() {
   const [sending, setSending] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [loading, setLoading] = useState(true)
+  // CHAT-2.0 (g80): «печатает…» — iid пира, пока горит его 5-секундный таймер.
+  const [typingFrom, setTypingFrom] = useState(null)
+  const typingTimerRef = useRef(null)
+  const typingSentRef = useRef(0) // троттлинг исходящих сигналов (3с)
 
   const feedRef = useRef(null)
   // Ref'ы для стабильных listener'ов (patтерн FIX P0-5 из Imap.jsx).
@@ -155,9 +159,18 @@ export default function Chat() {
         })
       )
     }).then(fn => !cancelled && unlisteners.push(fn))
+    // CHAT-2.0 (g80): «печатает…» — эфемерно, 5с без продления гаснет.
+    listen('chat:typing', e => {
+      const p = e.payload
+      if (!p || p.room !== selectedRoomRef.current) return
+      setTypingFrom(p.from)
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      typingTimerRef.current = setTimeout(() => setTypingFrom(null), 5000)
+    }).then(fn => !cancelled && unlisteners.push(fn))
     return () => {
       cancelled = true
       unlisteners.forEach(fn => fn())
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     }
   }, [upsertMessages])
 
@@ -171,6 +184,7 @@ export default function Chat() {
   // При входе в комнату — пометить её входящие прочитанными.
   useEffect(() => {
     if (selectedRoom) markRoomRead(selectedRoom, messages)
+    setTypingFrom(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoom])
 
@@ -270,6 +284,17 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+    }
+  }
+
+  // CHAT-2.0 (g80): сигнал «печатает…» пиру в DM — не чаще раза в 3с и только
+  // при непустом вводе. Ошибки глотаем: индикатор не критичен.
+  const handleDraftChange = e => {
+    const v = e.target.value.slice(0, MAX_BODY_CHARS)
+    setDraft(v)
+    if (v && current?.kind === 'dm' && Date.now() - typingSentRef.current > 3000) {
+      typingSentRef.current = Date.now()
+      invoke('chat_typing', { peerIid: current.peerIid }).catch(() => {})
     }
   }
 
@@ -406,10 +431,15 @@ export default function Chat() {
               </div>
 
               <div className="shrink-0 border-t border-border bg-surface p-3">
+                {typingFrom && (
+                  <div className="px-1 pb-1.5 text-11 text-muted">
+                    {peerLabel(typingFrom)} {t('chat_typing')}
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <textarea
                     value={draft}
-                    onChange={e => setDraft(e.target.value.slice(0, MAX_BODY_CHARS))}
+                    onChange={handleDraftChange}
                     onKeyDown={handleComposerKey}
                     placeholder={t('chat_input_placeholder')}
                     rows={Math.min(4, Math.max(1, draft.split('\n').length))}

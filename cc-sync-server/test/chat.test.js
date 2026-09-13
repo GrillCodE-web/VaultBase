@@ -400,3 +400,38 @@ test('manager outbox: исходящие менеджера, delivered_at пос
   const wrkOnMgr = await req('GET', '/manager/api/chat/outbox', W1_TOKEN);
   assert.ok([401, 403].includes(wrkOnMgr.status));
 });
+
+// CHAT-2.0 (g80): typing-релей — эфемерно, валидация адресата как у send,
+// серверный троттлинг 2с на пару.
+test('typing: валидация room/target и троттлинг', async () => {
+  const bad1 = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: 'junk', target_iid: W2_IID });
+  assert.equal(bad1.status, 400);
+  const bad2 = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: dmRoom(W1_IID, W2_IID), target_iid: W1_IID });
+  assert.equal(bad2.status, 400); // сам себе нельзя
+  const bad3 = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: dmRoom(W2_IID, WO_IID), target_iid: W2_IID });
+  assert.equal(bad3.status, 400); // чужой dm-room
+  const noAuth = await req('POST', '/sync/chat/typing', null, { room: dmRoom(W1_IID, W2_IID), target_iid: W2_IID });
+  assert.equal(noAuth.status, 401);
+
+  const ok = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: dmRoom(W1_IID, W2_IID), target_iid: W2_IID });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.ok, true);
+  assert.ok(!ok.json.throttled, 'первый сигнал проходит');
+
+  const again = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: dmRoom(W1_IID, W2_IID), target_iid: W2_IID });
+  assert.equal(again.status, 200);
+  assert.equal(again.json.throttled, true, 'второй подряд — троттлится');
+});
+
+test('typing: изоляция групп и доступ к менеджеру', async () => {
+  const outsider = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: dmRoom(W1_IID, WO_IID), target_iid: WO_IID });
+  assert.equal(outsider.status, 403); // чужая группа
+
+  const toMgr = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: dmRoom(W1_IID, MGR_IID), target_iid: MGR_IID });
+  assert.equal(toMgr.status, 200); // менеджеру можно без общей группы
+
+  const group = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: 'group:grp-chat', target_iid: W2_IID });
+  assert.equal(group.status, 200);
+  const notMine = await req('POST', '/sync/chat/typing', W1_TOKEN, { room: 'group:grp-other', target_iid: W2_IID });
+  assert.equal(notMine.status, 403);
+});
