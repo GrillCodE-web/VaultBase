@@ -37,7 +37,9 @@ bcrypt        = "0.15"
 sha2          = "0.10"
 hkdf          = "0.12"   # MGR-004: HKDF-SHA256 РґР»СЏ Р·Р°РїРµС‡Р°С‚Р°РЅРЅС‹С… РєРѕРЅРІРµСЂС‚РѕРІ С‚РµР»РµРјРµС‚СЂРёРё
 x25519-dalek  = { version = "2", features = ["static_secrets"] }  # MGR-004: СЌС„РµРјРµСЂРЅС‹Р№ X25519 (sealed box в†’ РјРµРЅРµРґР¶РµСЂ)
+ed25519-dalek = { version = "2", features = ["rand_core"] }  # SEC ETAP-A P.10: sync payload signing (anti-tamper)
 pbkdf2        = { version = "0.12", features = ["simple"] }
+argon2        = "0.5"  # SEC ETAP-A P.1: Argon2id memory-hard KDF (замена PBKDF2)
 hmac          = "0.12"
 base64        = "0.22"
 uuid          = { version = "1", features = ["v4"] }

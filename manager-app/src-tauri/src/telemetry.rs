@@ -72,6 +72,95 @@ fn find_own_envelope(envelopes: &Value, key_id: i64) -> Option<&Value> {
         .and_then(|arr| arr.iter().find(|e| e.get("key_id").and_then(|k| k.as_i64()) == Some(key_id)))
 }
 
+/// REDESIGN Этап B: забрать E2E-контент заказов воркеров.
+/// GET /manager/api/orders/inbox → распечатать конверты (sealed воркером под
+/// pub менеджера) → сохранить в synced_orders → ack серверу. Возвращает
+/// (сохранено, ошибок_распечатки).
+fn fetch_worker_orders(
+    db: &Database,
+    base: &str,
+    token: &str,
+    secret: &[u8; 32],
+) -> Result<(usize, usize), String> {
+    let resp = http::request(base, "GET", "/manager/api/orders/inbox", Some(token), None)
+        .map_err(|e| format!("orders_inbox: {e}"))?;
+    if resp.status != 200 {
+        return Err(format!("orders_inbox_status_{}", resp.status));
+    }
+    let parsed: Value = serde_json::from_str(&resp.body).map_err(|e| format!("parse: {e}"))?;
+    let slices = parsed
+        .get("slices")
+        .and_then(|s| s.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut stored = 0usize;
+    let mut failures = 0usize;
+    let mut acked_ids: Vec<i64> = Vec::new();
+
+    for s in slices {
+        let id = s.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
+        let source_iid = s.get("source_iid").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let order_ref = s.get("order_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let sealed = s.get("sealed_data").and_then(|v| v.as_str()).unwrap_or("");
+        if id == 0 || source_iid.is_empty() || order_ref.is_empty() || sealed.is_empty() {
+            continue;
+        }
+        // sealed_data = serde_json::to_string(&TelemetryEnvelope): парсим обратно в Value.
+        let env: Value = match serde_json::from_str(sealed) {
+            Ok(v) => v,
+            Err(_) => {
+                failures += 1;
+                continue;
+            }
+        };
+        let plain = match unseal_envelope(secret, &env) {
+            Ok(p) => p,
+            Err(_) => {
+                failures += 1;
+                continue;
+            }
+        };
+        let payload: Value = serde_json::from_str(&plain).unwrap_or(Value::Null);
+        let sv = |k: &str| payload.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let order_number = sv("order_number");
+        let status = sv("status");
+        let total_amount = payload.get("total_amount").and_then(|v| v.as_f64());
+        let tracking = sv("tracking_number");
+        let carrier = sv("carrier");
+        let notes = sv("notes");
+        let created_at = sv("created_at");
+        let updated_at = sv("updated_at");
+
+        db.conn
+            .execute(
+                "INSERT INTO synced_orders
+                    (server_slice_id, source_iid, order_ref, payload, order_number, status,
+                     total_amount, tracking_number, carrier, notes, created_at, updated_at, received_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,CURRENT_TIMESTAMP)
+                 ON CONFLICT(server_slice_id) DO UPDATE SET
+                    payload = excluded.payload, order_number = excluded.order_number,
+                    status = excluded.status, total_amount = excluded.total_amount,
+                    tracking_number = excluded.tracking_number, carrier = excluded.carrier,
+                    notes = excluded.notes, created_at = excluded.created_at,
+                    updated_at = excluded.updated_at, received_at = CURRENT_TIMESTAMP",
+                rusqlite::params![
+                    id, source_iid, order_ref, plain, order_number, status,
+                    total_amount, tracking, carrier, notes, created_at, updated_at
+                ],
+            )
+            .map_err(|e| format!("order store: {e}"))?;
+        stored += 1;
+        acked_ids.push(id);
+    }
+
+    if !acked_ids.is_empty() {
+        let body = json!({ "ids": acked_ids }).to_string();
+        let _ = http::request(base, "POST", "/manager/api/orders/ack", Some(token), Some(&body));
+    }
+    Ok((stored, failures))
+}
+
 pub fn sync(db: &Database, enc: &crate::crypto::FieldEncryption) -> Result<Value, String> {
     let base = http::server_base(db);
     let token = config_str(db, "license_token")?;
@@ -198,6 +287,15 @@ pub fn sync(db: &Database, enc: &crate::crypto::FieldEncryption) -> Result<Value
         }
     }
 
+    let (orders_synced, order_unseal_failures) =
+        match fetch_worker_orders(db, &base, &token, &secret) {
+            Ok(v) => v,
+            Err(e) => {
+                db.log_event("orders_sync_fail", &e);
+                (0, 0)
+            }
+        };
+
     let rollups = rollup_reports(db).unwrap_or_else(|e| {
         db.log_event("rollup_fail", &e);
         json!({ "rolled": 0, "deleted": 0 })
@@ -216,6 +314,8 @@ pub fn sync(db: &Database, enc: &crate::crypto::FieldEncryption) -> Result<Value
         "reports": reports_stored,
         "sealed_to_other_key": sealed_to_other_key,
         "unseal_failures": unseal_failures,
+        "orders_synced": orders_synced,
+        "order_unseal_failures": order_unseal_failures,
         "alerts_new": alerts.get("alerts_new").and_then(|v| v.as_i64()).unwrap_or(0),
         "new_alerts": alerts.get("new_alerts").cloned().unwrap_or(json!([])),
         "rollup": rollups,
@@ -1279,6 +1379,58 @@ pub fn worker_snapshots(db: &Database) -> Result<Value, String> {
         }));
     }
     Ok(json!({ "snapshots": out }))
+}
+
+/// REDESIGN Этап B: список E2E-заказов, расшифрованных из воркерских срезов.
+/// Опциональный фильтр по source_iid (воркеру).
+pub fn synced_orders(db: &Database, installation_id: Option<&str>) -> Result<Value, String> {
+    let sql = "SELECT server_slice_id, source_iid, order_ref, order_number, status,
+                      total_amount, tracking_number, carrier, notes, created_at, updated_at, received_at, payload
+               FROM synced_orders
+               WHERE (?1 IS NULL OR source_iid = ?1)
+               ORDER BY updated_at DESC, server_slice_id DESC
+               LIMIT 1000";
+    let mut stmt = db.conn.prepare(sql).map_err(|e| format!("select: {e}"))?;
+    let rows = stmt
+        .query_map(rusqlite::params![installation_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<String>>(4)?,
+                row.get::<_, Option<f64>>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<String>>(8)?,
+                row.get::<_, Option<String>>(9)?,
+                row.get::<_, Option<String>>(10)?,
+                row.get::<_, Option<String>>(11)?,
+                row.get::<_, Option<String>>(12)?,
+            ))
+        })
+        .map_err(|e| format!("query: {e}"))?;
+
+    let mut out = Vec::new();
+    for row in rows.flatten() {
+        let (id, iid, order_ref, number, status, total, tracking, carrier, notes, created, updated, received, payload) = row;
+        out.push(json!({
+            "id": id,
+            "source_iid": iid,
+            "order_ref": order_ref,
+            "order_number": number.unwrap_or_default(),
+            "status": status.unwrap_or_default(),
+            "total_amount": total,
+            "tracking_number": tracking.unwrap_or_default(),
+            "carrier": carrier.unwrap_or_default(),
+            "notes": notes.unwrap_or_default(),
+            "created_at": created.unwrap_or_default(),
+            "updated_at": updated.unwrap_or_default(),
+            "received_at": received.unwrap_or_default(),
+            "payload": serde_json::from_str::<Value>(&payload.unwrap_or_default()).unwrap_or(Value::Null),
+        }));
+    }
+    Ok(json!({ "orders": out }))
 }
 
 #[cfg(test)]

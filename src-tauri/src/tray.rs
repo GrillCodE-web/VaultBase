@@ -8,6 +8,24 @@ use tauri::{
     AppHandle, Emitter, Manager,
 };
 
+// 9ks: бейдж непрочитанных на трее (tooltip) и таскбаре/доке. Вызывается из
+// chat.rs при изменении числа непрочитанных (fetch / mark_read / mute).
+pub(crate) fn set_unread(app: &AppHandle, count: u32) {
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        let tip = if count > 0 {
+            format!("VaultBase — {count} непрочитанных")
+        } else {
+            "VaultBase".to_string()
+        };
+        let _ = tray.set_tooltip(Some(tip.as_str()));
+    }
+    // Таскбар/док-бейдж: macOS Dock и Linux Unity показывают число; на Windows
+    // — best-effort (оверлей не поддерживается этим API, ошибку глушим).
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.set_badge_count(if count > 0 { Some(count as i64) } else { None });
+    }
+}
+
 pub(crate) fn setup_tray(app: &tauri::App) -> Result<(), tauri::Error> {
     let toggle = MenuItemBuilder::with_id("toggle", "Показать / скрыть").build(app)?;
     let sync = MenuItemBuilder::with_id("sync", "Синхронизация").build(app)?;

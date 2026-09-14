@@ -76,6 +76,8 @@ impl Database {
         // FIX B25 + PHASE 1: записываем footprint при каждом создании заказа с order_status
         let _ = self.record_order_footprint(oid, &input.profile_id, input.shop_id,
             input.email_pool_id, input.drop_id, input.proxy_id, "pending");
+        // SEC Этап B: помечаем заказ грязным для E2E-синка контента менеджеру.
+        let _ = self.enqueue_order_sync(oid);
         // FIX FOOTPRINT-WAKE-01: будим sync-поток — новый footprint уедет почти сразу.
         crate::background::wake_sync();
 
@@ -317,8 +319,68 @@ impl Database {
             "UPDATE shop_footprints SET order_status=?1, synced=0 WHERE order_id=?2",
             params![status, order_id],
         );
+        // SEC Этап B: контент заказа изменился (статус/трек) — переотправляем
+        // E2E-конверт менеджеру.
+        let _ = self.enqueue_order_sync(order_id);
         // FIX FOOTPRINT-WAKE-01: будим sync-поток — статус уедет почти сразу.
         crate::background::wake_sync();
+    }
+
+    /// SEC Этап B: помечает заказ грязным в очереди E2E-синхронизации контента.
+    /// Ошибки не всплывают — синк не должен ломать бизнес-поток.
+    pub(crate) fn enqueue_order_sync(&self, order_id: i64) -> Result<(), String> {
+        self.conn.execute(
+            "INSERT INTO order_sync_queue(order_id, synced, updated_at) VALUES(?1, 0, datetime('now')) \
+             ON CONFLICT(order_id) DO UPDATE SET synced=0, updated_at=datetime('now')",
+            params![order_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// SEC Этап B: id заказов, ожидающих E2E-выгрузки контента (synced=0).
+    pub(crate) fn get_unsynced_order_ids(&self, limit: i64) -> Result<Vec<i64>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT order_id FROM order_sync_queue WHERE synced=0 ORDER BY updated_at ASC LIMIT ?1",
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![limit], |r| r.get::<_, i64>(0))
+            .map_err(|e| e.to_string())?;
+        let mut out = Vec::new();
+        for r in rows { out.push(r.map_err(|e| e.to_string())?); }
+        Ok(out)
+    }
+
+    /// SEC Этап B: помечает заказ как выгруженный (synced=1).
+    pub(crate) fn mark_order_synced(&self, order_id: i64) -> Result<(), String> {
+        self.conn.execute(
+            "UPDATE order_sync_queue SET synced=1, updated_at=datetime('now') WHERE order_id=?1",
+            params![order_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// SEC Этап B: собирает E2E-payload контента заказа (то, что сервер видеть
+    /// НЕ должен). Метаданные/футпринты идут отдельным слепым каналом.
+    pub(crate) fn build_order_e2e_payload(&self, order_id: i64) -> Result<serde_json::Value, String> {
+        let (order_number, status, items_json, total, tracking, carrier, notes, created, updated):
+            (Option<String>, String, Option<String>, Option<f64>, Option<String>, Option<String>, Option<String>, String, String) =
+            self.conn.query_row(
+                "SELECT order_number,status,items_json,total_amount,tracking_number,carrier,notes,created_at,updated_at FROM orders WHERE id=?1",
+                params![order_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?)),
+            ).map_err(|e| e.to_string())?;
+        Ok(serde_json::json!({
+            "v": 1,
+            "order_id": order_id,
+            "order_number": order_number,
+            "status": status,
+            "items_json": items_json,
+            "total_amount": total,
+            "tracking_number": tracking,
+            "carrier": carrier,
+            "notes": notes,
+            "created_at": created,
+            "updated_at": updated,
+        }))
     }
 
     /// MGR-014: одна строка структурной истории статусов заказа.

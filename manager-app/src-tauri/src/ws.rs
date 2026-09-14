@@ -167,9 +167,22 @@ fn connect_and_run(app: &AppHandle, token: &str, url: &str) -> Result<(), String
         }
     }
 
+    // SEC П.37 device-binding: сервер сверяет installation_id из auth-фрейма
+    // с привязанным к лицензии. Прикладываем свой из открытой БД.
+    let installation_id: Option<String> = {
+        let state = app.state::<AppState>();
+        let guard = state.db.lock().ok();
+        guard.and_then(|g| match &*g {
+            DbState::Open { db, .. } => db.get_config("installation_id").filter(|s| !s.is_empty()),
+            DbState::Closed => None,
+        })
+    };
     let mut auth_msg = json!({ "type": "auth", "token": token });
     if let Some(n) = auth_nonce {
         auth_msg["nonce"] = json!(n);
+    }
+    if let Some(iid) = installation_id {
+        auth_msg["installation_id"] = json!(iid);
     }
     socket
         .send(Message::Text(auth_msg.to_string()))

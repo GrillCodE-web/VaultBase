@@ -12,10 +12,23 @@ function adminUser() {
  * rotating the admin password invalidates every outstanding session without
  * needing a server-side session store.
  */
+// SEC ETAP-A P.32: деривация ключа подписи сессии через scrypt (memory-hard),
+// а не одиночный SHA256. При утечке cookie офлайн-брутфорс ADMIN_PASS становится
+// дорогим. scrypt встроен в Node (без зависимостей). Детерминирован при фикс-соли,
+// поэтому сессии переживают рестарт и ротация пароля их инвалидирует (как раньше).
+// Кэшируем результат: scrypt тяжёлый, а base между рестартами не меняется.
+const SCRYPT_SALT = Buffer.from('vaultbase-admin-session-v2', 'utf8');
+const SCRYPT_OPTS = { N: 32768, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
+let _cachedSigningKey = null;
+let _cachedSigningBase = null;
+
 function signingKey() {
   const base = process.env.SESSION_SECRET || process.env.ADMIN_PASS;
   if (!base) return null;
-  return crypto.createHash('sha256').update(`vaultbase-admin-session:${base}`).digest();
+  if (_cachedSigningKey && _cachedSigningBase === base) return _cachedSigningKey;
+  _cachedSigningKey = crypto.scryptSync(base, SCRYPT_SALT, 32, SCRYPT_OPTS);
+  _cachedSigningBase = base;
+  return _cachedSigningKey;
 }
 
 function sign(payloadB64, key) {

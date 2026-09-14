@@ -158,6 +158,20 @@ pub(crate) fn start_background_threads(handle: tauri::AppHandle) {
                                 }
                             }
 
+                            // SEC Этап B: E2E-выгрузка контента заказов менеджеру
+                            // (тем же тиком, что и футпринты). Ошибки не влияют на
+                            // счётчик сбоев футпринтов — это отдельный слепой канал.
+                            match sync::SyncClient::sync_orders(&mut db) {
+                                Ok(n) if n > 0 => {
+                                    eprintln!("[sync] Uploaded {} E2E order(s) to manager", n);
+                                    let _ = h.emit("sync_completed", serde_json::json!({
+                                        "type": "orders", "sent": n
+                                    }));
+                                }
+                                Ok(_) => {}
+                                Err(e) => eprintln!("[sync] Order E2E sync error: {}", e),
+                            }
+
                             // Pause syncing after consecutive failures to avoid spam
                             if consecutive_failures >= MAX_FAILURES_BEFORE_PAUSE {
                                 eprintln!("[sync] Pausing footprint sync after {} consecutive failures", consecutive_failures);

@@ -16,7 +16,6 @@ import { applySeasonAttr } from './utils/season.js'
 import ErrorBoundary from './components/ErrorBoundary'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import { AppTour } from './components/AppTour'
-import NewsAlert from './components/NewsAlert'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useTheme } from './hooks/useTheme'
 import { useDensity } from './hooks/useDensity'
@@ -683,14 +682,24 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
       }),
       // CHAT-2.0 (3ak): входящее сообщение чата — только когда окно не в
       // фокусе (иначе пользователь и так видит ленту). Тогл: os_notify_chat.
-      listen('chat:message', e => {
+      listen('chat:message', async e => {
         const p = e.payload
         if (!p || p.direction !== 'in') return
         if (document.visibilityState === 'visible' && document.hasFocus()) return
+        // bx6: не шумим по замьюченным комнатам. azl: важные сообщения
+        // (priority) уведомляют даже при mute.
+        if (!p.priority) {
+          try {
+            if (await invoke('chat_room_mute_get', { room: p.room })) return
+          } catch {
+            /* mute-статус недоступен — не глушим уведомление */
+          }
+        }
         const body = String(p.body || '')
         osNotify(
           'os_notify_chat',
-          t('notify_chat_title', {
+          // azl: важное — помечаем заголовок уведомления.
+          (p.priority ? `❗ ` : '') + t('notify_chat_title', {
             peer: String(p.peer_iid || '').slice(0, 8),
             room: p.room || '',
           }),
@@ -1548,7 +1557,6 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
             )}
           </div>
         </div>
-        <NewsAlert />
         {warningActive && (
           <div className="session-warning-banner" role="alert">
             <AlertTriangle size={14} />

@@ -1,6 +1,25 @@
-const Database = require('better-sqlite3');
 const crypto = require('crypto');
 const path = require('path');
+
+// SEC ETAP-A П.33: шифрование БД сервера в покое.
+// Если задан DB_ENCRYPTION_KEY — используем better-sqlite3-multiple-ciphers
+// (drop-in, тот же API + PRAGMA key = SQLCipher/wxSQLite3). Без ключа —
+// обычный better-sqlite3 (обратная совместимость, деплой не ломается).
+// Ключ берём ТОЛЬКО из ENV, в репозитории его нет.
+const DB_ENCRYPTION_KEY = process.env.DB_ENCRYPTION_KEY || '';
+let Database;
+if (DB_ENCRYPTION_KEY) {
+  try {
+    Database = require('better-sqlite3-multiple-ciphers');
+  } catch (e) {
+    throw new Error(
+      'DB_ENCRYPTION_KEY задан, но модуль better-sqlite3-multiple-ciphers не установлен. ' +
+      'Выполните: npm i better-sqlite3-multiple-ciphers'
+    );
+  }
+} else {
+  Database = require('better-sqlite3');
+}
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
 
@@ -9,6 +28,10 @@ let db;
 function getDb() {
   if (!db) {
     db = new Database(DB_PATH);
+    // Ключ шифрования ДО любого обращения к данным. SQLCipher-совместимый PRAGMA.
+    if (DB_ENCRYPTION_KEY) {
+      db.pragma(`key = '${DB_ENCRYPTION_KEY.replace(/'/g, "''")}'`);
+    }
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     migrate(db);
@@ -681,6 +704,102 @@ function migrate(db) {
       ALTER TABLE licenses ADD COLUMN rotated_at DATETIME;
       ALTER TABLE licenses ADD COLUMN expires_at DATETIME;
       PRAGMA user_version = 27;
+    `);
+  }
+
+  // CHAT (m4i): пользовательские групповые комнаты поверх opaque-relay.
+  // chat_rooms — метаданные комнаты (владелец, заголовок), chat_room_members —
+  // состав. Релей в комнату 'room:<id>' идёт только её членам (fan-out на
+  // отправителе), менеджер видит все комнаты. Plaintext сервер по-прежнему не
+  // видит: room-таблицы хранят лишь маршрутизацию, тела едут sealed-конвертами.
+  if (ver < 28) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_rooms (
+        id          TEXT PRIMARY KEY,
+        owner_iid   TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS chat_room_members (
+        room_id          TEXT NOT NULL,
+        installation_id  TEXT NOT NULL,
+        added_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (room_id, installation_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_room_members_iid ON chat_room_members(installation_id);
+
+      PRAGMA user_version = 28;
+    `);
+  }
+
+  // yyt: закреплённые сообщения. Храним только маршрутизацию/метаданные —
+  // (комната, server_id закреплённого сообщения, кто и когда закрепил).
+  // Само тело по-прежнему лежит sealed-конвертом; plaintext сервер не видит.
+  if (ver < 29) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_pins (
+        room        TEXT NOT NULL,
+        message_id  INTEGER NOT NULL,
+        pinned_by   TEXT NOT NULL,
+        pinned_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (room, message_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_pins_room ON chat_pins(room);
+
+      PRAGMA user_version = 29;
+    `);
+  }
+
+  // SEC Этап B (specs/security-sync-redesign.md): E2E-контент заказов.
+  // ЗЕРКАЛО slice-механизма issued_asset_slices, но НАПРАВЛЕНИЕ обратное —
+  // воркер → менеджер: заказ шифрует ВОРКЕР под pub-ключ менеджера
+  // (seal_envelope), читает ТОЛЬКО менеджер (unseal). Сервер слепой —
+  // хранит sealed_data как есть. order_ref — непрозрачный идентификатор
+  // заказа у воркера (напр. order_number или локальный id, не PII);
+  // order_hash — необратимый футпринт-связка с таблицей footprints (опц.).
+  // source_iid = воркер-автор, target_iid = менеджер-получатель.
+  // Повторная загрузка того же (order_ref, source_iid) перезаписывает
+  // конверт и возвращает статус в pending (свежая доставка менеджеру).
+  if (ver < 30) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS issued_order_slices (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_ref    TEXT NOT NULL,
+        source_iid   TEXT NOT NULL,
+        target_iid   TEXT NOT NULL,
+        key_id       INTEGER NOT NULL DEFAULT 1,
+        order_hash   TEXT,
+        sealed_data  TEXT NOT NULL,
+        status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','ack','revoked')),
+        created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+        delivered_at DATETIME,
+        acked_at     DATETIME,
+        revoked_at   DATETIME,
+        UNIQUE(order_ref, source_iid)
+      );
+      CREATE INDEX IF NOT EXISTS idx_order_slices_target ON issued_order_slices(target_iid, status, id);
+      CREATE INDEX IF NOT EXISTS idx_order_slices_source ON issued_order_slices(source_iid, status);
+
+      PRAGMA user_version = 30;
+    `);
+  }
+
+  // 6if: реакции-эмодзи. Как и пины (v29) — низкочувствительные метаданные
+  // (комната, server_id сообщения, кто, эмодзи). Тело остаётся sealed-конвертом.
+  if (ver < 31) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_reactions (
+        room        TEXT NOT NULL,
+        message_id  INTEGER NOT NULL,
+        reactor     TEXT NOT NULL,
+        emoji       TEXT NOT NULL,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (room, message_id, reactor, emoji)
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_reactions_room ON chat_reactions(room, message_id);
+
+      PRAGMA user_version = 31;
     `);
   }
 }

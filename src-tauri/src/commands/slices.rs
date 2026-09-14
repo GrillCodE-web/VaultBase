@@ -272,6 +272,96 @@ pub(crate) fn import_sealed_slice(db: &Database, sealed_data: &str) -> Result<us
     db.insert_cards(vec![card])
 }
 
+// ─────────────────────────────────────────
+//  SEC Этап B: E2E-выгрузка контента заказов (воркер → менеджер)
+// ─────────────────────────────────────────
+//
+// Заказ шифруется X25519-пубключом МЕНЕДЖЕРА (тот же sealed-box контракт, что
+// у карт/телеметрии) и уходит на сервер-курьер (routes/worker-orders.js):
+//   GET  /sync/manager-key    → { target_iid, pubkey, key_id }
+//   POST /sync/orders/upload  → { slices: [{ order_ref, sealed_data, key_id }] }
+// Сервер plaintext не видит; читает только менеджер. Футпринты идут отдельно.
+
+const MGR_KEY_PUBKEY: &str = "mgr_slice_pubkey";
+const MGR_KEY_ID: &str = "mgr_slice_key_id";
+
+/// Актуальный X25519-пубключ менеджера + key_id. Кэшируется в config-KV,
+/// обновляется по сети при каждом синке (ключ менеджера может ротироваться).
+fn fetch_manager_key(db: &Database, token: &str) -> Result<(String, i64), String> {
+    match ureq::get(&crate::endpoints::endpoint("/sync/manager-key"))
+        .set("Authorization", &format!("Bearer {}", token))
+        .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
+        .call()
+    {
+        Ok(resp) => {
+            let body: Value = resp.into_json().map_err(|e| format!("mgr_key_body: {e}"))?;
+            let pubkey = body["pubkey"].as_str().unwrap_or("").to_string();
+            let key_id = body["key_id"].as_i64().unwrap_or(0);
+            if pubkey.len() == 64 && key_id > 0 {
+                let _ = db.set_config(MGR_KEY_PUBKEY, &pubkey);
+                let _ = db.set_config(MGR_KEY_ID, &key_id.to_string());
+                Ok((pubkey, key_id))
+            } else {
+                Err("manager_key_invalid".into())
+            }
+        }
+        // Менеджер/ключ ещё не готов — используем кэш, если он есть.
+        Err(_) => {
+            let pk = db.get_config(MGR_KEY_PUBKEY).ok().flatten().unwrap_or_default();
+            let kid = db.get_config(MGR_KEY_ID).ok().flatten()
+                .and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
+            if pk.len() == 64 && kid > 0 { Ok((pk, kid)) }
+            else { Err("manager_key_unavailable".into()) }
+        }
+    }
+}
+
+/// Выгрузить грязные заказы (order_sync_queue.synced=0) менеджеру E2E-конвертами.
+/// Возвращает число успешно выгруженных. Ошибки сети/ключа не фатальны —
+/// заказы останутся в очереди до следующего тика.
+pub(crate) fn sync_orders(db: &mut Database, token: &str) -> Result<usize, String> {
+    let ids = db.get_unsynced_order_ids(200)?;
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let (pubkey, key_id) = fetch_manager_key(db, token)?;
+
+    let mut slices: Vec<Value> = Vec::new();
+    let mut order_ids: Vec<i64> = Vec::new();
+    for oid in &ids {
+        let payload = match db.build_order_e2e_payload(*oid) {
+            Ok(p) => p,
+            Err(_) => continue, // заказ удалён — пропускаем
+        };
+        let env = match crate::commands::telemetry::seal_envelope(key_id, &pubkey, &payload.to_string()) {
+            Ok(e) => e,
+            Err(e) => { let _ = db.log_event("orders.seal_failed", &format!("order {oid}: {e}"), Some("order"), None); continue; }
+        };
+        let sealed = serde_json::to_string(&env).map_err(|e| e.to_string())?;
+        slices.push(json!({ "order_ref": oid.to_string(), "sealed_data": sealed, "key_id": key_id }));
+        order_ids.push(*oid);
+    }
+    if slices.is_empty() {
+        return Ok(0);
+    }
+
+    let body = json!({ "slices": slices });
+    let resp = ureq::post(&crate::endpoints::endpoint("/sync/orders/upload"))
+        .set("Authorization", &format!("Bearer {}", token))
+        .set("Content-Type", "application/json")
+        .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
+        .send_string(&body.to_string())
+        .map_err(|e| format!("orders_upload_failed: {e}"))?;
+    let ok = resp.status() >= 200 && resp.status() < 300;
+    if ok {
+        for oid in &order_ids {
+            let _ = db.mark_order_synced(*oid);
+        }
+        let _ = db.log_event("orders.synced", &format!("uploaded={}", order_ids.len()), Some("order"), None);
+    }
+    Ok(order_ids.len())
+}
+
 #[tauri::command]
 pub(crate) fn slices_fetch() -> Result<Value, String> {
     fetch_and_store(None)

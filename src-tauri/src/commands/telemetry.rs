@@ -125,6 +125,57 @@ pub(crate) fn unseal_envelope(priv_hex: &str, env: &TelemetryEnvelope) -> Result
     String::from_utf8(pt).map_err(|e| format!("bad_utf8: {}", e))
 }
 
+// ── SEC ETAP-A P.10: Ed25519 — подпись данных синка (anti-tamper) ──
+//  Единый контракт с менеджером (manager crypto.rs): тот же примитив,
+//  подпись — hex(64 байта), ключи — hex(32 байта). Seed устройства живёт
+//  в config-KV, публичный ключ публикуется; приёмник проверяет подпись.
+
+/// Сгенерировать Ed25519-ключ устройства → (seed_hex, pub_hex), по 32 байта.
+pub(crate) fn generate_ed25519() -> (String, String) {
+    use ed25519_dalek::SigningKey;
+    let mut seed = [0u8; 32];
+    OsRng.fill_bytes(&mut seed);
+    let sk = SigningKey::from_bytes(&seed);
+    (hex::encode(seed), hex::encode(sk.verifying_key().to_bytes()))
+}
+
+/// Публичный Ed25519-ключ (hex) из seed (hex).
+pub(crate) fn ed25519_pub_from_seed(seed_hex: &str) -> Result<String, String> {
+    use ed25519_dalek::SigningKey;
+    let seed: [u8; 32] = hex::decode(seed_hex.trim())
+        .map_err(|e| format!("ed25519 seed hex: {e}"))?
+        .try_into()
+        .map_err(|_| "ed25519 seed length".to_string())?;
+    let sk = SigningKey::from_bytes(&seed);
+    Ok(hex::encode(sk.verifying_key().to_bytes()))
+}
+
+/// Подписать `msg` seed'ом устройства (hex) → подпись hex(64 байта).
+pub(crate) fn ed25519_sign(seed_hex: &str, msg: &[u8]) -> Result<String, String> {
+    use ed25519_dalek::{Signer, SigningKey};
+    let seed: [u8; 32] = hex::decode(seed_hex.trim())
+        .map_err(|e| format!("ed25519 seed hex: {e}"))?
+        .try_into()
+        .map_err(|_| "ed25519 seed length".to_string())?;
+    let sk = SigningKey::from_bytes(&seed);
+    Ok(hex::encode(sk.sign(msg).to_bytes()))
+}
+
+/// Проверить подпись `sig_hex` (64 байта) сообщения `msg` пубключом `pub_hex`.
+pub(crate) fn ed25519_verify(pub_hex: &str, msg: &[u8], sig_hex: &str) -> Result<bool, String> {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let pk: [u8; 32] = hex::decode(pub_hex.trim())
+        .map_err(|e| format!("ed25519 pub hex: {e}"))?
+        .try_into()
+        .map_err(|_| "ed25519 pub length".to_string())?;
+    let sig: [u8; 64] = hex::decode(sig_hex.trim())
+        .map_err(|e| format!("ed25519 sig hex: {e}"))?
+        .try_into()
+        .map_err(|_| "ed25519 sig length".to_string())?;
+    let vk = VerifyingKey::from_bytes(&pk).map_err(|e| format!("ed25519 pub: {e}"))?;
+    Ok(vk.verify(msg, &Signature::from_bytes(&sig)).is_ok())
+}
+
 // ── Heartbeat payload (§2.2) ──────────────────────────────────────
 
 /// `"ok" | "down"` — по свежести успешных sync-событий в activity_log
@@ -606,7 +657,7 @@ pub(crate) fn build_daily_stats(db: &Database, date: &str) -> serde_json::Value 
 
 // ── HTTP-отправка (контракт routes/telemetry.js) ──────────────────
 
-fn worker_token(db: &Database) -> Result<String, String> {
+pub(crate) fn worker_token(db: &Database) -> Result<String, String> {
     let stored = db.get_config("license_token").map_err(|e| e.to_string())?;
     match stored {
         Some(t) if !t.is_empty() => match &db.encryption {
@@ -1202,14 +1253,14 @@ pub(crate) fn telemetry_tick_impl(db: &mut Database, force: bool) -> serde_json:
         TelemetryHeartbeatResult::fail("skipped_not_due".into())
     };
 
-    // MGR-006: после успешного heartbeat подтягиваем новости и приоритеты
-    // (best-effort — сбой сети/формата не должен ломать телеметрию).
-    let mut feeds = serde_json::json!({ "news": "skipped", "priorities": "skipped" });
+    // MGR-006: после успешного heartbeat подтягиваем приоритеты (best-effort —
+    // сбой сети/формата не должен ломать телеметрию).
+    // dz3: новости больше НЕ тянем открытым каналом — объявления доставляются
+    // E2E-сообщениями в чат (qhi), старый /news-пул ликвидирован.
+    let mut feeds = serde_json::json!({ "priorities": "skipped" });
     if heartbeat.sent {
-        let n = fetch_and_store_news(db);
         let p = fetch_and_store_priorities(db);
         feeds = serde_json::json!({
-            "news": n.as_ref().map(|c| serde_json::json!(c)).unwrap_or_else(|e| serde_json::json!(format!("err:{}", e))),
             "priorities": p.as_ref().map(|c| serde_json::json!(c)).unwrap_or_else(|e| serde_json::json!(format!("err:{}", e))),
         });
     }
@@ -1305,49 +1356,10 @@ fn telemetry_get(db: &Database, path: &str) -> Result<serde_json::Value, String>
         .map_err(|_| "bad_response".to_string())
 }
 
-/// Забрать новости с сервера и слить в локальный кеш. Сервер уже посчитал
-/// is_read, но локальный флаг приоритетнее (пользователь мог отметить оффлайн).
-/// Новости, исчезнувшие из выборки (unpublish/expire), подтираем.
-pub(crate) fn fetch_and_store_news(db: &Database) -> Result<i64, String> {
-    let body = telemetry_get(db, "/api/telemetry/news")?;
-    let items = body.get("news").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-    let mut seen: Vec<i64> = Vec::new();
-    let tx = db.conn.unchecked_transaction().map_err(|e| e.to_string())?;
-    for n in &items {
-        let id = n.get("id").and_then(|v| v.as_i64()).unwrap_or(0);
-        if id <= 0 { continue; }
-        seen.push(id);
-        let severity = n.get("severity").and_then(|v| v.as_str()).unwrap_or("info");
-        let title = n.get("title").and_then(|v| v.as_str()).unwrap_or("");
-        let body_t = n.get("body").and_then(|v| v.as_str());
-        let published = n.get("published_at").and_then(|v| v.as_str());
-        let expires = n.get("expires_at").and_then(|v| v.as_str());
-        let server_read = n.get("is_read").and_then(|v| v.as_i64()).unwrap_or(0);
-        tx.execute(
-            "INSERT INTO manager_news (id, severity, title, body, published_at, expires_at, is_read)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-             ON CONFLICT(id) DO UPDATE SET
-                severity = excluded.severity,
-                title = excluded.title,
-                body = excluded.body,
-                published_at = excluded.published_at,
-                expires_at = excluded.expires_at,
-                is_read = MAX(manager_news.is_read, excluded.is_read)",
-            params![id, severity, title, body_t, published, expires, server_read],
-        ).map_err(|e| e.to_string())?;
-    }
-    if !seen.is_empty() {
-        let ph = seen.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        let sql = format!("DELETE FROM manager_news WHERE id NOT IN ({})", ph);
-        let mut stmt = tx.prepare(&sql).map_err(|e| e.to_string())?;
-        let refs: Vec<&dyn rusqlite::ToSql> = seen.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
-        stmt.execute(refs.as_slice()).map_err(|e| e.to_string())?;
-    } else {
-        tx.execute("DELETE FROM manager_news", []).map_err(|e| e.to_string())?;
-    }
-    tx.commit().map_err(|e| e.to_string())?;
-    Ok(seen.len() as i64)
-}
+// dz3: fetch_and_store_news / get_manager_news / mark_manager_news_read удалены —
+// открытый /news-канал и локальный кеш manager_news на воркере ликвидированы.
+// Объявления доставляются E2E-сообщениями в чат (qhi), прочтение объявления в
+// чате отчитывается серверу через chat_mark_read → POST /news/:id/read.
 
 /// Забрать приоритеты шопов и заменить локальную мапу domain→weight.
 /// Сервер уже развернул таргеты (all / iid / role) в конкретные строки;
@@ -1380,56 +1392,9 @@ pub(crate) fn fetch_and_store_priorities(db: &Database) -> Result<i64, String> {
 #[tauri::command]
 pub(crate) fn manager_refresh_feeds() -> Result<serde_json::Value, String> {
     with_db!(db, {
-        let news = fetch_and_store_news(db).map_err(|e| format!("news: {}", e))?;
+        // dz3: обновляем только приоритеты — новостной пул ликвидирован.
         let priorities = fetch_and_store_priorities(db).map_err(|e| format!("priorities: {}", e))?;
-        Ok(serde_json::json!({ "news": news, "priorities": priorities }))
-    })
-}
-
-#[tauri::command]
-pub(crate) fn get_manager_news(unread_only: Option<bool>) -> Result<serde_json::Value, String> {
-    with_db!(db, {
-        let unread = unread_only.unwrap_or(false);
-        let sql = if unread {
-            "SELECT id, severity, title, body, published_at, expires_at, is_read
-             FROM manager_news WHERE is_read = 0 ORDER BY published_at DESC LIMIT 100"
-        } else {
-            "SELECT id, severity, title, body, published_at, expires_at, is_read
-             FROM manager_news ORDER BY published_at DESC LIMIT 100"
-        };
-        let mut stmt = db.conn.prepare(sql).map_err(|e| e.to_string())?;
-        let rows = stmt.query_map([], |r| {
-            Ok(serde_json::json!({
-                "id": r.get::<_, i64>(0)?,
-                "severity": r.get::<_, String>(1)?,
-                "title": r.get::<_, String>(2)?,
-                "body": r.get::<_, Option<String>>(3)?,
-                "published_at": r.get::<_, Option<String>>(4)?,
-                "expires_at": r.get::<_, Option<String>>(5)?,
-                "is_read": r.get::<_, i64>(6)? == 1,
-            }))
-        }).map_err(|e| e.to_string())?;
-        let news: Vec<serde_json::Value> = rows.flatten().collect();
-        let unread_count: i64 = db.conn.query_row(
-            "SELECT COUNT(*) FROM manager_news WHERE is_read = 0", [], |r| r.get(0)
-        ).unwrap_or(0);
-        Ok(serde_json::json!({ "news": news, "unread": unread_count }))
-    })
-}
-
-#[tauri::command]
-pub(crate) fn mark_manager_news_read(id: i64) -> Result<(), String> {
-    with_db!(db, {
-        db.conn.execute("UPDATE manager_news SET is_read = 1 WHERE id = ?1", params![id])
-            .map_err(|e| e.to_string())?;
-        // best-effort: сообщаем серверу, чтобы счётчики читателей у менеджера совпадали
-        if let Ok(token) = worker_token(db) {
-            let _ = ureq::post(&crate::endpoints::endpoint(&format!("/api/telemetry/news/{}/read", id)))
-                .set("Authorization", &format!("Bearer {}", token))
-                .timeout(std::time::Duration::from_secs(5))
-                .call();
-        }
-        Ok(())
+        Ok(serde_json::json!({ "priorities": priorities }))
     })
 }
 
@@ -1479,6 +1444,23 @@ pub(crate) fn telemetry_get_policy() -> serde_json::Value {
 }
 
 // ── Тесты ─────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod ed25519_tests {
+    use super::{ed25519_pub_from_seed, ed25519_sign, ed25519_verify, generate_ed25519};
+
+    #[test]
+    fn sign_verify_roundtrip_and_tamper() {
+        let (seed, pubk) = generate_ed25519();
+        assert_eq!(ed25519_pub_from_seed(&seed).unwrap(), pubk);
+        let msg = b"vaultbase-sync-payload-v1";
+        let sig = ed25519_sign(&seed, msg).unwrap();
+        assert!(ed25519_verify(&pubk, msg, &sig).unwrap());
+        assert!(!ed25519_verify(&pubk, b"vaultbase-sync-payload-v2", &sig).unwrap());
+        let (_s2, pub2) = generate_ed25519();
+        assert!(!ed25519_verify(&pub2, msg, &sig).unwrap());
+    }
+}
 
 #[cfg(test)]
 mod telemetry_tests {

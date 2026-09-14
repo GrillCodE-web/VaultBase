@@ -152,8 +152,11 @@ router.get('/news', (req, res) => {
   const role = req.licenseRole || 'operator';
   // admin — manager-side: видит и свои (target_role='admin'), и менеджерские
   // (target_role='manager') новости.
+  // dz3: тело (n.body) больше НЕ отдаём открытым текстом — оно доставляется
+  // E2E-сообщением в комнату room:announcements-* (qhi). Здесь остаётся только
+  // лёгкая метаданная-выборка (severity/title как в qhi-броадкасте publish).
   const news = db.prepare(`
-    SELECT n.id, n.severity, n.title, n.body, n.published_at, n.expires_at,
+    SELECT n.id, n.severity, n.title, n.published_at, n.expires_at,
            CASE WHEN r.news_id IS NOT NULL THEN 1 ELSE 0 END AS is_read
     FROM manager_news n
     LEFT JOIN news_reads r ON r.news_id = n.id AND r.installation_id = ?

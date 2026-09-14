@@ -155,9 +155,20 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                         _ => {}
                     }
                 }
-                let auth_msg = match &auth_nonce {
-                    Some(n) => serde_json::json!({ "type": "auth", "token": token, "nonce": n }).to_string(),
-                    None    => serde_json::json!({ "type": "auth", "token": token }).to_string(),
+                // SEC П.37 device-binding: сервер сверяет installation_id из
+                // auth-фрейма с тем, что привязан к лицензии. Прикладываем свой.
+                let installation_id: Option<String> = crate::state::STATE.get()
+                    .and_then(|state| state.db.lock().ok()
+                        .and_then(|db| crate::license::get_or_create_installation_id(&db).ok()));
+                let auth_msg = {
+                    let mut m = serde_json::json!({ "type": "auth", "token": token });
+                    if let Some(n) = &auth_nonce {
+                        m["nonce"] = serde_json::Value::String(n.clone());
+                    }
+                    if let Some(iid) = &installation_id {
+                        m["installation_id"] = serde_json::Value::String(iid.clone());
+                    }
+                    m.to_string()
                 };
                 if socket.send(Message::Text(auth_msg)).is_err() {
                     std::thread::sleep(Duration::from_secs(RECONNECT_SECS));
@@ -281,7 +292,9 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
     match mtype {
         // {"type":"auth_ok","installation_id":...,"group_id":...}
         "auth_ok" => {
-            // Соединение подтверждено. Ничего не делаем — статус уже "connected".
+            // Соединение подтверждено. 13q: реконнект — досылаем оффлайн-очередь
+            // чата в фоне (pending=1 → повторный seal свежими ключами + POST).
+            crate::commands::chat::flush_on_ws_notify(app.clone());
         }
         // MGR-018: {"type":"cards_issued"} — менеджер выдал срезы этому воркеру.
         // Тянем их фоном (HTTP fetch + unseal + insert), не блокируя ws-читателя.
@@ -329,23 +342,13 @@ fn handle_ws_message(app: &AppHandle, pool: &crate::database::DbPool, mtype: &st
                 );
             }
         }
-        // {"type":"news","news":{...}} — менеджер опубликовал новость
-        // (manager-api.js publish → broadcastAll). Тянем ленту в фоне,
-        // NewsAlert покажет баннер при ближайшем опросе локального кэша.
+        // {"type":"news"} — менеджер опубликовал объявление. dz3: тело больше
+        // не тянем открытым каналом — оно приходит E2E-сообщением в комнату
+        // room:announcements-* (qhi). Здесь лишь подстраховочно дёргаем fetch
+        // чата, чтобы объявление показалось сразу (обычно это делает
+        // отдельный chat_message-нотифай).
         "news" => {
-            crate::state::spawn_task(move || {
-                // with_db! использует `?` — замыкание spawn_task возвращает (),
-                // поэтому тело обёрнуто в Result-замыкание.
-                let r: Result<serde_json::Value, String> = (|| {
-                    with_db!(db, {
-                        crate::commands::telemetry::fetch_and_store_news(db)
-                            .map(|n| serde_json::json!({ "news": n }))
-                    })
-                })();
-                if let Err(e) = r {
-                    eprintln!("[ws_sync] news fetch failed: {e}");
-                }
-            });
+            crate::commands::chat::fetch_on_ws_notify(app.clone());
         }
         // {"type":"policy_update"} — менеджер изменил политику/force_logout/wipe
         // (manager-api.js → notifyWorker). Внеочередной heartbeat применяет

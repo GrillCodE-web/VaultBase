@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
-import { chatFetch, chatList, chatMarkRead, chatPeers, chatSend } from '../api/server.js'
+import { chatDelete, chatFetch, chatList, chatMarkRead, chatPeers, chatSend } from '../api/server.js'
 
 // REDESIGN-05-5B4: E2E-чат менеджера (docs/CHAT_E2E.md). Менеджер шлёт ОДИН
 // запечатанный конверт конкретному воркеру (dm), групповой комнаты нет.
@@ -81,6 +81,11 @@ export default function Chat() {
       if (ids.size === 0) return
       const now = new Date().toISOString()
       setMessages((prev) => prev.map((m) => (ids.has(m.id) && !m.read_at ? { ...m, read_at: now } : m)))
+    }).then((fn) => !cancelled && unlisteners.push(fn))
+    listen('chat:deleted', (e) => {
+      const id = e.payload?.id
+      if (typeof id !== 'number') return
+      setMessages((prev) => prev.filter((m) => m.id !== id))
     }).then((fn) => !cancelled && unlisteners.push(fn))
     return () => {
       cancelled = true
@@ -167,6 +172,16 @@ export default function Chat() {
     }
   }
 
+  const handleDelete = async (msg) => {
+    if (!msg || msg.direction !== 'out') return
+    if (!window.confirm(t('chat_delete_confirm'))) return
+    try {
+      await chatDelete(msg.id)
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   return (
     <div className="chat-layout">
       <div className="chat-head">
@@ -227,7 +242,18 @@ export default function Chat() {
                           {t(`chat_ref_${m.ref_type}`)} #{m.ref_id}
                         </div>
                       )}
-                      <div className="chat-msg-time">{fmtTime(m.created_at)}</div>
+                      <div className="chat-msg-time">
+                        {fmtTime(m.created_at)}
+                        {m.direction === 'out' && (
+                          <button
+                            className="chat-msg-del"
+                            title={t('chat_delete')}
+                            onClick={() => handleDelete(m)}
+                          >
+                            {t('chat_delete')}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

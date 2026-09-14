@@ -198,6 +198,16 @@ module.exports = function initWsTauri(wss, io) {
           return;
         }
 
+        // SEC ETAP-A П.37: device-binding. Если клиент прислал installation_id и он
+        // НЕ совпадает с привязанным к лицензии — реджект (антишеринг лицензии).
+        // Обратно совместимо: клиент без claim'а проходит как раньше.
+        const claimedIid = typeof msg.installation_id === 'string' ? msg.installation_id.trim() : '';
+        if (claimedIid && auth.installationId && claimedIid !== auth.installationId) {
+          send(ws, { type: 'auth_error', error: 'device_binding_mismatch' });
+          ws.close();
+          return;
+        }
+
         ws.authenticated = true;
         ws.installationId = auth.installationId;
         ws.userToken = tokenHash;

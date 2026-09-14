@@ -211,6 +211,78 @@ pub fn derive_db_key(password: &str, salt: &[u8]) -> [u8; 32] {
 }
 
 // ─────────────────────────────────────────
+//  SEC ETAP-A P.1: Argon2id key derivation
+// ─────────────────────────────────────────
+
+/// Деривирует 32-байтный ключ из пароля через Argon2id (memory-hard).
+/// Замена PBKDF2: устойчивость к GPU/ASIC-брутфорсу.
+///
+/// `domain` — доменный разделитель (например b"vaultbase-dek-v2" или
+/// b"vaultbase-field-v2"), примешивается к соли, чтобы ключи для разных
+/// назначений были криптографически независимы даже при одном пароле.
+///
+/// Параметры берутся из `constants` (ARGON2_MEMORY_KIB / TIME_COST / PARALLELISM).
+/// Пароль затирается в памяти после деривации.
+pub fn derive_key_argon2id(password: &str, salt: &[u8], domain: &[u8]) -> Result<[u8; 32], String> {
+    use argon2::{Argon2, Algorithm, Params, Version};
+
+    let params = Params::new(
+        crate::constants::ARGON2_MEMORY_KIB,
+        crate::constants::ARGON2_TIME_COST,
+        crate::constants::ARGON2_PARALLELISM,
+        Some(32),
+    )
+    .map_err(|e| format!("argon2 params: {e}"))?;
+
+    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+
+    // Доменно-разделённая соль: domain || salt.
+    let mut derived_salt = Vec::with_capacity(domain.len() + salt.len());
+    derived_salt.extend_from_slice(domain);
+    derived_salt.extend_from_slice(salt);
+
+    let mut password_bytes = password.as_bytes().to_vec();
+    let mut key = [0u8; 32];
+
+    let result = argon
+        .hash_password_into(&password_bytes, &derived_salt, &mut key)
+        .map_err(|e| format!("argon2 derive: {e}"));
+
+    password_bytes.zeroize();
+    result?;
+    Ok(key)
+}
+
+#[cfg(test)]
+mod argon2id_tests {
+    use super::derive_key_argon2id;
+
+    #[test]
+    fn deterministic_same_inputs() {
+        let salt = b"0123456789abcdef";
+        let a = derive_key_argon2id("correct horse", salt, b"vaultbase-dek-v2").unwrap();
+        let b = derive_key_argon2id("correct horse", salt, b"vaultbase-dek-v2").unwrap();
+        assert_eq!(a, b, "одинаковые входы → одинаковый ключ");
+    }
+
+    #[test]
+    fn domain_separation_changes_key() {
+        let salt = b"0123456789abcdef";
+        let dek = derive_key_argon2id("pw", salt, b"vaultbase-dek-v2").unwrap();
+        let field = derive_key_argon2id("pw", salt, b"vaultbase-field-v2").unwrap();
+        assert_ne!(dek, field, "разный домен → независимые ключи");
+    }
+
+    #[test]
+    fn wrong_password_changes_key() {
+        let salt = b"0123456789abcdef";
+        let a = derive_key_argon2id("pw1", salt, b"d").unwrap();
+        let b = derive_key_argon2id("pw2", salt, b"d").unwrap();
+        assert_ne!(a, b);
+    }
+}
+
+// ─────────────────────────────────────────
 //  Random 32-byte key generation
 // ─────────────────────────────────────────
 
@@ -224,19 +296,41 @@ pub fn generate_group_key() -> [u8; 32] {
     key
 }
 
-/// SEC-005: Wrap a random DB encryption key (DEK) with a password-derived KEK
-/// (PBKDF2-SHA256). Envelope scheme: the DEK is random and never changes on
-/// password change — only the sidecar wrap is rewritten. This makes master
-/// password change atomic and crash-safe (no PRAGMA rekey, no brick window).
+/// Префикс версии обёртки DEK: KEK деривирован через Argon2id (memory-hard).
+/// Блоб без этого префикса — legacy v2 (KEK через PBKDF2-SHA256): расшифровывается
+/// для обратной совместимости, при первом входе апгрейдится до Argon2id.
+pub const DEK_WRAP_ARGON2_PREFIX: &str = "a2:";
+
+/// Домен-разделитель для KEK, обёртывающего DEK (совпадает с менеджером).
+const DEK_KEK_DOMAIN: &[u8] = b"vaultbase-dek-v2";
+
+/// Возвращает `true`, если обёртка DEK — legacy (KEK на PBKDF2) и подлежит
+/// апгрейду до Argon2id при следующем успешном входе.
+pub fn dek_wrap_is_legacy(blob: &str) -> bool {
+    !blob.starts_with(DEK_WRAP_ARGON2_PREFIX)
+}
+
+/// SEC-005 + ЭТАП-A П.1: Wrap a random DB encryption key (DEK) with a
+/// password-derived KEK. KEK теперь деривируется через **Argon2id** (memory-hard),
+/// блоб помечается префиксом `a2:`. Envelope scheme: the DEK is random and never
+/// changes on password change — only the sidecar wrap is rewritten. This makes
+/// master password change atomic and crash-safe (no PRAGMA rekey, no brick window).
 pub fn wrap_dek(dek: &[u8; 32], password: &str, salt: &[u8]) -> Result<String, String> {
-    let kek = FieldEncryption::new(password, salt);
-    kek.encrypt(&hex::encode(dek))
+    let kek = FieldEncryption { key: derive_key_argon2id(password, salt, DEK_KEK_DOMAIN)? };
+    let blob = kek.encrypt(&hex::encode(dek))?;
+    Ok(format!("{DEK_WRAP_ARGON2_PREFIX}{blob}"))
 }
 
 /// SEC-005: Unwrap the DEK from the sidecar blob with the password-derived KEK.
+/// Argon2id-обёртки (`a2:`) деривируют KEK через Argon2id; legacy-блобы без
+/// префикса — через PBKDF2 (для чтения старых сайдкаров до миграции).
 pub fn unwrap_dek(blob: &str, password: &str, salt: &[u8]) -> Result<[u8; 32], String> {
-    let kek = FieldEncryption::new(password, salt);
-    let hex_str = kek.decrypt(blob)?;
+    let (kek, payload) = if let Some(rest) = blob.strip_prefix(DEK_WRAP_ARGON2_PREFIX) {
+        (FieldEncryption { key: derive_key_argon2id(password, salt, DEK_KEK_DOMAIN)? }, rest)
+    } else {
+        (FieldEncryption::new(password, salt), blob)
+    };
+    let hex_str = kek.decrypt(payload)?;
     let bytes = hex::decode(hex_str).map_err(|e| e.to_string())?;
     if bytes.len() != 32 { return Err("invalid dek length".into()); }
     let mut k = [0u8; 32];

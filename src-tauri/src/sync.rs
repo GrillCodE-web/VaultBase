@@ -33,6 +33,20 @@ impl SyncClient {
         }
     }
 
+    /// SEC Этап B: E2E-выгрузка контента заказов менеджеру. Токен
+    /// расшифровывается так же, как в sync_footprints. Возвращает число
+    /// выгруженных заказов (0 — очередь пуста / менеджерский ключ недоступен).
+    pub fn sync_orders(db: &mut Database) -> Result<usize, String> {
+        let token = match db.get_config("license_token").map_err(|e| e.to_string())? {
+            Some(t) if !t.is_empty() => match &db.encryption {
+                Some(enc) => enc.decrypt(&t).unwrap_or(t),
+                None => t,
+            },
+            _ => return Ok(0),
+        };
+        crate::commands::slices::sync_orders(db, &token)
+    }
+
     /// PHASE 1: Footprint Sync V2 — отправляем footprints с order_status и installation_id_hash
     pub fn sync_footprints(db: &mut Database) -> Result<SyncResult, String> {
         let token = match db.get_config("license_token").map_err(|e| e.to_string())? {

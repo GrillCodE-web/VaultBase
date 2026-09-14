@@ -104,6 +104,11 @@ app.use('/sync',        workerAssets.workerRouter);
 const chat = require('./routes/chat');
 app.use('/manager/api', chat.managerRouter);
 app.use('/sync',        chat.workerRouter);
+
+// SEC Этап B: E2E-контент заказов (воркер → менеджер, сервер слепой).
+const workerOrders = require('./routes/worker-orders');
+app.use('/manager/api', workerOrders.managerRouter);
+app.use('/sync',        workerOrders.workerRouter);
 // SEC-019: CSP violation reports from Tauri clients (see tauri.conf.json report-uri)
 app.use('/csp-report', require('./routes/csp-report'));
 

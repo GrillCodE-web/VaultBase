@@ -24,6 +24,7 @@
 //! HTTP fetch'ем, как у срезов (cards_issued → /sync/cards/issued).
 
 const express = require('express');
+const crypto = require('node:crypto');
 const { getDb } = require('../database');
 const { requireManagerToken, requireWorkerToken } = require('../middleware');
 
@@ -33,9 +34,12 @@ const MAX_REF_LEN = 64;
 const MAX_FETCH_LIMIT = 200;
 const DEFAULT_TTL_HOURS = 24 * 30; // 30 дней — мягкий TTL по умолчанию
 const MAX_TTL_HOURS = 24 * 30;
-// room: 'dm:<iidA>:<iidB>' (iid'ы отсортированы — канонично для обеих сторон)
-// или 'group:<group_id>'.
-const ROOM_RE = /^(dm:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+|group:[A-Za-z0-9-]+)$/;
+// room: 'dm:<iidA>:<iidB>' (iid'ы отсортированы — канонично для обеих сторон),
+// 'group:<group_id>' (лицензионная группа) или 'room:<id>' (m4i: пользовательская
+// комната, состав в chat_room_members).
+const ROOM_RE = /^(dm:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+|group:[A-Za-z0-9-]+|room:[A-Za-z0-9_-]+)$/;
+const MAX_ROOM_TITLE = 120;
+const MAX_ROOM_MEMBERS = 100;
 
 const managerRouter = express.Router();
 managerRouter.use(requireManagerToken);
@@ -109,6 +113,45 @@ function licenseByIid(db, iid) {
 
 function groupOf(db, iid) {
   return db.prepare('SELECT group_id FROM sync_group_members WHERE installation_id = ?').get(iid)?.group_id || null;
+}
+
+// m4i: 'room:<id>' — пользовательская комната. Состав в chat_room_members.
+function isRoomMember(db, room, iid) {
+  return !!db.prepare(
+    'SELECT 1 FROM chat_room_members WHERE room_id = ? AND installation_id = ?'
+  ).get(room, iid);
+}
+
+function roomMembersOf(db, room) {
+  return db.prepare(
+    'SELECT installation_id FROM chat_room_members WHERE room_id = ? ORDER BY added_at'
+  ).all(room).map((r) => r.installation_id);
+}
+
+function roomMeta(db, room) {
+  return db.prepare('SELECT id, owner_iid, title, created_at FROM chat_rooms WHERE id = ?').get(room) || null;
+}
+
+function isManagerSide(role) {
+  return role === 'manager' || role === 'admin';
+}
+
+// Нормализация списка iid'ов из тела запроса: строки, активные лицензии,
+// без дублей и без пустых. undefined → ошибка формы, [] → пусто.
+function normalizeMemberList(db, raw) {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw) || raw.length > MAX_ROOM_MEMBERS) return undefined;
+  const out = [];
+  const seen = new Set();
+  for (const v of raw) {
+    if (typeof v !== 'string' || v.length === 0) return undefined;
+    if (seen.has(v)) continue;
+    const lic = licenseByIid(db, v);
+    if (!lic || !lic.is_active) return undefined;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
 }
 
 // Конверт адресован ключу key_id; ключ обязан принадлежать получателю и быть
@@ -227,17 +270,34 @@ workerRouter.get('/chat/peers', (req, res) => {
     .map((m) => ({ ...m, role: 'manager' }));
   const managerPeerIids = new Set(managers.map((m) => m.installation_id));
   let workers = [];
+  const workerIids = new Set();
   if (gid) {
-    const iids = db.prepare(
+    db.prepare(
       'SELECT installation_id FROM sync_group_members WHERE group_id = ? AND installation_id != ?'
-    ).all(gid, req.installationId).map((r) => r.installation_id);
-    // Дедупликация: admin в моей группе с manager-ключом не дублируется воркером.
-    workers = latestKeysPerInstall(db, 'worker_keys', iids)
+    ).all(gid, req.installationId).forEach((r) => workerIids.add(r.installation_id));
+  }
+  // mgt: со-участники моих пользовательских комнат (m4i) тоже видны как peers —
+  // иначе fan-out в комнату не сможет запечатать им конверты (в т.ч. тем, кого
+  // пригласили по Chat-ID из другой группы).
+  db.prepare(
+    `SELECT DISTINCT m2.installation_id
+       FROM chat_room_members m1
+       JOIN chat_room_members m2 ON m2.room_id = m1.room_id
+      WHERE m1.installation_id = ? AND m2.installation_id != ?`
+  ).all(req.installationId, req.installationId).forEach((r) => workerIids.add(r.installation_id));
+  if (workerIids.size) {
+    // Дедупликация: admin с manager-ключом не дублируется воркером.
+    workers = latestKeysPerInstall(db, 'worker_keys', [...workerIids])
       .filter((w) => !managerPeerIids.has(w.installation_id));
   }
   const online = onlineSet();
+  // 19d: свой label (licenses.label) — для отображения/редактирования профиля.
+  const selfLic = db.prepare(
+    'SELECT label FROM licenses WHERE installation_id = ?'
+  ).get(req.installationId);
   res.json({
     self: req.installationId,
+    self_label: (selfLic && selfLic.label) || '',
     group_id: gid,
     peers: [...workers, ...managers].map((p) => ({
       installation_id: p.installation_id,
@@ -280,6 +340,15 @@ workerRouter.post('/chat/send', (req, res) => {
   if (room.startsWith('dm:') && !room.split(':').slice(1).includes(sender)) {
     return res.status(400).json({ error: 'dm_room_without_sender' });
   }
+  // qhi: комната объявлений — read-only. Писать в неё может только менеджер
+  // (через /manager/api/chat/send); воркеру доступно лишь чтение.
+  if (room.startsWith('room:announcements-')) {
+    return res.status(403).json({ error: 'announcements_readonly' });
+  }
+  // m4i: в пользовательскую комнату пишет только её член.
+  if (room.startsWith('room:') && !isRoomMember(db, room, sender)) {
+    return res.status(403).json({ error: 'not_room_member' });
+  }
 
   const rows = [];
   for (const e of envelopes) {
@@ -292,9 +361,11 @@ workerRouter.post('/chat/send', (req, res) => {
     if (!target) return res.status(404).json({ error: 'unknown_installation', target_iid: targetIid });
     if (!target.is_active) return res.status(400).json({ error: 'license_revoked', target_iid: targetIid });
     const sameGroup = myGroup && groupOf(db, targetIid) === myGroup;
+    // m4i: в комнате адресатом может быть любой её член.
+    const sameRoom = room.startsWith('room:') && isRoomMember(db, room, targetIid);
     // admin manager-side: писать ему можно без общей группы (как менеджеру).
-    const targetIsManagerSide = target.role === 'manager' || target.role === 'admin';
-    if (!sameGroup && !targetIsManagerSide) {
+    const targetIsManagerSide = isManagerSide(target.role);
+    if (!sameGroup && !sameRoom && !targetIsManagerSide) {
       return res.status(403).json({ error: 'target_not_allowed', target_iid: targetIid });
     }
     if (!keyBelongsToTarget(db, target, env.key_id)) {
@@ -346,12 +417,20 @@ workerRouter.post('/chat/typing', (req, res) => {
   if (room.startsWith('group:') && room !== `group:${myGroup}`) {
     return res.status(403).json({ error: 'not_my_group' });
   }
+  // qhi: в комнате объявлений воркер не печатает (read-only).
+  if (room.startsWith('room:announcements-')) {
+    return res.status(403).json({ error: 'announcements_readonly' });
+  }
+  if (room.startsWith('room:') && !isRoomMember(db, room, sender)) {
+    return res.status(403).json({ error: 'not_room_member' });
+  }
   const target = licenseByIid(db, targetIid);
   if (!target) return res.status(404).json({ error: 'unknown_installation', target_iid: targetIid });
   if (!target.is_active) return res.status(400).json({ error: 'license_revoked', target_iid: targetIid });
   const sameGroup = myGroup && groupOf(db, targetIid) === myGroup;
-  const targetIsManagerSide = target.role === 'manager' || target.role === 'admin';
-  if (!sameGroup && !targetIsManagerSide) {
+  const sameRoom = room.startsWith('room:') && isRoomMember(db, room, targetIid);
+  const targetIsManagerSide = isManagerSide(target.role);
+  if (!sameGroup && !sameRoom && !targetIsManagerSide) {
     return res.status(403).json({ error: 'target_not_allowed', target_iid: targetIid });
   }
   const key = `${sender}>${targetIid}`;
@@ -398,11 +477,56 @@ managerRouter.get('/chat/peers', (req, res) => {
   });
 });
 
+// qhi: рассылка объявления — { room, envelopes:[{target_iid,key_id,sealed_data}],
+// ref_type?, ref_id?, ttl_hours? }. Менеджер запечатывает объявление каждому
+// адресату (fan-out per-recipient), сервер лишь релеит непрозрачные конверты.
+function managerFanoutSend(req, res) {
+  const body = req.body || {};
+  const room = typeof body.room === 'string' ? body.room : '';
+  if (!ROOM_RE.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  const envelopes = body.envelopes;
+  if (!Array.isArray(envelopes) || envelopes.length === 0 || envelopes.length > MAX_ENVELOPES_PER_SEND) {
+    return res.status(400).json({ error: 'envelopes_invalid' });
+  }
+  const refType = sanitizeRef(body.ref_type);
+  const refId = sanitizeRef(body.ref_id);
+  if (refType === undefined || refId === undefined) return res.status(400).json({ error: 'ref_invalid' });
+  const ttlHours = clampTtlHours(body.ttl_hours);
+
+  const db = getDb();
+  const sender = req.installationId;
+  const rows = [];
+  for (const e of envelopes) {
+    if (!e || typeof e !== 'object') return res.status(400).json({ error: 'envelopes_invalid' });
+    const targetIid = typeof e.target_iid === 'string' ? e.target_iid : '';
+    if (!targetIid || targetIid === sender) return res.status(400).json({ error: 'target_invalid' });
+    const env = parseEnvelope(e.sealed_data);
+    if (!env || env.key_id !== e.key_id) return res.status(400).json({ error: 'sealed_data_invalid' });
+    const target = licenseByIid(db, targetIid);
+    if (!target) return res.status(404).json({ error: 'unknown_installation', target_iid: targetIid });
+    if (!target.is_active) return res.status(400).json({ error: 'license_revoked', target_iid: targetIid });
+    if (!keyBelongsToTarget(db, target, env.key_id)) {
+      return res.status(409).json({ error: 'key_not_active_for_target', target_iid: targetIid });
+    }
+    rows.push({ room, sender, target: targetIid, sealed: e.sealed_data, refType, refId, ttlHours });
+  }
+
+  purgeExpired(db);
+  const ids = insertMessages(db, rows);
+  audit('manager_chat_fanout', { manager: sender, room, count: rows.length });
+  const targets = [...new Set(rows.map((r) => r.target))];
+  for (const t of targets) notifyRecipient(req, t);
+  res.status(201).json({ ok: true, delivered: rows.length, ids });
+}
+
 // POST /manager/api/chat/send — { target_iid, key_id, sealed_data, room?,
 // ref_type?, ref_id?, ttl_hours? }. Один конверт одному воркеру; room по
 // умолчанию — канонический dm (сортированные iid'ы).
 managerRouter.post('/chat/send', (req, res) => {
   const body = req.body || {};
+  // qhi: fan-out — массив конвертов в комнату (рассылка объявлений). Один POST
+  // доставляет одно объявление всем адресатам, каждому свой sealed-конверт.
+  if (Array.isArray(body.envelopes)) return managerFanoutSend(req, res);
   const targetIid = typeof body.target_iid === 'string' ? body.target_iid : '';
   if (!targetIid) return res.status(400).json({ error: 'target_iid_required' });
   const sender = req.installationId;
@@ -445,5 +569,247 @@ managerRouter.get('/chat/messages', (req, res) => {
 
 // GET /manager/api/chat/outbox?updated_since=<datetime> — исходящие менеджера.
 managerRouter.get('/chat/outbox', outboxHandler);
+
+// CHAT (t8l): POST /chat/delete — hard-delete БЕЗ «могилки». Удалять можно
+// ТОЛЬКО свои конверты (sender_iid == вызывающий): при fan-out это все строки
+// сообщения на сервере, ещё не забранные получателями. У получателей, уже
+// скачавших конверт, стирание идёт E2E-конвертом {type:"delete"} через
+// /chat/send — сервер эту семантику не видит. Идемпотентно.
+function deleteHandler(req, res) {
+  const body = req.body || {};
+  const ids = Array.isArray(body.ids)
+    ? body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+    : [];
+  if (ids.length === 0 || ids.length > MAX_FETCH_LIMIT) {
+    return res.status(400).json({ error: 'ids_invalid' });
+  }
+  const db = getDb();
+  const placeholders = ids.map(() => '?').join(',');
+  const info = db.prepare(
+    `DELETE FROM chat_messages WHERE id IN (${placeholders}) AND sender_iid = ?`
+  ).run(...ids, req.installationId);
+  audit('chat_delete', { sender: req.installationId, requested: ids.length, deleted: info.changes });
+  res.json({ ok: true, deleted: info.changes });
+}
+
+workerRouter.post('/chat/delete', deleteHandler);
+managerRouter.post('/chat/delete', deleteHandler);
+
+// ── Комнаты (m4i) ─────────────────────────────────────────────────────────────
+// POST /chat/rooms { title, members?:[iid] } — создать комнату. Создатель —
+// владелец и первый член. Возвращает room-ключ 'room:<id>'.
+// yyt: доступ к комнате для чтения/пина. Менеджер/админ видит всё; иначе —
+// член своей группы (group:), участник dm: или член room:.
+function canAccessRoom(db, iid, room) {
+  const lic = licenseByIid(db, iid);
+  if (lic && isManagerSide(lic.role)) return true;
+  if (room.startsWith('group:')) return room === `group:${groupOf(db, iid)}`;
+  if (room.startsWith('dm:')) return room.split(':').slice(1).includes(iid);
+  if (room.startsWith('room:')) return isRoomMember(db, room, iid);
+  return false;
+}
+
+// yyt: список закреплённых сообщений комнаты (id + кто/когда закрепил).
+function pinsListHandler(req, res) {
+  const db = getDb();
+  const room = typeof req.query.room === 'string' ? req.query.room : '';
+  if (!ROOM_RE.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  if (!canAccessRoom(db, req.installationId, room)) return res.status(403).json({ error: 'forbidden' });
+  const pins = db.prepare(
+    'SELECT message_id, pinned_by, pinned_at FROM chat_pins WHERE room = ? ORDER BY pinned_at DESC'
+  ).all(room).map((p) => ({ message_id: p.message_id, pinned_by: p.pinned_by, pinned_at: p.pinned_at }));
+  res.json({ room, pins });
+}
+
+// yyt: закрепить/открепить сообщение. Тело: { room, message_id, pinned:bool }.
+function pinSetHandler(req, res) {
+  const db = getDb();
+  const iid = req.installationId;
+  const body = req.body || {};
+  const room = typeof body.room === 'string' ? body.room : '';
+  if (!ROOM_RE.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  const messageId = Number.isInteger(body.message_id) ? body.message_id : parseInt(body.message_id, 10);
+  if (!Number.isInteger(messageId) || messageId <= 0) return res.status(400).json({ error: 'message_id_invalid' });
+  if (!canAccessRoom(db, iid, room)) return res.status(403).json({ error: 'forbidden' });
+  const pinned = body.pinned !== false;
+  if (pinned) {
+    db.prepare(
+      'INSERT OR IGNORE INTO chat_pins (room, message_id, pinned_by) VALUES (?, ?, ?)'
+    ).run(room, messageId, iid);
+  } else {
+    db.prepare('DELETE FROM chat_pins WHERE room = ? AND message_id = ?').run(room, messageId);
+  }
+  audit('chat_pin', { room, message_id: messageId, by: iid, pinned });
+  const pins = db.prepare(
+    'SELECT message_id, pinned_by, pinned_at FROM chat_pins WHERE room = ? ORDER BY pinned_at DESC'
+  ).all(room).map((p) => ({ message_id: p.message_id, pinned_by: p.pinned_by, pinned_at: p.pinned_at }));
+  res.json({ ok: true, room, pins });
+}
+
+// 6if: агрегированные реакции комнаты — [{message_id, emoji, count, reactors[]}].
+function reactionsListHandler(req, res) {
+  const db = getDb();
+  const room = typeof req.query.room === 'string' ? req.query.room : '';
+  if (!ROOM_RE.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  if (!canAccessRoom(db, req.installationId, room)) return res.status(403).json({ error: 'forbidden' });
+  const rows = db.prepare(
+    'SELECT message_id, emoji, reactor FROM chat_reactions WHERE room = ? ORDER BY created_at ASC'
+  ).all(room);
+  const map = new Map();
+  for (const r of rows) {
+    const key = `${r.message_id}\u0000${r.emoji}`;
+    if (!map.has(key)) map.set(key, { message_id: r.message_id, emoji: r.emoji, reactors: [] });
+    map.get(key).reactors.push(r.reactor);
+  }
+  const reactions = [...map.values()].map((x) => ({ ...x, count: x.reactors.length }));
+  res.json({ room, reactions });
+}
+
+// 6if: поставить/снять реакцию (toggle). Тело: { room, message_id, emoji }.
+function reactionSetHandler(req, res) {
+  const db = getDb();
+  const iid = req.installationId;
+  const body = req.body || {};
+  const room = typeof body.room === 'string' ? body.room : '';
+  if (!ROOM_RE.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  const messageId = Number.isInteger(body.message_id) ? body.message_id : parseInt(body.message_id, 10);
+  if (!Number.isInteger(messageId) || messageId <= 0) return res.status(400).json({ error: 'message_id_invalid' });
+  const emoji = typeof body.emoji === 'string' ? body.emoji.trim() : '';
+  if (!emoji || emoji.length > 16) return res.status(400).json({ error: 'emoji_invalid' });
+  if (!canAccessRoom(db, iid, room)) return res.status(403).json({ error: 'forbidden' });
+  const existing = db.prepare(
+    'SELECT 1 FROM chat_reactions WHERE room = ? AND message_id = ? AND reactor = ? AND emoji = ?'
+  ).get(room, messageId, iid, emoji);
+  let active;
+  if (existing) {
+    db.prepare('DELETE FROM chat_reactions WHERE room = ? AND message_id = ? AND reactor = ? AND emoji = ?')
+      .run(room, messageId, iid, emoji);
+    active = false;
+  } else {
+    db.prepare('INSERT OR IGNORE INTO chat_reactions (room, message_id, reactor, emoji) VALUES (?, ?, ?, ?)')
+      .run(room, messageId, iid, emoji);
+    active = true;
+  }
+  audit('chat_reaction', { room, message_id: messageId, by: iid, emoji, active });
+  const rows = db.prepare(
+    'SELECT message_id, emoji, reactor FROM chat_reactions WHERE room = ? ORDER BY created_at ASC'
+  ).all(room);
+  const map = new Map();
+  for (const r of rows) {
+    const key = `${r.message_id}\u0000${r.emoji}`;
+    if (!map.has(key)) map.set(key, { message_id: r.message_id, emoji: r.emoji, reactors: [] });
+    map.get(key).reactors.push(r.reactor);
+  }
+  const reactions = [...map.values()].map((x) => ({ ...x, count: x.reactors.length }));
+  res.json({ ok: true, room, active, reactions });
+}
+
+// 19d: сменить свой публичный label (licenses.label). Пустая строка — сброс.
+function profileSetHandler(req, res) {
+  const db = getDb();
+  const iid = req.installationId;
+  const body = req.body || {};
+  const label = typeof body.label === 'string' ? body.label.trim() : '';
+  if (label.length > 48) return res.status(400).json({ error: 'label_too_long' });
+  db.prepare('UPDATE licenses SET label = ? WHERE installation_id = ?').run(label, iid);
+  audit('chat_profile', { by: iid, label });
+  res.json({ ok: true, label });
+}
+
+function createRoomHandler(req, res) {
+  const db = getDb();
+  const owner = req.installationId;
+  const body = req.body || {};
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  if (!title || title.length > MAX_ROOM_TITLE) return res.status(400).json({ error: 'title_invalid' });
+  const members = normalizeMemberList(db, body.members);
+  if (members === undefined) return res.status(400).json({ error: 'members_invalid' });
+  const roomId = `room:${crypto.randomBytes(9).toString('hex')}`;
+  const all = [...new Set([owner, ...members])];
+  const insRoom = db.prepare('INSERT INTO chat_rooms (id, owner_iid, title) VALUES (?, ?, ?)');
+  const insMem = db.prepare('INSERT OR IGNORE INTO chat_room_members (room_id, installation_id) VALUES (?, ?)');
+  db.transaction(() => {
+    insRoom.run(roomId, owner, title);
+    for (const m of all) insMem.run(roomId, m);
+  })();
+  audit('chat_room_create', { owner, room: roomId, members: all.length });
+  res.status(201).json({ ok: true, room: roomId, title, owner_iid: owner, members: all });
+}
+
+// GET /chat/rooms — комнаты вызывающего; менеджер/админ видит все (m4i).
+function listRoomsHandler(req, res) {
+  const db = getDb();
+  const iid = req.installationId;
+  const lic = licenseByIid(db, iid);
+  const seeAll = lic && isManagerSide(lic.role);
+  const rows = seeAll
+    ? db.prepare('SELECT id, owner_iid, title, created_at FROM chat_rooms ORDER BY created_at DESC').all()
+    : db.prepare(
+        `SELECT r.id, r.owner_iid, r.title, r.created_at
+         FROM chat_rooms r JOIN chat_room_members m ON m.room_id = r.id
+         WHERE m.installation_id = ? ORDER BY r.created_at DESC`
+      ).all(iid);
+  res.json({
+    rooms: rows.map((r) => ({
+      room: r.id,
+      owner_iid: r.owner_iid,
+      title: r.title,
+      created_at: r.created_at,
+      members: roomMembersOf(db, r.id),
+    })),
+  });
+}
+
+// POST /chat/rooms/members { room, add?:[iid], remove?:[iid] } — правит состав.
+// Разрешено владельцу комнаты или менеджеру/админу. Владельца выкинуть нельзя.
+function roomMembersHandler(req, res) {
+  const db = getDb();
+  const iid = req.installationId;
+  const body = req.body || {};
+  const room = typeof body.room === 'string' ? body.room : '';
+  if (!/^room:[A-Za-z0-9_-]+$/.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  const meta = roomMeta(db, room);
+  if (!meta) return res.status(404).json({ error: 'room_unknown' });
+  const lic = licenseByIid(db, iid);
+  const canManage = meta.owner_iid === iid || (lic && isManagerSide(lic.role));
+  if (!canManage) return res.status(403).json({ error: 'not_room_owner' });
+  const add = normalizeMemberList(db, body.add);
+  if (add === undefined) return res.status(400).json({ error: 'members_invalid' });
+  const removeRaw = body.remove === undefined || body.remove === null ? [] : body.remove;
+  if (!Array.isArray(removeRaw) || removeRaw.length > MAX_ROOM_MEMBERS
+    || removeRaw.some((v) => typeof v !== 'string' || v.length === 0)) {
+    return res.status(400).json({ error: 'members_invalid' });
+  }
+  const insMem = db.prepare('INSERT OR IGNORE INTO chat_room_members (room_id, installation_id) VALUES (?, ?)');
+  const delMem = db.prepare('DELETE FROM chat_room_members WHERE room_id = ? AND installation_id = ?');
+  db.transaction(() => {
+    for (const m of add) insMem.run(room, m);
+    for (const m of removeRaw) {
+      if (m === meta.owner_iid) continue; // владельца не выкидываем
+      delMem.run(room, m);
+    }
+  })();
+  audit('chat_room_members', { room, by: iid, added: add.length, removed: removeRaw.length });
+  res.json({ ok: true, room, members: roomMembersOf(db, room) });
+}
+
+workerRouter.post('/chat/rooms', createRoomHandler);
+managerRouter.post('/chat/rooms', createRoomHandler);
+workerRouter.get('/chat/rooms', listRoomsHandler);
+managerRouter.get('/chat/rooms', listRoomsHandler);
+workerRouter.post('/chat/rooms/members', roomMembersHandler);
+managerRouter.post('/chat/rooms/members', roomMembersHandler);
+// yyt: закреплённые сообщения — доступны обеим сторонам relay'я.
+workerRouter.get('/chat/pins', pinsListHandler);
+managerRouter.get('/chat/pins', pinsListHandler);
+workerRouter.post('/chat/pins', pinSetHandler);
+managerRouter.post('/chat/pins', pinSetHandler);
+workerRouter.post('/chat/profile', profileSetHandler);
+managerRouter.post('/chat/profile', profileSetHandler);
+// 6if: реакции-эмодзи — доступны обеим сторонам relay'я.
+workerRouter.get('/chat/reactions', reactionsListHandler);
+managerRouter.get('/chat/reactions', reactionsListHandler);
+workerRouter.post('/chat/reactions', reactionSetHandler);
+managerRouter.post('/chat/reactions', reactionSetHandler);
 
 module.exports = { managerRouter, workerRouter };

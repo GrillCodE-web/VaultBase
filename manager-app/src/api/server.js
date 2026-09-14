@@ -20,6 +20,7 @@ export const getFleetComparison = (from, to) => invoke('get_fleet_comparison', {
 export const getFleetBinShop = (from, to) => invoke('get_fleet_bin_shop', { from, to })
 export const getInsights = () => invoke('get_insights')
 export const getWorkerSnapshots = () => invoke('get_worker_snapshots')
+export const getSyncedOrders = (installationId = null) => invoke('get_synced_orders', { installationId })
 export const getWorkerStats = (installationId, days = 30) => invoke('get_worker_stats', { installationId, days })
 export const evaluateAlerts = () => invoke('evaluate_alerts')
 export const getLocalAlerts = (status = 'all') => invoke('get_local_alerts', { status })
@@ -49,6 +50,7 @@ export const chatSend = (peerIid, body, refType = null, refId = null) =>
   invoke('chat_send', { peerIid, body, refType, refId })
 export const chatList = (room = null, limit = 500) => invoke('chat_list', { room, limit })
 export const chatMarkRead = (ids) => invoke('chat_mark_read', { ids })
+export const chatDelete = (msgId) => invoke('chat_delete', { msgId })
 export const chatUnreadCount = () => invoke('chat_unread_count')
 export const chatFetch = () => invoke('chat_fetch')
 

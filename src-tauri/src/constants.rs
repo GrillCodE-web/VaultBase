@@ -192,7 +192,27 @@ pub const SQLITE_WAL_AUTO_CHECKPOINT: i32 = 1000;
 // ─────────────────────────────────────────────────────────────────────
 
 /// PBKDF2 iterations for password hashing (OWASP high-security: 1M)
+/// LEGACY: используется для расшифровки данных, созданных до перехода на Argon2id.
 pub const PBKDF2_ITERATIONS: u32 = 1_000_000;
+
+// ─────────────────────────────────────────────────────────────────────
+//  SEC ETAP-A P.1: Argon2id (memory-hard KDF) — параметры деривации.
+//  Замена PBKDF2: устойчивость к GPU/ASIC-брутфорсу. Значения подобраны так,
+//  чтобы деривация занимала ~0.5–1с на слабой машине (см. P.2 — калибровка).
+// ─────────────────────────────────────────────────────────────────────
+
+/// Argon2id: объём памяти в КиБ (256 МиБ). Главный memory-hard параметр.
+pub const ARGON2_MEMORY_KIB: u32 = 256 * 1024;
+
+/// Argon2id: число проходов (time cost).
+pub const ARGON2_TIME_COST: u32 = 3;
+
+/// Argon2id: степень параллелизма (lanes).
+pub const ARGON2_PARALLELISM: u32 = 1;
+
+/// Версия KDF, записывается в заголовок обёртки ключа для миграции.
+/// 1 = PBKDF2-SHA256 (legacy), 2 = Argon2id.
+pub const KDF_VERSION_ARGON2ID: u8 = 2;
 
 /// Default encryption key derivation iterations
 pub const ENCRYPTION_KEY_ITERATIONS: u32 = 100_000;

@@ -458,3 +458,245 @@ test('peers: online/last_seen на manager-роуте', async () => {
     assert.ok('last_seen' in p);
   }
 });
+
+// t8l: hard-delete — стереть можно только свои строки (sender_iid), идемпотентно.
+test('delete: автор стирает свою строку, чужой — не может, повтор идемпотентен', async () => {
+  const room = dmRoom(W1_IID, W2_IID);
+  const s = await req('POST', '/sync/chat/send', W1_TOKEN, {
+    room,
+    envelopes: [{ target_iid: W2_IID, key_id: W2_KEY_ID, sealed_data: envelope(W2_KEY_ID, 'del-subj') }],
+  });
+  assert.equal(s.status, 201);
+  const id = s.json.ids[0];
+
+  // Не автор (W2) — 0 удалено, строка на месте.
+  const foreign = await req('POST', '/sync/chat/delete', W2_TOKEN, { ids: [id] });
+  assert.equal(foreign.status, 200);
+  assert.equal(foreign.json.deleted, 0);
+
+  // Автор (W1) — строка стёрта.
+  const own = await req('POST', '/sync/chat/delete', W1_TOKEN, { ids: [id] });
+  assert.equal(own.status, 200);
+  assert.equal(own.json.deleted, 1);
+
+  // Повтор — идемпотентно, 0 удалено.
+  const again = await req('POST', '/sync/chat/delete', W1_TOKEN, { ids: [id] });
+  assert.equal(again.status, 200);
+  assert.equal(again.json.deleted, 0);
+
+  // Валидация формы.
+  const bad = await req('POST', '/sync/chat/delete', W1_TOKEN, { ids: [] });
+  assert.equal(bad.status, 400);
+  const noAuth = await req('POST', '/sync/chat/delete', null, { ids: [id] });
+  assert.equal(noAuth.status, 401);
+});
+
+// m4i: пользовательские комнаты — создание, релей по членству (в т.ч. между
+// разными лицензионными группами), список, правка состава, изоляция.
+test('rooms: создание, релей только членам, список и правка состава', async () => {
+  // W1 создаёт комнату и добавляет WO (из ДРУГОЙ группы) — членство важнее группы.
+  const created = await req('POST', '/sync/chat/rooms', W1_TOKEN, {
+    title: 'Отдел доставки',
+    members: [WO_IID],
+  });
+  assert.equal(created.status, 201);
+  const room = created.json.room;
+  assert.match(room, /^room:[0-9a-f]+$/);
+  assert.deepEqual(created.json.members.sort(), [W1_IID, WO_IID].sort());
+
+  // Член (W1) шлёт другому члену (WO) — 201, хотя они в разных группах.
+  const s = await req('POST', '/sync/chat/send', W1_TOKEN, {
+    room,
+    envelopes: [{ target_iid: WO_IID, key_id: WO_KEY_ID, sealed_data: envelope(WO_KEY_ID, 'room-hi') }],
+  });
+  assert.equal(s.status, 201);
+  const f = await req('GET', '/sync/chat/messages?since_id=0', WO_TOKEN);
+  assert.ok(f.json.messages.some((m) => m.room === room && m.sender_iid === W1_IID));
+
+  // Не член (W2) писать в комнату не может.
+  const notMember = await req('POST', '/sync/chat/send', W2_TOKEN, {
+    room,
+    envelopes: [{ target_iid: WO_IID, key_id: WO_KEY_ID, sealed_data: envelope(WO_KEY_ID, 'sneak') }],
+  });
+  assert.equal(notMember.status, 403);
+
+  // Владелец видит комнату в своём списке; посторонний (W2) — нет.
+  const mine = await req('GET', '/sync/chat/rooms', W1_TOKEN);
+  assert.ok(mine.json.rooms.some((r) => r.room === room));
+  const other = await req('GET', '/sync/chat/rooms', W2_TOKEN);
+  assert.ok(!other.json.rooms.some((r) => r.room === room));
+
+  // Менеджер видит все комнаты (m4i: «менеджер видит всех»).
+  const mgr = await req('GET', '/manager/api/chat/rooms', MGR_TOKEN);
+  assert.ok(mgr.json.rooms.some((r) => r.room === room));
+
+  // Владелец добавляет W2 и удаляет WO; владельца выкинуть нельзя (игнор).
+  const upd = await req('POST', '/sync/chat/rooms/members', W1_TOKEN, {
+    room, add: [W2_IID], remove: [WO_IID, W1_IID],
+  });
+  assert.equal(upd.status, 200);
+  assert.deepEqual(upd.json.members.sort(), [W1_IID, W2_IID].sort());
+
+  // Теперь W2 — член и может писать, WO — уже нет.
+  const s2 = await req('POST', '/sync/chat/send', W2_TOKEN, {
+    room,
+    envelopes: [{ target_iid: W1_IID, key_id: W1_KEY_ID, sealed_data: envelope(W1_KEY_ID, 'now-member') }],
+  });
+  assert.equal(s2.status, 201);
+  const woGone = await req('POST', '/sync/chat/send', WO_TOKEN, {
+    room,
+    envelopes: [{ target_iid: W1_IID, key_id: W1_KEY_ID, sealed_data: envelope(W1_KEY_ID, 'kicked') }],
+  });
+  assert.equal(woGone.status, 403);
+});
+
+test('rooms: валидация и права на правку состава', async () => {
+  const created = await req('POST', '/sync/chat/rooms', W1_TOKEN, { title: 'Room X' });
+  const room = created.json.room;
+
+  // Пустой заголовок отклоняется.
+  const noTitle = await req('POST', '/sync/chat/rooms', W1_TOKEN, { title: '   ' });
+  assert.equal(noTitle.status, 400);
+
+  // Неизвестный участник в составе — 400.
+  const badMember = await req('POST', '/sync/chat/rooms', W1_TOKEN, {
+    title: 'Bad', members: ['nope-iid'],
+  });
+  assert.equal(badMember.status, 400);
+
+  // Не владелец и не менеджер править состав не может.
+  const notOwner = await req('POST', '/sync/chat/rooms/members', W2_TOKEN, {
+    room, add: [W2_IID],
+  });
+  assert.equal(notOwner.status, 403);
+
+  // Менеджер может править любой состав.
+  const byMgr = await req('POST', '/manager/api/chat/rooms/members', MGR_TOKEN, {
+    room, add: [W2_IID],
+  });
+  assert.equal(byMgr.status, 200);
+  assert.ok(byMgr.json.members.includes(W2_IID));
+
+  // Неизвестная комната — 404.
+  const noRoom = await req('POST', '/sync/chat/rooms/members', W1_TOKEN, {
+    room: 'room:deadbeef', add: [W2_IID],
+  });
+  assert.equal(noRoom.status, 404);
+
+  const noAuth = await req('POST', '/sync/chat/rooms', null, { title: 'x' });
+  assert.equal(noAuth.status, 401);
+});
+
+// qhi: комната объявлений — read-only рассылка от менеджера.
+const ANNOUNCE_ROOM = 'room:announcements-grp-chat';
+
+test('announce: менеджер рассылает fan-out, оба воркера получают', async () => {
+  const s = await req('POST', '/manager/api/chat/send', MGR_TOKEN, {
+    room: ANNOUNCE_ROOM,
+    ref_type: 'news',
+    ref_id: '7',
+    envelopes: [
+      { target_iid: W1_IID, key_id: W1_KEY_ID, sealed_data: envelope(W1_KEY_ID, 'ann-w1') },
+      { target_iid: W2_IID, key_id: W2_KEY_ID, sealed_data: envelope(W2_KEY_ID, 'ann-w2') },
+    ],
+  });
+  assert.equal(s.status, 201);
+  assert.equal(s.json.delivered, 2);
+
+  const f1 = await req('GET', '/sync/chat/messages?since_id=0', W1_TOKEN);
+  assert.ok(f1.json.messages.some((m) => m.room === ANNOUNCE_ROOM && m.sender_iid === MGR_IID));
+  const f2 = await req('GET', '/sync/chat/messages?since_id=0', W2_TOKEN);
+  assert.ok(f2.json.messages.some((m) => m.room === ANNOUNCE_ROOM && m.sender_iid === MGR_IID));
+});
+
+test('announce: воркер не может писать в комнату объявлений (403)', async () => {
+  const s = await req('POST', '/sync/chat/send', W1_TOKEN, {
+    room: ANNOUNCE_ROOM,
+    envelopes: [{ target_iid: W2_IID, key_id: W2_KEY_ID, sealed_data: envelope(W2_KEY_ID, 'nope') }],
+  });
+  assert.equal(s.status, 403);
+  assert.equal(s.json.error, 'announcements_readonly');
+});
+
+test('announce: воркер не может слать «печатает…» в комнату объявлений (403)', async () => {
+  const s = await req('POST', '/sync/chat/typing', W1_TOKEN, {
+    room: ANNOUNCE_ROOM, target_iid: W2_IID,
+  });
+  assert.equal(s.status, 403);
+  assert.equal(s.json.error, 'announcements_readonly');
+});
+
+
+// mgt: peers знает о со-участниках моих комнат — иначе fan-out в комнату не
+// сможет запечатать конверт тому, кто не в моей лицензионной группе.
+test('mgt: peers включает со-участника комнаты из другой группы', async () => {
+  const created = await req('POST', '/sync/chat/rooms', W1_TOKEN, {
+    title: 'Кросс-группа',
+    members: [WO_IID],
+  });
+  assert.equal(created.status, 201);
+  // WO живёт в grp-other, не в группе W1 — но теперь виден W1 как peer.
+  const r = await req('GET', '/sync/chat/peers', W1_TOKEN);
+  assert.equal(r.status, 200);
+  const wo = r.json.peers.find((p) => p.installation_id === WO_IID);
+  assert.ok(wo, 'WO виден W1 через общую комнату');
+  assert.equal(wo.key_id, WO_KEY_ID);
+  assert.ok(wo.pubkey && wo.pubkey.length > 0);
+});
+
+test('yyt: пин/анпин сообщения — список, идемпотентность, доступ обеих сторон', async () => {
+  const room = dmRoom(W1_IID, W2_IID);
+  // Пусто до первого пина.
+  const empty = await req('GET', `/sync/chat/pins?room=${room}`, W1_TOKEN);
+  assert.equal(empty.status, 200);
+  assert.equal(empty.json.pins.length, 0);
+
+  // W1 закрепляет сообщение 42.
+  const p1 = await req('POST', '/sync/chat/pins', W1_TOKEN, { room, message_id: 42, pinned: true });
+  assert.equal(p1.status, 200);
+  assert.equal(p1.json.pins.length, 1);
+  assert.equal(p1.json.pins[0].message_id, 42);
+  assert.equal(p1.json.pins[0].pinned_by, W1_IID);
+
+  // Повторный пин идемпотентен (INSERT OR IGNORE) — по-прежнему одна запись.
+  const p1again = await req('POST', '/sync/chat/pins', W1_TOKEN, { room, message_id: 42, pinned: true });
+  assert.equal(p1again.json.pins.length, 1);
+
+  // Вторая сторона DM (W2) видит тот же пин.
+  const w2list = await req('GET', `/sync/chat/pins?room=${room}`, W2_TOKEN);
+  assert.equal(w2list.status, 200);
+  assert.equal(w2list.json.pins.length, 1);
+  assert.equal(w2list.json.pins[0].message_id, 42);
+
+  // Анпин — список пустеет.
+  const un = await req('POST', '/sync/chat/pins', W1_TOKEN, { room, message_id: 42, pinned: false });
+  assert.equal(un.status, 200);
+  assert.equal(un.json.pins.length, 0);
+});
+
+test('yyt: доступ к пинам — менеджер видит всё, чужак получает 403', async () => {
+  const room = 'group:grp-chat';
+  const pinned = await req('POST', '/sync/chat/pins', W1_TOKEN, { room, message_id: 7, pinned: true });
+  assert.equal(pinned.status, 200);
+
+  // Менеджер (manager-side) видит пины любой комнаты.
+  const mgr = await req('GET', `/manager/api/chat/pins?room=${room}`, MGR_TOKEN);
+  assert.equal(mgr.status, 200);
+  assert.ok(mgr.json.pins.some((p) => p.message_id === 7));
+
+  // WO не член grp-chat и не менеджер — 403 и на чтение, и на пин.
+  const woList = await req('GET', `/sync/chat/pins?room=${room}`, WO_TOKEN);
+  assert.equal(woList.status, 403);
+  const woPin = await req('POST', '/sync/chat/pins', WO_TOKEN, { room, message_id: 9, pinned: true });
+  assert.equal(woPin.status, 403);
+});
+
+test('yyt: валидация room и message_id', async () => {
+  const badRoom = await req('POST', '/sync/chat/pins', W1_TOKEN, { room: 'garbage', message_id: 1 });
+  assert.equal(badRoom.status, 400);
+  assert.equal(badRoom.json.error, 'room_invalid');
+
+  const badId = await req('POST', '/sync/chat/pins', W1_TOKEN, { room: dmRoom(W1_IID, W2_IID), message_id: 0 });
+  assert.equal(badId.status, 400);
+  assert.equal(badId.json.error, 'message_id_invalid');
+});

@@ -533,8 +533,16 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
                 };
                 match db.reopen_with_key(db_path_str, &dek) {
                     Ok(()) => {
-                        // Legacy v1 (голая соль) → сразу апгрейдим до v2 envelope
-                        if sc.wrapped_dek.is_none() {
+                        // Апгрейд обёртки KEK до Argon2id (ЭТАП-A П.1) при первом
+                        // успешном входе. Срабатывает для:
+                        //   • legacy v1 (голая соль, wrapped_dek = None) → создаём envelope;
+                        //   • legacy v2 (envelope с KEK на PBKDF2, без префикса `a2:`).
+                        // DEK не меняется — только переобёртка, без rekey БД.
+                        let needs_upgrade = match &sc.wrapped_dek {
+                            None => true,
+                            Some(blob) => crate::encryption::dek_wrap_is_legacy(blob),
+                        };
+                        if needs_upgrade {
                             if let Ok(blob) = crate::encryption::wrap_dek(&dek, &password, &salt) {
                                 let _ = Database::save_sidecar(db_path_str, &sc.salt_b64, &blob);
                             }

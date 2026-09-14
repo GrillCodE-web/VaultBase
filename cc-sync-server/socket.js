@@ -41,6 +41,19 @@ function initSocket(httpServer) {
     const db = getDb();
     const row = db.prepare('SELECT token_hash, is_active, installation_id FROM licenses WHERE token_hash = ?').get(tokenHash);
     if (!row || !row.is_active) return next(new Error('invalid_token'));
+    // SEC ETAP-A П.37: device-binding. Лицензия привязана к installation_id в БД.
+    // Если клиент прислал installation_id в handshake и он НЕ совпадает с
+    // привязанным — реджект (одна лицензия = одно устройство, антишеринг).
+    // Обратно совместимо: клиент без claim'а проходит как раньше.
+    const claimedIid = socket.handshake.auth?.installation_id
+      || socket.handshake.headers?.['x-installation-id'];
+    if (claimedIid && row.installation_id && claimedIid !== row.installation_id) {
+      logSocketEvent('device_binding_mismatch', {
+        installation_id: row.installation_id, claimed: claimedIid,
+      });
+      registerViolation(socket.handshake.address);
+      return next(new Error('device_binding_mismatch'));
+    }
     socket.userToken = tokenHash;
     socket.installationId = row.installation_id;
     // Update last_seen

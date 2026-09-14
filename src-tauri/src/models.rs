@@ -1012,6 +1012,17 @@ pub struct ChatMessage {
     pub out_delivered: Option<i64>,
     #[serde(default)]
     pub out_read: Option<i64>,
+    /// CHAT (13q): true — исходящее в оффлайн-очереди (ещё не ушло на сервер).
+    /// Всегда false у входящих и у успешно отправленных.
+    #[serde(default)]
+    pub pending: bool,
+    /// tdq: true — сообщение было отредактировано (метка «изменено» в ленте).
+    #[serde(default)]
+    pub edited: bool,
+    /// azl: true — важное сообщение (флаг из E2E-конверта). Звук даже при
+    /// mute комнаты, акцентный цвет в ленте.
+    #[serde(default)]
+    pub priority: bool,
 }
 
 /// Участник чата из серверного каталога ключей (GET /sync/chat/peers).
@@ -1020,6 +1031,9 @@ pub struct ChatPeer {
     pub installation_id: String,
     pub key_id: i64,
     pub pubkey: String,
+    // 19d: публичный Chat-ID (qTOX-стиль) — хеш installation_id+pubkey.
+    #[serde(default)]
+    pub chat_id: String,
     pub label: String,
     pub role: String, // 'manager' | 'worker'
     // CHAT-2.0 (iul/3pt): presence с сервера. serde(default): старые ответы

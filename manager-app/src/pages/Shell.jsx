@@ -11,6 +11,7 @@ import ErrorBoundary from '../components/ErrorBoundary.jsx'
 const Dashboard = lazy(() => import('./Dashboard.jsx'))
 const Workers = lazy(() => import('./Workers.jsx'))
 const Cards = lazy(() => import('./Cards.jsx'))
+const Orders = lazy(() => import('./Orders.jsx'))
 const Analytics = lazy(() => import('./Analytics.jsx'))
 const News = lazy(() => import('./News.jsx'))
 const Alerts = lazy(() => import('./Alerts.jsx'))
@@ -23,6 +24,7 @@ const Settings = lazy(() => import('./Settings.jsx'))
 const PAGES = {
   dashboard: Dashboard,
   cards: Cards,
+  orders: Orders,
   workers: Workers,
   analytics: Analytics,
   news: News,
@@ -276,6 +278,7 @@ export default function Shell({ appState, onLock }) {
     () => [
       ['dashboard', 'nav_dashboard'],
       ['cards', 'nav_cards'],
+      ['orders', 'nav_orders'],
       ['workers', 'nav_workers'],
       ['analytics', 'nav_analytics'],
       ['news', 'nav_news'],

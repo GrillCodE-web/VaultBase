@@ -226,6 +226,137 @@ pub fn chat_send(
     Ok(msg)
 }
 
+// qhi: имя read-only комнаты объявлений. Воркер узнаёт её по префиксу
+// `room:announcements-`, поэтому суффикс лишь для аудита/будущей группировки.
+const ANNOUNCE_ROOM: &str = "room:announcements-main";
+
+// qhi: рассылка объявления в E2E-чат. В отличие от старой news-системы,
+// текст не уходит на сервер в открытом виде — менеджер запечатывает объявление
+// каждому адресату (fan-out) и шлёт непрозрачные конверты в read-only комнату.
+// Аудиторию задаёт вызывающий (News.jsx фильтрует воркеров по target_role/iid).
+#[tauri::command]
+pub fn announce_publish(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    title: String,
+    body: String,
+    target_iids: Vec<String>,
+    ref_id: Option<String>,
+) -> Result<Value, String> {
+    let title = title.trim().to_string();
+    let body = body.trim().to_string();
+    if body.is_empty() {
+        return Err("empty_body".to_string());
+    }
+    // Заголовок отделяем пустой строкой — воркер рендерит тело как обычный текст.
+    let full = if title.is_empty() { body.clone() } else { format!("{title}\n\n{body}") };
+    if full.chars().count() > MAX_BODY_CHARS {
+        return Err("body_too_long".to_string());
+    }
+    if target_iids.is_empty() {
+        return Err("no_targets".to_string());
+    }
+
+    let msg = with_open(&state, |db, enc| {
+        let base = http::server_base(db);
+        let token = db.get_config("license_token").ok_or("no_token")?;
+        telemetry::ensure_manager_key(db, enc, &base, &token)?;
+
+        // Свежий каталог пиров: нужны актуальные key_id/pubkey для sealing.
+        let resp = http::request(&base, "GET", "/manager/api/chat/peers", Some(&token), None)
+            .map_err(|e| format!("peers: {e}"))?;
+        if resp.status != 200 {
+            return Err(format!("peers_status_{}", resp.status));
+        }
+        let parsed: Value = serde_json::from_str(&resp.body).map_err(|e| format!("parse: {e}"))?;
+        let peers: Vec<ChatPeer> = parsed
+            .get("peers")
+            .and_then(|p| p.as_array())
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|p| {
+                Some(ChatPeer {
+                    installation_id: p.get("installation_id")?.as_str()?.to_string(),
+                    key_id: p.get("key_id")?.as_i64()?,
+                    pubkey: p.get("pubkey")?.as_str()?.to_string(),
+                    label: p.get("label").and_then(|l| l.as_str()).unwrap_or_default().to_string(),
+                    role: p.get("role").and_then(|r| r.as_str()).unwrap_or("worker").to_string(),
+                })
+            })
+            .collect();
+        db.set_config("chat_peers_cache", &serde_json::to_string(&peers).map_err(|e| e.to_string())?)?;
+
+        // Запечатываем объявление каждому выбранному адресату.
+        let mut envelopes: Vec<Value> = Vec::new();
+        for iid in &target_iids {
+            let peer = match peers.iter().find(|p| &p.installation_id == iid) {
+                Some(p) => p,
+                None => continue, // адресат без активного ключа — пропускаем
+            };
+            let pub_bytes: [u8; 32] = hex::decode(&peer.pubkey)
+                .map_err(|e| format!("pubkey_hex: {e}"))?
+                .try_into()
+                .map_err(|_| "pubkey_len".to_string())?;
+            let sealed = seal_envelope(peer.key_id, &full, &pub_bytes)?;
+            envelopes.push(json!({
+                "target_iid": peer.installation_id,
+                "key_id": peer.key_id,
+                "sealed_data": sealed.to_string(),
+            }));
+        }
+        if envelopes.is_empty() {
+            return Err("no_reachable_targets".to_string());
+        }
+
+        let payload = json!({
+            "room": ANNOUNCE_ROOM,
+            "envelopes": envelopes,
+            "ref_type": "news",
+            "ref_id": ref_id,
+        });
+        let payload_str = payload.to_string();
+        let resp = http::request(
+            &base,
+            "POST",
+            "/manager/api/chat/send",
+            Some(&token),
+            Some(&payload_str),
+        )
+        .map_err(|e| format!("send: {e}"))?;
+        if resp.status != 201 {
+            return Err(format!("send_status_{}", resp.status));
+        }
+        let parsed: Value = serde_json::from_str(&resp.body).map_err(|e| format!("parse: {e}"))?;
+        let delivered = parsed.get("delivered").and_then(|d| d.as_i64()).unwrap_or(0);
+        let server_id = parsed
+            .get("ids")
+            .and_then(|v| v.as_array())
+            .and_then(|a| a.first())
+            .and_then(|v| v.as_i64());
+
+        // Одна локальная исходящая строка (peer_iid="" — рассылка всем).
+        db.conn
+            .execute(
+                "INSERT INTO chat_messages (server_id, room, peer_iid, direction, body, ref_type, ref_id)
+                 VALUES (?1, ?2, '', 'out', ?3, 'news', ?4)",
+                rusqlite::params![server_id, ANNOUNCE_ROOM, full, ref_id],
+            )
+            .map_err(|e| format!("insert: {e}"))?;
+        let id = db.conn.last_insert_rowid();
+        let stored: ChatMessage = db
+            .conn
+            .query_row(&format!("{SELECT_COLS} WHERE id = ?1"), [id], map_row)
+            .map_err(|e| format!("reload: {e}"))?;
+        Ok(json!({ "ok": true, "delivered": delivered, "message": stored }))
+    })?;
+
+    if let Some(stored) = msg.get("message") {
+        let _ = app.emit("chat:message", stored);
+    }
+    Ok(msg)
+}
+
 #[tauri::command]
 pub fn chat_list(
     state: State<'_, AppState>,
@@ -289,6 +420,78 @@ pub fn chat_mark_read(
     Ok(n)
 }
 
+/// t8l: жёсткое удаление своего сообщения. Получателю шлём служебный
+/// delete-конверт ({type:"delete"}) с его server_id, стираем строку на
+/// сервере и локальную копию. Удалять можно только исходящие (direction='out').
+#[tauri::command]
+pub fn chat_delete(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    msg_id: i64,
+) -> Result<(), String> {
+    with_open(&state, |db, enc| {
+        let (direction, server_id, peer_iid): (String, Option<i64>, String) = db
+            .conn
+            .query_row(
+                "SELECT direction, server_id, peer_iid FROM chat_messages WHERE id = ?1",
+                [msg_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .map_err(|e| format!("load: {e}"))?;
+        if direction != "out" {
+            return Err("not_own_message".to_string());
+        }
+        let base = http::server_base(db);
+        let token = db.get_config("license_token").ok_or("no_token")?;
+        let _ = telemetry::ensure_manager_key(db, enc, &base, &token)?;
+
+        // E2E delete получателю (best-effort): конверт может не дойти, если пир
+        // уже удалён — серверную строку и локаль всё равно чистим ниже.
+        if let (Some(sid), Some(peer)) = (server_id, cached_peer(db, &peer_iid)) {
+            if let Ok(raw) = hex::decode(&peer.pubkey) {
+                if let Ok(pub_bytes) = <[u8; 32]>::try_from(raw.as_slice()) {
+                    let payload =
+                        json!({ "v": 1, "type": "delete", "ids": [sid] }).to_string();
+                    if let Ok(sealed) = seal_envelope(peer.key_id, &payload, &pub_bytes) {
+                        let env = json!({
+                            "target_iid": peer_iid,
+                            "key_id": peer.key_id,
+                            "sealed_data": sealed.to_string(),
+                            "room": dm_room(&my_iid(db)?, &peer_iid),
+                        });
+                        let _ = http::request(
+                            &base,
+                            "POST",
+                            "/manager/api/chat/send",
+                            Some(&token),
+                            Some(&env.to_string()),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Серверные строки этого сообщения (ещё не забранные получателем).
+        if let Some(sid) = server_id {
+            let payload = json!({ "ids": [sid] }).to_string();
+            let _ = http::request(
+                &base,
+                "POST",
+                "/manager/api/chat/delete",
+                Some(&token),
+                Some(&payload),
+            );
+        }
+
+        db.conn
+            .execute("DELETE FROM chat_messages WHERE id = ?1", [msg_id])
+            .map_err(|e| format!("delete: {e}"))?;
+        Ok(())
+    })?;
+    let _ = app.emit("chat:deleted", json!({ "id": msg_id }));
+    Ok(())
+}
+
 #[tauri::command]
 pub fn chat_unread_count(state: State<'_, AppState>) -> Result<i64, String> {
     with_open(&state, |db, _| {
@@ -313,7 +516,7 @@ pub fn chat_fetch(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<V
 /// триггерах.
 pub(crate) fn fetch_and_emit(app: &tauri::AppHandle, state: &AppState) -> Result<Value, String> {
     let mut fails = 0usize;
-    let stored_msgs: Vec<ChatMessage> = with_open_app(state, |db, enc| {
+    let (stored_msgs, deleted_ids): (Vec<ChatMessage>, Vec<i64>) = with_open_app(state, |db, enc| {
         let base = http::server_base(db);
         let token = db.get_config("license_token").ok_or("no_token")?;
         let (secret, _public, _key_id) = telemetry::ensure_manager_key(db, enc, &base, &token)?;
@@ -331,6 +534,7 @@ pub(crate) fn fetch_and_emit(app: &tauri::AppHandle, state: &AppState) -> Result
         let parsed: Value = serde_json::from_str(&resp.body).map_err(|e| format!("parse: {e}"))?;
         let my = my_iid(db)?;
         let mut out = Vec::new();
+        let mut deleted: Vec<i64> = Vec::new();
         for m in parsed
             .get("messages")
             .and_then(|m| m.as_array())
@@ -350,6 +554,28 @@ pub(crate) fn fetch_and_emit(app: &tauri::AppHandle, state: &AppState) -> Result
                     continue;
                 }
             };
+            // t8l: служебный delete-конверт от воркера — стираем локальную
+            // входящую копию по server_id, обычные сообщения не трогаем.
+            if let Ok(ctrl) = serde_json::from_str::<Value>(&body) {
+                if ctrl.get("type").and_then(|v| v.as_str()) == Some("delete") {
+                    if let Some(ids) = ctrl.get("ids").and_then(|v| v.as_array()) {
+                        for sid in ids.iter().filter_map(|v| v.as_i64()) {
+                            if let Ok(local_id) = db.conn.query_row(
+                                "SELECT id FROM chat_messages WHERE server_id = ?1 AND direction = 'in'",
+                                [sid],
+                                |r| r.get::<_, i64>(0),
+                            ) {
+                                let _ = db.conn.execute(
+                                    "DELETE FROM chat_messages WHERE id = ?1",
+                                    [local_id],
+                                );
+                                deleted.push(local_id);
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
             let peer = m
                 .get("sender_iid")
                 .and_then(|v| v.as_str())
@@ -381,7 +607,7 @@ pub(crate) fn fetch_and_emit(app: &tauri::AppHandle, state: &AppState) -> Result
                 Err(e) => return Err(format!("insert: {e}")),
             }
         }
-        Ok(out)
+        Ok((out, deleted))
     })?;
 
     // Авто-ротация: массовые unseal-fail — ключ на сервере сменился без нас.
@@ -403,5 +629,8 @@ pub(crate) fn fetch_and_emit(app: &tauri::AppHandle, state: &AppState) -> Result
     for msg in &stored_msgs {
         let _ = app.emit("chat:message", msg);
     }
-    Ok(json!({ "stored": n, "unseal_failed": fails }))
+    for id in &deleted_ids {
+        let _ = app.emit("chat:deleted", json!({ "id": id }));
+    }
+    Ok(json!({ "stored": n, "deleted": deleted_ids.len(), "unseal_failed": fails }))
 }

@@ -61,6 +61,7 @@ FILES=(
   "routes/csp-report.js"
   "routes/invite.js"
   "routes/sync.js"
+  "routes/worker-orders.js"
   "routes/catalog.js"
   "routes/bin.js"
   "admin/index.html"

@@ -233,6 +233,15 @@ pub fn unlock_app(state: State<'_, AppState>, password: String) -> Result<Value,
     let dek = crypto::unwrap_dek(&wrapped, &password, &salt).map_err(|_| "wrong_master_password".to_string())?;
     let database = Database::open_with_key(&path, &dek).map_err(|_| "wrong_master_password".to_string())?;
 
+    // ЭТАП-A П.1: апгрейд обёртки KEK до Argon2id при первом успешном входе.
+    // DEK не меняется — только переобёртка сайдкара, без rekey БД.
+    if crypto::dek_wrap_is_legacy(&wrapped) {
+        if let Ok(new_blob) = crypto::wrap_dek(&dek, &password, &salt) {
+            let sc = Sidecar { salt_b64: sidecar.salt_b64.clone(), wrapped_dek: Some(new_blob) };
+            let _ = db::write_sidecar(&path, &sc);
+        }
+    }
+
     let role = database.get_config("license_role").unwrap_or_else(|| "manager".into());
     database.log_event("unlock", "");
 
@@ -316,6 +325,21 @@ pub fn get_insights(state: State<'_, AppState>) -> Result<Value, String> {
 #[tauri::command]
 pub fn get_worker_snapshots(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| telemetry::worker_snapshots(database))
+}
+
+#[tauri::command]
+pub fn get_synced_orders(
+    state: State<'_, AppState>,
+    installation_id: Option<String>,
+) -> Result<Value, String> {
+    if let Some(ref iid) = installation_id {
+        if iid.len() > 128 {
+            return Err("invalid_installation_id".into());
+        }
+    }
+    with_open(&state, |database, _| {
+        telemetry::synced_orders(database, installation_id.as_deref())
+    })
 }
 
 #[tauri::command]

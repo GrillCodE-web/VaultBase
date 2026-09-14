@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useLang } from '../hooks/useLang.jsx'
 import { useConfirm } from '../hooks/useConfirm.jsx'
@@ -84,11 +85,39 @@ export default function News() {
     }
   }
 
-  const publish = async (id) => {
-    const r = await api('POST', `/manager/api/news/${id}/publish`)
-    if (r.status === 200) {
-      flash(t('news_published'))
-      load()
+  // qhi: публикация «переезжает» в E2E-чат — тело новости уходит воркерам
+  // как обычные end-to-end сообщения в read-only комнату объявлений
+  // (fan-out по получателям), а REST /publish лишь выставляет is_published.
+  const publish = async (n) => {
+    setBusy(true)
+    setError('')
+    try {
+      const targetIids = n.target_iid
+        ? [n.target_iid]
+        : (n.target_role && n.target_role !== 'all'
+            ? workers.filter((w) => w.role === n.target_role).map((w) => w.installation_id)
+            : workers.map((w) => w.installation_id))
+      if (!targetIids.length) {
+        setError(t('news_no_targets'))
+        return
+      }
+      await invoke('announce_publish', {
+        title: n.title || '',
+        body: n.body || '',
+        targetIids,
+        refId: String(n.id),
+      })
+      const r = await api('POST', `/manager/api/news/${n.id}/publish`)
+      if (r.status === 200) {
+        flash(t('news_published'))
+        load()
+      } else {
+        setError(`${t('err_generic')} (${r.body?.error || r.status})`)
+      }
+    } catch (e) {
+      setError(`${t('err_generic')} (${e})`)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -222,7 +251,7 @@ export default function News() {
                     {n.is_published ? (
                       <button className="btn small" onClick={() => unpublish(n.id)}>{t('news_unpublish')}</button>
                     ) : (
-                      <button className="btn small primary" onClick={() => publish(n.id)}>{t('news_publish')}</button>
+                      <button className="btn small primary" disabled={busy} onClick={() => publish(n)}>{t('news_publish')}</button>
                     )}{' '}
                     <button className="btn small" onClick={() => showReaders(n.id)}>{t('news_readers')}</button>{' '}
                     <button className="btn small danger" onClick={() => remove(n.id)}>{t('delete')}</button>

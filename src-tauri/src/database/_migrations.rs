@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 30;
+    const LATEST_VERSION: u32 = 35;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -80,7 +80,8 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (19, migration_v19), (20, migration_v20), (21, migration_v21), (22, migration_v22),
         (23, migration_v23), (24, migration_v24), (25, migration_v25),
         (26, migration_v26), (27, migration_v27), (28, migration_v28), (29, migration_v29),
-        (30, migration_v30),
+        (30, migration_v30), (31, migration_v31), (32, migration_v32),
+        (33, migration_v33), (34, migration_v34), (35, migration_v35),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -1137,6 +1138,65 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
                 read_at      DATETIME
             );
             CREATE INDEX IF NOT EXISTS idx_chat_out_targets_msg ON chat_outgoing_targets(msg_id);
+        "#)?;
+        Ok(())
+    }
+
+    // CHAT (manager-work-13q): оффлайн-очередь отправки. pending=1 — исходящее
+    // сохранено локально (plaintext, SQLCipher), но ещё НЕ ушло на сервер
+    // (не было сети). Автоповтор при восстановлении WS (auth_ok) и при опросе
+    // пересобирает конверты по актуальным ключам и досылает; после 201
+    // pending сбрасывается в 0. Обычные (успевшие уйти) строки — pending=0.
+    fn migration_v31(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            ALTER TABLE chat_messages ADD COLUMN pending INTEGER NOT NULL DEFAULT 0;
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_pending ON chat_messages(direction, pending);
+        "#)?;
+        Ok(())
+    }
+
+    // tdq: пометка «изменено» на отредактированных сообщениях (E2E edit-конверт).
+    fn migration_v32(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            ALTER TABLE chat_messages ADD COLUMN edited INTEGER NOT NULL DEFAULT 0;
+        "#)?;
+        Ok(())
+    }
+
+    // qfk: локальное автоудаление по TTL комнаты. Сообщения с проставленным
+    // expires_at подметаются на воркере (у получателя/отправителя), сервер
+    // чистит свои блобы по тому же ttl_hours независимо.
+    fn migration_v33(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            ALTER TABLE chat_messages ADD COLUMN expires_at DATETIME;
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_expires ON chat_messages(expires_at);
+        "#)?;
+        Ok(())
+    }
+
+    // SEC Этап B (specs/security-sync-redesign.md): очередь E2E-синхронизации
+    // контента заказов. Заказ шифруется под pub-ключ менеджера и уезжает через
+    // POST /sync/orders/upload. Очередь помечает грязные заказы; фактическую
+    // отправку делает background sync (как shop_footprints.synced). order_ref —
+    // непрозрачный идентификатор (используем order.id как строку).
+    fn migration_v34(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS order_sync_queue (
+                order_id    INTEGER PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+                synced      BOOLEAN NOT NULL DEFAULT 0,
+                updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_order_sync_queue_synced ON order_sync_queue(synced);
+        "#)?;
+        Ok(())
+    }
+
+    // azl: важные сообщения. priority=1 — сообщение помечено отправителем как
+    // важное (флаг едет внутри E2E-конверта, сервер его не видит). Получатель
+    // уведомляется звуком даже при mute комнаты, в ленте — акцентный цвет.
+    fn migration_v35(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            ALTER TABLE chat_messages ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
         "#)?;
         Ok(())
     }

@@ -145,6 +145,24 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_chat_messages_room   ON chat_messages(room, id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_unread ON chat_messages(direction, read_at);
+-- REDESIGN Этап B: E2E-контент заказов воркеров (воркер seal под pub менеджера).
+CREATE TABLE IF NOT EXISTS synced_orders (
+    server_slice_id INTEGER PRIMARY KEY,
+    source_iid      TEXT NOT NULL,
+    order_ref       TEXT NOT NULL,
+    payload         TEXT NOT NULL,
+    order_number    TEXT DEFAULT '',
+    status          TEXT DEFAULT '',
+    total_amount    REAL,
+    tracking_number TEXT DEFAULT '',
+    carrier         TEXT DEFAULT '',
+    notes           TEXT DEFAULT '',
+    created_at      TEXT DEFAULT '',
+    updated_at      TEXT DEFAULT '',
+    received_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_iid, order_ref)
+);
+CREATE INDEX IF NOT EXISTS idx_synced_orders_iid ON synced_orders(source_iid, updated_at);
 "#,
             )
             .map_err(|e| format!("init schema: {e}"))?;

@@ -22,7 +22,9 @@ serde_json    = "1"
 aes-gcm       = "0.10"
 sha2          = "0.10"
 pbkdf2        = { version = "0.12", features = ["simple"] }
+argon2        = "0.5"  # SEC ETAP-A P.1: Argon2id memory-hard KDF (единый контракт с воркером)
 hmac          = "0.12"
+ed25519-dalek = { version = "2", features = ["rand_core"] }  # SEC ETAP-A P.10: sync payload signing (anti-tamper)
 base64        = "0.22"
 chrono        = { version = "0.4" }
 ureq          = { version = "2", features = ["json"] }
