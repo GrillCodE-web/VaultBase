@@ -25,7 +25,7 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn create_order(input: OrderInput) -> Result<Order, String> {
+pub(crate) async fn create_order(input: OrderInput) -> Result<Order, String> {
     let user = require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, {
         crate::commands::telemetry::enforce_daily_quota(db, crate::commands::telemetry::DailyQuota::Orders)?;
@@ -35,13 +35,13 @@ pub(crate) fn create_order(input: OrderInput) -> Result<Order, String> {
 }
 
 #[tauri::command]
-pub(crate) fn get_orders(filter: OrderFilter, page: u32, per_page: u32) -> Result<PaginatedOrders, String> {
+pub(crate) async fn get_orders(filter: OrderFilter, page: u32, per_page: u32) -> Result<PaginatedOrders, String> {
     require_user()?;
     with_db!(db, { db.get_orders(&filter, page, per_page) })
 }
 
 #[tauri::command]
-pub(crate) fn get_order(id: i64) -> Result<OrderDetail, String> {
+pub(crate) async fn get_order(id: i64) -> Result<OrderDetail, String> {
     require_user()?;
     with_db!(db, { db.get_order(id) })
 }
@@ -49,7 +49,7 @@ pub(crate) fn get_order(id: i64) -> Result<OrderDetail, String> {
 // REDESIGN-05 (c5j, 8B): календарь доставок — события трекинга за месяц.
 // month = "YYYY-MM"; диапазон [from, to) — день считается в SQL по ISO-префиксу.
 #[tauri::command]
-pub(crate) fn get_calendar_events(month: String) -> Result<Vec<CalendarEvent>, String> {
+pub(crate) async fn get_calendar_events(month: String) -> Result<Vec<CalendarEvent>, String> {
     require_user()?;
     let (ys, ms) = month.split_once('-').ok_or("bad_month_format")?;
     let (y, m): (i64, i64) = (
@@ -64,31 +64,31 @@ pub(crate) fn get_calendar_events(month: String) -> Result<Vec<CalendarEvent>, S
 }
 
 #[tauri::command]
-pub(crate) fn get_latest_order_by_profile(profile_id: String) -> Result<Option<Order>, String> {
+pub(crate) async fn get_latest_order_by_profile(profile_id: String) -> Result<Option<Order>, String> {
     require_user()?;
     with_db!(db, { db.get_latest_order_by_profile(&profile_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_recent_orders_by_profile(profile_id: String, limit: u32) -> Result<Vec<Order>, String> {
+pub(crate) async fn get_recent_orders_by_profile(profile_id: String, limit: u32) -> Result<Vec<Order>, String> {
     require_user()?;
     with_db!(db, { db.get_recent_orders_by_profile(&profile_id, limit) })
 }
 
 #[tauri::command]
-pub(crate) fn get_recent_orders_by_card(card_id: i64, limit: u32) -> Result<Vec<Order>, String> {
+pub(crate) async fn get_recent_orders_by_card(card_id: i64, limit: u32) -> Result<Vec<Order>, String> {
     require_user()?;
     with_db!(db, { db.get_recent_orders_by_card(card_id, limit) })
 }
 
 #[tauri::command]
-pub(crate) fn update_order_status(id: i64, status: String, meta: Option<StatusMeta>) -> Result<(), String> {
+pub(crate) async fn update_order_status(id: i64, status: String, meta: Option<StatusMeta>) -> Result<(), String> {
     let user = require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, { db.update_order_status(id, &status, meta.as_ref(), Some(user.user_id)) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_order(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_order(id: i64) -> Result<(), String> {
     // Удаление — необратимо и затрагивает чужие заказы (владельца у заказа нет),
     // поэтому только админ, а не CREATE_ORDERS.
     require_admin()?;
@@ -96,7 +96,7 @@ pub(crate) fn delete_order(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn bulk_update_orders(ids: Vec<i64>, status: String) -> Result<(), String> {
+pub(crate) async fn bulk_update_orders(ids: Vec<i64>, status: String) -> Result<(), String> {
     let user = require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -105,7 +105,7 @@ pub(crate) fn bulk_update_orders(ids: Vec<i64>, status: String) -> Result<(), St
 }
 
 #[tauri::command]
-pub(crate) fn bulk_delete_orders(ids: Vec<i64>) -> Result<(), String> {
+pub(crate) async fn bulk_delete_orders(ids: Vec<i64>) -> Result<(), String> {
     require_admin()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -114,13 +114,13 @@ pub(crate) fn bulk_delete_orders(ids: Vec<i64>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn update_order_tracking(id: i64, tracking_number: Option<String>, carrier: Option<String>) -> Result<(), String> {
+pub(crate) async fn update_order_tracking(id: i64, tracking_number: Option<String>, carrier: Option<String>) -> Result<(), String> {
     require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, { db.update_order_tracking(id, tracking_number.as_deref(), carrier.as_deref()) })
 }
 
 #[tauri::command]
-pub(crate) fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i64>, email_pool_id: Option<i64>, proxy_id: Option<i64>, amount: Option<f64>) -> Result<RiskCheckResult, String> {
+pub(crate) async fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i64>, email_pool_id: Option<i64>, proxy_id: Option<i64>, amount: Option<f64>) -> Result<RiskCheckResult, String> {
     require_user()?;
     with_db!(db, {
         // FIX B31: передаём все факторы риска в БД-функцию
@@ -156,19 +156,19 @@ pub(crate) fn run_risk_check(profile_id: String, shop_id: i64, drop_id: Option<i
 }
 
 #[tauri::command]
-pub(crate) fn save_order_template(input: SaveTemplateInput) -> Result<(), String> {
+pub(crate) async fn save_order_template(input: SaveTemplateInput) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.save_order_template(&input) })
 }
 
 #[tauri::command]
-pub(crate) fn get_order_templates(shop_tag: Option<String>) -> Result<Vec<OrderTemplate>, String> {
+pub(crate) async fn get_order_templates(shop_tag: Option<String>) -> Result<Vec<OrderTemplate>, String> {
     require_user()?;
     with_db!(db, { db.get_order_templates(shop_tag.as_deref()) })
 }
 
 #[tauri::command]
-pub(crate) fn batch_create_orders(orders: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
+pub(crate) async fn batch_create_orders(orders: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
     require_perm(models::perms::CREATE_ORDERS)?;
     with_db!(db, {
         let (ok, fail) = db.batch_create_orders(&orders)?;
@@ -182,21 +182,21 @@ pub(crate) fn batch_create_orders(orders: Vec<serde_json::Value>) -> Result<serd
 
 /// История checkpoints заказа (таймлайн трекинга).
 #[tauri::command]
-pub(crate) fn get_tracking_checkpoints(order_id: i64) -> Result<Vec<TrackingCheckpoint>, String> {
+pub(crate) async fn get_tracking_checkpoints(order_id: i64) -> Result<Vec<TrackingCheckpoint>, String> {
     require_user()?;
     with_db!(db, { db.get_order_checkpoints(order_id) })
 }
 
 /// Кандидаты в сессию перебивки: последний checkpoint out_for_delivery/delivered.
 #[tauri::command]
-pub(crate) fn get_rework_candidates() -> Result<Vec<ReworkCandidate>, String> {
+pub(crate) async fn get_rework_candidates() -> Result<Vec<ReworkCandidate>, String> {
     require_user()?;
     with_db!(db, { db.get_rework_candidates() })
 }
 
 /// Правило «delivered >24ч и не перебит» — красная подсветка + уведомление.
 #[tauri::command]
-pub(crate) fn get_rework_alerts() -> Result<Vec<ReworkCandidate>, String> {
+pub(crate) async fn get_rework_alerts() -> Result<Vec<ReworkCandidate>, String> {
     require_user()?;
     with_db!(db, { db.get_rework_overdue(crate::constants::REWORK_OVERDUE_HOURS) })
 }
@@ -205,7 +205,7 @@ pub(crate) fn get_rework_alerts() -> Result<Vec<ReworkCandidate>, String> {
 /// заказа / домену магазина). Автоподстановки нет — apply делает
 /// существующая update_order_tracking.
 #[tauri::command]
-pub(crate) fn suggest_tracking_links() -> Result<Vec<TrackingLinkSuggestion>, String> {
+pub(crate) async fn suggest_tracking_links() -> Result<Vec<TrackingLinkSuggestion>, String> {
     require_user()?;
     with_db!(db, { db.suggest_tracking_links() })
 }
@@ -213,7 +213,7 @@ pub(crate) fn suggest_tracking_links() -> Result<Vec<TrackingLinkSuggestion>, St
 /// Сессия перебивки: полученные → 'received', остальные из чеклиста →
 /// обратно в 'shipped' с заметкой. Один вызов = одна сессия.
 #[tauri::command]
-pub(crate) fn complete_rework_session(
+pub(crate) async fn complete_rework_session(
     received_ids: Vec<i64>,
     missing_ids: Vec<i64>,
     note: Option<String>,

@@ -25,7 +25,7 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn get_card_shop_usage(card_id: i64) -> Result<Vec<CardShopUsage>, String> {
+pub(crate) async fn get_card_shop_usage(card_id: i64) -> Result<Vec<CardShopUsage>, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -33,7 +33,7 @@ pub(crate) fn get_card_shop_usage(card_id: i64) -> Result<Vec<CardShopUsage>, St
 }
 
 #[tauri::command]
-pub(crate) fn get_email_footprint_stats(email_id: i64) -> Result<EmailFootprintStats, String> {
+pub(crate) async fn get_email_footprint_stats(email_id: i64) -> Result<EmailFootprintStats, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -41,7 +41,7 @@ pub(crate) fn get_email_footprint_stats(email_id: i64) -> Result<EmailFootprintS
 }
 
 #[tauri::command]
-pub(crate) fn get_shop_risk_score(shop_id: i64) -> Result<ShopRiskScore, String> {
+pub(crate) async fn get_shop_risk_score(shop_id: i64) -> Result<ShopRiskScore, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -49,7 +49,7 @@ pub(crate) fn get_shop_risk_score(shop_id: i64) -> Result<ShopRiskScore, String>
 }
 
 #[tauri::command]
-pub(crate) fn get_card_timeline(card_id: i64) -> Result<Vec<CardTimelineEvent>, String> {
+pub(crate) async fn get_card_timeline(card_id: i64) -> Result<Vec<CardTimelineEvent>, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -57,26 +57,26 @@ pub(crate) fn get_card_timeline(card_id: i64) -> Result<Vec<CardTimelineEvent>, 
 }
 
 #[tauri::command]
-pub(crate) fn get_automation_config() -> Result<models::AutomationConfig, String> {
+pub(crate) async fn get_automation_config() -> Result<models::AutomationConfig, String> {
     require_user()?;
     with_db!(db, { db.get_automation_config() })
 }
 
 #[tauri::command]
-pub(crate) fn set_automation_config_cmd(key: String, value: String) -> Result<(), String> {
+pub(crate) async fn set_automation_config_cmd(key: String, value: String) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.set_automation_config(&key, &value) })
 }
 
 #[tauri::command]
-pub(crate) fn get_automation_health() -> Result<models::AutomationHealth, String> {
+pub(crate) async fn get_automation_health() -> Result<models::AutomationHealth, String> {
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
     guard.get_automation_health()
 }
 
 #[tauri::command]
-pub(crate) fn get_burned_cards(threshold: u32) -> Result<Vec<models::BurnedCard>, String> {
+pub(crate) async fn get_burned_cards(threshold: u32) -> Result<Vec<models::BurnedCard>, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -84,13 +84,13 @@ pub(crate) fn get_burned_cards(threshold: u32) -> Result<Vec<models::BurnedCard>
 }
 
 #[tauri::command]
-pub(crate) fn auto_archive_burned_cards_cmd(threshold: u32) -> Result<u32, String> {
+pub(crate) async fn auto_archive_burned_cards_cmd(threshold: u32) -> Result<u32, String> {
     require_user()?;
     with_db!(db, { db.auto_archive_burned_cards(threshold) })
 }
 
 #[tauri::command]
-pub(crate) fn get_consecutive_declines_cmd(card_id: i64) -> Result<u32, String> {
+pub(crate) async fn get_consecutive_declines_cmd(card_id: i64) -> Result<u32, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -98,13 +98,13 @@ pub(crate) fn get_consecutive_declines_cmd(card_id: i64) -> Result<u32, String> 
 }
 
 #[tauri::command]
-pub(crate) fn auto_archive_risky_cards_cmd(decline_threshold: u32) -> Result<u32, String> {
+pub(crate) async fn auto_archive_risky_cards_cmd(decline_threshold: u32) -> Result<u32, String> {
     require_user()?;
     with_db!(db, { db.auto_archive_risky_cards(decline_threshold) })
 }
 
 #[tauri::command]
-pub(crate) fn get_card_replacement_suggestions_cmd(burned_card_id: i64, shop_id: i64) -> Result<Vec<models::CardSuggestion>, String> {
+pub(crate) async fn get_card_replacement_suggestions_cmd(burned_card_id: i64, shop_id: i64) -> Result<Vec<models::CardSuggestion>, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -112,7 +112,7 @@ pub(crate) fn get_card_replacement_suggestions_cmd(burned_card_id: i64, shop_id:
 }
 
 #[tauri::command]
-pub(crate) fn get_shop_stats_v2_cmd(shop_id: i64) -> Result<models::ShopStatsV2, String> {
+pub(crate) async fn get_shop_stats_v2_cmd(shop_id: i64) -> Result<models::ShopStatsV2, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -124,7 +124,7 @@ pub(crate) fn get_shop_stats_v2_cmd(shop_id: i64) -> Result<models::ShopStatsV2,
 // ─────────────────────────────────────────
 
 #[tauri::command]
-pub(crate) fn create_automation_rule(
+pub(crate) async fn create_automation_rule(
     name: String,
     description: Option<String>,
     conditions_json: String,
@@ -138,13 +138,13 @@ pub(crate) fn create_automation_rule(
 }
 
 #[tauri::command]
-pub(crate) fn list_automation_rules() -> Result<Vec<models::AutomationRule>, String> {
+pub(crate) async fn list_automation_rules() -> Result<Vec<models::AutomationRule>, String> {
     require_user()?;
     with_db!(db, { db.list_automation_rules() })
 }
 
 #[tauri::command]
-pub(crate) fn update_automation_rule(
+pub(crate) async fn update_automation_rule(
     id: i64,
     name: Option<String>,
     description: Option<String>,
@@ -159,13 +159,13 @@ pub(crate) fn update_automation_rule(
 }
 
 #[tauri::command]
-pub(crate) fn delete_automation_rule(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_automation_rule(id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.delete_automation_rule(id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_automation_rule_runs(rule_id: Option<i64>, limit: Option<u32>) -> Result<Vec<models::AutomationRuleRun>, String> {
+pub(crate) async fn get_automation_rule_runs(rule_id: Option<i64>, limit: Option<u32>) -> Result<Vec<models::AutomationRuleRun>, String> {
     require_user()?;
     with_db!(db, { db.get_automation_rule_runs(rule_id, limit.unwrap_or(50)) })
 }

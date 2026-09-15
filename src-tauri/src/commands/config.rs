@@ -25,7 +25,7 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn get_config(key: String) -> Result<Option<String>, String> {
+pub(crate) async fn get_config(key: String) -> Result<Option<String>, String> {
     // `<secret>_set` отдаёт только факт наличия ключа, но не сам ключ.
     if let Some(secret_key) = secret_flag_target(&key) {
         return with_db!(db, {
@@ -43,7 +43,7 @@ pub(crate) fn get_config(key: String) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-pub(crate) fn set_config(key: String, value: String) -> Result<(), String> {
+pub(crate) async fn set_config(key: String, value: String) -> Result<(), String> {
     // Вход обязателен: whitelist ограничивает *какие* ключи можно писать, но не
     // *кому*. Без этого настройки менялись бы и на заблокированном приложении.
     // get_config намеренно остаётся без проверки — App.jsx:1218 читает
@@ -72,19 +72,19 @@ pub(crate) fn set_config(key: String, value: String) -> Result<(), String> {
 // записях), поэтому команда доступна везде, но остаётся под require_user() и
 // ручным подтверждением во фронте — автозасева нет.
 #[tauri::command]
-pub(crate) fn seed_test_data(force: bool) -> Result<String, String> {
+pub(crate) async fn seed_test_data(force: bool) -> Result<String, String> {
     require_user()?;
     with_db!(db, { db.seed_test_data(force) })
 }
 
 #[tauri::command]
-pub(crate) fn has_any_data() -> Result<bool, String> {
+pub(crate) async fn has_any_data() -> Result<bool, String> {
     require_user()?;
     with_db!(db, { Ok(db.has_any_data()) })
 }
 
 #[tauri::command]
-pub(crate) fn export_backup() -> Result<String, String> {
+pub(crate) async fn export_backup() -> Result<String, String> {
     // Бэкап — это вся база одним файлом, то есть полный обход любых прав.
     require_admin()?;
     let bdir = backup_dir();
@@ -97,7 +97,7 @@ pub(crate) fn export_backup() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub(crate) fn import_backup(path: String) -> Result<(), String> {
+pub(crate) async fn import_backup(path: String) -> Result<(), String> {
     // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent abuse
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("import_backup"))?;
     // FIX TC-02: Prevent path traversal attacks by canonicalizing the path

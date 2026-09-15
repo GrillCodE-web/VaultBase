@@ -24,19 +24,19 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn get_unsynced_footprints() -> Result<Vec<Footprint>, String> {
+pub(crate) async fn get_unsynced_footprints() -> Result<Vec<Footprint>, String> {
     require_user()?;
     with_db!(db, { db.get_unsynced_footprints_db() })
 }
 
 #[tauri::command]
-pub(crate) fn mark_footprints_synced(ids: Vec<i64>) -> Result<(), String> {
+pub(crate) async fn mark_footprints_synced(ids: Vec<i64>) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.mark_footprints_synced_db(&ids) })
 }
 
 #[tauri::command]
-pub(crate) fn sync_now() -> Result<SyncResult, String> {
+pub(crate) async fn sync_now() -> Result<SyncResult, String> {
     require_user()?;
     with_db!(db, {
         let res = crate::sync::SyncClient::sync_footprints(db)?;

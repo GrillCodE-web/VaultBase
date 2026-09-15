@@ -304,7 +304,7 @@ fn import_reserved_locked(db: &Database, token: &str, slices: &[Value]) -> Resul
 /// Обзор пула: сколько карт доступно лично мне (по розданным ключам) и мои
 /// брони. sealed_data из ответа вырезается — расшифровка только в reserve.
 #[tauri::command]
-pub(crate) fn pool_status() -> Result<Value, String> {
+pub(crate) async fn pool_status() -> Result<Value, String> {
     require_perm(perms::VIEW_CARDS_POOL)?;
     with_db!(db, {
         if db.is_locked() {
@@ -328,7 +328,7 @@ pub(crate) fn pool_status() -> Result<Value, String> {
 /// Забронировать count карт из пула, расшифровать, вставить, подтвердить.
 /// Нерасшифрованные срезы возвращаются в пул (release) с записью в лог.
 #[tauri::command]
-pub(crate) fn pool_reserve(app: tauri::AppHandle, count: i64) -> Result<Value, String> {
+pub(crate) async fn pool_reserve(app: tauri::AppHandle, count: i64) -> Result<Value, String> {
     require_perm(perms::TAKE_CARDS)?;
     let count = validate_count(count)?;
     let result: Result<Value, String> = with_db!(db, {
@@ -363,7 +363,7 @@ pub(crate) fn pool_reserve(app: tauri::AppHandle, count: i64) -> Result<Value, S
 /// Вернуть неиспользованную бронь в пул (только до ack — подтверждённые
 /// карты уже локально, их возвращает менеджер через /cards/pool/return).
 #[tauri::command]
-pub(crate) fn pool_release(app: tauri::AppHandle, ids: Vec<i64>) -> Result<Value, String> {
+pub(crate) async fn pool_release(app: tauri::AppHandle, ids: Vec<i64>) -> Result<Value, String> {
     require_perm(perms::TAKE_CARDS)?;
     if ids.is_empty() || ids.len() > 100 || ids.iter().any(|i| *i <= 0) {
         return Err("ids_array_required".into());
@@ -390,7 +390,7 @@ pub(crate) fn pool_release(app: tauri::AppHandle, ids: Vec<i64>) -> Result<Value
 /// Отчёт по взятым картам: used/burned. Локальные card_id переводятся
 /// в серверные pool_slice_id через card_pool_links.
 #[tauri::command]
-pub(crate) fn pool_report_outcome(app: tauri::AppHandle, card_ids: Vec<i64>, outcome: String) -> Result<Value, String> {
+pub(crate) async fn pool_report_outcome(app: tauri::AppHandle, card_ids: Vec<i64>, outcome: String) -> Result<Value, String> {
     require_perm(perms::TAKE_CARDS)?;
     let outcome = validate_outcome(&outcome)?;
     if card_ids.is_empty() || card_ids.len() > 100 || card_ids.iter().any(|i| *i <= 0) {

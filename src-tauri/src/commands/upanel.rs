@@ -218,7 +218,7 @@ fn live_query(filter: &UpanelLiveFilter, page: u32, per_page: u32) -> Vec<(Strin
 // ─────────────────────────────────────────
 
 #[tauri::command]
-pub(crate) fn upanel_connections_list() -> Result<Vec<UpanelConnection>, String> {
+pub(crate) async fn upanel_connections_list() -> Result<Vec<UpanelConnection>, String> {
     // Виджет Online/Offline на дашборде виден всем залогиненным,
     // не только владельцам права manage_proxies.
     require_user()?;
@@ -226,13 +226,13 @@ pub(crate) fn upanel_connections_list() -> Result<Vec<UpanelConnection>, String>
 }
 
 #[tauri::command]
-pub(crate) fn upanel_connection_add(input: UpanelConnectionInput) -> Result<UpanelConnection, String> {
+pub(crate) async fn upanel_connection_add(input: UpanelConnectionInput) -> Result<UpanelConnection, String> {
     require_perm(crate::models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.upanel_add_connection(&input) })
 }
 
 #[tauri::command]
-pub(crate) fn upanel_connection_update(
+pub(crate) async fn upanel_connection_update(
     id: i64,
     input: UpanelConnectionInput,
 ) -> Result<UpanelConnection, String> {
@@ -241,7 +241,7 @@ pub(crate) fn upanel_connection_update(
 }
 
 #[tauri::command]
-pub(crate) fn upanel_connection_delete(id: i64) -> Result<(), String> {
+pub(crate) async fn upanel_connection_delete(id: i64) -> Result<(), String> {
     require_perm(crate::models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.upanel_delete_connection(id) })
 }
@@ -251,7 +251,7 @@ pub(crate) fn upanel_connection_delete(id: i64) -> Result<(), String> {
 // ─────────────────────────────────────────
 
 #[tauri::command]
-pub(crate) fn upanel_connection_test(id: i64) -> Result<UpanelApiStatus, String> {
+pub(crate) async fn upanel_connection_test(id: i64) -> Result<UpanelApiStatus, String> {
     require_perm(crate::models::perms::MANAGE_PROXIES)?;
     let (name, base_url, token, _is_active) = with_db!(db, {
         let conn = db
@@ -291,7 +291,7 @@ pub(crate) fn upanel_connection_test(id: i64) -> Result<UpanelApiStatus, String>
 /// Проверить все подключения (для виджета «API: Online/Offline»).
 /// Отключённые (is_active = false) не пингуются и отдаются как disabled.
 #[tauri::command]
-pub(crate) fn upanel_check_all_apis() -> Result<Vec<UpanelApiStatus>, String> {
+pub(crate) async fn upanel_check_all_apis() -> Result<Vec<UpanelApiStatus>, String> {
     require_user()?;
 
     // Короткий лок: собрать подключения + расшифровать токены.
@@ -356,7 +356,7 @@ pub(crate) fn upanel_check_all_apis() -> Result<Vec<UpanelApiStatus>, String> {
 
 /// Список живых PPTP-серверов с фильтрами и пагинацией.
 #[tauri::command]
-pub(crate) fn upanel_live_list(
+pub(crate) async fn upanel_live_list(
     connection_id: i64,
     filter: UpanelLiveFilter,
     page: u32,
@@ -376,7 +376,7 @@ pub(crate) fn upanel_live_list(
 
 /// Аггрегированная статистика /live (для строки тоталов).
 #[tauri::command]
-pub(crate) fn upanel_live_stats(connection_id: i64) -> Result<Value, String> {
+pub(crate) async fn upanel_live_stats(connection_id: i64) -> Result<Value, String> {
     require_perm(crate::models::perms::MANAGE_PROXIES)?;
     let (base_url, token) = with_db!(db, { db.upanel_get_connection_secret(connection_id) })?;
     upanel_get(
@@ -390,7 +390,7 @@ pub(crate) fn upanel_live_stats(connection_id: i64) -> Result<Value, String> {
 
 /// Кредиты уже взятого PPTP-сервера.
 #[tauri::command]
-pub(crate) fn upanel_live_credentials(connection_id: i64, server_id: i64) -> Result<Value, String> {
+pub(crate) async fn upanel_live_credentials(connection_id: i64, server_id: i64) -> Result<Value, String> {
     require_perm(crate::models::perms::MANAGE_PROXIES)?;
     let (base_url, token) = with_db!(db, { db.upanel_get_connection_secret(connection_id) })?;
     upanel_get(
@@ -406,7 +406,7 @@ pub(crate) fn upanel_live_credentials(connection_id: i64, server_id: i64) -> Res
 /// закрепляется за ролью и выдаёт креды. Роли viewer на стороне uPanel
 /// получат 403 (upanel_forbidden) — это ожидаемое поведение.
 #[tauri::command]
-pub(crate) fn upanel_live_take(connection_id: i64, server_id: i64) -> Result<Value, String> {
+pub(crate) async fn upanel_live_take(connection_id: i64, server_id: i64) -> Result<Value, String> {
     require_perm(crate::models::perms::MANAGE_PROXIES)?;
     let (base_url, token) = with_db!(db, { db.upanel_get_connection_secret(connection_id) })?;
     let result = upanel_post(
@@ -432,7 +432,7 @@ pub(crate) fn upanel_live_take(connection_id: i64, server_id: i64) -> Result<Val
 
 /// Гео-справочник штатов/стран для фильтра.
 #[tauri::command]
-pub(crate) fn upanel_map_states(connection_id: i64) -> Result<Value, String> {
+pub(crate) async fn upanel_map_states(connection_id: i64) -> Result<Value, String> {
     require_perm(crate::models::perms::MANAGE_PROXIES)?;
     let (base_url, token) = with_db!(db, { db.upanel_get_connection_secret(connection_id) })?;
     upanel_get(

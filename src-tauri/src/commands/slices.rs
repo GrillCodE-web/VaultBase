@@ -125,7 +125,7 @@ pub(crate) fn insert_slice_payload(db: &Database, payload: &Value) -> Result<usi
 }
 
 #[tauri::command]
-pub(crate) fn worker_key_register() -> Result<Value, String> {
+pub(crate) async fn worker_key_register() -> Result<Value, String> {
     require_perm(perms::VIEW_CARDS_POOL)?;
     with_db!(db, {
         if db.is_locked() {
@@ -363,7 +363,7 @@ pub(crate) fn sync_orders(db: &mut Database, token: &str) -> Result<usize, Strin
 }
 
 #[tauri::command]
-pub(crate) fn slices_fetch() -> Result<Value, String> {
+pub(crate) async fn slices_fetch() -> Result<Value, String> {
     fetch_and_store(None)
 }
 
@@ -532,12 +532,12 @@ fn fetch_assets_and_store(kind: &'static str) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub(crate) fn proxy_slices_fetch() -> Result<Value, String> {
+pub(crate) async fn proxy_slices_fetch() -> Result<Value, String> {
     fetch_assets_and_store("proxy")
 }
 
 #[tauri::command]
-pub(crate) fn email_slices_fetch() -> Result<Value, String> {
+pub(crate) async fn email_slices_fetch() -> Result<Value, String> {
     fetch_assets_and_store("email")
 }
 
@@ -673,7 +673,7 @@ fn fetch_config_shares_and_store() -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub(crate) fn config_shares_fetch() -> Result<Value, String> {
+pub(crate) async fn config_shares_fetch() -> Result<Value, String> {
     fetch_config_shares_and_store()
 }
 

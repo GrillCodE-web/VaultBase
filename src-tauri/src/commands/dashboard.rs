@@ -25,7 +25,7 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn get_dashboard_stats(period: String, from: Option<String>, to: Option<String>) -> Result<DashboardStats, String> {
+pub(crate) async fn get_dashboard_stats(period: String, from: Option<String>, to: Option<String>) -> Result<DashboardStats, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_dashboard_stats(&period, from.as_deref(), to.as_deref())
@@ -33,97 +33,97 @@ pub(crate) fn get_dashboard_stats(period: String, from: Option<String>, to: Opti
 
 // q77: стартовый экран дня — доступен любому залогиненному (как sidebar badges)
 #[tauri::command]
-pub(crate) fn get_day_start_stats() -> Result<DayStartStats, String> {
+pub(crate) async fn get_day_start_stats() -> Result<DayStartStats, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_day_start_stats()
 }
 
 #[tauri::command]
-pub(crate) fn get_revenue_chart(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<RevenuePoint>, String> {
+pub(crate) async fn get_revenue_chart(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<RevenuePoint>, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_revenue_chart(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_heatmap_data(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<HeatmapCell>, String> {
+pub(crate) async fn get_heatmap_data(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<HeatmapCell>, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_heatmap_data(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_top_banks(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<BankStats>, String> {
+pub(crate) async fn get_top_banks(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<BankStats>, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_top_banks(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_by_country(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<CountryStats>, String> {
+pub(crate) async fn get_by_country(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<CountryStats>, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_country(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_by_source(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<SourceStats>, String> {
+pub(crate) async fn get_by_source(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<SourceStats>, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_source(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_by_domain(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<DomainStats>, String> {
+pub(crate) async fn get_by_domain(period: String, from: Option<String>, to: Option<String>) -> Result<Vec<DomainStats>, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_by_domain(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_expiring_cards_dashboard(days: u32) -> Result<Vec<ExpiringCard>, String> {
+pub(crate) async fn get_expiring_cards_dashboard(days: u32) -> Result<Vec<ExpiringCard>, String> {
     require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_expiring_cards_dashboard(days)
 }
 
 #[tauri::command]
-pub(crate) fn export_dashboard_csv(period: String, from: Option<String>, to: Option<String>) -> Result<String, String> {
+pub(crate) async fn export_dashboard_csv(period: String, from: Option<String>, to: Option<String>) -> Result<String, String> {
     require_perm(models::perms::EXPORT_DATA)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.export_dashboard_csv(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_sidebar_badges() -> Result<SidebarBadges, String> {
+pub(crate) async fn get_sidebar_badges() -> Result<SidebarBadges, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_sidebar_badges()
 }
 
 #[tauri::command]
-pub(crate) fn get_bin_performance() -> Result<Vec<models::BinPerf>, String> {
+pub(crate) async fn get_bin_performance() -> Result<Vec<models::BinPerf>, String> {
     require_user()?;
     with_db!(db, { db.get_bin_performance() })
 }
 
 // REDESIGN-05 (c5j): разрез BIN × магазин для раскрывающихся строк BinPerfTable
 #[tauri::command]
-pub(crate) fn get_bin_shop_performance(bin: String) -> Result<Vec<models::BinShopPerf>, String> {
+pub(crate) async fn get_bin_shop_performance(bin: String) -> Result<Vec<models::BinShopPerf>, String> {
     require_user()?;
     with_db!(db, { db.get_bin_shop_performance(&bin) })
 }
 
 #[tauri::command]
-pub(crate) fn get_sla_stats(period: String, from: Option<String>, to: Option<String>) -> Result<SlaStats, String> {
+pub(crate) async fn get_sla_stats(period: String, from: Option<String>, to: Option<String>) -> Result<SlaStats, String> {
     require_perm(models::perms::VIEW_STATS_GLOBAL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_sla_stats(&period, from.as_deref(), to.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn get_shop_win_loss() -> Result<Vec<models::ShopWinLoss>, String> {
+pub(crate) async fn get_shop_win_loss() -> Result<Vec<models::ShopWinLoss>, String> {
     require_user()?;
     with_db!(db, { db.get_shop_win_loss() })
 }

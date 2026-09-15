@@ -25,26 +25,26 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn add_smtp_config(input: SmtpConfigInput) -> Result<SmtpConfig, String> {
+pub(crate) async fn add_smtp_config(input: SmtpConfigInput) -> Result<SmtpConfig, String> {
     require_user()?;
     with_db!(db, { db.add_smtp_config(&input) })
 }
 
 #[tauri::command]
-pub(crate) fn get_smtp_configs() -> Result<Vec<SmtpConfig>, String> {
+pub(crate) async fn get_smtp_configs() -> Result<Vec<SmtpConfig>, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_smtp_configs()
 }
 
 #[tauri::command]
-pub(crate) fn delete_smtp_config(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_smtp_config(id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.delete_smtp_config(id) })
 }
 
 #[tauri::command]
-pub(crate) fn test_smtp_connection(id: i64) -> Result<String, String> {
+pub(crate) async fn test_smtp_connection(id: i64) -> Result<String, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     let cfg = guard.get_smtp_configs()?.into_iter().find(|c| c.id == id)
@@ -55,14 +55,14 @@ pub(crate) fn test_smtp_connection(id: i64) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub(crate) fn send_email(smtp_config_id: i64, to: String, subject: String, body: String) -> Result<(), String> {
+pub(crate) async fn send_email(smtp_config_id: i64, to: String, subject: String, body: String) -> Result<(), String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     crate::smtp::EmailSender::send(&guard, smtp_config_id, &to, &subject, &body)
 }
 
 #[tauri::command]
-pub(crate) fn get_sent_emails(page: u32) -> Result<PaginatedSentEmails, String> {
+pub(crate) async fn get_sent_emails(page: u32) -> Result<PaginatedSentEmails, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_sent_emails(page, 50)

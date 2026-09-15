@@ -25,14 +25,14 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn get_activity_log(filter: LogFilter, page: u32) -> Result<PaginatedLog, String> {
+pub(crate) async fn get_activity_log(filter: LogFilter, page: u32) -> Result<PaginatedLog, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_activity_log(&filter, page, 100)
 }
 
 #[tauri::command]
-pub(crate) fn clear_activity_log() -> Result<(), String> {
+pub(crate) async fn clear_activity_log() -> Result<(), String> {
     // Очистка журнала стирает следы действий — сюда же пишутся
     // security.reveal_denied и прочие события безопасности. Оператор,
     // способный чистить аудит, обнуляет смысл аудита. Только админ.
@@ -41,19 +41,19 @@ pub(crate) fn clear_activity_log() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn get_app_version(app: tauri::AppHandle) -> String {
+pub(crate) async fn get_app_version(app: tauri::AppHandle) -> String {
     app.package_info().version.to_string()
 }
 
 #[tauri::command]
-pub(crate) fn get_server_version() -> Result<Option<serde_json::Value>, String> {
+pub(crate) async fn get_server_version() -> Result<Option<serde_json::Value>, String> {
     Ok(sync::SyncClient::check_version().map(|(version, notes)| {
         serde_json::json!({ "version": version, "notes": notes })
     }))
 }
 
 #[tauri::command]
-pub(crate) fn global_search(query: String) -> Result<SearchResults, String> {
+pub(crate) async fn global_search(query: String) -> Result<SearchResults, String> {
     require_user()?;
     if query.len() < 2 { return Ok(SearchResults { cards: vec![], profiles: vec![], orders: vec![], shops: vec![], emails: vec![], proxies: vec![] }); }
     let guard = state().db.lock().map_err(|e| e.to_string())?;
@@ -61,7 +61,7 @@ pub(crate) fn global_search(query: String) -> Result<SearchResults, String> {
 }
 
 #[tauri::command]
-pub(crate) fn open_float_window(profile_id: String, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn open_float_window(profile_id: String, app: tauri::AppHandle) -> Result<(), String> {
     // Validate: profile_id must be UUID-like (hex + dashes only)
     let safe_id: String = profile_id.chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
@@ -89,7 +89,7 @@ pub(crate) fn open_float_window(profile_id: String, app: tauri::AppHandle) -> Re
 }
 
 #[tauri::command]
-pub(crate) fn open_main_window_page(page: String, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn open_main_window_page(page: String, app: tauri::AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
         let _ = win.set_focus();
@@ -100,7 +100,7 @@ pub(crate) fn open_main_window_page(page: String, app: tauri::AppHandle) -> Resu
 }
 
 #[tauri::command]
-pub(crate) fn get_auto_delivered_orders() -> Result<Vec<i64>, String> {
+pub(crate) async fn get_auto_delivered_orders() -> Result<Vec<i64>, String> {
     // This is handled automatically by IMAP poll, just return empty
     Ok(vec![])
 }

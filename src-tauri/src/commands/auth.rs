@@ -25,7 +25,7 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn user_login(username: String, password: String, ip_address: Option<String>, device_info: Option<String>) -> Result<LoginResult, String> {
+pub(crate) async fn user_login(username: String, password: String, ip_address: Option<String>, device_info: Option<String>) -> Result<LoginResult, String> {
     let start_time = std::time::Instant::now();
     
     // SPRINT3-DAY2: Log login attempt
@@ -111,7 +111,7 @@ pub(crate) fn user_login(username: String, password: String, ip_address: Option<
 }
 
 #[tauri::command]
-pub(crate) fn try_auto_login(ip_address: Option<String>, device_info: Option<String>) -> Result<Option<LoginResult>, String> {
+pub(crate) async fn try_auto_login(ip_address: Option<String>, device_info: Option<String>) -> Result<Option<LoginResult>, String> {
     let result = with_db!(db, {
         db.try_auto_login(ip_address.as_deref(), device_info.as_deref())
     })?;
@@ -139,14 +139,14 @@ fn restore_policy_quiet() {
 }
 
 #[tauri::command]
-pub(crate) fn user_logout(token: String) -> Result<(), String> {
+pub(crate) async fn user_logout(token: String) -> Result<(), String> {
     with_db!(db, { db.user_logout(&token) })?;
     if let Ok(mut u) = state().current_user.lock() { *u = None; }
     Ok(())
 }
 
 #[tauri::command]
-pub(crate) fn get_current_user() -> Result<Option<LoginResult>, String> {
+pub(crate) async fn get_current_user() -> Result<Option<LoginResult>, String> {
     let u = state().current_user.lock().map_err(|e| e.to_string())?;
     let expires_at = match u.as_ref().map(|x| x.token.clone()) {
         Some(t) => with_db!(db, { Ok::<Option<String>, String>(db.get_session_expiry(&t)) }).ok().flatten(),
@@ -164,7 +164,7 @@ pub(crate) fn get_current_user() -> Result<Option<LoginResult>, String> {
 }
 
 #[tauri::command]
-pub(crate) fn resume_session(token: String) -> Result<LoginResult, String> {
+pub(crate) async fn resume_session(token: String) -> Result<LoginResult, String> {
     let result = with_db!(db, {
         db.get_active_user_by_token(&token).ok_or("session_expired".to_string())
     })?;
@@ -186,7 +186,7 @@ pub(crate) fn resume_session(token: String) -> Result<LoginResult, String> {
 /// FEAT-016: sliding-refresh сессии — продлевает expires_at до +30 дней,
 /// если до истечения осталось меньше недели. Идемпотентно.
 #[tauri::command]
-pub(crate) fn refresh_session(token: String) -> Result<LoginResult, String> {
+pub(crate) async fn refresh_session(token: String) -> Result<LoginResult, String> {
     let new_expiry = with_db!(db, {
         db.refresh_session(&token).ok_or("session_expired".to_string())
     })?;
@@ -207,13 +207,13 @@ pub(crate) fn refresh_session(token: String) -> Result<LoginResult, String> {
 }
 
 #[tauri::command]
-pub(crate) fn get_users() -> Result<Vec<User>, String> {
+pub(crate) async fn get_users() -> Result<Vec<User>, String> {
     require_admin()?;
     with_db!(db, { db.get_users() })
 }
 
 #[tauri::command]
-pub(crate) fn create_user(input: CreateUserInput) -> Result<User, String> {
+pub(crate) async fn create_user(input: CreateUserInput) -> Result<User, String> {
     let admin = require_admin()?;
     let new_user = with_db!(db, { db.create_user(&input, admin.user_id) })?;
     with_db!(db, {
@@ -224,13 +224,13 @@ pub(crate) fn create_user(input: CreateUserInput) -> Result<User, String> {
 }
 
 #[tauri::command]
-pub(crate) fn update_user_cmd(id: i64, display_name: Option<String>, is_active: bool, role: Option<String>) -> Result<(), String> {
+pub(crate) async fn update_user_cmd(id: i64, display_name: Option<String>, is_active: bool, role: Option<String>) -> Result<(), String> {
     require_admin()?;
     with_db!(db, { db.update_user(id, display_name.as_deref(), is_active, role.as_deref()) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_user_cmd(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_user_cmd(id: i64) -> Result<(), String> {
     let admin = require_admin()?;
     if admin.user_id == id { return Err("cannot_delete_self".into()); }
     // FEAT-014: soft delete — деактивация + отзыв сессий, запись остаётся
@@ -243,7 +243,7 @@ pub(crate) fn delete_user_cmd(id: i64) -> Result<(), String> {
 
 /// FEAT-014: полное удаление — только после деактивации
 #[tauri::command]
-pub(crate) fn hard_delete_user_cmd(id: i64) -> Result<(), String> {
+pub(crate) async fn hard_delete_user_cmd(id: i64) -> Result<(), String> {
     let admin = require_admin()?;
     if admin.user_id == id { return Err("cannot_delete_self".into()); }
     with_db!(db, {
@@ -254,19 +254,19 @@ pub(crate) fn hard_delete_user_cmd(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn set_user_password_cmd(id: i64, new_password: String) -> Result<(), String> {
+pub(crate) async fn set_user_password_cmd(id: i64, new_password: String) -> Result<(), String> {
     require_admin()?;
     with_db!(db, { db.set_user_password(id, &new_password) })
 }
 
 #[tauri::command]
-pub(crate) fn get_user_with_permissions(id: i64) -> Result<UserWithPermissions, String> {
+pub(crate) async fn get_user_with_permissions(id: i64) -> Result<UserWithPermissions, String> {
     require_admin()?;
     with_db!(db, { db.get_user_with_permissions(id) })
 }
 
 #[tauri::command]
-pub(crate) fn set_user_permission_cmd(user_id: i64, key: String, granted: bool) -> Result<(), String> {
+pub(crate) async fn set_user_permission_cmd(user_id: i64, key: String, granted: bool) -> Result<(), String> {
     let admin = require_admin()?;
     with_db!(db, {
         db.set_user_permission(user_id, &key, granted)?;
@@ -276,31 +276,31 @@ pub(crate) fn set_user_permission_cmd(user_id: i64, key: String, granted: bool) 
 }
 
 #[tauri::command]
-pub(crate) fn reset_user_permissions_cmd(user_id: i64) -> Result<(), String> {
+pub(crate) async fn reset_user_permissions_cmd(user_id: i64) -> Result<(), String> {
     require_admin()?;
     with_db!(db, { db.reset_user_permissions(user_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_users_stats() -> Result<Vec<UserStats>, String> {
+pub(crate) async fn get_users_stats() -> Result<Vec<UserStats>, String> {
     require_admin()?;
     with_db!(db, { db.get_users_stats() })
 }
 
 #[tauri::command]
-pub(crate) fn get_user_period_stats(user_id: i64) -> Result<Vec<UserPeriodStats>, String> {
+pub(crate) async fn get_user_period_stats(user_id: i64) -> Result<Vec<UserPeriodStats>, String> {
     require_admin()?;
     with_db!(db, { db.get_user_period_stats(user_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_user_activity_log(user_id: Option<i64>, limit: Option<u32>, offset: Option<u32>) -> Result<Vec<UserActivity>, String> {
+pub(crate) async fn get_user_activity_log(user_id: Option<i64>, limit: Option<u32>, offset: Option<u32>) -> Result<Vec<UserActivity>, String> {
     require_admin()?;
     with_db!(db, { db.get_user_activity_log(user_id, limit.unwrap_or(100), offset.unwrap_or(0)) })
 }
 
 #[tauri::command]
-pub(crate) fn get_admin_overview() -> Result<AdminOverview, String> {
+pub(crate) async fn get_admin_overview() -> Result<AdminOverview, String> {
     require_admin()?;
     with_db!(db, { db.get_admin_overview() })
 }
@@ -324,7 +324,7 @@ pub(crate) fn get_full_audit_log(userId: Option<i64>, actionType: Option<String>
 }
 
 #[tauri::command]
-pub(crate) fn get_online_sessions() -> Result<Vec<UserSession>, String> {
+pub(crate) async fn get_online_sessions() -> Result<Vec<UserSession>, String> {
     require_admin()?;
     with_db!(db, { db.get_online_sessions() })
 }
@@ -341,7 +341,7 @@ pub(crate) fn revoke_session(sessionId: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn take_card(card_id: i64) -> Result<(), String> {
+pub(crate) async fn take_card(card_id: i64) -> Result<(), String> {
     let user = require_perm(models::perms::TAKE_CARDS)?;
     with_db!(db, {
         crate::commands::telemetry::enforce_daily_quota(db, crate::commands::telemetry::DailyQuota::Cards)?;
@@ -351,7 +351,7 @@ pub(crate) fn take_card(card_id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn transfer_card_cmd(card_id: i64, to_user_id: i64) -> Result<(), String> {
+pub(crate) async fn transfer_card_cmd(card_id: i64, to_user_id: i64) -> Result<(), String> {
     let user = require_perm(models::perms::TRANSFER_CARDS)?;
     with_db!(db, {
         db.transfer_card(card_id, to_user_id, user.user_id)
@@ -359,13 +359,13 @@ pub(crate) fn transfer_card_cmd(card_id: i64, to_user_id: i64) -> Result<(), Str
 }
 
 #[tauri::command]
-pub(crate) fn get_my_card_assignments() -> Result<Vec<CardAssignment>, String> {
+pub(crate) async fn get_my_card_assignments() -> Result<Vec<CardAssignment>, String> {
     let user = require_user()?;
     with_db!(db, { db.get_user_card_assignments(user.user_id) })
 }
 
 #[tauri::command]
-pub(crate) fn setup_password(password: String) -> Result<(), String> {
+pub(crate) async fn setup_password(password: String) -> Result<(), String> {
     // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent brute-force
     // SPRINT3-DAY4: Use config-based rate limits
     let config = &state().config;
@@ -407,7 +407,7 @@ pub(crate) fn setup_password(password: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn is_password_set() -> Result<bool, String> {
+pub(crate) async fn is_password_set() -> Result<bool, String> {
     // SEC-001: зашифрованный файл БД возможен только после установки пароля.
     // Проверяем заголовок файла, т.к. locked-shell соединение не может читать config.
     let db_path = crate::state::db_path();
@@ -431,7 +431,7 @@ pub(crate) fn is_password_set() -> Result<bool, String> {
 // стирается, а ответ неотличим от «неверный пароль».
 
 #[tauri::command]
-pub(crate) fn set_panic_password(password: String) -> Result<(), String> {
+pub(crate) async fn set_panic_password(password: String) -> Result<(), String> {
     rate_limiter::check_rate_limit(
         rate_limiter::RateLimitCategory::Strict,
         rate_limiter::get_rate_limit_key("set_panic_password"),
@@ -462,7 +462,7 @@ pub(crate) fn set_panic_password(password: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn remove_panic_password() -> Result<(), String> {
+pub(crate) async fn remove_panic_password() -> Result<(), String> {
     with_db!(db, {
         let db_path = crate::state::db_path();
         let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
@@ -477,7 +477,7 @@ pub(crate) fn remove_panic_password() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn has_panic_password() -> Result<bool, String> {
+pub(crate) async fn has_panic_password() -> Result<bool, String> {
     let db_path = crate::state::db_path();
     let db_path_str = db_path.to_str().unwrap_or("vaultbase.db");
     Ok(Database::read_sidecar(db_path_str)
@@ -486,7 +486,7 @@ pub(crate) fn has_panic_password() -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("unlock"))?;
     let token = with_db!(db, {
         let db_path = crate::state::db_path();
@@ -632,7 +632,7 @@ pub(crate) fn unlock(password: String, app: tauri::AppHandle) -> Result<(), Stri
 }
 
 #[tauri::command]
-pub(crate) fn lock() -> Result<(), String> {
+pub(crate) async fn lock() -> Result<(), String> {
     // SPRINT3-DAY2: Log lock event
     tracing::info!(
         event_type = "auth",
@@ -660,12 +660,12 @@ pub(crate) fn lock() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn is_locked() -> Result<bool, String> {
+pub(crate) async fn is_locked() -> Result<bool, String> {
     Ok(state().db.lock().map_err(|e| e.to_string())?.is_locked())
 }
 
 #[tauri::command]
-pub(crate) fn change_password(old: String, new: String) -> Result<(), String> {
+pub(crate) async fn change_password(old: String, new: String) -> Result<(), String> {
     // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent brute-force
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("change_password"))?;
     let v = PasswordValidation::check(&new);

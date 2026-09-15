@@ -24,7 +24,7 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn stuffer_get_config() -> Result<StufferConfigView, String> {
+pub(crate) async fn stuffer_get_config() -> Result<StufferConfigView, String> {
     with_db!(db, {
         // MGR-018 (этап D): активен share-ключ менеджера — показываем его
         // состояние (read-only), ручной конфиг на этом воркере не действует.
@@ -67,7 +67,7 @@ pub(crate) fn stuffer_get_config() -> Result<StufferConfigView, String> {
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_set_config(api_key: Option<String>, base_url: String) -> Result<(), String> {
+pub(crate) async fn stuffer_set_config(api_key: Option<String>, base_url: String) -> Result<(), String> {
     require_perm(models::perms::MANAGE_COURIERS)?;
     with_db!(db, {
         // MGR-018 (этап D): активный share-ключ менеджера read-only — ручная
@@ -93,19 +93,19 @@ pub(crate) fn stuffer_set_config(api_key: Option<String>, base_url: String) -> R
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_list_couriers() -> Result<Vec<crate::stuffer::CourierFull>, String> {
+pub(crate) async fn stuffer_list_couriers() -> Result<Vec<crate::stuffer::CourierFull>, String> {
     require_perm(models::perms::VIEW_COURIERS)?;
     active_provider()?.list_couriers()
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_list_available_couriers() -> Result<Vec<crate::stuffer::CourierAvailable>, String> {
+pub(crate) async fn stuffer_list_available_couriers() -> Result<Vec<crate::stuffer::CourierAvailable>, String> {
     require_perm(models::perms::VIEW_COURIERS)?;
     active_provider()?.list_available_couriers()
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_add_courier(courier_id: i64) -> Result<crate::stuffer::CourierFull, String> {
+pub(crate) async fn stuffer_add_courier(courier_id: i64) -> Result<crate::stuffer::CourierFull, String> {
     require_perm(models::perms::MANAGE_COURIERS)?;
     let courier = active_provider()?.add_courier(courier_id)?;
     with_db!(db, {
@@ -120,7 +120,7 @@ pub(crate) fn stuffer_add_courier(courier_id: i64) -> Result<crate::stuffer::Cou
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_list_packages() -> Result<Vec<crate::stuffer::Package>, String> {
+pub(crate) async fn stuffer_list_packages() -> Result<Vec<crate::stuffer::Package>, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
     active_provider()?.list_packages()
 }
@@ -128,7 +128,7 @@ pub(crate) fn stuffer_list_packages() -> Result<Vec<crate::stuffer::Package>, St
 /// Одна посылка по ID (метод `package`, апдейт панели 2026-09) — находит и
 /// архивные посылки, которых нет в свежем списке list_packages.
 #[tauri::command]
-pub(crate) fn stuffer_get_package(package_id: i64) -> Result<crate::stuffer::Package, String> {
+pub(crate) async fn stuffer_get_package(package_id: i64) -> Result<crate::stuffer::Package, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
     active_provider()?.get_package(package_id)
 }
@@ -136,7 +136,7 @@ pub(crate) fn stuffer_get_package(package_id: i64) -> Result<crate::stuffer::Pac
 /// Добавить трек к существующей посылке (метод `add_track`, апдейт панели
 /// 2026-09). Возвращает добавленный трек и полный список треков посылки.
 #[tauri::command]
-pub(crate) fn stuffer_add_track(
+pub(crate) async fn stuffer_add_track(
     package_id: i64,
     track: String,
     carrier: String,
@@ -155,13 +155,13 @@ pub(crate) fn stuffer_add_track(
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_get_labels(package_id: i64) -> Result<Vec<crate::stuffer::LabelFile>, String> {
+pub(crate) async fn stuffer_get_labels(package_id: i64) -> Result<Vec<crate::stuffer::LabelFile>, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
     active_provider()?.get_labels(package_id)
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_create_package(
+pub(crate) async fn stuffer_create_package(
     package: crate::stuffer::PackageInput,
     account_id: Option<i64>,
 ) -> Result<i64, String> {
@@ -194,7 +194,7 @@ pub(crate) fn stuffer_create_package(
 /// панель отвалилась. Пишет на панель по-настоящему: тест-пакет с
 /// pay_option «test».
 #[tauri::command]
-pub(crate) fn stuffer_test_write() -> Result<crate::stuffer::WriteTestReport, String> {
+pub(crate) async fn stuffer_test_write() -> Result<crate::stuffer::WriteTestReport, String> {
     require_perm(models::perms::MANAGE_COURIERS)?;
     let report = active_provider()?.test_write();
     with_db!(db, {
@@ -218,7 +218,7 @@ pub(crate) fn stuffer_test_write() -> Result<crate::stuffer::WriteTestReport, St
 /// созданная этим пользователем посылка (stuffer_create_package) — сценарий
 /// «создал посылку из карточки заказа» без ручного ввода номера.
 #[tauri::command]
-pub(crate) fn stuffer_link_order_package(
+pub(crate) async fn stuffer_link_order_package(
     order_id: i64,
     package_id: Option<i64>,
     courier_id: Option<i64>,
@@ -240,20 +240,20 @@ pub(crate) fn stuffer_link_order_package(
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_unlink_order_package(order_id: i64, link_id: i64) -> Result<(), String> {
+pub(crate) async fn stuffer_unlink_order_package(order_id: i64, link_id: i64) -> Result<(), String> {
     require_any_perm(&[models::perms::CREATE_PACKAGES, models::perms::MANAGE_COURIERS])?;
     with_db!(db, { db.unlink_order_package(order_id, link_id) })
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_list_order_packages(order_id: i64) -> Result<Vec<OrderPackageLink>, String> {
+pub(crate) async fn stuffer_list_order_packages(order_id: i64) -> Result<Vec<OrderPackageLink>, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
     with_db!(db, { db.list_links_for_order(order_id) })
 }
 
 /// Посылки всех заказов профиля — цепочка карта → профиль → заказ → посылка.
 #[tauri::command]
-pub(crate) fn stuffer_list_profile_packages(profile_id: String) -> Result<Vec<ProfilePackageLink>, String> {
+pub(crate) async fn stuffer_list_profile_packages(profile_id: String) -> Result<Vec<ProfilePackageLink>, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
     with_db!(db, { db.list_links_for_profile(&profile_id) })
 }
@@ -261,7 +261,7 @@ pub(crate) fn stuffer_list_profile_packages(profile_id: String) -> Result<Vec<Pr
 /// Обновить снапшоты (status/track/courier) привязанных посылок из живого
 /// списка панели. Вызывается после list_packages.
 #[tauri::command]
-pub(crate) fn stuffer_refresh_package_snapshots() -> Result<u32, String> {
+pub(crate) async fn stuffer_refresh_package_snapshots() -> Result<u32, String> {
     require_perm(models::perms::VIEW_PACKAGES)?;
     let provider = active_provider()?;
     let packages = provider.list_packages()?;
@@ -276,7 +276,7 @@ pub(crate) fn stuffer_refresh_package_snapshots() -> Result<u32, String> {
 /// Поставить тег курьеру. Поля личности приходят из CourierFull на фронте.
 /// true = тег добавлен (false — уже был). Пуш группе best-effort.
 #[tauri::command]
-pub(crate) fn stuffer_add_courier_tag(
+pub(crate) async fn stuffer_add_courier_tag(
     courier_id: i64,
     name: String,
     address1: String,
@@ -297,7 +297,7 @@ pub(crate) fn stuffer_add_courier_tag(
 /// Снять тег с курьера (по хешу — сносит и локальный, и пришедший из группы
 /// экземпляр). true = тег был и снят.
 #[tauri::command]
-pub(crate) fn stuffer_remove_courier_tag(
+pub(crate) async fn stuffer_remove_courier_tag(
     name: String,
     address1: String,
     city: String,
@@ -316,7 +316,7 @@ pub(crate) fn stuffer_remove_courier_tag(
 /// Объединённые теги курьера: свои (по courier_id) + пришедшие из группы
 /// (по хешу личности), без дублей, по алфавиту.
 #[tauri::command]
-pub(crate) fn stuffer_list_courier_tags(
+pub(crate) async fn stuffer_list_courier_tags(
     courier_id: i64,
     name: String,
     address1: String,
@@ -424,7 +424,7 @@ fn provider_for_account(account_id: i64) -> Result<Box<dyn stuffer::Provider>, S
 /// Общий список курьеров со всех аккаунтов. Ошибки по отдельным аккаунтам
 /// возвращаются в errors, список остальных при этом отдаётся.
 #[tauri::command]
-pub(crate) fn stuffer_list_all_couriers() -> Result<SharedCourierList, String> {
+pub(crate) async fn stuffer_list_all_couriers() -> Result<SharedCourierList, String> {
     require_perm(models::perms::VIEW_COURIERS)?;
     let sources = stuffer_account_sources()?;
     let mut out = SharedCourierList { couriers: Vec::new(), errors: Vec::new() };
@@ -448,13 +448,13 @@ pub(crate) fn stuffer_list_all_couriers() -> Result<SharedCourierList, String> {
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_list_accounts() -> Result<Vec<StufferAccount>, String> {
+pub(crate) async fn stuffer_list_accounts() -> Result<Vec<StufferAccount>, String> {
     require_perm(models::perms::VIEW_COURIERS)?;
     with_db!(db, { db.list_stuffer_accounts() })
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_add_account(
+pub(crate) async fn stuffer_add_account(
     label: String,
     api_key: String,
     base_url: Option<String>,
@@ -476,7 +476,7 @@ pub(crate) fn stuffer_add_account(
 }
 
 #[tauri::command]
-pub(crate) fn stuffer_delete_account(id: i64) -> Result<(), String> {
+pub(crate) async fn stuffer_delete_account(id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_COURIERS)?;
     with_db!(db, {
         db.delete_stuffer_account(id)?;

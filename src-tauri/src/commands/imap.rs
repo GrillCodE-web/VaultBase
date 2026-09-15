@@ -1,4 +1,4 @@
-﻿// Tauri commands: imap domain.
+// Tauri commands: imap domain.
 // Extracted from main.rs during module refactor.
 
 use crate::state::*;
@@ -25,57 +25,57 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn add_imap_account(input: ImapInput) -> Result<ImapAccount, String> {
+pub(crate) async fn add_imap_account(input: ImapInput) -> Result<ImapAccount, String> {
     require_user()?;
     with_db!(db, { db.add_imap_account(&input) })
 }
 
 #[tauri::command]
-pub(crate) fn get_imap_accounts() -> Result<Vec<ImapAccount>, String> {
+pub(crate) async fn get_imap_accounts() -> Result<Vec<ImapAccount>, String> {
     require_user()?;
     with_db!(db, { db.get_imap_accounts() })
 }
 
 #[tauri::command]
-pub(crate) fn update_imap_account(id: i64, input: ImapInput) -> Result<(), String> {
+pub(crate) async fn update_imap_account(id: i64, input: ImapInput) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.update_imap_account(id, &input) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_imap_account(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_imap_account(id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.delete_imap_account(id) })
 }
 
 #[tauri::command]
-pub(crate) fn toggle_imap_account(id: i64, active: bool) -> Result<(), String> {
+pub(crate) async fn toggle_imap_account(id: i64, active: bool) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.toggle_imap_account(id, active) })
 }
 
 #[tauri::command]
-pub(crate) fn get_imap_messages(filter: ImapMsgFilter, page: u32) -> Result<PaginatedMessages, String> {
+pub(crate) async fn get_imap_messages(filter: ImapMsgFilter, page: u32) -> Result<PaginatedMessages, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_imap_messages(&filter, page, 50)
 }
 
 #[tauri::command]
-pub(crate) fn test_imap_connection(id: i64) -> Result<String, String> {
+pub(crate) async fn test_imap_connection(id: i64) -> Result<String, String> {
     require_user()?;
     let (acc, pw) = with_db!(db, { db.get_imap_account_with_password(id) })?;
     crate::imap::ImapPoller::test_connection(&acc.host, acc.port as u16, &acc.login, &pw)
 }
 
 #[tauri::command]
-pub(crate) fn link_all_imap_accounts() -> Result<u32, String> {
+pub(crate) async fn link_all_imap_accounts() -> Result<u32, String> {
     require_user()?;
     with_db!(db, { db.link_all_imap_to_email_pool() })
 }
 
 #[tauri::command]
-pub(crate) fn link_email_to_imap(email_id: i64, imap_account_id: Option<i64>) -> Result<(), String> {
+pub(crate) async fn link_email_to_imap(email_id: i64, imap_account_id: Option<i64>) -> Result<(), String> {
     require_user()?;
     with_db!(db, {
         db.conn.execute("UPDATE email_pool SET imap_account_id=?1 WHERE id=?2",
@@ -87,38 +87,38 @@ pub(crate) fn link_email_to_imap(email_id: i64, imap_account_id: Option<i64>) ->
 // ── IMAP-ROUTING: маршруты «домен = почта» ─────────────────────────────
 
 #[tauri::command]
-pub(crate) fn add_domain_route(domain: String, imap_account_id: i64) -> Result<(), String> {
+pub(crate) async fn add_domain_route(domain: String, imap_account_id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.add_domain_route(&domain, imap_account_id) })
 }
 
 #[tauri::command]
-pub(crate) fn remove_domain_route(domain: String) -> Result<(), String> {
+pub(crate) async fn remove_domain_route(domain: String) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.remove_domain_route(&domain) })
 }
 
 #[tauri::command]
-pub(crate) fn list_domain_routes() -> Result<Vec<crate::models::DomainRoute>, String> {
+pub(crate) async fn list_domain_routes() -> Result<Vec<crate::models::DomainRoute>, String> {
     require_user()?;
     with_db!(db, { db.list_domain_routes() })
 }
 
 #[tauri::command]
-pub(crate) fn get_account_for_domain(domain: String) -> Result<Option<i64>, String> {
+pub(crate) async fn get_account_for_domain(domain: String) -> Result<Option<i64>, String> {
     require_user()?;
     with_db!(db, { db.get_account_for_domain(&domain) })
 }
 
 #[tauri::command]
-pub(crate) fn get_folder_messages(account_id: i64, folder: String, page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
+pub(crate) async fn get_folder_messages(account_id: i64, folder: String, page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_imap_folder_messages(account_id, &folder, page, 30, search.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn refresh_folder_from_imap(account_id: i64, folder: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn refresh_folder_from_imap(account_id: i64, folder: String, app_handle: tauri::AppHandle) -> Result<(), String> {
     require_user()?;
     let (acc, pw) = {
         let g = state().db.lock().map_err(|e| e.to_string())?;
@@ -163,26 +163,26 @@ pub(crate) fn refresh_folder_from_imap(account_id: i64, folder: String, app_hand
 }
 
 #[tauri::command]
-pub(crate) fn get_unified_inbox(page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
+pub(crate) async fn get_unified_inbox(page: u32, search: Option<String>) -> Result<PaginatedMessages, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_all_inbox_messages(page, 30, search.as_deref())
 }
 
 #[tauri::command]
-pub(crate) fn archive_imap_message(id: i64) -> Result<(), String> {
+pub(crate) async fn archive_imap_message(id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.archive_imap_message(id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_imap_message_body(account_id: i64, message_id: i64) -> Result<String, String> {
+pub(crate) async fn get_imap_message_body(account_id: i64, message_id: i64) -> Result<String, String> {
     require_user()?;
     with_db!(db, { crate::imap::get_message_body_from_server(db, account_id, message_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_imap_folders(id: i64, app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
+pub(crate) async fn get_imap_folders(id: i64, app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
     require_user()?;
     let cached = {
         let guard = state().db.lock().map_err(|e| e.to_string())?;
@@ -209,14 +209,14 @@ pub(crate) fn get_imap_folders(id: i64, app_handle: tauri::AppHandle) -> Result<
 }
 
 #[tauri::command]
-pub(crate) fn get_imap_stats(id: i64) -> Result<ImapAccountStats, String> {
+pub(crate) async fn get_imap_stats(id: i64) -> Result<ImapAccountStats, String> {
     require_user()?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     guard.get_imap_account_stats(id)
 }
 
 #[tauri::command]
-pub(crate) fn check_all_imap(app_handle: tauri::AppHandle) -> Result<ImapCheckResult, String> {
+pub(crate) async fn check_all_imap(app_handle: tauri::AppHandle) -> Result<ImapCheckResult, String> {
     require_user()?;
     let accounts: Vec<_> = {
         let guard = state().db.lock().map_err(|e| e.to_string())?;
@@ -241,7 +241,7 @@ pub(crate) fn check_all_imap(app_handle: tauri::AppHandle) -> Result<ImapCheckRe
 }
 
 #[tauri::command]
-pub(crate) fn mark_imap_read(id: i64) -> Result<(), String> {
+pub(crate) async fn mark_imap_read(id: i64) -> Result<(), String> {
     require_user()?;
     let account_id = {
         let guard = state().db.lock().map_err(|e| e.to_string())?;
@@ -251,7 +251,7 @@ pub(crate) fn mark_imap_read(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn delete_imap_message(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_imap_message(id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.delete_imap_message(id) })
 }

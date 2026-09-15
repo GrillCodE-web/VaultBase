@@ -1305,7 +1305,7 @@ pub(crate) fn perform_wipe_and_restart(db: &mut Database, app: &tauri::AppHandle
 }
 
 #[tauri::command]
-pub(crate) fn telemetry_send_heartbeat(app: tauri::AppHandle) -> Result<TelemetryHeartbeatResult, String> {
+pub(crate) async fn telemetry_send_heartbeat(app: tauri::AppHandle) -> Result<TelemetryHeartbeatResult, String> {
     with_db!(db, {
         let r = send_heartbeat(db);
         if r.wipe {
@@ -1316,7 +1316,7 @@ pub(crate) fn telemetry_send_heartbeat(app: tauri::AppHandle) -> Result<Telemetr
 }
 
 #[tauri::command]
-pub(crate) fn telemetry_send_daily_stats(date: Option<String>) -> Result<TelemetryReportResult, String> {
+pub(crate) async fn telemetry_send_daily_stats(date: Option<String>) -> Result<TelemetryReportResult, String> {
     with_db!(db, {
         let d = date.unwrap_or_else(|| {
             chrono::Local::now().format("%Y-%m-%d").to_string()
@@ -1329,7 +1329,7 @@ pub(crate) fn telemetry_send_daily_stats(date: Option<String>) -> Result<Telemet
 }
 
 #[tauri::command]
-pub(crate) fn telemetry_tick(app: tauri::AppHandle, force: Option<bool>) -> Result<serde_json::Value, String> {
+pub(crate) async fn telemetry_tick(app: tauri::AppHandle, force: Option<bool>) -> Result<serde_json::Value, String> {
     with_db!(db, {
         let r = telemetry_tick_impl(db, force.unwrap_or(false));
         if r["heartbeat"]["wipe"].as_bool().unwrap_or(false) {
@@ -1390,7 +1390,7 @@ pub(crate) fn fetch_and_store_priorities(db: &Database) -> Result<i64, String> {
 }
 
 #[tauri::command]
-pub(crate) fn manager_refresh_feeds() -> Result<serde_json::Value, String> {
+pub(crate) async fn manager_refresh_feeds() -> Result<serde_json::Value, String> {
     with_db!(db, {
         // dz3: обновляем только приоритеты — новостной пул ликвидирован.
         let priorities = fetch_and_store_priorities(db).map_err(|e| format!("priorities: {}", e))?;
@@ -1400,7 +1400,7 @@ pub(crate) fn manager_refresh_feeds() -> Result<serde_json::Value, String> {
 
 /// Приоритеты шопов: мапа domain→weight для сортировки каталога.
 #[tauri::command]
-pub(crate) fn get_shop_priorities() -> Result<serde_json::Value, String> {
+pub(crate) async fn get_shop_priorities() -> Result<serde_json::Value, String> {
     with_db!(db, {
         let mut stmt = db.conn.prepare(
             "SELECT shop_domain, weight, notes FROM shop_priorities ORDER BY weight DESC, shop_domain ASC"
@@ -1421,7 +1421,7 @@ pub(crate) fn get_shop_priorities() -> Result<serde_json::Value, String> {
 /// MGR-005: снимок активной политики для фронта. Читает только память —
 /// работает и на заблокированной БД (экран лока показывает причину бана).
 #[tauri::command]
-pub(crate) fn telemetry_get_policy() -> serde_json::Value {
+pub(crate) async fn telemetry_get_policy() -> serde_json::Value {
     let p = crate::state::policy_snapshot();
     serde_json::json!({
         "banned": p.banned,

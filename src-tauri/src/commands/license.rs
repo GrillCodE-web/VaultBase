@@ -25,34 +25,34 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn get_installation_id() -> Result<String, String> {
+pub(crate) async fn get_installation_id() -> Result<String, String> {
     with_db!(db, { crate::license::get_or_create_installation_id(db) })
 }
 
 #[tauri::command]
-pub(crate) fn get_challenge_code() -> Result<String, String> {
+pub(crate) async fn get_challenge_code() -> Result<String, String> {
     with_db!(db, { crate::license::get_challenge_code(db) })
 }
 
 #[tauri::command]
-pub(crate) fn activate_license(activation_key: String) -> Result<(), String> {
+pub(crate) async fn activate_license(activation_key: String) -> Result<(), String> {
     // FIX TC-H03: Rate limiting — 5 attempts per minute to prevent brute-force
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_limiter::get_rate_limit_key("activate_license"))?;
     with_db!(db, { crate::license::activate(db, &activation_key) })
 }
 
 #[tauri::command]
-pub(crate) fn get_license_status() -> Result<LicenseStatus, String> {
+pub(crate) async fn get_license_status() -> Result<LicenseStatus, String> {
     with_db!(db, { crate::license::verify_at_startup(db) })
 }
 
 #[tauri::command]
-pub(crate) fn retry_license_connection() -> Result<LicenseStatus, String> {
+pub(crate) async fn retry_license_connection() -> Result<LicenseStatus, String> {
     with_db!(db, { crate::license::retry_verify(db) })
 }
 
 /// SEC-ITER1: строгий гейт после unlock — 'active' | 'offline' | 'needs_network' | 'revoked' | 'not_activated'
 #[tauri::command]
-pub(crate) fn verify_license_after_unlock() -> Result<String, String> {
+pub(crate) async fn verify_license_after_unlock() -> Result<String, String> {
     with_db!(db, { crate::license::verify_after_unlock(db).map(String::from) })
 }

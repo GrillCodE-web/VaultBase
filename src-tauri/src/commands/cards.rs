@@ -28,12 +28,12 @@ use std::collections::HashMap;
 // (MGR-018): карты создаёт только менеджер, воркер принимает запечатанные
 // срезы (commands/slices.rs).
 #[tauri::command]
-pub(crate) fn detect_mapping_preview(raw: String) -> Result<MappingPreview, String> {
+pub(crate) async fn detect_mapping_preview(raw: String) -> Result<MappingPreview, String> {
     Ok(parser::mapping_preview(&raw))
 }
 
 #[tauri::command]
-pub(crate) fn get_cards(filter: CardFilter, page: u32, per_page: u32) -> Result<PaginatedCards, String> {
+pub(crate) async fn get_cards(filter: CardFilter, page: u32, per_page: u32) -> Result<PaginatedCards, String> {
     require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -41,7 +41,7 @@ pub(crate) fn get_cards(filter: CardFilter, page: u32, per_page: u32) -> Result<
 }
 
 #[tauri::command]
-pub(crate) fn get_card_filter_meta() -> Result<CardFilterMeta, String> {
+pub(crate) async fn get_card_filter_meta() -> Result<CardFilterMeta, String> {
     require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -49,7 +49,7 @@ pub(crate) fn get_card_filter_meta() -> Result<CardFilterMeta, String> {
 }
 
 #[tauri::command]
-pub(crate) fn get_card(id: i64) -> Result<Card, String> {
+pub(crate) async fn get_card(id: i64) -> Result<Card, String> {
     require_perm(models::perms::VIEW_CARDS_POOL)?;
     let guard = state().db.lock().map_err(|e| e.to_string())?;
     if guard.is_locked() { return Err("database_locked".into()); }
@@ -59,7 +59,7 @@ pub(crate) fn get_card(id: i64) -> Result<Card, String> {
 }
 
 #[tauri::command]
-pub(crate) fn reveal_card(id: i64, master_password: Option<String>) -> Result<CardDecrypted, String> {
+pub(crate) async fn reveal_card(id: i64, master_password: Option<String>) -> Result<CardDecrypted, String> {
     // Rate limiting — 5 requests per minute per installation
     let rate_key = id as u64;
     rate_limiter::check_rate_limit(rate_limiter::RateLimitCategory::Strict, rate_key)?;
@@ -120,7 +120,7 @@ pub(crate) fn reveal_card(id: i64, master_password: Option<String>) -> Result<Ca
 }
 
 #[tauri::command]
-pub(crate) fn update_card_status(id: i64, status: String, reason: Option<String>, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn update_card_status(id: i64, status: String, reason: Option<String>, app: tauri::AppHandle) -> Result<(), String> {
     // Изменение статуса — часть рабочего цикла оператора (карта отработала,
     // сгорела и т.п.), поэтому вход, а не отдельное право. Правка уезжает в
     // sync-группу, так что анонимный вызов испортил бы данные всем участникам.
@@ -148,7 +148,7 @@ pub(crate) fn update_card_status(id: i64, status: String, reason: Option<String>
 }
 
 #[tauri::command]
-pub(crate) fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -> Result<(), String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -169,7 +169,7 @@ pub(crate) fn update_card_notes(id: i64, notes: String, app: tauri::AppHandle) -
 }
 
 #[tauri::command]
-pub(crate) fn delete_card(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_card(id: i64) -> Result<(), String> {
     // Необратимо и затрагивает общий пул карт — только админ.
     require_admin()?;
     with_db!(db, {
@@ -182,7 +182,7 @@ pub(crate) fn delete_card(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), String> {
+pub(crate) async fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), String> {
     let user = require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -200,7 +200,7 @@ pub(crate) fn bulk_update_cards(ids: Vec<i64>, status: String) -> Result<(), Str
 /// bulk_update_cards по выбранным id, одной командой переводит ВЕСЬ пул
 /// dead → archive. Возвращает число архивированных карт.
 #[tauri::command]
-pub(crate) fn archive_dead_cards() -> Result<u32, String> {
+pub(crate) async fn archive_dead_cards() -> Result<u32, String> {
     let user = require_user()?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -217,7 +217,7 @@ pub(crate) fn archive_dead_cards() -> Result<u32, String> {
 }
 
 #[tauri::command]
-pub(crate) fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
+pub(crate) async fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
     // Массовое необратимое удаление — только админ, как и delete_card.
     require_admin()?;
     with_db!(db, {
@@ -230,7 +230,7 @@ pub(crate) fn bulk_delete_cards(ids: Vec<i64>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn export_cards(ids: Vec<i64>, format: String) -> Result<String, String> {
+pub(crate) async fn export_cards(ids: Vec<i64>, format: String) -> Result<String, String> {
     let user = require_perm(models::perms::EXPORT_DATA)?;
     with_db!(db, {
         if db.is_locked() { return Err("database_locked".into()); }
@@ -243,7 +243,7 @@ pub(crate) fn export_cards(ids: Vec<i64>, format: String) -> Result<String, Stri
 }
 
 #[tauri::command]
-pub(crate) fn enrich_bin(id: i64, force: Option<bool>) -> Result<BinInfo, String> {
+pub(crate) async fn enrich_bin(id: i64, force: Option<bool>) -> Result<BinInfo, String> {
     require_user()?;
     let guard  = state().db.lock().map_err(|e| e.to_string())?;
     // MGR-018 (этап D): в managed-режиме обогащение выполняет менеджер при
@@ -268,7 +268,7 @@ pub(crate) fn enrich_bin(id: i64, force: Option<bool>) -> Result<BinInfo, String
 }
 
 #[tauri::command]
-pub(crate) fn create_profile(card_id: i64, notes: Option<String>) -> Result<Profile, String> {
+pub(crate) async fn create_profile(card_id: i64, notes: Option<String>) -> Result<Profile, String> {
     require_user()?;
     with_db!(db, {
         crate::commands::telemetry::enforce_entity_limit(db, crate::commands::telemetry::EntityLimit::Profiles)?;
@@ -277,74 +277,74 @@ pub(crate) fn create_profile(card_id: i64, notes: Option<String>) -> Result<Prof
 }
 
 #[tauri::command]
-pub(crate) fn get_profiles(filter: ProfileFilter, page: u32, per_page: u32) -> Result<PaginatedProfiles, String> {
+pub(crate) async fn get_profiles(filter: ProfileFilter, page: u32, per_page: u32) -> Result<PaginatedProfiles, String> {
     require_user()?;
     with_db!(db, { db.get_profiles(&filter, page, per_page) })
 }
 
 #[tauri::command]
-pub(crate) fn get_profile(id: String) -> Result<ProfileDetail, String> {
+pub(crate) async fn get_profile(id: String) -> Result<ProfileDetail, String> {
     require_user()?;
     with_db!(db, { db.get_profile_detail(&id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_profile_detail(id: String) -> Result<ProfileDetail, String> {
+pub(crate) async fn get_profile_detail(id: String) -> Result<ProfileDetail, String> {
     require_user()?;
     with_db!(db, { db.get_profile_detail(&id) })
 }
 
 #[tauri::command]
-pub(crate) fn update_profile(id: String, notes: String) -> Result<(), String> {
+pub(crate) async fn update_profile(id: String, notes: String) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.update_profile_notes(&id, &notes) })
 }
 
 #[tauri::command]
-pub(crate) fn update_profile_notes(id: String, notes: String) -> Result<(), String> {
+pub(crate) async fn update_profile_notes(id: String, notes: String) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.update_profile_notes(&id, &notes) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_profile(id: String) -> Result<(), String> {
+pub(crate) async fn delete_profile(id: String) -> Result<(), String> {
     // Удаление профиля каскадом уносит дропы; владельца нет — только админ.
     require_admin()?;
     with_db!(db, { db.delete_profile(&id) })
 }
 
 #[tauri::command]
-pub(crate) fn duplicate_profile(id: String) -> Result<Profile, String> {
+pub(crate) async fn duplicate_profile(id: String) -> Result<Profile, String> {
     require_user()?;
     with_db!(db, { db.duplicate_profile(&id) })
 }
 
 #[tauri::command]
-pub(crate) fn find_duplicate_profiles() -> Result<Vec<Vec<Profile>>, String> {
+pub(crate) async fn find_duplicate_profiles() -> Result<Vec<Vec<Profile>>, String> {
     require_user()?;
     with_db!(db, { db.find_duplicate_profiles() })
 }
 
 #[tauri::command]
-pub(crate) fn save_profile_template(name: String, country: Option<String>, state: Option<String>, city: Option<String>, phone_prefix: Option<String>, source: Option<String>) -> Result<i64, String> {
+pub(crate) async fn save_profile_template(name: String, country: Option<String>, state: Option<String>, city: Option<String>, phone_prefix: Option<String>, source: Option<String>) -> Result<i64, String> {
     require_user()?;
     with_db!(db, { db.save_profile_template(&name, country.as_deref(), state.as_deref(), city.as_deref(), phone_prefix.as_deref(), source.as_deref()) })
 }
 
 #[tauri::command]
-pub(crate) fn get_profile_templates() -> Result<Vec<ProfileTemplate>, String> {
+pub(crate) async fn get_profile_templates() -> Result<Vec<ProfileTemplate>, String> {
     require_user()?;
     with_db!(db, { db.get_profile_templates() })
 }
 
 #[tauri::command]
-pub(crate) fn delete_profile_template(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_profile_template(id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.delete_profile_template(id) })
 }
 
 #[tauri::command]
-pub(crate) fn add_drop(profile_id: String, drop: DropInput) -> Result<Drop, String> {
+pub(crate) async fn add_drop(profile_id: String, drop: DropInput) -> Result<Drop, String> {
     require_user()?;
     with_db!(db, {
         crate::commands::telemetry::enforce_entity_limit(db, crate::commands::telemetry::EntityLimit::Drops)?;
@@ -353,25 +353,25 @@ pub(crate) fn add_drop(profile_id: String, drop: DropInput) -> Result<Drop, Stri
 }
 
 #[tauri::command]
-pub(crate) fn update_drop(id: i64, drop: DropInput) -> Result<(), String> {
+pub(crate) async fn update_drop(id: i64, drop: DropInput) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.update_drop(id, &drop) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_drop(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_drop(id: i64) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.delete_drop(id) })
 }
 
 #[tauri::command]
-pub(crate) fn set_primary_drop(id: i64, profile_id: String) -> Result<(), String> {
+pub(crate) async fn set_primary_drop(id: i64, profile_id: String) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.set_primary_drop(id, &profile_id) })
 }
 
 #[tauri::command]
-pub(crate) fn import_drops(profile_id: String, raw: String, mapping: Vec<String>) -> Result<ImportResult, String> {
+pub(crate) async fn import_drops(profile_id: String, raw: String, mapping: Vec<String>) -> Result<ImportResult, String> {
     require_user()?;
     let cols = mapping.clone();
     let rows: Vec<DropInput> = raw.lines().filter(|l| !l.trim().is_empty())
@@ -397,7 +397,7 @@ pub(crate) fn import_drops(profile_id: String, raw: String, mapping: Vec<String>
 }
 
 #[tauri::command]
-pub(crate) fn find_duplicate_drops() -> Result<Vec<Vec<Drop>>, String> {
+pub(crate) async fn find_duplicate_drops() -> Result<Vec<Vec<Drop>>, String> {
     require_user()?;
     with_db!(db, { db.find_duplicate_drops() })
 }
@@ -406,7 +406,7 @@ pub(crate) fn find_duplicate_drops() -> Result<Vec<Vec<Drop>>, String> {
 // crate::commands::slices::enforce_pool_editable — в managed-режиме пул
 // централизован у менеджера (read-only), solo-режим не затрагивается.
 #[tauri::command]
-pub(crate) fn add_email(email: String, label: String, notes: String) -> Result<EmailPoolEntry, String> {
+pub(crate) async fn add_email(email: String, label: String, notes: String) -> Result<EmailPoolEntry, String> {
     require_perm(models::perms::MANAGE_EMAILS)?;
     let label = if label.is_empty() { None } else { Some(label) };
     let notes = if notes.is_empty() { None } else { Some(notes) };
@@ -417,13 +417,13 @@ pub(crate) fn add_email(email: String, label: String, notes: String) -> Result<E
 }
 
 #[tauri::command]
-pub(crate) fn get_emails(filter: EmailFilter, page: u32, per_page: u32) -> Result<PaginatedEmails, String> {
+pub(crate) async fn get_emails(filter: EmailFilter, page: u32, per_page: u32) -> Result<PaginatedEmails, String> {
     require_perm(models::perms::MANAGE_EMAILS)?;
     with_db!(db, { db.get_emails(&filter, page, per_page) })
 }
 
 #[tauri::command]
-pub(crate) fn update_email(id: i64, label: String, notes: String) -> Result<(), String> {
+pub(crate) async fn update_email(id: i64, label: String, notes: String) -> Result<(), String> {
     require_perm(models::perms::MANAGE_EMAILS)?;
     let label = if label.is_empty() { None } else { Some(label) };
     let notes = if notes.is_empty() { None } else { Some(notes) };
@@ -434,13 +434,13 @@ pub(crate) fn update_email(id: i64, label: String, notes: String) -> Result<(), 
 }
 
 #[tauri::command]
-pub(crate) fn block_email(id: i64, blocked: bool) -> Result<(), String> {
+pub(crate) async fn block_email(id: i64, blocked: bool) -> Result<(), String> {
     require_perm(models::perms::MANAGE_EMAILS)?;
     with_db!(db, { db.block_email(id, blocked) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_email(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_email(id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_EMAILS)?;
     with_db!(db, {
         crate::commands::slices::enforce_pool_editable(db)?;
@@ -449,7 +449,7 @@ pub(crate) fn delete_email(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn get_clean_email_for_shop(shop_id: i64) -> Result<Option<EmailPoolEntry>, String> {
+pub(crate) async fn get_clean_email_for_shop(shop_id: i64) -> Result<Option<EmailPoolEntry>, String> {
     // Не MANAGE_EMAILS: это шаг оформления заказа, а не управление пулом.
     // Возвращается один свободный адрес, весь пул при этом не раскрывается.
     require_perm(models::perms::CREATE_ORDERS)?;
@@ -457,7 +457,7 @@ pub(crate) fn get_clean_email_for_shop(shop_id: i64) -> Result<Option<EmailPoolE
 }
 
 #[tauri::command]
-pub(crate) fn add_proxy(input: ProxyInput) -> Result<Proxy, String> {
+pub(crate) async fn add_proxy(input: ProxyInput) -> Result<Proxy, String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, {
         crate::commands::slices::enforce_pool_editable(db)?;
@@ -466,7 +466,7 @@ pub(crate) fn add_proxy(input: ProxyInput) -> Result<Proxy, String> {
 }
 
 #[tauri::command]
-pub(crate) fn import_proxies(raw: String) -> Result<ImportResult, String> {
+pub(crate) async fn import_proxies(raw: String) -> Result<ImportResult, String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, {
         crate::commands::slices::enforce_pool_editable(db)?;
@@ -475,13 +475,13 @@ pub(crate) fn import_proxies(raw: String) -> Result<ImportResult, String> {
 }
 
 #[tauri::command]
-pub(crate) fn get_proxies(filter: ProxyFilter, page: u32, per_page: u32) -> Result<PaginatedProxies, String> {
+pub(crate) async fn get_proxies(filter: ProxyFilter, page: u32, per_page: u32) -> Result<PaginatedProxies, String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.get_proxies(&filter, page, per_page) })
 }
 
 #[tauri::command]
-pub(crate) fn update_proxy(id: i64, input: ProxyInput) -> Result<(), String> {
+pub(crate) async fn update_proxy(id: i64, input: ProxyInput) -> Result<(), String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, {
         crate::commands::slices::enforce_pool_editable(db)?;
@@ -490,13 +490,13 @@ pub(crate) fn update_proxy(id: i64, input: ProxyInput) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn block_proxy(id: i64, blocked: bool) -> Result<(), String> {
+pub(crate) async fn block_proxy(id: i64, blocked: bool) -> Result<(), String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.block_proxy(id, blocked) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_proxy(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_proxy(id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, {
         crate::commands::slices::enforce_pool_editable(db)?;
@@ -505,7 +505,7 @@ pub(crate) fn delete_proxy(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) fn test_proxy_connection(host: String, port: u16) -> Result<bool, String> {
+pub(crate) async fn test_proxy_connection(host: String, port: u16) -> Result<bool, String> {
     // Иначе любой вошедший пользователь мог бы сканировать порты изнутри сети,
     // где стоит клиент: команда делает исходящее соединение по произвольному адресу.
     require_perm(models::perms::MANAGE_PROXIES)?;
@@ -521,7 +521,7 @@ pub(crate) fn test_proxy_connection(host: String, port: u16) -> Result<bool, Str
 }
 
 #[tauri::command]
-pub(crate) fn create_shop(input: ShopInput) -> Result<Shop, String> {
+pub(crate) async fn create_shop(input: ShopInput) -> Result<Shop, String> {
     // Оператор создаёт магазин на лету при оформлении заказа по позиции из
     // каталога (Orders.jsx: selectShop → _fromCatalog), поэтому одного
     // MANAGE_SHOPS здесь мало — иначе ломается основной сценарий работы.
@@ -530,7 +530,7 @@ pub(crate) fn create_shop(input: ShopInput) -> Result<Shop, String> {
 }
 
 #[tauri::command]
-pub(crate) fn get_shops(page: u32, per_page: u32, search: String) -> Result<PaginatedShops, String> {
+pub(crate) async fn get_shops(page: u32, per_page: u32, search: String) -> Result<PaginatedShops, String> {
     // Только вход в систему: список магазинов — это справочник, он нужен для
     // выбора при заказе, на страницах прокси и в самом разделе магазинов.
     require_user()?;
@@ -538,19 +538,19 @@ pub(crate) fn get_shops(page: u32, per_page: u32, search: String) -> Result<Pagi
 }
 
 #[tauri::command]
-pub(crate) fn get_shop(id: i64) -> Result<ShopDetail, String> {
+pub(crate) async fn get_shop(id: i64) -> Result<ShopDetail, String> {
     require_user()?;
     with_db!(db, { db.get_shop_detail(id) })
 }
 
 #[tauri::command]
-pub(crate) fn update_shop(id: i64, input: ShopInput) -> Result<(), String> {
+pub(crate) async fn update_shop(id: i64, input: ShopInput) -> Result<(), String> {
     require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.update_shop(id, &input) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_shop(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_shop(id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.delete_shop(id) })
 }
@@ -558,43 +558,43 @@ pub(crate) fn delete_shop(id: i64) -> Result<(), String> {
 // q77: wiki магазина — читать может любой воркер, править любой участник.
 // author = текущий пользователь, дата/время — в SQL (CURRENT_TIMESTAMP).
 #[tauri::command]
-pub(crate) fn get_shop_wiki(shop_id: i64) -> Result<Option<models::ShopWikiEntry>, String> {
+pub(crate) async fn get_shop_wiki(shop_id: i64) -> Result<Option<models::ShopWikiEntry>, String> {
     require_user()?;
     with_db!(db, { db.get_shop_wiki(shop_id) })
 }
 
 #[tauri::command]
-pub(crate) fn set_shop_wiki(shop_id: i64, content: String) -> Result<(), String> {
+pub(crate) async fn set_shop_wiki(shop_id: i64, content: String) -> Result<(), String> {
     let user = require_user()?;
     with_db!(db, { db.set_shop_wiki(shop_id, &content, &user.username) })
 }
 
 #[tauri::command]
-pub(crate) fn get_shop_wiki_history(shop_id: i64) -> Result<Vec<models::ShopWikiHistoryEntry>, String> {
+pub(crate) async fn get_shop_wiki_history(shop_id: i64) -> Result<Vec<models::ShopWikiHistoryEntry>, String> {
     require_user()?;
     with_db!(db, { db.get_shop_wiki_history(shop_id) })
 }
 
 #[tauri::command]
-pub(crate) fn add_shop_product(shop_id: i64, product: ProductInput) -> Result<Product, String> {
+pub(crate) async fn add_shop_product(shop_id: i64, product: ProductInput) -> Result<Product, String> {
     require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.add_shop_product(shop_id, &product) })
 }
 
 #[tauri::command]
-pub(crate) fn update_shop_product(id: i64, product: ProductInput) -> Result<(), String> {
+pub(crate) async fn update_shop_product(id: i64, product: ProductInput) -> Result<(), String> {
     require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.update_shop_product(id, &product) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_shop_product(id: i64) -> Result<(), String> {
+pub(crate) async fn delete_shop_product(id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_SHOPS)?;
     with_db!(db, { db.delete_shop_product(id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_shop_smart_suggestions(shop_id: i64, card_id: i64) -> Result<Vec<Suggestion>, String> {
+pub(crate) async fn get_shop_smart_suggestions(shop_id: i64, card_id: i64) -> Result<Vec<Suggestion>, String> {
     require_user()?;
     with_db!(db, { db.get_shop_smart_suggestions(shop_id, card_id) })
 }

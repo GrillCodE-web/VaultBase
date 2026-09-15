@@ -401,7 +401,7 @@ fn guess_mime(name: &str) -> String {
 
 /// Каталог собеседников: члены моей группы + активные менеджеры.
 #[tauri::command]
-pub(crate) fn chat_peers() -> Result<Value, String> {
+pub(crate) async fn chat_peers() -> Result<Value, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -427,7 +427,7 @@ pub(crate) fn chat_peers() -> Result<Value, String> {
 /// mgt: список моих пользовательских комнат (m4i). Сервер отдаёт состав и
 /// заголовок; сама переписка приходит обычным потоком chat/messages.
 #[tauri::command]
-pub(crate) fn chat_rooms_list() -> Result<Value, String> {
+pub(crate) async fn chat_rooms_list() -> Result<Value, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -449,7 +449,7 @@ pub(crate) fn chat_rooms_list() -> Result<Value, String> {
 /// уходят на сервер — возвращаются фронту в метаданных, которые едут внутри
 /// E2E-конверта сообщения (см. chat_send, поле attachment).
 #[tauri::command]
-pub(crate) fn chat_blob_upload(room: String, path: String) -> Result<Value, String> {
+pub(crate) async fn chat_blob_upload(room: String, path: String) -> Result<Value, String> {
     require_user()?;
     use base64::Engine;
     let plain = std::fs::read(&path).map_err(|e| format!("file_read: {e}"))?;
@@ -532,7 +532,7 @@ pub(crate) fn chat_blob_upload(room: String, path: String) -> Result<Value, Stri
 /// content-key/нонсом из E2E-конверта. Возвращаем base64 plaintext'а —
 /// фронт собирает data:-URL для превью/скачивания.
 #[tauri::command]
-pub(crate) fn chat_blob_fetch(blob_id: String, key: String, nonce: String) -> Result<Value, String> {
+pub(crate) async fn chat_blob_fetch(blob_id: String, key: String, nonce: String) -> Result<Value, String> {
     require_user()?;
     use base64::Engine;
     let hex_to_bytes = |s: &str| -> Option<Vec<u8>> {
@@ -589,7 +589,7 @@ pub(crate) fn chat_blob_fetch(blob_id: String, key: String, nonce: String) -> Re
 /// mgt: создать пользовательскую комнату. members — Chat-ID (installation_id)
 /// участников; создатель становится владельцем и первым членом на сервере.
 #[tauri::command]
-pub(crate) fn chat_room_create(title: String, members: Vec<String>) -> Result<Value, String> {
+pub(crate) async fn chat_room_create(title: String, members: Vec<String>) -> Result<Value, String> {
     require_user()?;
     let title = title.trim().to_string();
     if title.is_empty() {
@@ -614,7 +614,7 @@ pub(crate) fn chat_room_create(title: String, members: Vec<String>) -> Result<Va
 /// mgt: правка состава комнаты (владелец/менеджер). add/remove — Chat-ID.
 /// Приглашение по Chat-ID = add одного участника.
 #[tauri::command]
-pub(crate) fn chat_room_members(
+pub(crate) async fn chat_room_members(
     room: String,
     add: Vec<String>,
     remove: Vec<String>,
@@ -639,7 +639,7 @@ pub(crate) fn chat_room_members(
 /// yyt: список закреплённых сообщений комнаты (server_id + кто/когда закрепил).
 /// Тела не отдаются — фронт сопоставляет message_id с уже загруженной лентой.
 #[tauri::command]
-pub(crate) fn chat_pins_list(room: String) -> Result<Value, String> {
+pub(crate) async fn chat_pins_list(room: String) -> Result<Value, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -663,7 +663,7 @@ pub(crate) fn chat_pins_list(room: String) -> Result<Value, String> {
 /// yyt: закрепить/открепить сообщение по его server_id. Сервер хранит лишь
 /// маршрутизацию (комната+id), тело остаётся sealed-конвертом.
 #[tauri::command]
-pub(crate) fn chat_pin_set(room: String, message_id: i64, pinned: bool) -> Result<Value, String> {
+pub(crate) async fn chat_pin_set(room: String, message_id: i64, pinned: bool) -> Result<Value, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -684,7 +684,7 @@ pub(crate) fn chat_pin_set(room: String, message_id: i64, pinned: bool) -> Resul
 /// 6if: агрегированные реакции комнаты — [{message_id, emoji, count, reactors}].
 /// Фронт сопоставляет message_id с уже загруженной лентой (тела не отдаются).
 #[tauri::command]
-pub(crate) fn chat_reactions_list(room: String) -> Result<Value, String> {
+pub(crate) async fn chat_reactions_list(room: String) -> Result<Value, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -708,7 +708,7 @@ pub(crate) fn chat_reactions_list(room: String) -> Result<Value, String> {
 /// 6if: поставить/снять реакцию (toggle) на сообщение по server_id. Сервер
 /// хранит только маршрутизацию (комната+id+эмодзи+кто), тело — sealed-конверт.
 #[tauri::command]
-pub(crate) fn chat_reaction_set(room: String, message_id: i64, emoji: String) -> Result<Value, String> {
+pub(crate) async fn chat_reaction_set(room: String, message_id: i64, emoji: String) -> Result<Value, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -729,7 +729,7 @@ pub(crate) fn chat_reaction_set(room: String, message_id: i64, emoji: String) ->
 /// 19d: сменить свой публичный label (licenses.label на сервере). Виден всем
 /// пирам в /sync/chat/peers. Пустая строка допустима — сбрасывает label.
 #[tauri::command]
-pub(crate) fn chat_set_label(label: String) -> Result<Value, String> {
+pub(crate) async fn chat_set_label(label: String) -> Result<Value, String> {
     require_user()?;
     let label = label.trim().to_string();
     if label.chars().count() > MAX_LABEL_CHARS {
@@ -754,7 +754,7 @@ pub(crate) fn chat_set_label(label: String) -> Result<Value, String> {
 /// 19d: все локальные заметки о пирах (объект iid -> текст). Хранятся только
 /// на этом клиенте (config), сервер их не видит.
 #[tauri::command]
-pub(crate) fn chat_notes_get() -> Result<Value, String> {
+pub(crate) async fn chat_notes_get() -> Result<Value, String> {
     require_user()?;
     with_db!(db, {
         let raw = db.get_config(CHAT_PEER_NOTES_KEY).map_err(|e| e.to_string())?;
@@ -768,7 +768,7 @@ pub(crate) fn chat_notes_get() -> Result<Value, String> {
 
 /// 19d: задать/очистить локальную заметку о пире. Пустой текст — удаляет.
 #[tauri::command]
-pub(crate) fn chat_note_set(peer_iid: String, note: String) -> Result<(), String> {
+pub(crate) async fn chat_note_set(peer_iid: String, note: String) -> Result<(), String> {
     require_user()?;
     if peer_iid.len() > MAX_REF_LEN {
         return Err("peer_invalid".into());
@@ -793,7 +793,7 @@ pub(crate) fn chat_note_set(peer_iid: String, note: String) -> Result<(), String
 /// qfk: текущий TTL комнаты в часах (0 — автоудаление выключено). Хранится
 /// локально у каждого клиента (`chat_room_ttl:<room>`).
 #[tauri::command]
-pub(crate) fn chat_room_ttl_get(room: String) -> Result<u32, String> {
+pub(crate) async fn chat_room_ttl_get(room: String) -> Result<u32, String> {
     require_user()?;
     with_db!(db, { Ok(room_ttl_hours(db, &room).unwrap_or(0)) })
 }
@@ -801,7 +801,7 @@ pub(crate) fn chat_room_ttl_get(room: String) -> Result<u32, String> {
 /// qfk: задать TTL комнаты в часах (0 — выключить). Влияет на последующие
 /// отправки: сервер и получатель получают ttl_hours/ttl в конверте.
 #[tauri::command]
-pub(crate) fn chat_room_ttl_set(room: String, hours: u32) -> Result<(), String> {
+pub(crate) async fn chat_room_ttl_set(room: String, hours: u32) -> Result<(), String> {
     require_user()?;
     with_db!(db, {
         db.set_config(&format!("{CHAT_ROOM_TTL_PREFIX}{room}"), &hours.to_string())
@@ -839,21 +839,21 @@ fn refresh_tray_badge(app: &tauri::AppHandle) {
 
 /// bx6: все замьюченные комнаты — для иконок/подавления бейджа в списке.
 #[tauri::command]
-pub(crate) fn chat_muted_rooms() -> Result<Vec<String>, String> {
+pub(crate) async fn chat_muted_rooms() -> Result<Vec<String>, String> {
     require_user()?;
     with_db!(db, { Ok(muted_rooms(db)) })
 }
 
 /// bx6: замьючена ли комната (для подавления OS-уведомления).
 #[tauri::command]
-pub(crate) fn chat_room_mute_get(room: String) -> Result<bool, String> {
+pub(crate) async fn chat_room_mute_get(room: String) -> Result<bool, String> {
     require_user()?;
     with_db!(db, { Ok(muted_rooms(db).iter().any(|r| r == &room)) })
 }
 
 /// bx6: включить/выключить mute комнаты.
 #[tauri::command]
-pub(crate) fn chat_room_mute_set(app: tauri::AppHandle, room: String, muted: bool) -> Result<(), String> {
+pub(crate) async fn chat_room_mute_set(app: tauri::AppHandle, room: String, muted: bool) -> Result<(), String> {
     require_user()?;
     with_db!(db, {
         let mut set = muted_rooms(db);
@@ -880,7 +880,7 @@ pub(crate) fn chat_room_mute_set(app: tauri::AppHandle, room: String, muted: boo
 /// успешного POST (нет его на сервере — нет и в БД: ложная «отправленность»
 /// хуже повторной отправки).
 #[tauri::command]
-pub(crate) fn chat_send(
+pub(crate) async fn chat_send(
     app: tauri::AppHandle,
     body: String,
     peer_iid: Option<String>,
@@ -1031,7 +1031,7 @@ pub(crate) fn chat_send(
 
 /// История: room = None → все комнаты; иначе сообщения конкретной комнаты.
 #[tauri::command]
-pub(crate) fn chat_list(room: Option<String>, limit: Option<u32>) -> Result<Vec<ChatMessage>, String> {
+pub(crate) async fn chat_list(room: Option<String>, limit: Option<u32>) -> Result<Vec<ChatMessage>, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -1045,7 +1045,7 @@ pub(crate) fn chat_list(room: Option<String>, limit: Option<u32>) -> Result<Vec<
 /// помеченных сообщений уходит E2E read_receipt (best-effort: ошибка отправки
 /// квитанции не валит команду — локальное прочтение уже зафиксировано).
 #[tauri::command]
-pub(crate) fn chat_mark_read(app: tauri::AppHandle, ids: Vec<i64>) -> Result<u32, String> {
+pub(crate) async fn chat_mark_read(app: tauri::AppHandle, ids: Vec<i64>) -> Result<u32, String> {
     require_user()?;
     let n = with_db!(db, {
         if db.is_locked() {
@@ -1146,7 +1146,7 @@ fn send_read_receipts(db: &Database, token: &str, self_iid: &str, refs: Vec<(i64
 /// служебный delete-конверт с его server_id, чистим серверные строки и
 /// локальную копию. Удалять можно только исходящие (direction = "out").
 #[tauri::command]
-pub(crate) fn chat_delete(app: tauri::AppHandle, msg_id: i64) -> Result<(), String> {
+pub(crate) async fn chat_delete(app: tauri::AppHandle, msg_id: i64) -> Result<(), String> {
     require_user()?;
     let room = with_db!(db, {
         if db.is_locked() {
@@ -1209,7 +1209,7 @@ pub(crate) fn chat_delete(app: tauri::AppHandle, msg_id: i64) -> Result<(), Stri
 /// с его server_id и новым текстом; обновляем локальную копию и ставим метку
 /// «изменено». Редактировать можно только исходящие (direction = "out").
 #[tauri::command]
-pub(crate) fn chat_edit(app: tauri::AppHandle, msg_id: i64, body: String) -> Result<(), String> {
+pub(crate) async fn chat_edit(app: tauri::AppHandle, msg_id: i64, body: String) -> Result<(), String> {
     require_user()?;
     let text = body.trim().to_string();
     if text.is_empty() {
@@ -1270,7 +1270,7 @@ pub(crate) fn chat_edit(app: tauri::AppHandle, msg_id: i64, body: String) -> Res
 /// ошибки сети только логируются, UI не должен падать из-за индикатора.
 /// Троттлинг: фронт шлёт не чаще 3с, сервер релеит не чаще 2с на пару.
 #[tauri::command]
-pub(crate) fn chat_typing(peer_iid: String) -> Result<(), String> {
+pub(crate) async fn chat_typing(peer_iid: String) -> Result<(), String> {
     require_user()?;
     if peer_iid.len() > MAX_REF_LEN {
         return Err("peer_invalid".into());
@@ -1296,7 +1296,7 @@ pub(crate) fn chat_typing(peer_iid: String) -> Result<(), String> {
 
 /// Бейдж непрочитанных (сайдбар). До разблокировки БД отдаёт 0, а не ошибку.
 #[tauri::command]
-pub(crate) fn chat_unread_count() -> Result<u32, String> {
+pub(crate) async fn chat_unread_count() -> Result<u32, String> {
     require_user()?;
     with_db!(db, {
         if db.is_locked() {
@@ -1308,7 +1308,7 @@ pub(crate) fn chat_unread_count() -> Result<u32, String> {
 
 /// Ручной fetch входящих (pull-to-refresh; основной путь — WS chat_message).
 #[tauri::command]
-pub(crate) fn chat_fetch(app: tauri::AppHandle) -> Result<Value, String> {
+pub(crate) async fn chat_fetch(app: tauri::AppHandle) -> Result<Value, String> {
     require_user()?;
     fetch_and_store(Some(&app))
 }
@@ -1750,7 +1750,7 @@ fn flush_and_emit(app: Option<&tauri::AppHandle>) -> Result<usize, String> {
 
 /// Досыл оффлайн-очереди по требованию фронта. Возвращает число досланных.
 #[tauri::command]
-pub(crate) fn chat_flush_pending(app: tauri::AppHandle) -> Result<usize, String> {
+pub(crate) async fn chat_flush_pending(app: tauri::AppHandle) -> Result<usize, String> {
     require_user()?;
     flush_and_emit(Some(&app))
 }

@@ -8,19 +8,19 @@ use crate::state::*;
 use tauri::Manager;
 
 #[tauri::command]
-pub(crate) fn desktop_get_config() -> Result<desktop::DesktopConfig, String> {
+pub(crate) async fn desktop_get_config() -> Result<desktop::DesktopConfig, String> {
     require_user()?;
     Ok(desktop::load_config())
 }
 
 #[tauri::command]
-pub(crate) fn desktop_set_start_minimized(flag: bool) -> Result<(), String> {
+pub(crate) async fn desktop_set_start_minimized(flag: bool) -> Result<(), String> {
     require_user()?;
     desktop::update_config(|c| c.start_minimized = flag)
 }
 
 #[tauri::command]
-pub(crate) fn desktop_set_float_aot(flag: bool, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn desktop_set_float_aot(flag: bool, app: tauri::AppHandle) -> Result<(), String> {
     require_user()?;
     if let Some(float_win) = app.get_webview_window("float") {
         let _ = float_win.set_always_on_top(flag);
@@ -31,7 +31,7 @@ pub(crate) fn desktop_set_float_aot(flag: bool, app: tauri::AppHandle) -> Result
 /// None/пустая строка — снять хоткей. Возвращает нормализованную форму,
 /// которая реально зарегистрирована (для отображения в Settings).
 #[tauri::command]
-pub(crate) fn desktop_set_panic_hotkey(
+pub(crate) async fn desktop_set_panic_hotkey(
     hotkey: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<Option<String>, String> {
@@ -53,13 +53,13 @@ pub(crate) fn desktop_set_panic_hotkey(
 
 /// Пресет размера главного окна: compact / standard / large.
 #[tauri::command]
-pub(crate) fn window_apply_preset(preset: String, app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn window_apply_preset(preset: String, app: tauri::AppHandle) -> Result<(), String> {
     require_user()?;
     desktop::apply_preset(&app, &preset)
 }
 
 #[tauri::command]
-pub(crate) fn window_reset_layout(app: tauri::AppHandle) -> Result<(), String> {
+pub(crate) async fn window_reset_layout(app: tauri::AppHandle) -> Result<(), String> {
     require_user()?;
     desktop::update_config(|c| {
         c.main_bounds = None;
@@ -74,7 +74,7 @@ pub(crate) fn window_reset_layout(app: tauri::AppHandle) -> Result<(), String> {
 /// срабатывать и с экрана блокировки. Ответ при неверном пине неотличим от
 /// «panic-пароль не задан» — как в unlock.
 #[tauri::command]
-pub(crate) fn panic_wipe(pin: String) -> Result<(), String> {
+pub(crate) async fn panic_wipe(pin: String) -> Result<(), String> {
     rate_limiter::check_rate_limit(
         rate_limiter::RateLimitCategory::Strict,
         rate_limiter::get_rate_limit_key("panic_wipe"),

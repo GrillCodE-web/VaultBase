@@ -27,7 +27,7 @@ fn read_phase_plain(path: &str) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub fn get_app_state(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn get_app_state(state: State<'_, AppState>) -> Result<Value, String> {
     let path = db::db_path()?;
 
     let unlocked = {
@@ -80,7 +80,7 @@ pub fn get_app_state(state: State<'_, AppState>) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub fn set_server_url(state: State<'_, AppState>, url: String) -> Result<(), String> {
+pub async fn set_server_url(state: State<'_, AppState>, url: String) -> Result<(), String> {
     let normalized = http::normalize_url(&url)?;
 
     let guard_open = {
@@ -101,7 +101,7 @@ pub fn set_server_url(state: State<'_, AppState>, url: String) -> Result<(), Str
 }
 
 #[tauri::command]
-pub fn activate_license(state: State<'_, AppState>, activation_key: String) -> Result<Value, String> {
+pub async fn activate_license(state: State<'_, AppState>, activation_key: String) -> Result<Value, String> {
     let path = db::db_path()?;
     if db::is_encrypted(&path) {
         return Err("already_locked".into());
@@ -151,7 +151,7 @@ pub fn activate_license(state: State<'_, AppState>, activation_key: String) -> R
 }
 
 #[tauri::command]
-pub fn setup_master_password(state: State<'_, AppState>, password: String) -> Result<Value, String> {
+pub async fn setup_master_password(state: State<'_, AppState>, password: String) -> Result<Value, String> {
     // SPEC-B (d62): 5 попыток/мин — как unlock в воркере
     rate_limiter::check("setup_master_password")?;
 
@@ -205,7 +205,7 @@ pub fn setup_master_password(state: State<'_, AppState>, password: String) -> Re
 }
 
 #[tauri::command]
-pub fn unlock_app(state: State<'_, AppState>, password: String) -> Result<Value, String> {
+pub async fn unlock_app(state: State<'_, AppState>, password: String) -> Result<Value, String> {
     // SPEC-B (d62): 5 попыток/мин против перебора мастер-пароля
     // (воркер: auth.rs unlock_app → rate_limiter Strict)
     rate_limiter::check("unlock_app")?;
@@ -257,14 +257,14 @@ pub fn unlock_app(state: State<'_, AppState>, password: String) -> Result<Value,
 }
 
 #[tauri::command]
-pub fn lock_app(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn lock_app(state: State<'_, AppState>) -> Result<(), String> {
     let mut guard = state.db.lock().map_err(|_| "state_poisoned".to_string())?;
     *guard = DbState::Closed;
     Ok(())
 }
 
 #[tauri::command]
-pub fn server_request(
+pub async fn server_request(
     state: State<'_, AppState>,
     method: String,
     path: String,
@@ -283,12 +283,12 @@ pub fn server_request(
 }
 
 #[tauri::command]
-pub fn sync_telemetry(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn sync_telemetry(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, enc| telemetry::sync(database, enc))
 }
 
 #[tauri::command]
-pub fn get_analytics(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
+pub async fn get_analytics(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
     let date_ok = |s: &str| s.len() == 10 && s.as_bytes()[4] == b'-' && s.as_bytes()[7] == b'-';
     if !date_ok(&from) || !date_ok(&to) {
         return Err("invalid_date".into());
@@ -298,7 +298,7 @@ pub fn get_analytics(state: State<'_, AppState>, from: String, to: String) -> Re
 
 // MGR-022: сравнение воркеров между собой (объёмы, воронка, SLA, дрейф версий)
 #[tauri::command]
-pub fn get_fleet_comparison(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
+pub async fn get_fleet_comparison(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
     let date_ok = |s: &str| s.len() == 10 && s.as_bytes()[4] == b'-' && s.as_bytes()[7] == b'-';
     if !date_ok(&from) || !date_ok(&to) {
         return Err("invalid_date".into());
@@ -308,7 +308,7 @@ pub fn get_fleet_comparison(state: State<'_, AppState>, from: String, to: String
 
 // MGR-022: флотовая теплокарта BIN×шоп
 #[tauri::command]
-pub fn get_fleet_bin_shop(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
+pub async fn get_fleet_bin_shop(state: State<'_, AppState>, from: String, to: String) -> Result<Value, String> {
     let date_ok = |s: &str| s.len() == 10 && s.as_bytes()[4] == b'-' && s.as_bytes()[7] == b'-';
     if !date_ok(&from) || !date_ok(&to) {
         return Err("invalid_date".into());
@@ -318,17 +318,17 @@ pub fn get_fleet_bin_shop(state: State<'_, AppState>, from: String, to: String) 
 
 // MGR-020: умный слой — dual-baseline аномалии, прогноз пула, действия дня
 #[tauri::command]
-pub fn get_insights(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn get_insights(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| insights::insights(database))
 }
 
 #[tauri::command]
-pub fn get_worker_snapshots(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn get_worker_snapshots(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| telemetry::worker_snapshots(database))
 }
 
 #[tauri::command]
-pub fn get_synced_orders(
+pub async fn get_synced_orders(
     state: State<'_, AppState>,
     installation_id: Option<String>,
 ) -> Result<Value, String> {
@@ -343,7 +343,7 @@ pub fn get_synced_orders(
 }
 
 #[tauri::command]
-pub fn get_worker_stats(
+pub async fn get_worker_stats(
     state: State<'_, AppState>,
     installation_id: String,
     days: Option<i64>,
@@ -357,17 +357,17 @@ pub fn get_worker_stats(
 }
 
 #[tauri::command]
-pub fn evaluate_alerts(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn evaluate_alerts(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| alerts::evaluate(database))
 }
 
 #[tauri::command]
-pub fn get_local_alerts(state: State<'_, AppState>, status: Option<String>) -> Result<Value, String> {
+pub async fn get_local_alerts(state: State<'_, AppState>, status: Option<String>) -> Result<Value, String> {
     with_open(&state, |database, _| alerts::list(database, status.as_deref().unwrap_or("all")))
 }
 
 #[tauri::command]
-pub fn local_alert_action(state: State<'_, AppState>, id: i64, action: String) -> Result<(), String> {
+pub async fn local_alert_action(state: State<'_, AppState>, id: i64, action: String) -> Result<(), String> {
     with_open(&state, |database, _| alerts::act(database, id, &action))
 }
 
@@ -382,7 +382,7 @@ const WRITABLE_CONFIG_KEYS: &[&str] = &[
 ];
 
 #[tauri::command]
-pub fn get_config_values(state: State<'_, AppState>, keys: Vec<String>) -> Result<Value, String> {
+pub async fn get_config_values(state: State<'_, AppState>, keys: Vec<String>) -> Result<Value, String> {
     with_open(&state, |database, _| {
         let mut out = serde_json::Map::new();
         for key in keys {
@@ -397,7 +397,7 @@ pub fn get_config_values(state: State<'_, AppState>, keys: Vec<String>) -> Resul
 }
 
 #[tauri::command]
-pub fn set_config_value(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
+pub async fn set_config_value(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
     if !WRITABLE_CONFIG_KEYS.contains(&key.as_str()) {
         return Err("config_key_not_allowed".into());
     }
@@ -425,7 +425,7 @@ pub fn set_config_value(state: State<'_, AppState>, key: String, value: String) 
 }
 
 #[tauri::command]
-pub fn wipe_local_data(state: State<'_, AppState>, confirm: bool) -> Result<Value, String> {
+pub async fn wipe_local_data(state: State<'_, AppState>, confirm: bool) -> Result<Value, String> {
     if !confirm {
         return Err("confirm_required".into());
     }
@@ -529,12 +529,12 @@ pub async fn install_app_update(
 // ── MGR-017: vault карт (импорт, пулы, раздача срезов, экспорт) ──────────────
 
 #[tauri::command]
-pub fn vault_import(state: State<'_, AppState>, text: String) -> Result<Value, String> {
+pub async fn vault_import(state: State<'_, AppState>, text: String) -> Result<Value, String> {
     with_open(&state, |database, enc| vault::import(database, enc, &text))
 }
 
 #[tauri::command]
-pub fn vault_list(
+pub async fn vault_list(
     state: State<'_, AppState>,
     status: Option<String>,
     query: Option<String>,
@@ -546,12 +546,12 @@ pub fn vault_list(
 }
 
 #[tauri::command]
-pub fn vault_stats(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn vault_stats(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| vault::stats(database))
 }
 
 #[tauri::command]
-pub fn vault_issue(
+pub async fn vault_issue(
     state: State<'_, AppState>,
     target_iid: String,
     card_ids: Vec<i64>,
@@ -560,22 +560,22 @@ pub fn vault_issue(
 }
 
 #[tauri::command]
-pub fn vault_sync_issue_status(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn vault_sync_issue_status(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| vault::sync_issue_status(database))
 }
 
 #[tauri::command]
-pub fn vault_recall(state: State<'_, AppState>, card_ids: Vec<i64>, to_status: String) -> Result<Value, String> {
+pub async fn vault_recall(state: State<'_, AppState>, card_ids: Vec<i64>, to_status: String) -> Result<Value, String> {
     with_open(&state, |database, _| vault::recall(database, &card_ids, &to_status))
 }
 
 #[tauri::command]
-pub fn vault_burn(state: State<'_, AppState>, card_ids: Vec<i64>, reason: Option<String>) -> Result<Value, String> {
+pub async fn vault_burn(state: State<'_, AppState>, card_ids: Vec<i64>, reason: Option<String>) -> Result<Value, String> {
     with_open(&state, |database, _| vault::burn(database, &card_ids, &reason.unwrap_or_default()))
 }
 
 #[tauri::command]
-pub fn vault_export(
+pub async fn vault_export(
     state: State<'_, AppState>,
     card_ids: Vec<i64>,
     path: String,
@@ -588,6 +588,6 @@ pub fn vault_export(
 }
 
 #[tauri::command]
-pub fn vault_export_log(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn vault_export_log(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |database, _| vault::export_log(database))
 }

@@ -25,127 +25,127 @@ use tauri::{Manager, Emitter};
 use std::collections::HashMap;
 
 #[tauri::command]
-pub(crate) fn search_catalog_items(q: String, limit: Option<u32>) -> Result<Vec<models::CatalogItem>, String> {
+pub(crate) async fn search_catalog_items(q: String, limit: Option<u32>) -> Result<Vec<models::CatalogItem>, String> {
     require_user()?;
     with_db!(db, { db.search_catalog_items(&q, limit.unwrap_or(10) as u64) })
 }
 
 #[tauri::command]
-pub(crate) fn search_catalog_shops(q: String, limit: Option<u32>) -> Result<Vec<models::CatalogShop>, String> {
+pub(crate) async fn search_catalog_shops(q: String, limit: Option<u32>) -> Result<Vec<models::CatalogShop>, String> {
     require_user()?;
     with_db!(db, { db.search_catalog_shops(&q, limit.unwrap_or(8) as u64) })
 }
 
 #[tauri::command]
-pub(crate) fn get_catalog_stats() -> Result<models::CatalogStats, String> {
+pub(crate) async fn get_catalog_stats() -> Result<models::CatalogStats, String> {
     require_user()?;
     with_db!(db, { db.get_catalog_stats() })
 }
 
 #[tauri::command]
-pub(crate) fn import_catalog_items(items: Vec<models::CatalogItemInput>) -> Result<usize, String> {
+pub(crate) async fn import_catalog_items(items: Vec<models::CatalogItemInput>) -> Result<usize, String> {
     require_user()?;
     with_db!(db, { db.import_catalog_items_batch(&items) })
 }
 
 #[tauri::command]
-pub(crate) fn import_catalog_shops(shops: Vec<models::CatalogShopInput>) -> Result<usize, String> {
+pub(crate) async fn import_catalog_shops(shops: Vec<models::CatalogShopInput>) -> Result<usize, String> {
     require_user()?;
     with_db!(db, { db.import_catalog_shops_batch(&shops) })
 }
 
 #[tauri::command]
-pub(crate) fn get_catalog_items(page: u32, per_page: u32, search: String) -> Result<models::PaginatedCatalogItems, String> {
+pub(crate) async fn get_catalog_items(page: u32, per_page: u32, search: String) -> Result<models::PaginatedCatalogItems, String> {
     require_user()?;
     with_db!(db, { db.get_catalog_items_paged(&search, page, per_page) })
 }
 
 #[tauri::command]
-pub(crate) fn get_catalog_shops(page: u32, per_page: u32, search: String) -> Result<models::PaginatedCatalogShops, String> {
+pub(crate) async fn get_catalog_shops(page: u32, per_page: u32, search: String) -> Result<models::PaginatedCatalogShops, String> {
     require_user()?;
     with_db!(db, { db.get_catalog_shops_paged(&search, page, per_page) })
 }
 
 #[tauri::command]
-pub(crate) fn toggle_catalog_item_stop(id: i64, stop: bool) -> Result<(), String> {
+pub(crate) async fn toggle_catalog_item_stop(id: i64, stop: bool) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.toggle_catalog_item_stop(id, stop) })
 }
 
 #[tauri::command]
-pub(crate) fn delete_catalog_items(ids: Vec<i64>) -> Result<u32, String> {
+pub(crate) async fn delete_catalog_items(ids: Vec<i64>) -> Result<u32, String> {
     require_user()?;
     with_db!(db, { db.delete_catalog_items(&ids) })
 }
 
 #[tauri::command]
-pub(crate) fn toggle_catalog_shop_excluded(id: i64, excluded: bool) -> Result<(), String> {
+pub(crate) async fn toggle_catalog_shop_excluded(id: i64, excluded: bool) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.toggle_catalog_shop_excluded(id, excluded) })
 }
 
 #[tauri::command]
-pub(crate) fn get_profile_ltv(profile_id: String) -> Result<serde_json::Value, String> {
+pub(crate) async fn get_profile_ltv(profile_id: String) -> Result<serde_json::Value, String> {
     require_user()?;
     with_db!(db, { db.get_profile_ltv(&profile_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_free_email_for_shop(shop_id: Option<i64>) -> Result<Option<serde_json::Value>, String> {
+pub(crate) async fn get_free_email_for_shop(shop_id: Option<i64>) -> Result<Option<serde_json::Value>, String> {
     require_user()?;
     with_db!(db, { db.get_free_email_for_shop(shop_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_available_emails(limit: u32) -> Result<Vec<serde_json::Value>, String> {
+pub(crate) async fn get_available_emails(limit: u32) -> Result<Vec<serde_json::Value>, String> {
     require_user()?;
     with_db!(db, { db.get_available_emails(limit) })
 }
 
 #[tauri::command]
-pub(crate) fn set_profile_email(profile_id: String, email_pool_id: Option<i64>) -> Result<(), String> {
+pub(crate) async fn set_profile_email(profile_id: String, email_pool_id: Option<i64>) -> Result<(), String> {
     require_user()?;
     with_db!(db, { db.set_profile_email(&profile_id, email_pool_id) })
 }
 
 #[tauri::command]
-pub(crate) fn check_proxy_health_now() -> Result<ProxyHealthResult, String> {
+pub(crate) async fn check_proxy_health_now() -> Result<ProxyHealthResult, String> {
     require_user()?;
     with_db!(db, { db.check_all_proxy_health() })
 }
 
 #[tauri::command]
-pub(crate) fn get_proxy_usage_stats() -> Result<Vec<ProxyUsageStat>, String> {
+pub(crate) async fn get_proxy_usage_stats() -> Result<Vec<ProxyUsageStat>, String> {
     require_user()?;
     with_db!(db, { db.get_proxy_usage_stats() })
 }
 
 #[tauri::command]
-pub(crate) fn set_proxy_shop_binding(proxy_id: i64, shop_id: i64) -> Result<(), String> {
+pub(crate) async fn set_proxy_shop_binding(proxy_id: i64, shop_id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.set_proxy_shop_binding(proxy_id, shop_id) })
 }
 
 #[tauri::command]
-pub(crate) fn remove_proxy_shop_binding(shop_id: i64) -> Result<(), String> {
+pub(crate) async fn remove_proxy_shop_binding(shop_id: i64) -> Result<(), String> {
     require_perm(models::perms::MANAGE_PROXIES)?;
     with_db!(db, { db.remove_proxy_shop_binding(shop_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_proxy_for_shop(shop_id: i64) -> Result<Option<i64>, String> {
+pub(crate) async fn get_proxy_for_shop(shop_id: i64) -> Result<Option<i64>, String> {
     require_user()?;
     with_db!(db, { db.get_proxy_for_shop(shop_id) })
 }
 
 #[tauri::command]
-pub(crate) fn get_all_proxy_shop_bindings() -> Result<Vec<serde_json::Value>, String> {
+pub(crate) async fn get_all_proxy_shop_bindings() -> Result<Vec<serde_json::Value>, String> {
     require_user()?;
     with_db!(db, { db.get_all_proxy_shop_bindings() })
 }
 
 #[tauri::command]
-pub(crate) fn find_or_create_shop(url: String) -> Result<serde_json::Value, String> {
+pub(crate) async fn find_or_create_shop(url: String) -> Result<serde_json::Value, String> {
     require_user()?;
     // Extract domain from URL
     let domain = url
@@ -194,13 +194,13 @@ pub(crate) fn find_or_create_shop(url: String) -> Result<serde_json::Value, Stri
 }
 
 #[tauri::command]
-pub(crate) fn detect_carrier_from_tracking(tracking: String) -> Result<Option<String>, String> {
+pub(crate) async fn detect_carrier_from_tracking(tracking: String) -> Result<Option<String>, String> {
     require_user()?;
     Ok(crate::tracking::detect_carrier(&tracking).map(|s| s.to_string()))
 }
 
 #[tauri::command]
-pub(crate) fn check_tracking_direct(tracking: String) -> Result<TrackingStatus, String> {
+pub(crate) async fn check_tracking_direct(tracking: String) -> Result<TrackingStatus, String> {
     require_user()?;
     crate::tracking::check_tracking_smart(&tracking)
 }

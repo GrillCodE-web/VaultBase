@@ -73,7 +73,7 @@ const SELECT_COLS: &str =
     "SELECT id, server_id, room, peer_iid, direction, body, ref_type, ref_id, created_at, read_at FROM chat_messages";
 
 #[tauri::command]
-pub fn chat_peers(state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn chat_peers(state: State<'_, AppState>) -> Result<Value, String> {
     with_open(&state, |db, enc| {
         let base = http::server_base(db);
         let token = db.get_config("license_token").ok_or("no_token")?;
@@ -126,7 +126,7 @@ fn cached_peer(db: &Database, iid: &str) -> Option<ChatPeer> {
 }
 
 #[tauri::command]
-pub fn chat_send(
+pub async fn chat_send(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     peer_iid: String,
@@ -235,7 +235,7 @@ const ANNOUNCE_ROOM: &str = "room:announcements-main";
 // каждому адресату (fan-out) и шлёт непрозрачные конверты в read-only комнату.
 // Аудиторию задаёт вызывающий (News.jsx фильтрует воркеров по target_role/iid).
 #[tauri::command]
-pub fn announce_publish(
+pub async fn announce_publish(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     title: String,
@@ -358,7 +358,7 @@ pub fn announce_publish(
 }
 
 #[tauri::command]
-pub fn chat_list(
+pub async fn chat_list(
     state: State<'_, AppState>,
     room: Option<String>,
     limit: Option<i64>,
@@ -397,7 +397,7 @@ pub fn chat_list(
 }
 
 #[tauri::command]
-pub fn chat_mark_read(
+pub async fn chat_mark_read(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     ids: Vec<i64>,
@@ -424,7 +424,7 @@ pub fn chat_mark_read(
 /// delete-конверт ({type:"delete"}) с его server_id, стираем строку на
 /// сервере и локальную копию. Удалять можно только исходящие (direction='out').
 #[tauri::command]
-pub fn chat_delete(
+pub async fn chat_delete(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     msg_id: i64,
@@ -493,7 +493,7 @@ pub fn chat_delete(
 }
 
 #[tauri::command]
-pub fn chat_unread_count(state: State<'_, AppState>) -> Result<i64, String> {
+pub async fn chat_unread_count(state: State<'_, AppState>) -> Result<i64, String> {
     with_open(&state, |db, _| {
         db.conn
             .query_row(
@@ -506,7 +506,7 @@ pub fn chat_unread_count(state: State<'_, AppState>) -> Result<i64, String> {
 }
 
 #[tauri::command]
-pub fn chat_fetch(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<Value, String> {
+pub async fn chat_fetch(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<Value, String> {
     fetch_and_emit(&app, &state)
 }
 
