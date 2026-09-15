@@ -1023,6 +1023,10 @@ pub struct ChatMessage {
     /// mute комнаты, акцентный цвет в ленте.
     #[serde(default)]
     pub priority: bool,
+    /// avm: JSON-метаданные вложения (blob_id, name, mime, size, chunk_count,
+    /// key, nonce), приехавшие внутри E2E-конверта. None — сообщение без файла.
+    #[serde(default)]
+    pub attachment: Option<String>,
 }
 
 /// Участник чата из серверного каталога ключей (GET /sync/chat/peers).

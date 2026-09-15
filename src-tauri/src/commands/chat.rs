@@ -8,7 +8,7 @@
 //! (routes/chat.js): хранит только шифротекст + метаданные маршрутизации.
 //!
 //! Payload внутри конверта (JSON):
-//!   { "v": 1, "body": "...", "ref": { "type": "order"|"card"|"profile"|"message", "id": "..." }? }
+//!   { "v": 1, "body": "...", "ref": { "type": "order"|"card"|"profile"|"message"|"forward", "id": "..." }? }
 //!   { "v": 1, "type": "read_receipt", "ids": [server_id...] }  ← квитанция о
 //!   прочтении (CHAT-2.0, CHAT_E2E.md §9): не сообщение, в ленту не попадает.
 //!
@@ -27,6 +27,11 @@ use crate::models::{ChatMessage, ChatPeer};
 use crate::state::{require_user, spawn_task, with_db};
 use serde_json::{json, Value};
 use tauri::Emitter;
+// avm: крипто вложений — тот же примитив, что у sealed-box (AES-256-GCM), но на
+// случайном content-key, который едет только внутри E2E-конверта сообщения.
+use aes_gcm::aead::rand_core::RngCore;
+use aes_gcm::aead::{Aead, KeyInit, OsRng};
+use aes_gcm::{Aes256Gcm, Key, Nonce};
 
 const HTTP_TIMEOUT_SECS: u64 = 30;
 const MAX_BODY_CHARS: usize = 4000;
@@ -50,7 +55,13 @@ const CHAT_MUTED_ROOMS_KEY: &str = "chat_muted_rooms";
 const CHAT_PEER_NOTES_KEY: &str = "chat_peer_notes";
 /// 19d: максимум символов в своём label.
 const MAX_LABEL_CHARS: usize = 48;
-const ALLOWED_REF_TYPES: [&str; 4] = ["order", "card", "profile", "message"];
+const ALLOWED_REF_TYPES: [&str; 5] = ["order", "card", "profile", "message", "forward"];
+// avm: лимиты вложений. Согласованы с сервером (routes/chat.js): длина одного
+// base64-чанка ≤ 96 КБ, ≤ 220 чанков на blob. Потолок исходного файла берём с
+// запасом от 220*96КБ base64 (~16 МБ шифротекста).
+const MAX_BLOB_CHUNK_LEN: usize = 96 * 1024;
+const MAX_BLOB_CHUNKS: usize = 220;
+const MAX_ATTACHMENT_BYTES: usize = 12 * 1024 * 1024;
 // Конфиг-ключи дублируют commands/slices.rs (там они private) — это тот же
 // X25519-ключ воркера, что и для срезов. Держать синхронно со slices.rs.
 const CHAT_KEY_PRIV: &str = "worker_slice_key_priv";
@@ -180,10 +191,15 @@ fn classify(e: ureq::Error) -> SendFail {
     }
 }
 
-fn build_payload(body: &str, ref_type: Option<&str>, ref_id: Option<&str>, ttl_hours: Option<u32>, priority: bool) -> String {
+fn build_payload(body: &str, ref_type: Option<&str>, ref_id: Option<&str>, ttl_hours: Option<u32>, priority: bool, attachment: Option<&Value>) -> String {
     let mut p = json!({ "v": 1, "body": body });
     if let (Some(t), Some(i)) = (ref_type, ref_id) {
         p["ref"] = json!({ "type": t, "id": i });
+    }
+    // avm: метаданные вложения (blob_id, name, mime, size, chunk_count, key,
+    // nonce) едут внутри конверта — content-key сервер не видит.
+    if let Some(att) = attachment {
+        p["att"] = att.clone();
     }
     // qfk: TTL кладём в сам конверт — получатель ставит локальный expires_at по
     // нему (сервер чистит свои блобы отдельно по req_body.ttl_hours).
@@ -224,6 +240,7 @@ fn try_online_send(
     ref_id: Option<&str>,
     ttl_hours: Option<u32>,
     priority: bool,
+    attachment: Option<&Value>,
 ) -> Result<(String, Vec<(String, i64)>), SendFail> {
     let resp = ureq::get(&crate::endpoints::endpoint("/sync/chat/peers"))
         .set("Authorization", &format!("Bearer {}", token))
@@ -234,7 +251,7 @@ fn try_online_send(
     let book = parse_peer_book(db, &pbody);
     crate::commands::slices::ensure_slice_key(db).map_err(SendFail::Hard)?;
 
-    let payload = build_payload(body, ref_type, ref_id, ttl_hours, priority);
+    let payload = build_payload(body, ref_type, ref_id, ttl_hours, priority, attachment);
     let (room, targets): (String, Vec<&ChatPeer>) = match (room_id, peer_iid) {
         // mgt: пользовательская комната — адресаты только её члены (peers теперь
         // включает со-участников комнат, поэтому ключи есть).
@@ -342,6 +359,42 @@ fn seal_for_peer(peer: &ChatPeer, payload: &str) -> Result<String, String> {
     serde_json::to_string(&env).map_err(|e| e.to_string())
 }
 
+/// avm: нарезать ASCII-строку (base64) на срезы не длиннее `max` байт. base64
+/// — ASCII, поэтому границы байт совпадают с границами символов (безопасно).
+fn split_chunks(s: &str, max: usize) -> Vec<&str> {
+    if max == 0 || s.is_empty() {
+        return Vec::new();
+    }
+    let bytes = s.len();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < bytes {
+        let end = std::cmp::min(i + max, bytes);
+        out.push(&s[i..end]);
+        i = end;
+    }
+    out
+}
+
+/// avm: грубое определение MIME по расширению — только для выбора превью на
+/// приёме (картинку показываем инлайн, остальное — карточкой файла).
+fn guess_mime(name: &str) -> String {
+    let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+    match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "svg" => "image/svg+xml",
+        "pdf" => "application/pdf",
+        "txt" | "log" | "md" => "text/plain",
+        "zip" => "application/zip",
+        _ => "application/octet-stream",
+    }
+    .to_string()
+}
+
 // ─────────────────────────────────────────
 //  Команды
 // ─────────────────────────────────────────
@@ -387,6 +440,149 @@ pub(crate) fn chat_rooms_list() -> Result<Value, String> {
             .call()
             .map_err(|e| format!("rooms_failed: {e}"))?;
         resp.into_json::<Value>().map_err(|e| format!("rooms_parse: {e}"))
+    })
+}
+
+/// avm: залить файл в sealed blob-relay. Файл читается с диска, целиком
+/// шифруется AES-256-GCM случайным content-key, base64-шифротекст режется на
+/// чанки ≤ 96 КБ и заливается POST /sync/chat/blob/upload. Ключ/нонс НЕ
+/// уходят на сервер — возвращаются фронту в метаданных, которые едут внутри
+/// E2E-конверта сообщения (см. chat_send, поле attachment).
+#[tauri::command]
+pub(crate) fn chat_blob_upload(room: String, path: String) -> Result<Value, String> {
+    require_user()?;
+    use base64::Engine;
+    let plain = std::fs::read(&path).map_err(|e| format!("file_read: {e}"))?;
+    if plain.is_empty() {
+        return Err("empty_file".into());
+    }
+    if plain.len() > MAX_ATTACHMENT_BYTES {
+        return Err("file_too_large".into());
+    }
+    let name = std::path::Path::new(&path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .filter(|n| !n.is_empty())
+        .ok_or_else(|| "file_read: no_file_name".to_string())?;
+    let mime = guess_mime(&name);
+
+    let mut key_bytes = [0u8; 32];
+    OsRng.fill_bytes(&mut key_bytes);
+    let mut nonce_bytes = [0u8; 12];
+    OsRng.fill_bytes(&mut nonce_bytes);
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key_bytes));
+    let encrypted = cipher
+        .encrypt(Nonce::from_slice(&nonce_bytes), plain.as_ref())
+        .map_err(|_| "encrypt_failed".to_string())?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&encrypted);
+    let chunks = split_chunks(&b64, MAX_BLOB_CHUNK_LEN);
+    if chunks.is_empty() || chunks.len() > MAX_BLOB_CHUNKS {
+        return Err("file_too_large".into());
+    }
+    // blob_id — 16 случайных байт в hex (серверный BLOB_ID_RE: ^[0-9a-f]{32}$).
+    let mut blob = [0u8; 16];
+    OsRng.fill_bytes(&mut blob);
+    let blob_id: String = blob.iter().map(|b| format!("{b:02x}")).collect();
+
+    with_db!(db, {
+        if db.is_locked() {
+            return Err("database_locked".into());
+        }
+        let token = auth_token(db)?;
+        // TTL комнаты применяем и к блобам: сервер подметёт чанки вместе с
+        // сообщениями (chat_blobs.expires_at).
+        let ttl = room_ttl_hours(db, &room);
+        let total = chunks.len();
+        for (i, chunk) in chunks.iter().enumerate() {
+            let mut body = json!({
+                "room": room,
+                "blob_id": blob_id,
+                "chunk_index": i,
+                "chunk_count": total,
+                "data": chunk,
+            });
+            if let Some(h) = ttl {
+                body["ttlHours"] = json!(h);
+            }
+            let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/blob/upload"))
+                .set("Authorization", &format!("Bearer {}", token))
+                .set("Content-Type", "application/json")
+                .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
+                .send_string(&body.to_string())
+                .map_err(|e| format!("blob_upload: {e}"))?;
+            let parsed: Value = resp.into_json().map_err(|e| format!("blob_upload_parse: {e}"))?;
+            if parsed.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+                return Err("blob_upload_rejected".into());
+            }
+        }
+        Ok(json!({
+            "blob_id": blob_id,
+            "name": name,
+            "mime": mime,
+            "size": plain.len(),
+            "chunk_count": total,
+            "key": key_bytes.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+            "nonce": nonce_bytes.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+        }))
+    })
+}
+
+/// avm: скачать и расшифровать вложение. Шифротекст-чанки тянем с сервера
+/// (доступ по членству в комнате проверяет он), склеиваем и открываем
+/// content-key/нонсом из E2E-конверта. Возвращаем base64 plaintext'а —
+/// фронт собирает data:-URL для превью/скачивания.
+#[tauri::command]
+pub(crate) fn chat_blob_fetch(blob_id: String, key: String, nonce: String) -> Result<Value, String> {
+    require_user()?;
+    use base64::Engine;
+    let hex_to_bytes = |s: &str| -> Option<Vec<u8>> {
+        if s.len() % 2 != 0 || !s.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return None;
+        }
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).ok())
+            .collect()
+    };
+    let key_bytes = hex_to_bytes(&key).filter(|k| k.len() == 32).ok_or("key_invalid")?;
+    let nonce_bytes = hex_to_bytes(&nonce).filter(|n| n.len() == 12).ok_or("key_invalid")?;
+
+    with_db!(db, {
+        if db.is_locked() {
+            return Err("database_locked".into());
+        }
+        let token = auth_token(db)?;
+        let resp = ureq::get(&crate::endpoints::endpoint(&format!("/sync/chat/blob/{blob_id}")))
+            .set("Authorization", &format!("Bearer {}", token))
+            .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
+            .call()
+            .map_err(|e| match e {
+                ureq::Error::Status(code, _) => match code {
+                    404 => "blob_unknown".to_string(),
+                    409 => "blob_incomplete".to_string(),
+                    403 => "forbidden".to_string(),
+                    _ => format!("blob_fetch: {code}"),
+                },
+                other => format!("blob_fetch: {other}"),
+            })?;
+        let parsed: Value = resp.into_json().map_err(|e| format!("blob_fetch_parse: {e}"))?;
+        let chunks: Vec<&str> = parsed
+            .get("chunks")
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|c| c.as_str()).collect())
+            .ok_or("blob_fetch_parse")?;
+        let mut ciphertext = Vec::new();
+        for c in &chunks {
+            let part = base64::engine::general_purpose::STANDARD
+                .decode(c)
+                .map_err(|_| "blob_fetch_decode".to_string())?;
+            ciphertext.extend_from_slice(&part);
+        }
+        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key_bytes));
+        let plain = cipher
+            .decrypt(Nonce::from_slice(&nonce_bytes), ciphertext.as_ref())
+            .map_err(|_| "decrypt_failed".to_string())?;
+        Ok(json!({ "data": base64::engine::general_purpose::STANDARD.encode(plain) }))
     })
 }
 
@@ -692,10 +888,19 @@ pub(crate) fn chat_send(
     ref_type: Option<String>,
     ref_id: Option<String>,
     priority: Option<bool>,
+    attachment: Option<String>,
 ) -> Result<ChatMessage, String> {
     require_user()?;
     let body = body.trim().to_string();
-    if body.is_empty() {
+    // avm: метаданные вложения из chat_blob_upload (JSON-строка). Сообщение с
+    // вложением может быть без текста.
+    let attachment: Option<Value> = match attachment {
+        Some(s) if !s.trim().is_empty() => {
+            Some(serde_json::from_str(&s).map_err(|e| format!("bad_attachment: {e}"))?)
+        }
+        _ => None,
+    };
+    if body.is_empty() && attachment.is_none() {
         return Err("empty_body".into());
     }
     if body.chars().count() > MAX_BODY_CHARS {
@@ -703,6 +908,7 @@ pub(crate) fn chat_send(
     }
     let (ref_type, ref_id) = validate_ref(&ref_type, &ref_id)?;
     let priority = priority.unwrap_or(false);
+    let attachment_json = attachment.as_ref().map(|v| v.to_string());
 
     let (msg, emit_room) = with_db!(db, {
         if db.is_locked() {
@@ -739,6 +945,7 @@ pub(crate) fn chat_send(
             ref_id.as_deref(),
             ttl_hours,
             priority,
+            attachment.as_ref(),
         ) {
             Ok((room, pairs)) => {
                 let local_id = db.chat_insert_outgoing(
@@ -750,6 +957,10 @@ pub(crate) fn chat_send(
                     false,
                     priority,
                 )?;
+                // avm: вложение храним локально (для превью и досыла).
+                if let Some(att) = attachment_json.as_deref() {
+                    db.chat_set_attachment(local_id, att)?;
+                }
                 // qfk: свой экземпляр тоже подметётся по TTL комнаты.
                 if let Some(h) = ttl_hours {
                     db.chat_set_expiry_hours(local_id, h)?;
@@ -792,6 +1003,11 @@ pub(crate) fn chat_send(
                     true,
                     priority,
                 )?;
+                // avm: вложение уже в blob-relay — сохраняем его meta локально,
+                // досыл (flush_pending) вложит их в конверт при реконнекте.
+                if let Some(att) = attachment_json.as_deref() {
+                    db.chat_set_attachment(local_id, att)?;
+                }
                 // qfk: TTL считается от локального времени постановки в очередь.
                 if let Some(h) = ttl_hours {
                     db.chat_set_expiry_hours(local_id, h)?;
@@ -1348,7 +1564,13 @@ fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Valu
                 return Ok(None);
             }
             let text = payload["body"].as_str().unwrap_or("").to_string();
-            if text.is_empty() {
+            // avm: метаданные вложения из конверта (att). Сообщение может быть
+            // без текста, если несёт только файл.
+            let att_json = payload
+                .get("att")
+                .filter(|v| v.is_object())
+                .map(|v| v.to_string());
+            if text.is_empty() && att_json.is_none() {
                 return Err("empty_body".into());
             }
             let prt = payload["ref"]["type"].as_str().map(String::from).or(ref_type);
@@ -1359,8 +1581,14 @@ fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Valu
             let imp = payload["imp"].as_bool().unwrap_or(false);
             let inserted =
                 db.chat_insert_incoming(server_id, room, sender, &text, prt.as_deref(), pri.as_deref(), created_at, imp)?;
-            if let (Some(local_id), Some(h)) = (inserted, ttl) {
-                db.chat_set_expiry_hours(local_id, h)?;
+            if let Some(local_id) = inserted {
+                // avm: content-key вложения оседает только здесь (SQLCipher).
+                if let Some(att) = att_json.as_deref() {
+                    db.chat_set_attachment(local_id, att)?;
+                }
+                if let Some(h) = ttl {
+                    db.chat_set_expiry_hours(local_id, h)?;
+                }
             }
             Ok(inserted)
         })();
@@ -1452,6 +1680,12 @@ fn flush_pending_locked(db: &Database) -> Result<(Vec<ChatMessage>, Vec<String>)
         let room_opt = if m.room.starts_with("room:") { Some(m.room.as_str()) } else { None };
         // qfk: досылаем с тем же TTL комнаты (сервер проставит expires_at).
         let ttl_hours = room_ttl_hours(db, &m.room);
+        // avm: вложение уже залито в blob-relay при постановке в очередь —
+        // досылаем его метаданные внутри конверта как есть.
+        let att_val: Option<Value> = m
+            .attachment
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<Value>(s).ok());
         match try_online_send(
             db,
             &token,
@@ -1463,6 +1697,7 @@ fn flush_pending_locked(db: &Database) -> Result<(Vec<ChatMessage>, Vec<String>)
             m.ref_id.as_deref(),
             ttl_hours,
             m.priority,
+            att_val.as_ref(),
         ) {
             Ok((_room, pairs)) => {
                 db.chat_clear_pending(m.id)?;

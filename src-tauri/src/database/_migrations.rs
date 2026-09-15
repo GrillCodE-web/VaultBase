@@ -59,7 +59,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         }
     }
 
-    const LATEST_VERSION: u32 = 35;
+    const LATEST_VERSION: u32 = 36;
 
     pub fn init_db(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
@@ -82,6 +82,7 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
         (26, migration_v26), (27, migration_v27), (28, migration_v28), (29, migration_v29),
         (30, migration_v30), (31, migration_v31), (32, migration_v32),
         (33, migration_v33), (34, migration_v34), (35, migration_v35),
+        (36, migration_v36),
     ];
     for &(target, f) in migrations {
         if version < target {
@@ -1197,6 +1198,17 @@ pub fn create_backup(db_path: &str) -> Result<String, String> {
     fn migration_v35(conn: &Connection) -> SqlResult<()> {
         conn.execute_batch(r#"
             ALTER TABLE chat_messages ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
+        "#)?;
+        Ok(())
+    }
+
+    // avm: sealed-вложения. attachment — JSON-метаданные вложения (blob_id,
+    // имя/mime/размер, chunk_count и content-key/nonce), приехавшие внутри
+    // E2E-конверта. Сервер хранит только шифротекст-чанки (chat_blobs), ключ
+    // существует лишь здесь (SQLCipher) и в памяти. NULL — сообщение без файла.
+    fn migration_v36(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch(r#"
+            ALTER TABLE chat_messages ADD COLUMN attachment TEXT;
         "#)?;
         Ok(())
     }

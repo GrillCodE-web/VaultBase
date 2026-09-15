@@ -385,6 +385,7 @@ fn main() {
             commands::chat::chat_pins_list, commands::chat::chat_pin_set,
             commands::chat::chat_set_label, commands::chat::chat_notes_get, commands::chat::chat_note_set,
             commands::chat::chat_reactions_list, commands::chat::chat_reaction_set,
+            commands::chat::chat_blob_upload, commands::chat::chat_blob_fetch,
             commands::catalog::search_catalog_items, commands::catalog::search_catalog_shops, commands::catalog::get_catalog_stats, commands::catalog::import_catalog_items, commands::catalog::import_catalog_shops,
             commands::catalog::get_catalog_items, commands::catalog::get_catalog_shops,
             commands::catalog::toggle_catalog_item_stop, commands::catalog::delete_catalog_items, commands::catalog::toggle_catalog_shop_excluded,

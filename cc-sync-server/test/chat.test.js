@@ -700,3 +700,51 @@ test('yyt: валидация room и message_id', async () => {
   assert.equal(badId.status, 400);
   assert.equal(badId.json.error, 'message_id_invalid');
 });
+
+// ── avm: sealed-вложения (blob-relay) ────────────────────────────────────────
+
+test('avm: blob upload + get — участник комнаты кладёт чанки и забирает по порядку', async () => {
+  const room = 'group:grp-chat';
+  const blobId = 'ab'.repeat(16);
+  let r = await req('POST', '/sync/chat/blob/upload', W1_TOKEN, { room, blob_id: blobId, chunk_index: 0, chunk_count: 2, data: 'Y2h1bmsw' });
+  assert.equal(r.status, 201);
+  r = await req('POST', '/sync/chat/blob/upload', W1_TOKEN, { room, blob_id: blobId, chunk_index: 1, chunk_count: 2, data: 'Y2h1bmsx' });
+  assert.equal(r.status, 201);
+  r = await req('GET', `/sync/chat/blob/${blobId}`, W2_TOKEN);
+  assert.equal(r.status, 200);
+  assert.equal(r.json.chunk_count, 2);
+  assert.deepEqual(r.json.chunks, ['Y2h1bmsw', 'Y2h1bmsx']);
+});
+
+test('avm: чужой из другой группы не может забрать вложение', async () => {
+  const room = 'group:grp-chat';
+  const blobId = 'cd'.repeat(16);
+  await req('POST', '/sync/chat/blob/upload', W1_TOKEN, { room, blob_id: blobId, chunk_index: 0, chunk_count: 1, data: 'eA==' });
+  const r = await req('GET', `/sync/chat/blob/${blobId}`, WO_TOKEN);
+  assert.equal(r.status, 403);
+});
+
+test('avm: аутсайдер не может загружать в чужую комнату', async () => {
+  const r = await req('POST', '/sync/chat/blob/upload', WO_TOKEN, { room: 'group:grp-chat', blob_id: 'ef'.repeat(16), chunk_index: 0, chunk_count: 1, data: 'eA==' });
+  assert.equal(r.status, 403);
+});
+
+test('avm: неполный blob — 409 blob_incomplete', async () => {
+  const room = 'group:grp-chat';
+  const blobId = '01'.repeat(16);
+  await req('POST', '/sync/chat/blob/upload', W1_TOKEN, { room, blob_id: blobId, chunk_index: 0, chunk_count: 3, data: 'eA==' });
+  const r = await req('GET', `/sync/chat/blob/${blobId}`, W1_TOKEN);
+  assert.equal(r.status, 409);
+  assert.equal(r.json.error, 'blob_incomplete');
+});
+
+test('avm: валидация — плохой blob_id и превышение chunk_count', async () => {
+  let r = await req('POST', '/sync/chat/blob/upload', W1_TOKEN, { room: 'group:grp-chat', blob_id: 'nothex', chunk_index: 0, chunk_count: 1, data: 'eA==' });
+  assert.equal(r.status, 400);
+  assert.equal(r.json.error, 'blob_id_invalid');
+  r = await req('POST', '/sync/chat/blob/upload', W1_TOKEN, { room: 'group:grp-chat', blob_id: '02'.repeat(16), chunk_index: 0, chunk_count: 9999, data: 'eA==' });
+  assert.equal(r.status, 400);
+  assert.equal(r.json.error, 'chunk_count_invalid');
+  r = await req('GET', '/sync/chat/blob/nothex', W1_TOKEN);
+  assert.equal(r.status, 400);
+});

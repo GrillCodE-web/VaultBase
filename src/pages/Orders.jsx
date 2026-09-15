@@ -37,7 +37,12 @@ const ORDER_COLUMNS = [
 ]
 const ORDER_DEFAULT_COLS = ORDER_COLUMNS.map(c => c.id)
 
-export default function OrderList({ onNavigate, activeTab = 'list', status: statusProp = null }) {
+export default function OrderList({
+  onNavigate,
+  activeTab = 'list',
+  status: statusProp = null,
+  search: searchProp = null,
+}) {
   const { t } = useLang()
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
@@ -106,6 +111,14 @@ export default function OrderList({ onNavigate, activeTab = 'list', status: stat
   useEffect(() => {
     if (statusProp) setFilters({ status: statusProp })
   }, [statusProp, setFilters])
+
+  // o87: переход из чата по карточке /order — наводим поиск на номер заказа.
+  useEffect(() => {
+    if (searchProp) {
+      setSearchInput(String(searchProp))
+      setFilters({ search: String(searchProp) })
+    }
+  }, [searchProp, setFilters, setSearchInput])
 
   // ── Page-specific keyboard shortcuts ──────────────────────────────────
 

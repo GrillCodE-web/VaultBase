@@ -28,6 +28,7 @@ fn chat_msg_from_row(r: &rusqlite::Row) -> rusqlite::Result<ChatMessage> {
         pending: r.get::<_, i64>(13)? != 0,
         edited: r.get::<_, i64>(14)? != 0,
         priority: r.get::<_, i64>(15)? != 0,
+        attachment: r.get(16)?,
     })
 }
 
@@ -66,7 +67,7 @@ impl Database {
     /// в порядке создания, чтобы досыл сохранял очерёдность.
     pub fn chat_pending_outgoing(&self) -> Result<Vec<ChatMessage>, String> {
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority
+            "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority, m.attachment
              FROM chat_messages m WHERE m.direction = 'out' AND m.pending = 1 ORDER BY m.id ASC"
         )).map_err(|e| e.to_string())?;
         let rows = stmt.query_map([], chat_msg_from_row).map_err(|e| e.to_string())?;
@@ -101,6 +102,18 @@ impl Database {
         Ok(if n > 0 { Some(self.conn.last_insert_rowid()) } else { None })
     }
 
+    /// avm: прикрепить JSON-метаданные вложения к сообщению по локальному id.
+    /// Ключ/nonce content-key живут только здесь (SQLCipher). Пустая строка
+    /// сбрасывает вложение.
+    pub fn chat_set_attachment(&self, msg_id: i64, attachment: &str) -> Result<(), String> {
+        let val: Option<&str> = if attachment.is_empty() { None } else { Some(attachment) };
+        self.conn.execute(
+            "UPDATE chat_messages SET attachment = ?2 WHERE id = ?1",
+            rusqlite::params![msg_id, val],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     /// Максимальный server_id среди входящих — курсор для ?since_id=.
     pub fn chat_max_server_id(&self) -> Result<i64, String> {
         self.conn.query_row(
@@ -116,14 +129,14 @@ impl Database {
         let (sql, room_param): (String, Option<String>) = match room {
             Some(r) => (
                 format!(
-                    "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority
+                    "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority, m.attachment
                      FROM (SELECT * FROM chat_messages WHERE room = ?1 ORDER BY id DESC LIMIT ?2) m ORDER BY m.id ASC"
                 ),
                 Some(r.to_string()),
             ),
             None => (
                 format!(
-                    "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority
+                    "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority, m.attachment
                      FROM (SELECT * FROM chat_messages ORDER BY id DESC LIMIT ?1) m ORDER BY m.id ASC"
                 ),
                 None,
@@ -186,7 +199,7 @@ impl Database {
     /// Одно сообщение по локальному id (для emit WS-события).
     pub fn chat_get(&self, id: i64) -> Result<Option<ChatMessage>, String> {
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority
+            "SELECT m.id, m.server_id, m.room, m.peer_iid, m.direction, m.body, m.ref_type, m.ref_id, m.created_at, m.read_at, {OUT_STATUS_COLS}, m.pending, m.edited, m.priority, m.attachment
              FROM chat_messages m WHERE m.id = ?1"
         )).map_err(|e| e.to_string())?;
         let mut rows = stmt.query_map(rusqlite::params![id], chat_msg_from_row).map_err(|e| e.to_string())?;

@@ -87,7 +87,12 @@ const CARDER_COLS = [
 
 // ─── Main Cards page ──────────────────────────────────────────────────────
 
-export default function Cards({ onNavigate, activeTab = 'list', openSlices = false }) {
+export default function Cards({
+  onNavigate,
+  activeTab = 'list',
+  openSlices = false,
+  search: searchProp = null,
+}) {
   const { t } = useLang()
   // ★ Insight: useMemo предотвращает создание нового массива при каждом рендере
   // Это ломало бы мемоизацию зависимых компонентов без этой обертки
@@ -209,6 +214,14 @@ export default function Cards({ onNavigate, activeTab = 'list', openSlices = fal
   useEffect(() => {
     if (openSlices) fetchSlicesRef.current()
   }, [openSlices])
+
+  // o87: переход из чата по карточке /card — наводим поиск на идентификатор.
+  useEffect(() => {
+    if (searchProp) {
+      setSearchInput(String(searchProp))
+      setFilters({ search: String(searchProp) })
+    }
+  }, [searchProp, setFilters, setSearchInput])
 
   // Load cards when filters or page change
   // ★ Insight: AbortController предотвращает race conditions при быстром переключении фильтров

@@ -802,6 +802,30 @@ function migrate(db) {
       PRAGMA user_version = 31;
     `);
   }
+
+  // avm: sealed-вложения (файлы/картинки). Сервер — opaque blob-relay: хранит
+  // ТОЛЬКО зашифрованные чанки (base64 шифротекста), ключ содержимого едет
+  // внутри E2E-конверта сообщения и на сервер не попадает. Доступ к чанкам —
+  // по членству в комнате (как pins/reactions). TTL как у сообщений.
+  if (ver < 32) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_blobs (
+        blob_id     TEXT NOT NULL,
+        chunk_index INTEGER NOT NULL,
+        chunk_count INTEGER NOT NULL,
+        data        TEXT NOT NULL,
+        owner_iid   TEXT NOT NULL,
+        room        TEXT NOT NULL,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at  DATETIME,
+        PRIMARY KEY (blob_id, chunk_index)
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_blobs_expiry ON chat_blobs(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_chat_blobs_room ON chat_blobs(room);
+
+      PRAGMA user_version = 32;
+    `);
+  }
 }
 
 // SHA-256 от лицензионного токена. Токены — 32 случайных байта в hex, поэтому

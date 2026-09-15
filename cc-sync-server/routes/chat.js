@@ -40,6 +40,11 @@ const MAX_TTL_HOURS = 24 * 30;
 const ROOM_RE = /^(dm:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+|group:[A-Za-z0-9-]+|room:[A-Za-z0-9_-]+)$/;
 const MAX_ROOM_TITLE = 120;
 const MAX_ROOM_MEMBERS = 100;
+// avm: sealed-вложения. Чанк — base64 шифротекста; ключ содержимого едет в
+// E2E-конверте сообщения и на сервер не попадает. blob_id — 16 байт hex.
+const MAX_BLOB_CHUNK_LEN = 96 * 1024;
+const MAX_BLOB_CHUNKS = 220; // ~20 МБ шифротекста на вложение
+const BLOB_ID_RE = /^[0-9a-f]{32}$/;
 
 const managerRouter = express.Router();
 managerRouter.use(requireManagerToken);
@@ -104,6 +109,15 @@ function purgeExpired(db) {
     db.prepare("DELETE FROM chat_messages WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')").run();
   } catch (e) {
     console.error('[chat] purge failed:', e.message);
+  }
+}
+
+// avm: ленивая уборка протухших чанков вложений (мягкий TTL, как у сообщений).
+function purgeExpiredBlobs(db) {
+  try {
+    db.prepare("DELETE FROM chat_blobs WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')").run();
+  } catch (e) {
+    console.error('[chat] blob purge failed:', e.message);
   }
 }
 
@@ -609,6 +623,58 @@ function canAccessRoom(db, iid, room) {
   return false;
 }
 
+// avm: приём одного зашифрованного чанка вложения. Тело:
+// { room, blob_id, chunk_index, chunk_count, data, ttlHours? }. Сервер не
+// расшифровывает data — только проверяет форму, доступ к комнате и лимиты.
+function blobUploadHandler(req, res) {
+  const db = getDb();
+  const iid = req.installationId;
+  const body = req.body || {};
+  const room = typeof body.room === 'string' ? body.room : '';
+  if (!ROOM_RE.test(room)) return res.status(400).json({ error: 'room_invalid' });
+  if (!canAccessRoom(db, iid, room)) return res.status(403).json({ error: 'forbidden' });
+  const blobId = typeof body.blob_id === 'string' ? body.blob_id : '';
+  if (!BLOB_ID_RE.test(blobId)) return res.status(400).json({ error: 'blob_id_invalid' });
+  const count = Number.isInteger(body.chunk_count) ? body.chunk_count : parseInt(body.chunk_count, 10);
+  if (!Number.isInteger(count) || count <= 0 || count > MAX_BLOB_CHUNKS) {
+    return res.status(400).json({ error: 'chunk_count_invalid' });
+  }
+  const idx = Number.isInteger(body.chunk_index) ? body.chunk_index : parseInt(body.chunk_index, 10);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= count) {
+    return res.status(400).json({ error: 'chunk_index_invalid' });
+  }
+  const data = typeof body.data === 'string' ? body.data : '';
+  if (data.length === 0 || data.length > MAX_BLOB_CHUNK_LEN) {
+    return res.status(400).json({ error: 'data_invalid' });
+  }
+  const ttlHours = clampTtlHours(body.ttlHours);
+  db.prepare(`
+    INSERT INTO chat_blobs (blob_id, chunk_index, chunk_count, data, owner_iid, room, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?))
+    ON CONFLICT(blob_id, chunk_index) DO UPDATE SET
+      data = excluded.data, chunk_count = excluded.chunk_count, expires_at = excluded.expires_at
+  `).run(blobId, idx, count, data, iid, room, `+${ttlHours} hours`);
+  res.status(201).json({ ok: true, blob_id: blobId, chunk_index: idx });
+}
+
+// avm: отдать вложение целиком (все чанки по порядку) участнику комнаты.
+function blobGetHandler(req, res) {
+  const db = getDb();
+  purgeExpiredBlobs(db);
+  const blobId = typeof req.params.blobId === 'string' ? req.params.blobId : '';
+  if (!BLOB_ID_RE.test(blobId)) return res.status(400).json({ error: 'blob_id_invalid' });
+  const meta = db.prepare('SELECT room, chunk_count FROM chat_blobs WHERE blob_id = ? LIMIT 1').get(blobId);
+  if (!meta) return res.status(404).json({ error: 'blob_unknown' });
+  if (!canAccessRoom(db, req.installationId, meta.room)) return res.status(403).json({ error: 'forbidden' });
+  const rows = db.prepare(
+    'SELECT chunk_index, data FROM chat_blobs WHERE blob_id = ? ORDER BY chunk_index ASC'
+  ).all(blobId);
+  if (rows.length !== meta.chunk_count) {
+    return res.status(409).json({ error: 'blob_incomplete', have: rows.length, need: meta.chunk_count });
+  }
+  res.json({ blob_id: blobId, chunk_count: meta.chunk_count, chunks: rows.map((r) => r.data) });
+}
+
 // yyt: список закреплённых сообщений комнаты (id + кто/когда закрепил).
 function pinsListHandler(req, res) {
   const db = getDb();
@@ -811,5 +877,10 @@ workerRouter.get('/chat/reactions', reactionsListHandler);
 managerRouter.get('/chat/reactions', reactionsListHandler);
 workerRouter.post('/chat/reactions', reactionSetHandler);
 managerRouter.post('/chat/reactions', reactionSetHandler);
+// avm: sealed-вложения (blob-relay) — доступны обеим сторонам relay'я.
+workerRouter.post('/chat/blob/upload', blobUploadHandler);
+managerRouter.post('/chat/blob/upload', blobUploadHandler);
+workerRouter.get('/chat/blob/:blobId', blobGetHandler);
+managerRouter.get('/chat/blob/:blobId', blobGetHandler);
 
 module.exports = { managerRouter, workerRouter };
