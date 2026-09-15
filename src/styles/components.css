@@ -3467,8 +3467,9 @@
     position: relative;
     width: 100%;
     /* Скруглённое окно без системной рамки: decorations: false.
-     Радиус рисуем сами, поэтому окно и должно быть прозрачным. */
-    border-radius: var(--r-window);
+     Радиус рисуем сами, поэтому окно и должно быть прозрачным.
+     12px — мягче штатных 8px, читается современнее для оверлея. */
+    border-radius: 12px;
     background: var(--card);
     color: var(--text);
     display: flex;
@@ -3476,6 +3477,9 @@
     height: 100vh;
     overflow: hidden;
     box-shadow: var(--shadow-window);
+    /* тонкая внутренняя грань — отделяет окно от фона под стеклом */
+    outline: 0.5px solid var(--separator);
+    outline-offset: -0.5px;
   }
 
   /* Полупрозрачность только там, где система реально даёт
@@ -3488,11 +3492,10 @@
 
   /* ── Шапка: она же зона перетаскивания ──────────────────── */
   .float-header {
-    padding: 0 var(--sp-3);
-    height: var(--h-titlebar);
+    padding: 10px var(--sp-3) 8px;
     display: flex;
-    align-items: center;
-    gap: var(--sp-2);
+    flex-direction: column;
+    gap: 5px;
     background: var(--surface);
     border-bottom: 1px solid var(--separator);
     flex-shrink: 0;
@@ -3501,32 +3504,35 @@
   /* ── Табы: segmented control ────────────────────────────── */
   .float-tabs {
     display: flex;
-    gap: 1px;
-    padding: 2px;
-    margin: var(--sp-2) var(--sp-3) 0;
+    gap: 2px;
+    padding: 3px;
+    margin: 0;
+    width: 100%;
     background: var(--inset);
-    border-radius: var(--r-md);
+    border-radius: var(--r-lg);
     flex-shrink: 0;
   }
 
   .ftab {
     flex: 1;
-    height: 22px;
+    height: 24px;
     background: transparent;
     border: none;
     color: var(--text-2);
     padding: 0 8px;
     font-family: var(--font-ui);
     font-size: var(--fs-caption);
-    font-weight: 500;
+    font-weight: 550;
+    letter-spacing: 0.01em;
     cursor: default;
-    border-radius: var(--r-xs);
+    border-radius: var(--r-md);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transition:
       background-color var(--t-fast),
-      color var(--t-fast);
+      color var(--t-fast),
+      box-shadow var(--t-fast);
   }
 
   .ftab:hover {
@@ -3535,7 +3541,7 @@
 
   .ftab.active {
     background: var(--card);
-    color: var(--text);
+    color: var(--accent-text);
     box-shadow: var(--shadow-xs);
   }
 
@@ -3553,23 +3559,35 @@
     flex-shrink: 0;
   }
 
-  /* ── Строка поля ────────────────────────────────────────── */
+  /* ── Строка поля ──────────────────────────────────────────
+     Воздух вместо таблицы: без пунктирных границ у каждой
+     строки, подсветка по ховеру, метка мелким капсом. */
   .float-field {
     display: flex;
     align-items: center;
-    height: 26px;
+    min-height: 30px;
     gap: var(--sp-2);
-    border-bottom: 1px solid var(--separator);
+    padding: 2px 6px;
+    margin: 0 -6px;
+    border-radius: var(--r-md);
+    transition: background-color var(--t-fast);
   }
 
-  .float-field:last-child {
-    border-bottom: none;
+  .float-field:hover {
+    background: var(--hover-row);
+  }
+
+  .float-field:hover .float-copy {
+    opacity: 1;
   }
 
   .float-lbl {
-    font-size: var(--fs-caption);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--text-3);
-    min-width: 76px;
+    min-width: 84px;
     flex-shrink: 0;
   }
 
@@ -3577,7 +3595,7 @@
     flex: 1;
     text-align: right;
     font-family: var(--font-mono);
-    font-size: var(--fs-mono);
+    font-size: var(--fs-body);
     font-variant-numeric: tabular-nums;
     color: var(--text);
     overflow: hidden;
@@ -3593,27 +3611,34 @@
     border: none;
     color: var(--text-3);
     cursor: default;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--r-xs);
-    font-size: 12px;
+    border-radius: var(--r-md);
+    opacity: 0;
     transition:
       background-color var(--t-fast),
-      color var(--t-fast);
+      color var(--t-fast),
+      opacity var(--t-fast);
   }
 
   .float-copy:hover {
     background: var(--hover);
-    color: var(--text);
+    color: var(--accent-text);
+  }
+
+  .float-copy.error {
+    color: var(--red-t);
+    opacity: 1;
   }
 
   /* Подтверждение копирования — сменой цвета, без анимации */
   .float-copy.copied {
     color: var(--green-t);
+    opacity: 1;
   }
 
   /* Ресайз выполняется системой (resizable: true),
@@ -3623,15 +3648,18 @@
    FLOAT WINDOW COMPLETE STYLES
    ═══════════════════════════════════════════════════════════ */
 
-  /* Float state containers */
+  /* Float state containers — фон самого окна в обеих темах
+     (раньше был захардкоженный тёмный скрим --float-state-bg,
+     в светлой теме выглядел как тёмный прямоугольник). */
   .float-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background: var(--float-state-bg);
-    gap: 40px;
+    background: var(--card);
+    color: var(--text-2);
+    gap: 14px;
   }
 
   .float-locked,
@@ -3641,59 +3669,69 @@
   }
 
   .float-error {
-    gap: 40px;
+    gap: 14px;
   }
 
   .float-error-text {
-    font-size: 12px;
+    font-size: var(--fs-body);
     color: var(--red-t);
+    text-align: center;
+    padding: 0 var(--sp-3);
   }
 
   /* Float spinner */
   .float-spinner {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    border: 2px solid var(--float-spinner-track);
-    border-top-color: var(--blue);
+    border: 2px solid var(--separator);
+    border-top-color: var(--accent);
     animation: spin 0.8s linear infinite;
   }
 
-  /* Float tabs bar */
+  /* Float tabs bar — прозрачная обёртка; сам сегмент-контрол в .float-tabs */
   .float-tabs-bar {
     display: flex;
-    gap: 1px;
-    padding: var(--sp-2) var(--sp-3);
-    margin: var(--sp-2) var(--sp-3) 0;
-    background: var(--float-tabs-bg);
-    border-radius: var(--r-md);
-    border-bottom: 1px solid var(--border);
+    padding: var(--sp-2) var(--sp-3) 0;
+    background: transparent;
     flex-shrink: 0;
   }
 
-  /* Float close button */
+  /* Float close button — чистая ghost-кнопка вместо macOS-«светофора» */
   .float-close-btn {
-    width: 14px;
-    height: 14px;
-    background: var(--red);
+    width: 24px;
+    height: 24px;
+    background: transparent;
     border: none;
-    color: rgba(0, 0, 0, 0.6);
-    font-weight: 700;
-    font-size: 9px;
-    border-radius: 50%;
+    color: var(--text-3);
+    border-radius: var(--r-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all var(--t-fast);
+    cursor: default;
+    transition:
+      background-color var(--t-fast),
+      color var(--t-fast);
   }
 
   .float-close-btn:hover {
-    background: var(--red-t);
+    background: var(--color-error-bg);
+    color: var(--red-t);
   }
 
   /* Значок риска и его варианты живут в badges-redesign.css —
    здесь была вторая копия с захардкоженными rgba. */
+
+  /* Цветная точка статуса — заменяет эмодзи.
+     Берёт цвет из класса-родителя (risk- и health-) через currentColor. */
+  .float-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--r-full);
+    background: currentColor;
+    flex-shrink: 0;
+    display: inline-block;
+  }
 
   /* Card health indicators */
   .health-fresh {
@@ -3726,10 +3764,18 @@
     /* --hover-row: тематический полупрозрачный фон строки
        (бывший rgba(255,255,255,0.04) был невидим в светлой теме) */
     background: var(--hover-row);
-    border-radius: var(--r-md);
+    border-radius: var(--r-lg);
     padding: var(--sp-2) 10px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--separator);
     gap: var(--sp-1);
+    transition:
+      background-color var(--t-fast),
+      border-color var(--t-fast);
+  }
+
+  .float-order-row:hover {
+    background: var(--hover);
+    border-color: var(--border);
   }
 
   /* Float status select */
@@ -3737,6 +3783,17 @@
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
+    border-radius: var(--r-md);
+    transition: border-color var(--t-fast);
+  }
+
+  .float-status-select:hover {
+    border-color: var(--border-hi);
+  }
+
+  .float-status-select:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
 
   /* Button disabled state */

@@ -7,7 +7,7 @@ import { usePremiumToast } from './hooks/usePremiumToast'
 import { SmartToastProvider } from './hooks/useSmartToast'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Lock } from 'lucide-react'
+import { Lock, Copy, Check, X, Plus, ChevronRight } from 'lucide-react'
 import { ORDER_STATUS_CSS } from './constants/status.js'
 import { handleError, getErrorMessage } from './utils/errorHandler.js'
 import { copySensitive } from './utils/clipboard.js'
@@ -42,7 +42,13 @@ const CopyBtn = React.memo(function CopyBtn({ value }) {
       onClick={handleCopy}
       title={state === 'error' ? 'Copy failed' : 'Copy'}
     >
-      {state === 'copied' ? '✓' : state === 'error' ? '✗' : '⎘'}
+      {state === 'copied' ? (
+        <Check size={13} strokeWidth={2.5} />
+      ) : state === 'error' ? (
+        <X size={13} strokeWidth={2.5} />
+      ) : (
+        <Copy size={13} strokeWidth={2} />
+      )}
     </button>
   )
 })
@@ -64,14 +70,15 @@ const Field = React.memo(function Field({ label, value }) {
 const RiskBadge = React.memo(function RiskBadge({ level }) {
   if (!level) return null
   const map = {
-    safe: { className: 'risk-safe', label: 'Safe', icon: '🟢' },
-    warning: { className: 'risk-warning', label: 'Warning', icon: '🟡' },
-    high: { className: 'risk-high', label: 'High Risk', icon: '🔴' },
+    safe: { className: 'risk-safe', label: 'Safe' },
+    warning: { className: 'risk-warning', label: 'Warning' },
+    high: { className: 'risk-high', label: 'High Risk' },
   }
   const cfg = map[level] ?? map.warning
   return (
     <span className={`st rounded-full risk-badge ${cfg.className}`}>
-      {cfg.icon} {cfg.label}
+      <span className="float-dot" />
+      {cfg.label}
     </span>
   )
 })
@@ -82,24 +89,21 @@ function CardHealth({ card, orderCount }) {
   if (!card) return null
 
   // Health logic: dead/blocked = burned, in_use with many orders = used, free/new = fresh
-  let label, className, icon
+  let label, className
   if (card.status === 'dead' || card.status === 'blocked') {
     label = 'Burned'
     className = 'health-burned'
-    icon = '🔴'
   } else if (orderCount >= 3 || card.status === 'in_use') {
     label = 'Used'
     className = 'health-used'
-    icon = '🟡'
   } else {
     label = 'Fresh'
     className = 'health-fresh'
-    icon = '🟢'
   }
 
   return (
     <div className="flex items-center text-muted gap-5 text-11">
-      <span className={className}>{icon}</span>
+      <span className={`float-dot ${className}`} />
       <span className={className}>{label}</span>
       {orderCount > 0 && (
         <span className="text-muted">
@@ -315,7 +319,7 @@ function ProfileFloat() {
               className="float-close-btn"
               title={t('btn_close')}
             >
-              ×
+              <X size={14} strokeWidth={2.25} />
             </button>
           </div>
         </div>
@@ -439,13 +443,13 @@ function ProfileFloat() {
             {/* Quick Order inline form */}
             <div className="flex justify-end mb-6">
               <button
-                className="btn btn-g btn-s text-10 p-[2px_8px]"
+                className="btn btn-g btn-s text-10 p-[2px_8px] inline-flex items-center gap-4"
                 onClick={() => {
                   setShowQuickOrder(v => !v)
                   setQuickUrl('')
                 }}
               >
-                + Order
+                <Plus size={12} strokeWidth={2.25} /> Order
               </button>
             </div>
             {showQuickOrder && (
@@ -553,14 +557,14 @@ function ProfileFloat() {
                   </div>
                 ))}
                 <button
-                  className="btn btn-ghost btn-sm justify-center mt-4"
+                  className="btn btn-ghost btn-sm justify-center mt-4 inline-flex items-center gap-4"
                   onClick={() =>
                     invoke('open_main_window_page', { page: 'orders' }).catch(e => {
                       console.error('[float] Failed to open main window:', e)
                     })
                   }
                 >
-                  View all orders →
+                  View all orders <ChevronRight size={13} strokeWidth={2} />
                 </button>
               </div>
             )}
@@ -571,17 +575,17 @@ function ProfileFloat() {
       {/* ── Footer actions ── */}
       <div className="float-footer">
         <button
-          className="btn btn-ghost btn-sm text-10 p-[4px_8px]"
+          className="btn btn-ghost btn-sm text-10 p-[4px_8px] inline-flex items-center gap-4"
           onClick={() =>
             invoke('open_main_window_page', { page: 'orders' }).catch(e => {
               console.error('[float] Failed to open main window:', e)
             })
           }
         >
-          + Order
+          <Plus size={12} strokeWidth={2.25} /> Order
         </button>
         <button
-          className={`btn btn-g flex-1 justify-center${!latestOrderId ? ' btn-disabled' : ''}`}
+          className={`btn btn-g flex-1 justify-center inline-flex items-center gap-4${!latestOrderId ? ' btn-disabled' : ''}`}
           disabled={!latestOrderId}
           onClick={async () => {
             if (!latestOrderId) return
@@ -599,10 +603,10 @@ function ProfileFloat() {
             }
           }}
         >
-          ✓ Delivered
+          <Check size={14} strokeWidth={2.25} /> Delivered
         </button>
         <button
-          className={`btn btn-r flex-1 justify-center${!latestOrderId ? ' btn-disabled' : ''}`}
+          className={`btn btn-r flex-1 justify-center inline-flex items-center gap-4${!latestOrderId ? ' btn-disabled' : ''}`}
           disabled={!latestOrderId}
           onClick={async () => {
             if (!latestOrderId) return
@@ -620,7 +624,7 @@ function ProfileFloat() {
             }
           }}
         >
-          ✗ Declined
+          <X size={14} strokeWidth={2.25} /> Declined
         </button>
       </div>
     </div>
