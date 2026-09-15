@@ -1,4 +1,4 @@
-﻿# Deploy cc-sync-server РЅР° VPS (MASTER-5). РўРѕР»СЊРєРѕ РІСЂСѓС‡РЅСѓСЋ вЂ” С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ
+# Deploy cc-sync-server РЅР° VPS (MASTER-5). РўРѕР»СЊРєРѕ РІСЂСѓС‡РЅСѓСЋ вЂ” С‡С‚РѕР±С‹ РЅРµ Р±С‹Р»Рѕ
 # СЃСЋСЂРїСЂРёР·РѕРІ РѕС‚ Р°РІС‚РѕРґРµРїР»РѕСЏ: Actions в†’ Deploy Server в†’ Run workflow.
 #
 # РўСЂРµР±СѓСЋС‚СЃСЏ GitHub Secrets (Settings в†’ Secrets в†’ Actions):
@@ -29,13 +29,13 @@ jobs:
       - name: Backup remote database
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            'cp /opt/cc-sync-server/data.db /opt/cc-sync-server/data.db.bak-deploy-$(date +%Y%m%d-%H%M%S)'
+            'cp /opt/vaultbase-server/data.db /opt/vaultbase-server/data.db.bak-deploy-$(date +%Y%m%d-%H%M%S)'
 
       - name: Sync server files
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
-            cc-sync-server/ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/cc-sync-server/ \
+            cc-sync-server/ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/vaultbase-server/ \
             --exclude='node_modules' \
             --exclude='data.db*' \
             --exclude='.env' \
@@ -46,4 +46,4 @@ jobs:
       - name: Install deps and restart
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            'set -e; cd /opt/cc-sync-server; npm install --production --silent; pm2 restart cc-sync-server; sleep 3; curl -sf http://127.0.0.1:3000/health > /dev/null; echo "deploy OK, health 200"'
+            'set -e; cd /opt/vaultbase-server; npm install --production --silent; systemctl restart vaultbase-server; sleep 3; curl -sf http://127.0.0.1:3000/health > /dev/null; echo "deploy OK, health 200"'
