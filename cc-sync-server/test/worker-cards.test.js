@@ -31,6 +31,11 @@ const WRK_TOKEN = 'wrk-token-1234567890abcdef';
 const MGR_IID = 'mgr-install-0001';
 const WRK_IID = 'wrk-install-0001';
 const ACT_IID = 'act-install-0001';
+// 7rn: challenge должен быть чистым hex в верхнем регистре — сервер нормализует
+// его (normalizeChallenge: strip non-hex + upper) до поиска лицензии и вывода
+// activation_key. Нереалистичный 'CHALLENGE-A' после нормализации схлопывался в
+// "CAEEA" и не находил строку → 404. Берём hex, который нормализуется в себя.
+const ACT_CHALLENGE = 'A1B2C3D4E5F6A7B8';
 const PUBKEY_A = 'ab'.repeat(32);
 const PUBKEY_B = 'cd'.repeat(32);
 
@@ -59,7 +64,7 @@ test.before(async () => {
     .run(WRK_IID, 'CHALLENGE-W', hashToken(WRK_TOKEN), 'Worker One', 'operator');
   // ACT_IID остаётся без token_hash — пройдёт живую активацию в тесте ниже.
   db.prepare("INSERT INTO licenses (installation_id, challenge, token, token_hash, label, role, is_active) VALUES (?,?,NULL,NULL,?,?,1)")
-    .run(ACT_IID, 'CHALLENGE-A', 'To Be Activated', 'operator');
+    .run(ACT_IID, ACT_CHALLENGE, 'To Be Activated', 'operator');
   // Легаси-группа воркера: seeded напрямую, т.к. /group/create теперь 410.
   db.prepare("INSERT INTO sync_groups (id, name, created_by, created_at) VALUES ('legacy-group', 'Legacy', ?, CURRENT_TIMESTAMP)").run(WRK_IID);
   db.prepare("INSERT INTO sync_group_members (group_id, installation_id, joined_at) VALUES ('legacy-group', ?, CURRENT_TIMESTAMP)").run(WRK_IID);
@@ -221,15 +226,15 @@ test('re-issue replaces the envelope and returns the slice to pending', async ()
 
 test('activation registers worker pubkey (and rejects malformed one)', async () => {
   const bad = await req('POST', '/activate', null, {
-    installation_id: ACT_IID, challenge: 'CHALLENGE-A',
-    activation_key: deriveActivationKey(ACT_IID, 'CHALLENGE-A'), worker_pubkey: 'zz',
+    installation_id: ACT_IID, challenge: ACT_CHALLENGE,
+    activation_key: deriveActivationKey(ACT_IID, ACT_CHALLENGE), worker_pubkey: 'zz',
   });
   assert.equal(bad.status, 400);
   assert.equal(bad.json.error, 'worker_pubkey_invalid');
 
   const act = await req('POST', '/activate', null, {
-    installation_id: ACT_IID, challenge: 'CHALLENGE-A',
-    activation_key: deriveActivationKey(ACT_IID, 'CHALLENGE-A'), worker_pubkey: PUBKEY_B,
+    installation_id: ACT_IID, challenge: ACT_CHALLENGE,
+    activation_key: deriveActivationKey(ACT_IID, ACT_CHALLENGE), worker_pubkey: PUBKEY_B,
   });
   assert.equal(act.status, 200);
   assert.ok(act.json.token);

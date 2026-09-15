@@ -44,6 +44,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// 7rn: сбор метрик HTTP (кол-во/латентность по методу и классу статуса) —
+// без внешних зависимостей. Эндпоинт /metrics отдаётся ниже.
+const metrics = require('./metrics');
+app.use(metrics.middleware);
+
 // Static: release binaries
 const RELEASES_DIR = process.env.RELEASES_DIR || path.join(__dirname, 'public/releases');
 fs.mkdirSync(RELEASES_DIR, { recursive: true });
@@ -63,8 +68,22 @@ const io = require('./socket').init(server);
 app.set('io', io);
 
 // Raw WebSocket for Tauri desktop client (path: /ws)
+// 7rn: permessage-deflate — сжатие кадров WS. Чат-конверты и base64-чанки
+// вложений (avm) хорошо жмутся, поэтому включаем per-message deflate с
+// консервативными порогами: не сжимаем мелкие кадры (<1 КБ — накладные расходы
+// выше выигрыша) и ограничиваем окно/память, чтобы не открывать вектор
+// zip-bomb/RAM-давления на слепом релее.
 const { WebSocketServer } = require('ws');
-const wssTauri = new WebSocketServer({ server, path: '/ws' });
+const wssTauri = new WebSocketServer({
+  server,
+  path: '/ws',
+  perMessageDeflate: {
+    threshold: 1024,
+    zlibDeflateOptions: { level: 6, memLevel: 8 },
+    clientNoContextTakeover: true,
+    serverNoContextTakeover: true,
+  },
+});
 require('./ws-tauri')(wssTauri, io);
 app.set('wssTauri', wssTauri);
 
@@ -152,6 +171,24 @@ app.get('/health', (req, res) => {
     console.error('[health] DB check failed:', e.message);
     res.status(503).json({ status: 'error', error: e.message, uptime: process.uptime(), ts: Date.now() });
   }
+});
+
+// 7rn: Prometheus-метрики. Доступ ограничен: если задан METRICS_TOKEN —
+// требуем Bearer с ним; иначе отдаём только с локального хоста (скрапер на том
+// же сервере). Наружу без токена метрики не светим.
+app.get('/metrics', (req, res) => {
+  const want = process.env.METRICS_TOKEN;
+  if (want) {
+    const auth = req.get('authorization') || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (token !== want) return res.status(401).end();
+  } else {
+    const ip = req.ip || '';
+    const loopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+    if (!loopback) return res.status(403).end();
+  }
+  res.set('Content-Type', metrics.CONTENT_TYPE);
+  res.send(metrics.render());
 });
 
 // Public releases API (no auth — used by download page)
