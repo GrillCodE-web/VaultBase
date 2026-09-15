@@ -11,51 +11,66 @@ test.describe('TEST-001: карта → заказ → отслеживание'
     // 1. Карты: свободная карта Джона видна (источник будущего профиля)
     await bootApp(page)
     await navTo(page, 'Cards')
-    await expect(page.locator('table.tbl tbody tr', { hasText: '1111' })).toBeVisible({ timeout: 10000 })
+    // 20s: тяжёлый чанк в dev-Vite (см. search-filter.spec.js) — короткий
+    // 10s может не дождаться догрузки данных после первого рендера.
+    await expect(page.locator('table.tbl tbody tr', { hasText: '1111' })).toBeVisible({ timeout: 20000 })
 
     // 2. Страница заказов: seeded-заказы на месте
     await navTo(page, 'Orders')
-    await expect(page.locator('table.tbl tbody tr', { hasText: 'ORD-1001' })).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('table.tbl tbody tr', { hasText: 'ORD-1001' })).toBeVisible({ timeout: 20000 })
     await expect(page.locator('table.tbl tbody tr', { hasText: 'ORD-1002' })).toBeVisible()
 
-    // 3. Открыть модал создания заказа
-    await page.getByRole('button', { name: /create order/i }).click()
-    const modal = page.locator('.modal')
-    await expect(modal).toBeVisible()
-    await expect(modal).toContainText('Create Order')
+    // 3. SPEC-A (c35ae2b): Orders — монитор, создания заказа со страницы Orders
+    // больше нет (собственный Create Order удалён вместе с CreateOrderModal).
+    // Рабочий путь — профиль (у него primary-дроп подставляется сам) →
+    // «Create new order for this profile» → QuickOrderModal.
+    await navTo(page, 'Profiles')
+    const profileRow = page.locator('table.tbl tbody tr', { hasText: 'John Doe' }).first()
+    await expect(profileRow).toBeVisible({ timeout: 10000 })
+    await profileRow.getByRole('button', { name: 'Create new order for this profile' }).click()
 
-    // 4. Выбрать профиль (у seeded-профиля есть дроп → dropId подставится сам)
-    // NOTE: в переводах многоточия — U+2026, селекторы плейсхолдеров подстрочные.
-    const profileInput = modal.locator('input[placeholder*="holder name"]')
-    await profileInput.fill('John')
-    await modal.locator('.dropdown-btn', { hasText: 'John Doe' }).first().click()
+    const modal = page.locator('.modal')
+    await expect(modal).toBeVisible({ timeout: 10000 })
+    // заголовок — create_order + держатель карты профиля (holder_masked
+    // заполнен, поэтому фолбэка на last4 в заголовке нет)
+    await expect(modal).toContainText('John Doe')
+    // primary-дроп подставлен автоматически (Wilmington)
     await expect(modal).toContainText('Wilmington', { timeout: 10000 })
 
     // 5. Выбрать магазин
     const shopInput = modal.locator('input[placeholder*="Search shops"]')
     await shopInput.fill('acme')
     await modal.locator('.dropdown-btn', { hasText: 'Acme Store' }).first().click()
-    await expect(modal).toContainText('Acme Store')
+    await expect(modal.locator('input[placeholder*="Search shops"]')).toHaveValue(/Acme Store/)
 
-    // 6. Риск-чек запускается автоматически (debounce 400ms)
+    // 6. Риск-чек запускается автоматически (debounce 400ms, shop+drop выбраны)
     await expect(async () => {
       const cmds = await mockCommands(page)
       expect(cmds).toContain('run_risk_check')
     }).toPass({ timeout: 10000 })
 
-    // 7. Submit активен (profile + shop + drop выбраны)
-    const submit = modal.locator('.btn-submit-full')
+    // 7. Submit активен (drop подставлен автоматически + shop выбран)
+    const submit = modal.getByRole('button', { name: 'Create Order', exact: true })
     await expect(submit).toBeEnabled({ timeout: 10000 })
     await submit.click()
     await expect(modal).toBeHidden({ timeout: 10000 })
 
-    // 8. Новый заказ появился в списке (номер берём из состояния мока)
+    // 8. Новый заказ появился в моке (без order_number — UI покажет #id)
     const orders = await mockState(page, 'state.orders')
     const created = orders.find(o => o.order_number !== 'ORD-1001' && o.order_number !== 'ORD-1002')
     expect(created).toBeTruthy()
     expect(created.status).toBe('pending')
+    const createdLabel = created.order_number || `#${created.id}`
 
-    const newRow = page.locator('table.tbl tbody tr', { hasText: created.order_number }).first()
+    // 8b. Идём в Orders: новый заказ на месте. Cache store заказов живёт 5 мин
+    // (CACHE_DURATION), и ранний визит на шаге 2 его уже прогрел — create_order
+    // кэш не инвалидирует, поэтому просим принудительный refetch.
+    await navTo(page, 'Orders')
+    await page.evaluate(async () => {
+      const mod = await import('/src/store/orders.js')
+      await mod.useOrdersStore.getState().fetchOrders(true)
+    })
+    const newRow = page.locator('table.tbl tbody tr', { hasText: createdLabel }).first()
     await expect(newRow).toBeVisible({ timeout: 10000 })
     await expect(newRow).toContainText('pending')
     await expect(newRow).toContainText('Acme Store')
@@ -95,10 +110,22 @@ test.describe('TEST-001: карта → заказ → отслеживание'
   })
 
   test('создание заказа невозможно без профиля и магазина (валидация)', async ({ page }) => {
+    // SPEC-A: кнопки создания на Orders нет; валидация живёт в QuickOrderModal —
+    // submit выключен, пока не выбран магазин (дроп подставится автоматически).
     await bootApp(page)
     await navTo(page, 'Orders')
-    await page.getByRole('button', { name: /create order/i }).click()
-    const submit = page.locator('.modal .btn-submit-full')
+    await expect(
+      page.getByRole('button', { name: /create order/i })
+    ).toHaveCount(0)
+    await navTo(page, 'Profiles')
+    await page
+      .locator('table.tbl tbody tr', { hasText: 'John Doe' })
+      .first()
+      .getByRole('button', { name: 'Create new order for this profile' })
+      .click()
+    const modal = page.locator('.modal')
+    await expect(modal).toBeVisible({ timeout: 10000 })
+    const submit = modal.getByRole('button', { name: 'Create Order', exact: true })
     await expect(submit).toBeDisabled()
   })
 })
