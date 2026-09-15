@@ -20,6 +20,7 @@ export const dict = {
 
   err_generic: 'Something went wrong',
   overview_forbidden: 'Server denied access (403). The license role must be Manager or Admin — check the license role in the admin panel.',
+  overview_unauthorized: 'Server did not recognise the license token (401). This usually happens after a server migration: re-activate the app with a new key (Settings → "Wipe local data", then the activation screen).',
   err_network: 'Network error — check the server URL and connection',
   err_not_found: 'Installation not found: the administrator has not registered this challenge yet',
   err_invalid_key: 'Invalid activation key',

@@ -381,7 +381,7 @@ export default function Shell({ appState, onLock }) {
               }
             >
               <div className="page-enter" key={page}>
-                <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={navigate} navParams={navParams} />
+                <Page appState={appState} onSync={doSync} onAlertsChanged={refreshAlerts} onNavigate={navigate} navParams={navParams} onLock={onLock} />
               </div>
             </Suspense>
           </ErrorBoundary>

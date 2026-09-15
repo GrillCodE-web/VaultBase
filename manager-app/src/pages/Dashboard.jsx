@@ -58,7 +58,12 @@ export default function Dashboard({ onSync, onNavigate }) {
       getInsights().catch(() => null),
     ])
       .then(([ov, sn, ins]) => {
-        if (ov.status !== 200) throw new Error(`overview_${ov.status}`)
+        if (ov.status !== 200) {
+          // Читаемое сообщение вместо сырого overview_<code>: 401 и 403 —
+          // известные кейсы лицензионного гейта, остальное — как раньше.
+          const known = { 401: t('overview_unauthorized'), 403: t('overview_forbidden') }
+          throw new Error(known[ov.status] || `overview_${ov.status}`)
+        }
         setOverview(ov.body)
         setSnapshots(sn.snapshots || [])
         setInsights(ins)
