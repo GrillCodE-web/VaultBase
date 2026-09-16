@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   CreditCard,
   User,
@@ -18,6 +19,9 @@ import { SkeletonRows } from '../components/SkeletonRow.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { STATUS_COLORS } from '../constants/colors.js'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+
+// Стабильная пустая ссылка до первой загрузки (иначе [] новый на каждый рендер).
+const NO_ITEMS = []
 
 const ENTITY_COLORS = {
   card: { bg: STATUS_COLORS.infoBg, text: STATUS_COLORS.info, border: 'var(--color-info-bg)' },
@@ -79,12 +83,9 @@ export default function ActivityLog() {
   const { confirm } = useConfirm()
   const { t } = useLang()
 
-  const [entries, setEntries] = useState([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
   const [entityFilter, setEntityFilter] = useState('')
-  const [loading, setLoading] = useState(false)
   const limit = 50
 
   // #20 — debounce search
@@ -100,10 +101,12 @@ export default function ActivityLog() {
     { label: t('log_filter_system'), value: 'system' },
   ]
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await invoke('get_activity_log', {
+  // PERF-010: журнал через TanStack Query — кэш по (page, search, фильтр),
+  // дедуп загрузок; keepPreviousData — без мигания при смене страницы.
+  const logQuery = useQuery({
+    queryKey: ['activity-log', page, search || null, entityFilter || null],
+    queryFn: async () =>
+      invoke('get_activity_log', {
         filter: {
           event_type: search || null,
           entity_type: entityFilter || null,
@@ -111,21 +114,20 @@ export default function ActivityLog() {
           to_date: null,
         },
         page,
-      })
-      setEntries(res.items ?? [])
-      setTotal(res.total ?? 0)
-    } catch (e) {
-      const error = handleError(e, 'ActivityLog.load')
-      toastErr(getErrorMessage(error))
-    } finally {
-      setLoading(false)
-    }
-  }, [search, entityFilter, page, toastErr])
+      }),
+    placeholderData: keepPreviousData,
+  })
+  const entries = logQuery.data?.items ?? NO_ITEMS
+  const total = logQuery.data?.total ?? 0
+  const loading = logQuery.isPending
 
+  // Ошибка загрузки — один тост (раньше показывался из catch в load()).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка лога
-    load()
-  }, [load])
+    if (logQuery.isError) {
+      const error = handleError(logQuery.error, 'ActivityLog.load')
+      toastErr(getErrorMessage(error))
+    }
+  }, [logQuery.isError, logQuery.error, toastErr])
 
   const handleClear = async () => {
     const ok = await confirm(t('log_confirm_clear'), t('log_clear'))
@@ -134,7 +136,7 @@ export default function ActivityLog() {
       await invoke('clear_activity_log')
       toastOk(t('log_cleared'))
       setPage(1)
-      await load()
+      await logQuery.refetch()
     } catch (e) {
       const error = handleError(e, 'ActivityLog.handleClear')
       toastErr(getErrorMessage(error))
@@ -155,12 +157,12 @@ export default function ActivityLog() {
         <div className="ph-actions">
           <button
             className="btn btn-ghost btn-sm btn-icon"
-            onClick={load}
-            disabled={loading}
+            onClick={() => logQuery.refetch()}
+            disabled={logQuery.isFetching}
             aria-label={t('btn_refresh')}
           >
-            {loading ? (
-              '…'
+            {logQuery.isFetching ? (
+              '...'
             ) : (
               <>
                 <RefreshCw size={13} /> {t('btn_refresh')}

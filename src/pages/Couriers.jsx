@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Truck,
   Package as PackageIcon,
@@ -41,6 +42,17 @@ const EMPTY_FORM = {
   tracks: [{ track: '', carrier: '' }],
 }
 
+// PERF-010: вкладка → команда списка. Данные — через TanStack Query
+// (кэш по вкладке, дедуп параллельных загрузок).
+const TAB_LIST_CMD = {
+  assigned: 'stuffer_list_couriers',
+  available: 'stuffer_list_available_couriers',
+  packages: 'stuffer_list_packages',
+  shared: 'stuffer_list_all_couriers',
+}
+const EMPTY_LIST = []
+const EMPTY_SHARED = { couriers: [], errors: [] }
+
 function base64ToBlobUrl(b64) {
   const bin = window.atob(b64)
   const bytes = new Uint8Array(bin.length)
@@ -57,12 +69,7 @@ export default function Couriers({ activeTab, onNavigate }) {
     ? activeTab
     : 'assigned'
 
-  const [couriers, setCouriers] = useState([])
-  const [available, setAvailable] = useState([])
-  const [packages, setPackages] = useState([])
-  // FEAT-011: общий список курьеров по всем аккаунтам панели
-  const [shared, setShared] = useState({ couriers: [], errors: [] })
-  const [loading, setLoading] = useState(false)
+  const queryClient = useQueryClient()
   const [addingId, setAddingId] = useState(null)
 
   const [labelsFor, setLabelsFor] = useState(null)
@@ -90,55 +97,54 @@ export default function Couriers({ activeTab, onNavigate }) {
   // Пока не знаем статус ключа — null. true/false после проверки.
   // Без ключа не дёргаем API вообще: иначе на каждой вкладке сыпались тосты
   // «Stuffer не настроен». Вместо этого показываем экран настройки.
-  const [stufferReady, setStufferReady] = useState(null)
+  // FEAT-011: раздел готов, если настроен легаси-ключ ИЛИ есть хотя бы
+  // один аккаунт в реестре (stuffer_accounts) с индивидуальным ключом.
+  const readyQuery = useQuery({
+    queryKey: ['stuffer-ready'],
+    queryFn: async () => {
+      const [cfg, accs] = await Promise.all([
+        invoke('stuffer_get_config').catch(() => null),
+        invoke('stuffer_list_accounts').catch(() => []),
+      ])
+      const list = Array.isArray(accs) ? accs : []
+      return { ready: !!cfg?.api_key_set || list.length > 0, payOptions: cfg?.pay_options }
+    },
+  })
+  const stufferReady = readyQuery.data ? readyQuery.data.ready : null
   // Енум pay_option отдаёт бэкенд из capabilities провайдера (панель жёстко
   // валидирует значения). Дефолт — енум SWAT из docs/API_STUFFER.md.
-  const [payOptions, setPayOptions] = useState(DEFAULT_PAY_OPTIONS)
-  useEffect(() => {
-    // FEAT-011: раздел готов, если настроен легаси-ключ ИЛИ есть хотя бы
-    // один аккаунт в реестре (stuffer_accounts) с индивидуальным ключом.
-    Promise.all([
-      invoke('stuffer_get_config').catch(() => null),
-      invoke('stuffer_list_accounts').catch(() => []),
-    ]).then(([cfg, accs]) => {
-      const list = Array.isArray(accs) ? accs : []
-      setStufferReady(!!cfg?.api_key_set || list.length > 0)
-      if (Array.isArray(cfg?.pay_options) && cfg.pay_options.length) {
-        setPayOptions(cfg.pay_options)
-      }
-    })
-  }, [])
+  const payOpts = readyQuery.data?.payOptions
+  const payOptions = Array.isArray(payOpts) && payOpts.length ? payOpts : DEFAULT_PAY_OPTIONS
 
-  const load = useCallback(async () => {
-    if (!stufferReady) return
-    setLoading(true)
-    try {
-      if (tab === 'assigned') setCouriers(await invoke('stuffer_list_couriers'))
-      else if (tab === 'available') setAvailable(await invoke('stuffer_list_available_couriers'))
-      else if (tab === 'packages') setPackages(await invoke('stuffer_list_packages'))
-      else if (tab === 'shared') setShared(await invoke('stuffer_list_all_couriers'))
-    } catch (e) {
-      notify(e, `Couriers.load.${tab}`)
-    } finally {
-      setLoading(false)
-    }
-  }, [tab, notify, stufferReady])
+  // PERF-010: список текущей вкладки через TanStack Query — кэш по вкладке,
+  // дедуп загрузок; enabled=false, пока не подтверждён ключ (isLoading=false).
+  const couriersQuery = useQuery({
+    queryKey: ['couriers', tab],
+    queryFn: async () => invoke(TAB_LIST_CMD[tab]),
+    enabled: stufferReady === true,
+  })
+  const listData = couriersQuery.data
+  const couriers = tab === 'assigned' ? (listData ?? EMPTY_LIST) : EMPTY_LIST
+  const available = tab === 'available' ? (listData ?? EMPTY_LIST) : EMPTY_LIST
+  const packages = tab === 'packages' ? (listData ?? EMPTY_LIST) : EMPTY_LIST
+  // FEAT-011: общий список курьеров по всем аккаунтам панели
+  const shared = tab === 'shared' ? (listData ?? EMPTY_SHARED) : EMPTY_SHARED
+  const loading = couriersQuery.isLoading
+  const refreshList = useCallback(() => couriersQuery.refetch(), [couriersQuery])
 
+  // Ошибка загрузки списка — тост с контекстом вкладки (как раньше в load()).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка курьеров
-    load()
-  }, [load])
+    if (couriersQuery.isError) notify(couriersQuery.error, `Couriers.load.${tab}`)
+  }, [couriersQuery.isError, couriersQuery.error, notify, tab])
 
   // Курьеры для селектора «новой посылки» — FEAT-011: общий список со всех
   // аккаунтов; посылка создаётся ключом аккаунта-источника курьера.
-  const [formCouriers, setFormCouriers] = useState([])
-  useEffect(() => {
-    if (stufferReady && tab === 'packages' && formCouriers.length === 0) {
-      invoke('stuffer_list_all_couriers')
-        .then(res => setFormCouriers(res?.couriers || []))
-        .catch(() => {})
-    }
-  }, [tab, formCouriers.length, stufferReady])
+  const formCouriersQuery = useQuery({
+    queryKey: ['couriers', 'all-for-form'],
+    queryFn: async () => (await invoke('stuffer_list_all_couriers'))?.couriers || [],
+    enabled: stufferReady === true && tab === 'packages',
+  })
+  const formCouriers = formCouriersQuery.data ?? EMPTY_LIST
 
   const handleAdd = async id => {
     if (!hasPerm('manage_couriers')) return
@@ -146,7 +152,9 @@ export default function Couriers({ activeTab, onNavigate }) {
     try {
       await invoke('stuffer_add_courier', { courierId: id })
       toastOk(t('couriers_added'))
-      setAvailable(prev => prev.filter(c => c.id !== id))
+      queryClient.setQueryData(['couriers', 'available'], (prev = []) =>
+        prev.filter(c => c.id !== id)
+      )
     } catch (e) {
       notify(e, 'Couriers.add')
     } finally {
@@ -182,9 +190,9 @@ export default function Couriers({ activeTab, onNavigate }) {
     URL.revokeObjectURL(url)
   }
 
-  // Вставить/заменить посылку в локальном списке (новая сверху, как у панели).
+  // Вставить/заменить посылку в кэше списка (новая сверху, как у панели).
   const upsertPackage = pkg =>
-    setPackages(prev => {
+    queryClient.setQueryData(['couriers', 'packages'], (prev = []) => {
       const i = prev.findIndex(x => x.id === pkg.id)
       if (i === -1) return [pkg, ...prev]
       const next = prev.slice()
@@ -240,7 +248,7 @@ export default function Couriers({ activeTab, onNavigate }) {
         track: trackForm.track.trim(),
         carrier: trackForm.carrier.trim(),
       })
-      setPackages(prev =>
+      queryClient.setQueryData(['couriers', 'packages'], (prev = []) =>
         prev.map(p => (p.id === trackFor ? { ...p, tracks: res?.tracks || p.tracks } : p))
       )
       toastOk(t('pkg_track_added'))
@@ -302,7 +310,7 @@ export default function Couriers({ activeTab, onNavigate }) {
       toastOk(`${t('pkg_created')} #${id}`)
       setShowForm(false)
       setForm(EMPTY_FORM)
-      load()
+      refreshList()
     } catch (e) {
       notify(e, 'Couriers.create')
     } finally {
@@ -453,8 +461,8 @@ export default function Couriers({ activeTab, onNavigate }) {
     return (
       <div className="content">
         <div className="flex items-center justify-between mb-3">
-          <button className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />{' '}
+          <button className="btn btn-ghost btn-sm" disabled={loading} onClick={refreshList}>
+            <RefreshCw size={14} className={couriersQuery.isFetching ? 'animate-spin' : ''} />{' '}
             {t('couriers_refresh')}
           </button>
           {hasPerm('manage_couriers') && (
@@ -513,8 +521,8 @@ export default function Couriers({ activeTab, onNavigate }) {
     <div className="content">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <button className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />{' '}
+          <button className="btn btn-ghost btn-sm" disabled={loading} onClick={refreshList}>
+            <RefreshCw size={14} className={couriersQuery.isFetching ? 'animate-spin' : ''} />{' '}
             {t('couriers_refresh')}
           </button>
           <input

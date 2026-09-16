@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-// FIX P2-3: AbortController for fetch cancellation
 import { invoke } from '@tauri-apps/api/core'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { X, SearchCode, Download, Scale } from 'lucide-react'
 import { useLang } from '../hooks/useLang'
 import { usePremiumToast } from '../hooks/usePremiumToast'
@@ -43,15 +43,16 @@ const PROFILE_COLUMNS = [
 ]
 const PROFILE_DEFAULT_COLS = PROFILE_COLUMNS.map(c => c.id)
 
+// Стабильная пустая ссылка до первой загрузки — чтобы хуки поверх списка
+// (useRowOrder, useBulkActions) не пересоздавались на каждый рендер.
+const NO_ITEMS = []
+
 export default function ProfileList({
   onNavigate,
   activeTab = 'list',
   openCreate: initOpenCreate = false,
 }) {
-  const [profiles, setProfiles] = useState([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({ has_drop: null, search: '', card_status: null })
   const [deletingIds, setDeletingIds] = useState(new Set())
   const [showCreate, setShowCreate] = useState(initOpenCreate)
@@ -68,75 +69,55 @@ export default function ProfileList({
   )
   const [showColPicker, setShowColPicker] = useState(false)
   const deleteTimersRef = useRef(new Map()) // FIX P2-1: Track delete timers for cleanup
-  const fetchAbortRef = useRef(null) // FIX P2-3: AbortController for fetch cancellation
   const { toast } = usePremiumToast()
   const { t } = useLang()
+
+  // PERF-010: данные через TanStack Query — кэш по (page, filter), дедуп
+  // одновременных загрузок, устаревшие ответы отбрасываются из коробки.
+  const profilesQuery = useQuery({
+    queryKey: ['profiles', page, filter.has_drop, filter.search || null, filter.card_status],
+    queryFn: async () => {
+      return invoke('get_profiles', {
+        filter: {
+          has_drop: filter.has_drop,
+          search: filter.search || null,
+          card_status: filter.card_status,
+        },
+        page,
+        perPage: DEFAULT_PAGE_SIZE,
+      })
+    },
+    placeholderData: keepPreviousData,
+  })
+  const profiles = profilesQuery.data?.items ?? NO_ITEMS
+  const total = profilesQuery.data?.total ?? 0
+  const loading = profilesQuery.isPending
+
+  // Если страница опустела (удаление/фильтр), а записи есть — шаг назад.
+  useEffect(() => {
+    const d = profilesQuery.data
+    if (d && d.items.length === 0 && d.total > 0 && page > 1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- откат страницы по факту пустой выборки (как раньше в load())
+      setPage(prev => Math.max(1, prev - 1))
+    }
+  }, [profilesQuery.data, page])
+
   // UX-011: ручной порядок строк профилей (localStorage)
   const { orderedItems: orderedProfiles, moveRow: moveProfileRow } = useRowOrder(
     'profiles_row_order',
     profiles
   )
 
-  const load = useCallback(
-    async (p = page, f = filter) => {
-      // FIX P2-3: Abort previous fetch if still running
-      if (fetchAbortRef.current) {
-        fetchAbortRef.current.abort()
-      }
-      // eslint-disable-next-line no-undef
-      fetchAbortRef.current = new AbortController()
-
-      setLoading(true)
-      try {
-        const result = await invoke('get_profiles', {
-          filter: { has_drop: f.has_drop, search: f.search || null, card_status: f.card_status },
-          page: p,
-          perPage: DEFAULT_PAGE_SIZE,
-        })
-        setProfiles(result.items)
-        setTotal(result.total)
-        if (result.items.length === 0 && result.total > 0 && p > 1) {
-          setPage(prev => Math.max(1, prev - 1))
-        }
-      } catch (e) {
-        if (fetchAbortRef.current?.signal.aborted) {
-          // Fetch was aborted - don't update state
-          return
-        }
-        toast(String(e), 'error')
-      } finally {
-        setLoading(false)
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [page, filter] // toast is stable from useToast hook
-  )
-
-  // CLEAN-002: yield до load() — setState-ы внутри load срабатывают после
-  // микротаска, не синхронно в теле эффекта (react-hooks/set-state-in-effect);
-  // await именно в обёртке: прямой вызов async-useCallback из эффекта
-  // трассируется правилом даже с await первой строкой
+  // Ошибка загрузки — один тост (раньше показывался из catch в load()).
   useEffect(() => {
-    const run = async () => {
-      await Promise.resolve()
-      load()
-    }
-    run()
-  }, [load])
+    if (profilesQuery.isError) toast(String(profilesQuery.error), 'error')
+  }, [profilesQuery.isError, profilesQuery.error, toast])
 
-  // ARCH-013: debounced search через общий хук (refs — чтобы не плодить effect-ы)
-  // CLEAN-002: ref-ы обновляем в эффекте, а не во время рендера (react-hooks/refs)
-  const loadRef = useRef(load)
-  const filterRef = useRef(filter)
-  useEffect(() => {
-    loadRef.current = load
-    filterRef.current = filter
-  })
+  // ARCH-013: debounced search через общий хук; смена filter/page сама
+  // запускает refetch через queryKey — ручной вызов загрузки не нужен.
   const onTableFiltersChange = useCallback(f => {
-    const next = { ...filterRef.current, search: f.search ?? '' }
-    setFilter(next)
     setPage(1)
-    loadRef.current(1, next)
+    setFilter(prev => ({ ...prev, search: f.search ?? '' }))
   }, [])
   const { searchInput, setSearch: setSearchInput } = useTableFilters(onTableFiltersChange, {}, 300)
 
@@ -161,10 +142,6 @@ export default function ProfileList({
         clearTimeout(timerId)
       })
       timers.clear()
-      // Abort any in-flight fetch
-      if (fetchAbortRef.current) {
-        fetchAbortRef.current.abort()
-      }
     }
   }, [])
 
@@ -183,9 +160,7 @@ export default function ProfileList({
 
   // CLEAN-002: смена таба — паттерн «adjust state during render» вместо
   // синхронных setState внутри useEffect (react-hooks/set-state-in-effect).
-  // Данными обновляет эффект [load] ниже по коду: один запрос вместо двух
-  // (раньше эффект [activeTab] звал load() явно + load пересоздавался после
-  // setFilter и звался ещё раз из эффекта [load]).
+  // Данные перезапрашивает useQuery: filter входит в queryKey.
   const [prevActiveTab, setPrevActiveTab] = useState(null)
   if (activeTab !== prevActiveTab) {
     setPrevActiveTab(activeTab)
@@ -235,7 +210,7 @@ export default function ProfileList({
           n.delete(profile.id)
           return n
         })
-        load()
+        profilesQuery.refetch()
         deleteTimersRef.current.delete(profile.id)
       } catch (e) {
         setDeletingIds(prev => {
@@ -280,7 +255,7 @@ export default function ProfileList({
     try {
       const p = await invoke('duplicate_profile', { id: profile.id })
       toast(`Profile duplicated → ${shortId(p.id)}`, 'success')
-      load()
+      profilesQuery.refetch()
     } catch (e) {
       if (e.includes?.('no_free_cards') || e.includes?.('no_unburned_free_card')) {
         toast(t('no_suitable_card'), 'warn')
@@ -377,7 +352,7 @@ export default function ProfileList({
     setEnrichProgress(null)
     deselectAll()
     toast(`BIN enriched: ${enriched} / ${ids.length}`, 'success')
-    load()
+    profilesQuery.refetch()
   }
 
   const totalPages = getTotalPages(total)
@@ -456,10 +431,12 @@ export default function ProfileList({
         onFilterChange={newFilter => {
           setFilter(newFilter)
           setPage(1)
-          load(1, newFilter)
         }}
         onSearchChange={setSearchInput}
-        onSearch={() => load(1, { ...filter, search: searchInput })}
+        onSearch={() => {
+          setPage(1)
+          setFilter(prev => ({ ...prev, search: searchInput }))
+        }}
       />
 
       {/* Bulk action bar */}
@@ -507,7 +484,7 @@ export default function ProfileList({
         onCopyBilling={copyBilling}
         onCopyShipping={copyShipping}
         onQuickOrder={setQuickOrderProfile}
-        onRefresh={load}
+        onRefresh={() => profilesQuery.refetch()}
         onNavigate={onNavigate}
         onCreate={() => setShowCreate(true)}
         visibleCols={visibleCols}
@@ -519,14 +496,16 @@ export default function ProfileList({
         totalPages={totalPages}
         total={total}
         label="profiles"
-        onPageChange={p => {
-          setPage(p)
-          load(p, filter)
-        }}
+        onPageChange={p => setPage(p)}
       />
 
       {/* Modals */}
-      {showCreate && <ProfileModal onCreated={() => load()} onClose={() => setShowCreate(false)} />}
+      {showCreate && (
+        <ProfileModal
+          onCreated={() => profilesQuery.refetch()}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
       {showDupProfiles && (
         <DuplicateProfilesModal
           groups={dupProfileGroups}
@@ -543,7 +522,7 @@ export default function ProfileList({
             setQuickOrderProfile(null)
             setQuickOrderPreset(null)
           }}
-          onCreated={() => load()}
+          onCreated={() => profilesQuery.refetch()}
         />
       )}
     </div>

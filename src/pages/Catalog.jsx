@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpen } from 'lucide-react'
 import { usePremiumToast } from '../hooks/usePremiumToast'
 import { useConfirm } from '../hooks/useConfirm'
@@ -9,6 +10,10 @@ import { EmptyState } from '../components/EmptyState.jsx'
 import { DEFAULT_PAGE_SIZE } from '../utils/pagination.js'
 import { STATUS_COLORS, RISK_COLORS } from '../constants/colors'
 import { handleError, getErrorMessage } from '../utils/errorHandler.js'
+
+// Стабильные пустые ссылки до первой загрузки (иначе новый объект на каждый рендер).
+const NO_ITEMS = []
+const EMPTY_MAP = {}
 
 // ─── Score badge ──────────────────────────────────────────────
 
@@ -39,59 +44,43 @@ function CategoryBadge({ category }) {
 // ─── Items Tab ────────────────────────────────────────────────
 
 function ItemsTab() {
-  const [items, setItems] = useState([])
-  const [total, setTotal] = useState(0)
-  const [pages, setPages] = useState(1)
   const [page, setPage] = useState(1)
+  // searchInput — мгновенное значение поля; search — debounced, идёт в queryKey.
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(new Set())
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
+  const queryClient = useQueryClient()
   const searchTimer = useRef(null)
 
-  // ★ Insight: Ref для актуальных page/search чтобы listener использовал свежие значения
-  const pageRef = useRef(page)
-  const searchRef = useRef(search)
-  useEffect(() => {
-    pageRef.current = page
-    searchRef.current = search
+  // PERF-010: каталог через TanStack Query — кэш по (page, search), дедуп загрузок.
+  const itemsQuery = useQuery({
+    queryKey: ['catalog-items', page, search],
+    queryFn: async () =>
+      invoke('get_catalog_items', { page, perPage: DEFAULT_PAGE_SIZE, search: search || '' }),
+    placeholderData: keepPreviousData,
   })
+  const items = itemsQuery.data?.items ?? NO_ITEMS
+  const total = itemsQuery.data?.total ?? 0
+  const pages = itemsQuery.data?.pages ?? 1
+  const loading = itemsQuery.isPending
+  const itemsRefetch = itemsQuery.refetch
 
-  const load = useCallback(
-    async (p, s) => {
-      // FINAL-005: Use explicit undefined check instead of ?? (p=0 is valid)
-      const actualPage = p !== undefined && p !== null ? p : pageRef.current
-      const actualSearch = s !== undefined && s !== null ? s : searchRef.current
-      setLoading(true)
-      try {
-        const r = await invoke('get_catalog_items', {
-          page: actualPage,
-          perPage: DEFAULT_PAGE_SIZE,
-          search: actualSearch || '',
-        })
-        setItems(r.items)
-        setTotal(r.total)
-        setPages(r.pages)
-      } catch (e) {
-        const error = handleError(e, 'Catalog.loadItems')
-        toast(getErrorMessage(error), 'error')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [toast]
-  )
+  // Ошибка загрузки — один тост (раньше показывался из catch в load()).
+  useEffect(() => {
+    if (itemsQuery.isError) {
+      const error = handleError(itemsQuery.error, 'Catalog.loadItems')
+      toast(getErrorMessage(error), 'error')
+    }
+  }, [itemsQuery.isError, itemsQuery.error, toast])
 
+  // Real-time: refresh when a new catalog item arrives via WebSocket
   useEffect(() => {
     let isMounted = true
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка каталога
-    load(1, '')
-
-    // Real-time: refresh when a new catalog item arrives via WebSocket
     let unlistenFn = null
     listen('catalog_item_added', () => {
-      if (isMounted) load()
+      if (isMounted) itemsRefetch()
     }).then(fn => {
       if (isMounted) unlistenFn = fn
     })
@@ -101,21 +90,28 @@ function ItemsTab() {
       unlistenFn?.()
       clearTimeout(searchTimer.current)
     }
-  }, [load])
+  }, [itemsRefetch])
 
   const handleSearch = val => {
-    setSearch(val)
+    setSearchInput(val)
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
       setPage(1)
-      load(1, val)
+      setSearch(val)
     }, 300)
   }
 
   const handleToggleStop = async item => {
     try {
       await invoke('toggle_catalog_item_stop', { id: item.id, stop: !item.stop })
-      setItems(prev => prev.map(i => (i.id === item.id ? { ...i, stop: !i.stop } : i)))
+      queryClient.setQueryData(['catalog-items', page, search], prev =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map(i => (i.id === item.id ? { ...i, stop: !i.stop } : i)),
+            }
+          : prev
+      )
     } catch (e) {
       const error = handleError(e, 'Catalog.handleToggleStop')
       toast(getErrorMessage(error), 'error')
@@ -134,7 +130,7 @@ function ItemsTab() {
       const count = await invoke('delete_catalog_items', { ids })
       toast(`Deleted ${count} item${count !== 1 ? 's' : ''}`, 'success')
       setSelected(new Set())
-      load(page, search)
+      itemsRefetch()
     } catch (e) {
       const error = handleError(e, 'Catalog.handleBulkDelete')
       toast(getErrorMessage(error), 'error')
@@ -161,7 +157,7 @@ function ItemsTab() {
       <div className="filters">
         <input
           className="search-box w-[260px]"
-          value={search}
+          value={searchInput}
           onChange={e => handleSearch(e.target.value)}
           placeholder="Search by name or ASIN…"
         />
@@ -256,11 +252,7 @@ function ItemsTab() {
             <button
               className="btn btn-ghost btn-sm"
               disabled={page <= 1}
-              onClick={() => {
-                const np = page - 1
-                setPage(np)
-                load(np, search)
-              }}
+              onClick={() => setPage(page - 1)}
             >
               Prev
             </button>
@@ -268,10 +260,7 @@ function ItemsTab() {
               <button
                 key={p}
                 className={`btn btn-ghost btn-sm${p === page ? ' bg-accent text-text border-none' : ''}`}
-                onClick={() => {
-                  setPage(p)
-                  load(p, search)
-                }}
+                onClick={() => setPage(p)}
               >
                 {p}
               </button>
@@ -279,11 +268,7 @@ function ItemsTab() {
             <button
               className="btn btn-ghost btn-sm"
               disabled={page >= pages}
-              onClick={() => {
-                const np = page + 1
-                setPage(np)
-                load(np, search)
-              }}
+              onClick={() => setPage(page + 1)}
             >
               Next
             </button>
@@ -302,87 +287,81 @@ function sortByPriority(list, map) {
 }
 
 function ShopsTab() {
-  const [shops, setShops] = useState([])
-  const [total, setTotal] = useState(0)
-  const [pages, setPages] = useState(1)
   const [page, setPage] = useState(1)
+  // searchInput — мгновенное значение поля; search — debounced, идёт в queryKey.
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  // MGR-006: приоритеты шопов от менеджера (мапа domain → weight)
-  const [priorities, setPriorities] = useState({})
-  const prioritiesRef = useRef({})
   const { toast } = usePremiumToast()
+  const queryClient = useQueryClient()
   const searchTimer = useRef(null)
 
-  // ★ Insight: Ref для актуальных page/search чтобы listener использовал свежие значения
-  const pageRef = useRef(page)
-  const searchRef = useRef(search)
-  useEffect(() => {
-    pageRef.current = page
-    searchRef.current = search
+  // MGR-006: приоритеты шопов от менеджера (мапа domain → weight); каталог
+  // работает и без них — ошибка глушится в queryFn.
+  const prioritiesQuery = useQuery({
+    queryKey: ['shop-priorities'],
+    queryFn: async () => invoke('get_shop_priorities').catch(() => null),
   })
+  const priorities = prioritiesQuery.data?.by_domain ?? EMPTY_MAP
 
-  const load = useCallback(
-    async (p, s) => {
-      // FINAL-005: Use explicit undefined check instead of ?? (p=0 is valid)
-      const actualPage = p !== undefined && p !== null ? p : pageRef.current
-      const actualSearch = s !== undefined && s !== null ? s : searchRef.current
-      setLoading(true)
-      try {
-        const r = await invoke('get_catalog_shops', {
-          page: actualPage,
-          perPage: DEFAULT_PAGE_SIZE,
-          search: actualSearch || '',
-        })
-        setShops(sortByPriority(r.items, prioritiesRef.current))
-        setTotal(r.total)
-        setPages(r.pages)
-      } catch (e) {
-        const error = handleError(e, 'Catalog.loadShops')
-        toast(getErrorMessage(error), 'error')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [toast]
+  // PERF-010: каталог через TanStack Query — кэш по (page, search), дедуп загрузок.
+  const shopsQuery = useQuery({
+    queryKey: ['catalog-shops', page, search],
+    queryFn: async () =>
+      invoke('get_catalog_shops', { page, perPage: DEFAULT_PAGE_SIZE, search: search || '' }),
+    placeholderData: keepPreviousData,
+  })
+  // MGR-006: сортировка по приоритету менеджера (weight desc), затем как отдал сервер.
+  // Раньше — prioritiesRef + пересортировка уже показанного; теперь чистая функция данных.
+  const shops = useMemo(
+    () => sortByPriority(shopsQuery.data?.items ?? NO_ITEMS, priorities),
+    [shopsQuery.data, priorities]
   )
+  const total = shopsQuery.data?.total ?? 0
+  const pages = shopsQuery.data?.pages ?? 1
+  const loading = shopsQuery.isPending
+  const shopsRefetch = shopsQuery.refetch
 
+  // Ошибка загрузки — один тост (раньше показывался из catch в load()).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка магазинов каталога
-    load(1, '')
-    // MGR-006: приоритеты менеджера — после получения пересортировываем уже показанное
-    invoke('get_shop_priorities')
-      .then(r => {
-        const map = r?.by_domain || {}
-        prioritiesRef.current = map
-        setPriorities(map)
-        setShops(prev => sortByPriority(prev, map))
-      })
-      .catch(() => {}) // каталог работает и без приоритетов
-    // Real-time: refresh when a new catalog shop arrives via WebSocket
+    if (shopsQuery.isError) {
+      const error = handleError(shopsQuery.error, 'Catalog.loadShops')
+      toast(getErrorMessage(error), 'error')
+    }
+  }, [shopsQuery.isError, shopsQuery.error, toast])
+
+  // Real-time: refresh when a new catalog shop arrives via WebSocket
+  useEffect(() => {
+    let isMounted = true
     const unlisten = listen('catalog_shop_added', () => {
-      load() // load() использует текущие значения из ref
+      if (isMounted) shopsRefetch()
     })
     return () => {
       unlisten.then(fn => fn())
       // ★ Insight: Cleanup timer при unmount предотвращает memory leak
       clearTimeout(searchTimer.current)
     }
-  }, [load])
+  }, [shopsRefetch])
 
   const handleSearch = val => {
-    setSearch(val)
+    setSearchInput(val)
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
       setPage(1)
-      load(1, val)
+      setSearch(val)
     }, 300)
   }
 
   const handleToggleExcluded = async shop => {
     try {
       await invoke('toggle_catalog_shop_excluded', { id: shop.id, excluded: !shop.excluded })
-      setShops(prev => prev.map(s => (s.id === shop.id ? { ...s, excluded: !s.excluded } : s)))
+      queryClient.setQueryData(['catalog-shops', page, search], prev =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map(s => (s.id === shop.id ? { ...s, excluded: !s.excluded } : s)),
+            }
+          : prev
+      )
     } catch (e) {
       toast(String(e), 'error')
     }
@@ -394,7 +373,7 @@ function ShopsTab() {
       <div className="filters">
         <input
           className="search-box w-[260px]"
-          value={search}
+          value={searchInput}
           onChange={e => handleSearch(e.target.value)}
           placeholder="Search by domain…"
         />
@@ -492,11 +471,7 @@ function ShopsTab() {
             <button
               className="btn btn-ghost btn-sm"
               disabled={page <= 1}
-              onClick={() => {
-                const np = page - 1
-                setPage(np)
-                load(np, search)
-              }}
+              onClick={() => setPage(page - 1)}
             >
               Prev
             </button>
@@ -504,10 +479,7 @@ function ShopsTab() {
               <button
                 key={p}
                 className={`btn btn-ghost btn-sm${p === page ? ' bg-accent text-text border-none' : ''}`}
-                onClick={() => {
-                  setPage(p)
-                  load(p, search)
-                }}
+                onClick={() => setPage(p)}
               >
                 {p}
               </button>
@@ -515,11 +487,7 @@ function ShopsTab() {
             <button
               className="btn btn-ghost btn-sm"
               disabled={page >= pages}
-              onClick={() => {
-                const np = page + 1
-                setPage(np)
-                load(np, search)
-              }}
+              onClick={() => setPage(page + 1)}
             >
               Next
             </button>
