@@ -13,7 +13,9 @@
       html,
       body {
         margin: 0;
-        background: #0c0d10;
+        /* var(--bg) с fallback: до загрузки tokens.css — тёмный anti-flash,
+           после — фон следует активной теме (вне слоёв, перебивает @layer app). */
+        background: var(--bg, #0c0d10);
         color-scheme: dark;
       }
     </style>

@@ -11,6 +11,9 @@ type OrderListRow = (i64,String,i64,Option<i64>,Option<i64>,Option<i64>,
 /// (id, order_number, tracking_number, carrier, days_since_update) — FEAT-007.
 type StaleTrackingRow = (i64, Option<String>, String, Option<String>, i64);
 
+/// Строка build_order_e2e_payload: 9 колонок orders под E2E-конверт.
+type OrderE2eRow = (Option<String>,String,Option<String>,Option<f64>,Option<String>,Option<String>,Option<String>,String,String);
+
 impl Database {
     // ── Orders ────────────────────────────
 
@@ -361,8 +364,7 @@ impl Database {
     /// SEC Этап B: собирает E2E-payload контента заказа (то, что сервер видеть
     /// НЕ должен). Метаданные/футпринты идут отдельным слепым каналом.
     pub(crate) fn build_order_e2e_payload(&self, order_id: i64) -> Result<serde_json::Value, String> {
-        let (order_number, status, items_json, total, tracking, carrier, notes, created, updated):
-            (Option<String>, String, Option<String>, Option<f64>, Option<String>, Option<String>, Option<String>, String, String) =
+        let (order_number, status, items_json, total, tracking, carrier, notes, created, updated): OrderE2eRow =
             self.conn.query_row(
                 "SELECT order_number,status,items_json,total_amount,tracking_number,carrier,notes,created_at,updated_at FROM orders WHERE id=?1",
                 params![order_id],

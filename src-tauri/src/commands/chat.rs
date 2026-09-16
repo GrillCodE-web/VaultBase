@@ -536,7 +536,7 @@ pub(crate) async fn chat_blob_fetch(blob_id: String, key: String, nonce: String)
     require_user()?;
     use base64::Engine;
     let hex_to_bytes = |s: &str| -> Option<Vec<u8>> {
-        if s.len() % 2 != 0 || !s.bytes().all(|b| b.is_ascii_hexdigit()) {
+        if !s.len().is_multiple_of(2) || !s.bytes().all(|b| b.is_ascii_hexdigit()) {
             return None;
         }
         (0..s.len())
@@ -880,6 +880,7 @@ pub(crate) async fn chat_room_mute_set(app: tauri::AppHandle, room: String, mute
 /// успешного POST (нет его на сервере — нет и в БД: ложная «отправленность»
 /// хуже повторной отправки).
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // параметры — контракт invoke с фронтом
 pub(crate) async fn chat_send(
     app: tauri::AppHandle,
     body: String,
@@ -1470,13 +1471,15 @@ fn parse_edit(payload: &Value) -> Option<(Vec<i64>, String)> {
     Some((ids, body))
 }
 
+type ChatFetchOutcome = (Value, Vec<ChatMessage>, Vec<i64>, Vec<(String, i64)>);
+
 /// Общая логика fetch. retried_after_rotation — защёлка от цикла: при
 /// массовых ошибках unseal один раз ротируем X25519-ключ (потерянный
 /// приватник, CHAT_E2E.md «Угроза №3») и повторяем fetch.
 /// Третий элемент кортежа — msg_id исходящих, чей статус read изменился
 /// входящими read_receipt'ами (для события chat:status). Четвёртый (t8l) —
 /// (room, local_id) удалённых по служебному delete-конверту (для chat:deleted).
-fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Value, Vec<ChatMessage>, Vec<i64>, Vec<(String, i64)>), String> {
+fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<ChatFetchOutcome, String> {
     let token = auth_token(db)?;
     let priv_hex = crate::commands::slices::ensure_slice_key(db)?;
     let since: i64 = db

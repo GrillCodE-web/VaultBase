@@ -699,10 +699,11 @@ function MainShell({ offlineMode, setOfflineMode, onSessionTimeout }) {
         osNotify(
           'os_notify_chat',
           // azl: важное — помечаем заголовок уведомления.
-          (p.priority ? `❗ ` : '') + t('notify_chat_title', {
-            peer: String(p.peer_iid || '').slice(0, 8),
-            room: p.room || '',
-          }),
+          (p.priority ? `❗ ` : '') +
+            t('notify_chat_title', {
+              peer: String(p.peer_iid || '').slice(0, 8),
+              room: p.room || '',
+            }),
           body.length > 80 ? `${body.slice(0, 77)}...` : body
         )
       }),
