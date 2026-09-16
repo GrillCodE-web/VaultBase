@@ -6,6 +6,7 @@ const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
 const { requireAdmin } = require('./middleware');
+const logger = require('./logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -39,7 +40,7 @@ app.use((req, res, next) => {
       // The token itself is deliberately never logged.
       entry.installation_id = req.installationId;
     }
-    console.log(JSON.stringify(entry));
+    logger.info(entry);
   });
   next();
 });
@@ -168,7 +169,7 @@ app.get('/health', (req, res) => {
     if (!row || row.ok !== 1) throw new Error('db_read_check_failed');
     res.json({ status: 'ok', uptime: process.uptime(), ts: Date.now() });
   } catch (e) {
-    console.error('[health] DB check failed:', e.message);
+    logger.error({ err: e.message }, 'health DB check failed');
     res.status(503).json({ status: 'error', error: e.message, uptime: process.uptime(), ts: Date.now() });
   }
 });
@@ -209,11 +210,11 @@ app.get('/favicon.svg', (req, res) => res.sendFile(path.join(__dirname, 'public'
 // Root — nothing revealed
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
 app.use((req, res) => res.status(404).end());
-app.use((err, req, res, _next) => { console.error(err.stack || err.message); res.status(500).end(); });
+app.use((err, req, res, _next) => { logger.error({ err: err.stack || err.message }, 'unhandled'); res.status(500).end(); });
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-server.listen(PORT, HOST, () => console.log(`[vaultbase-sync] ${HOST}:${PORT}`));
+server.listen(PORT, HOST, () => logger.info({ host: HOST, port: PORT }, 'listening'));
 
 // Background alert engine (worker-offline detection)
 require('./alerts-engine').start(() => {
@@ -233,10 +234,10 @@ let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[vaultbase-sync] ${signal} received, shutting down`);
+  logger.info({ signal }, 'shutting down');
 
   const forceExit = setTimeout(() => {
-    console.error('[vaultbase-sync] shutdown timed out, forcing exit');
+    logger.error('shutdown timed out, forcing exit');
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
   forceExit.unref();
@@ -251,7 +252,7 @@ function shutdown(signal) {
 
   server.close(() => {
     require('./database').closeDb();
-    console.log('[vaultbase-sync] shutdown complete');
+    logger.info('shutdown complete');
     clearTimeout(forceExit);
     process.exit(0);
   });
