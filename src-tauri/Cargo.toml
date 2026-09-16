@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "vaultbase"
 version = "2.12.11"
 description = "VaultBase РІР‚вЂќ Desktop CRM for credit card operations"
@@ -56,7 +56,7 @@ dirs          = "5"
 imap          = "2.4"
 native-tls    = "0.2"
 mailparse     = "0.14"
-tungstenite   = { version = "0.23", features = ["native-tls", "rustls-tls-webpki-roots"] }  # 7rn: rustls-РєРѕРЅРЅРµРєС‚РѕСЂ вЂ” РґР»СЏ SPKI-РїРёРЅРЅРёРЅРіР° WS
+tungstenite   = { version = "0.29", features = ["native-tls", "rustls-tls-webpki-roots"] }  # 7rn: rustls-РєРѕРЅРЅРµРєС‚РѕСЂ вЂ” РґР»СЏ SPKI-РїРёРЅРЅРёРЅРіР° WS
 lettre        = { version = "0.11", features = ["native-tls", "smtp-transport", "builder"] }
 zeroize       = { version = "1.7", features = ["derive"] }  # FIX ZEROIZE-01: Secure memory zeroing for passwords
 urlencoding   = "2.1"  # For USPS API URL encoding
