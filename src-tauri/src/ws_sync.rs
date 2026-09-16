@@ -141,7 +141,7 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
         // если её нет, адрес выводится из общей базы (VAULTBASE_SERVER_URL).
         let ws_url = crate::endpoints::ws_url();
         match connect_pinned(ws_url) {
-            Ok((mut socket, _)) => {
+            Ok(mut socket) => {
                 // Сырой /ws протокол (ws-tauri.js): auth первым фреймом как
                 // {"type":"auth","token":"..."}. Не socket.io (40{...}) —
                 // сервер /ws парсит JSON напрямую.
