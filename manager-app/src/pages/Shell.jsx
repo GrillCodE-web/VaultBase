@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast.jsx'
 import { api, checkAppUpdate, getConfigValues, getLocalAlerts, lockApp, syncTelemetry } from '../api/server.js'
 import CommandPalette from '../components/CommandPalette.jsx'
 import ErrorBoundary from '../components/ErrorBoundary.jsx'
+import OnboardingTour, { shouldShowTour } from '../components/OnboardingTour.jsx'
 
 // Code splitting: каждая страница грузится отдельным чанком по первому обращению.
 const Dashboard = lazy(() => import('./Dashboard.jsx'))
@@ -47,6 +48,8 @@ export default function Shell({ appState, onLock }) {
   }
   const [page, setPageState] = useState(pageFromHash)
   const [navParams, setNavParams] = useState({})
+  // 7rn: онбординг-тур — автопоказ один раз, повтор из палитры команд.
+  const [tourOpen, setTourOpen] = useState(() => shouldShowTour())
   const setPage = (p) => {
     const next = PAGES[p] ? p : 'dashboard'
     window.location.hash = `/${next}`
@@ -272,6 +275,7 @@ export default function Shell({ appState, onLock }) {
       label: t('lang_toggle'),
       run: () => setLang(lang === 'ru' ? 'en' : 'ru'),
     },
+    { id: 'tour', label: t('tour_replay'), run: () => setTourOpen(true) },
   ]
 
   const nav = useMemo(
@@ -395,6 +399,7 @@ export default function Shell({ appState, onLock }) {
           navItems={paletteNav}
         />
       )}
+      <OnboardingTour t={t} open={tourOpen} onClose={() => setTourOpen(false)} />
     </div>
   )
 }
