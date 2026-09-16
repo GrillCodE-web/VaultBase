@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
 import {
   Globe,
@@ -34,6 +35,9 @@ import ProxiesUpanelTab from './Proxies/upanel'
 // REDESIGN-05-4 (порция 3): пакетная проверка — пул потоков и порог «slow»
 const PROXY_TEST_CONCURRENCY = 4
 const PROXY_SLOW_MS = 1500
+// Стабильные пустые ссылки до первой загрузки (иначе новый объект на каждый рендер).
+const NO_ITEMS = []
+const EMPTY_MAP = {}
 
 // ─── Helpers ──────────────────────────────────────────────────
 function TypeBadge({ type }) {
@@ -511,10 +515,7 @@ function BindToShopDropdown({ proxy, currentBinding, onBound, onUnbound }) {
 // ─── Main ProxyList ───────────────────────────────────────────
 export default function ProxyList() {
   const [activeTab, setActiveTab] = useState('pptp') // 'pptp' (default) | 'proxies' (FEAT-018)
-  const [proxies, setProxies] = useState([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
   const [filterBlocked, setFilterBlocked] = useState(null)
   const [filterUsed, setFilterUsed] = useState(null)
   const [filterType, setFilterType] = useState(null)
@@ -531,8 +532,7 @@ export default function ProxyList() {
     failed: 0,
   })
   const [checkingHealth, setCheckingHealth] = useState(false)
-  // G2: proxy-shop bindings map: { [proxy_id]: shopObj }
-  const [proxyBindings, setProxyBindings] = useState({}) // proxy_id -> shop obj
+  // G2: proxy-shop bindings map: { [proxy_id]: shopObj } — см. bindingsQuery ниже
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
@@ -541,7 +541,7 @@ export default function ProxyList() {
   // Virtualization setup
   const parentRef = useRef(null)
   const useVirtual = proxies.length > 100
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer из @tanstack/react-virtual совместим с React 19
+
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? proxies.length : 0,
     getScrollElement: () => parentRef.current,
@@ -551,40 +551,48 @@ export default function ProxyList() {
     overscan: PROXIES_OVERSCAN,
   })
 
-  const load = useCallback(
-    async (p = page, fb = filterBlocked, ft = filterType, fu = filterUsed) => {
-      setLoading(true)
-      try {
-        const r = await invoke('get_proxies', {
-          filter: { is_blocked: fb, is_used: fu, proxy_type: ft },
-          page: p,
-          perPage: DEFAULT_PAGE_SIZE,
-        })
-        setProxies(r.items)
-        setTotal(r.total)
-        if (r.items.length === 0 && r.total > 0 && p > 1) {
-          setPage(prev => Math.max(1, prev - 1))
-        }
-      } catch (e) {
-        const error = handleError(e, 'Proxies.load')
-        toast(getErrorMessage(error), 'error')
-      } finally {
-        setLoading(false)
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [page, filterBlocked, filterType, filterUsed] // toast is stable from useToast hook
-  )
+  // PERF-010: список прокси через TanStack Query — кэш по (page, фильтры),
+  // дедуп загрузок; keepPreviousData — без мигания при смене страницы.
+  const proxiesQuery = useQuery({
+    queryKey: ['proxies', page, filterBlocked, filterType, filterUsed],
+    queryFn: async () =>
+      invoke('get_proxies', {
+        filter: { is_blocked: filterBlocked, is_used: filterUsed, proxy_type: filterType },
+        page,
+        perPage: DEFAULT_PAGE_SIZE,
+      }),
+    placeholderData: keepPreviousData,
+  })
+  const proxies = proxiesQuery.data?.items ?? NO_ITEMS
+  const total = proxiesQuery.data?.total ?? 0
+  const loading = proxiesQuery.isPending
 
+  // Если страница опустела (удаление/фильтр), а записи есть — шаг назад.
   useEffect(() => {
-    load()
-    // G2: load all proxy-shop bindings and shop data to show badges
-    Promise.all([
-      invoke('get_all_proxy_shop_bindings').catch(() => []),
-      invoke('get_shops', { page: 1, perPage: 500, search: '' })
-        .then(r => r.items || [])
-        .catch(() => []),
-    ]).then(([bindings, shops]) => {
+    const d = proxiesQuery.data
+    if (d && d.items.length === 0 && d.total > 0 && page > 1) {
+      setPage(prev => Math.max(1, prev - 1))
+    }
+  }, [proxiesQuery.data, page])
+
+  // Ошибка загрузки — один тост (раньше показывался из catch в load()).
+  useEffect(() => {
+    if (proxiesQuery.isError) {
+      const error = handleError(proxiesQuery.error, 'Proxies.load')
+      toast(getErrorMessage(error), 'error')
+    }
+  }, [proxiesQuery.isError, proxiesQuery.error, toast])
+
+  // G2: proxy-shop биндинги и магазины для бейджей — кэш по ключу.
+  const bindingsQuery = useQuery({
+    queryKey: ['proxy-shop-bindings'],
+    queryFn: async () => {
+      const [bindings, shops] = await Promise.all([
+        invoke('get_all_proxy_shop_bindings').catch(() => []),
+        invoke('get_shops', { page: 1, perPage: 500, search: '' })
+          .then(r => r.items || [])
+          .catch(() => []),
+      ])
       const cache = {}
       shops.forEach(s => {
         cache[s.id] = s
@@ -593,10 +601,17 @@ export default function ProxyList() {
       bindings.forEach(b => {
         if (cache[b.shop_id]) bindMap[b.proxy_id] = cache[b.shop_id]
       })
-      setProxyBindings(bindMap)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Intentional: only run on mount, load is stable
+      return bindMap
+    },
+  })
+  // Локальные патчи биндингов (после bind/unbind) — поверх кэша запроса;
+  // setProxyBindings сохраняет сигнатуру сеттера для существующих вызовов.
+  const [bindingsPatch, setBindingsPatch] = useState(null)
+  const proxyBindings = bindingsPatch ?? bindingsQuery.data ?? EMPTY_MAP
+  const setProxyBindings = fn =>
+    setBindingsPatch(prev => fn(prev ?? bindingsQuery.data ?? EMPTY_MAP))
+
+  const load = useCallback(() => proxiesQuery.refetch(), [proxiesQuery])
 
   const handleAdd = async form => {
     await invoke('add_proxy', { input: form })
@@ -743,14 +758,12 @@ export default function ProxyList() {
     const f = v === filterType ? null : v
     setFilterType(f)
     setPage(1)
-    load(1, filterBlocked, f, filterUsed)
   }
 
   const applyStatusFilter = (blockVal, usedVal) => {
     setFilterBlocked(blockVal)
     setFilterUsed(usedVal)
     setPage(1)
-    load(1, blockVal, filterType, usedVal)
   }
 
   const usedInLabel = proxy => {
@@ -1207,10 +1220,7 @@ export default function ProxyList() {
                   ) : (
                     <button
                       key={p}
-                      onClick={() => {
-                        setPage(p)
-                        load(p, filterBlocked, filterType, filterUsed)
-                      }}
+                      onClick={() => setPage(p)}
                       className={`btn btn-sm ${page === p ? 'btn-b' : 'btn-ghost'}`}
                     >
                       {p}

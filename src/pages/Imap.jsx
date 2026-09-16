@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { useQuery } from '@tanstack/react-query'
 import { listen } from '@tauri-apps/api/event'
 import {
   Inbox,
@@ -26,6 +27,9 @@ import { Modal } from '../components/Modal.jsx'
 
 // ─── IMAP Account Modal ─────────────────────────────────────────────────────
 // REDESIGN-05-2: ручной оверлей/шапка/Escape/body-lock заменены общим <Modal>
+// Стабильная пустая ссылка до первой загрузки (иначе новый массив на каждый рендер).
+const NO_ITEMS = []
+
 function AccountModal({ account, onSave, onClose }) {
   const { t } = useLang()
   const [form, setForm] = useState({
@@ -324,9 +328,27 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const { success: toastOk, error: toastErr } = usePremiumToast()
   const { confirm } = useConfirm()
 
-  // Data
-  const [accounts, setAccounts] = useState([])
-  const [smtpConfigs, setSmtpConfigs] = useState([])
+  // Data — PERF-010: аккаунты/smtp/маршруты через TanStack Query (кэш, дедуп).
+  const accountsQuery = useQuery({
+    queryKey: ['imap-accounts'],
+    queryFn: async () => {
+      const [imap, smtp, routes] = await Promise.all([
+        invoke('get_imap_accounts'),
+        invoke('get_smtp_configs'),
+        invoke('list_domain_routes'),
+      ])
+      // invoke может вернуть null (команда недоступна/ошибка) — null пробивает
+      // дефолт `= []` и роняет рендер на .length. Все три — через Array-гвард.
+      return {
+        accounts: Array.isArray(imap) ? imap : [],
+        smtp: Array.isArray(smtp) ? smtp : [],
+        routes: Array.isArray(routes) ? routes : [],
+      }
+    },
+  })
+  const accounts = accountsQuery.data?.accounts ?? NO_ITEMS
+  const smtpConfigs = accountsQuery.data?.smtp ?? NO_ITEMS
+  const domainRoutes = accountsQuery.data?.routes ?? NO_ITEMS
   const [stats, setStats] = useState({})
 
   // Navigation
@@ -356,9 +378,16 @@ export default function Imap({ onNavigate: _onNavigate }) {
   const [editAccount, setEditAccount] = useState(null)
   const [showCompose, setShowCompose] = useState(false)
   const [composeReply, setComposeReply] = useState(null)
-  // IMAP-ROUTING: маршруты «домен = почта» + модалка управления
-  const [domainRoutes, setDomainRoutes] = useState([])
+  // IMAP-ROUTING: модалка управления маршрутами «домен = почта»
   const [showDomainRoutes, setShowDomainRoutes] = useState(false)
+
+  // Ошибка загрузки аккаунтов — один тост (раньше из catch в loadAccounts).
+  useEffect(() => {
+    if (accountsQuery.isError) {
+      const error = handleError(accountsQuery.error, 'Imap.loadAccounts')
+      toastErr(getErrorMessage(error))
+    }
+  }, [accountsQuery.isError, accountsQuery.error, toastErr])
 
   // Load folders for an account
   const loadFolders = useCallback(async account => {
@@ -377,29 +406,18 @@ export default function Imap({ onNavigate: _onNavigate }) {
     }
   }, [])
 
-  // Load accounts
-  const loadAccounts = useCallback(async () => {
-    try {
-      const [imap, smtp, routes] = await Promise.all([
-        invoke('get_imap_accounts'),
-        invoke('get_smtp_configs'),
-        invoke('list_domain_routes'),
-      ])
-      // invoke может вернуть null (команда недоступна/ошибка) — null пробивает
-      // дефолт `= []` и роняет рендер на .length. Все три — через Array-гвард.
-      setAccounts(Array.isArray(imap) ? imap : [])
-      setSmtpConfigs(Array.isArray(smtp) ? smtp : [])
-      setDomainRoutes(Array.isArray(routes) ? routes : [])
-      const list = Array.isArray(imap) ? imap : []
-      if (list.length > 0 && !selectedAccount) {
-        setSelectedAccount(list[0])
-        loadFolders(list[0])
-      }
-    } catch (e) {
-      const error = handleError(e, 'Imap.loadAccounts')
-      toastErr(getErrorMessage(error))
+  // Автовыбор первого аккаунта после загрузки (раньше — внутри loadAccounts).
+  const accountsData = accountsQuery.data?.accounts
+  useEffect(() => {
+    if (accountsData?.length > 0 && !selectedAccount) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- автовыбор первого аккаунта по факту загрузки (как раньше в loadAccounts)
+      setSelectedAccount(accountsData[0])
+      loadFolders(accountsData[0])
     }
-  }, [selectedAccount, toastErr, loadFolders])
+  }, [accountsData, selectedAccount, loadFolders])
+
+  // Обновление списков (после CRUD-операций) — refetch кэша.
+  const loadAccounts = useCallback(() => accountsQuery.refetch(), [accountsQuery])
 
   const loadMessages = useCallback(
     async (accountId, folder, page = 1, search = '') => {
@@ -538,8 +556,6 @@ export default function Imap({ onNavigate: _onNavigate }) {
   }, [runAllFolderSearch, loadMessages, selectedAccount, selectedFolder])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка IMAP-аккаунтов
-    loadAccounts()
     let unlistenFn = null
     // Событие называется new_imap_message — так его шлёт бэкенд
     // (main.rs:1323 и main.rs:2034). Здесь раньше слушалось
