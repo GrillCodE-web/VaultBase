@@ -5,6 +5,9 @@ use std::time::Duration;
 pub const DEFAULT_SERVER_URL: &str = "https://162.0.213.238.sslip.io:8448";
 
 static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+// 7rn: отдельный агент с SPKI-пиннингом — только для дефолтного боевого
+// сервера. None, если пин-конфиг не собрался (тогда и default-путь).
+static PINNED_AGENT: OnceLock<Option<ureq::Agent>> = OnceLock::new();
 
 fn agent() -> &'static ureq::Agent {
     AGENT.get_or_init(|| {
@@ -12,6 +15,22 @@ fn agent() -> &'static ureq::Agent {
             .timeout(Duration::from_secs(25))
             .build()
     })
+}
+
+fn agent_for(base: &str) -> &'static ureq::Agent {
+    if base == DEFAULT_SERVER_URL {
+        if let Some(pinned) = PINNED_AGENT.get_or_init(|| {
+            crate::tls_pins::pinned_client_config().map(|cfg| {
+                ureq::AgentBuilder::new()
+                    .timeout(Duration::from_secs(25))
+                    .tls_config(cfg)
+                    .build()
+            })
+        }) {
+            return pinned;
+        }
+    }
+    agent()
 }
 
 pub struct HttpResponse {
@@ -56,7 +75,7 @@ pub fn request(
     let path = if path.starts_with('/') { path.to_string() } else { format!("/{path}") };
     let url = format!("{base}{path}");
 
-    let mut req = agent().request(method, &url);
+    let mut req = agent_for(base).request(method, &url);
     if let Some(token) = bearer {
         req = req.set("Authorization", &format!("Bearer {token}"));
     }

@@ -15,9 +15,12 @@
 
 #![allow(dead_code)]
 
+use std::net::TcpStream;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use tungstenite::{connect, Message};
+use tungstenite::client::IntoClientRequest;
+use tungstenite::stream::MaybeTlsStream;
+use tungstenite::{client_tls_with_config, connect, Connector, Message, WebSocket};
 use tauri::{AppHandle, Emitter};
 use crate::models;
 use crate::state::with_db;
@@ -88,6 +91,31 @@ pub fn start(app: AppHandle, handle: Arc<WsSyncHandle>) {
 //  Main loop
 // ─────────────────────────────────────────
 
+/// 7rn: connect с SPKI-пиннингом для боевого wss:// (rustls + tls_pins).
+/// Для кастомных URL (VAULTBASE_SYNC_WS_URL, self-hosted http://) —
+/// прежний путь tungstenite::connect (native-tls/plain).
+fn connect_pinned(ws_url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStream>>, String> {
+    let custom_ws = std::env::var("VAULTBASE_SYNC_WS_URL")
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false);
+    let use_pins = !custom_ws
+        && ws_url.starts_with("wss://")
+        && crate::endpoints::server_base() == crate::constants::DEFAULT_SERVER_URL;
+    if !use_pins {
+        return connect(ws_url).map(|(s, _)| s).map_err(|e| e.to_string());
+    }
+    let cfg = crate::tls_pins::pinned_client_config()
+        .ok_or_else(|| "tls pin config unavailable".to_string())?;
+    let req = ws_url.into_client_request().map_err(|e| e.to_string())?;
+    let host = req.uri().host().ok_or("ws url без host")?.to_string();
+    let port = req.uri().port_u16().unwrap_or(443);
+    let tcp = TcpStream::connect((host.as_str(), port)).map_err(|e| e.to_string())?;
+    let _ = tcp.set_nodelay(true);
+    client_tls_with_config(req, tcp, None, Some(Connector::Rustls(cfg)))
+        .map(|(s, _)| s)
+        .map_err(|e| e.to_string())
+}
+
 fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
     while running.load(Ordering::Relaxed) {
         // Для подключения достаточно ТОКЕНА ЛИЦЕНЗИИ — соло-воркер получает
@@ -112,7 +140,7 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
         // Переменную VAULTBASE_SYNC_WS_URL читает сам endpoints::ws_url();
         // если её нет, адрес выводится из общей базы (VAULTBASE_SERVER_URL).
         let ws_url = crate::endpoints::ws_url();
-        match connect(ws_url) {
+        match connect_pinned(ws_url) {
             Ok((mut socket, _)) => {
                 // Сырой /ws протокол (ws-tauri.js): auth первым фреймом как
                 // {"type":"auth","token":"..."}. Не socket.io (40{...}) —
@@ -133,6 +161,9 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                         MaybeTlsStream::NativeTls(tls) => {
                             let _ = tls.get_ref().set_read_timeout(Some(Duration::from_secs(5)));
                         }
+                        MaybeTlsStream::Rustls(tls) => {
+                            let _ = tls.get_ref().set_read_timeout(Some(Duration::from_secs(5)));
+                        }
                         _ => {}
                     }
                 }
@@ -150,6 +181,9 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                             let _ = tcp.set_read_timeout(None);
                         }
                         MaybeTlsStream::NativeTls(tls) => {
+                            let _ = tls.get_ref().set_read_timeout(None);
+                        }
+                        MaybeTlsStream::Rustls(tls) => {
                             let _ = tls.get_ref().set_read_timeout(None);
                         }
                         _ => {}
@@ -191,6 +225,9 @@ fn ws_loop(app: AppHandle, running: Arc<AtomicBool>, creds: SharedCreds) {
                             let _ = tcp.set_read_timeout(Some(ping_dur));
                         }
                         MaybeTlsStream::NativeTls(tls) => {
+                            let _ = tls.get_ref().set_read_timeout(Some(ping_dur));
+                        }
+                        MaybeTlsStream::Rustls(tls) => {
                             let _ = tls.get_ref().set_read_timeout(Some(ping_dur));
                         }
                         _ => {}

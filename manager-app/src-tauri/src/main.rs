@@ -11,6 +11,7 @@ mod license;
 mod rate_limiter;
 mod state;
 mod telemetry;
+mod tls_pins; // 7rn: SPKI-пиннинг корней LE (копия worker-модуля)
 mod vault;
 mod ws;
 

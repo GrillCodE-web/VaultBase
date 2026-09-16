@@ -4852,9 +4852,12 @@ dependencies = [
  "log",
  "native-tls",
  "rand 0.8.8",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
  "utf-8",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -5032,6 +5035,7 @@ dependencies = [
  "pbkdf2",
  "rand 0.8.8",
  "rusqlite",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",
@@ -5042,6 +5046,7 @@ dependencies = [
  "tempfile",
  "tungstenite",
  "ureq",
+ "webpki-roots 0.26.11",
  "x25519-dalek",
  "zeroize",
 ]

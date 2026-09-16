@@ -19,6 +19,7 @@ mod rate_limiter;  // FIX TC-H03: Rate limiting infrastructure
 mod smtp;
 mod state;
 mod stuffer;
+mod tls_pins; // 7rn: SPKI-пиннинг корней LE для боевого sync-сервера
 mod sync;
 mod tracking;
 mod tray;

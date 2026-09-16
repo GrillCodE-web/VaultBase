@@ -28,7 +28,10 @@ ed25519-dalek = { version = "2", features = ["rand_core"] }  # SEC ETAP-A P.10: 
 base64        = "0.22"
 chrono        = { version = "0.4" }
 ureq          = { version = "2", features = ["json"] }
-tungstenite   = { version = "0.23", features = ["native-tls"] }
+# 7rn: cert pinning (как у воркера) — rustls/webpki-roots уже в дереве через ureq
+rustls        = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+webpki-roots  = "0.26"
+tungstenite   = { version = "0.23", features = ["native-tls", "rustls-tls-webpki-roots"] }  # 7rn: rustls — SPKI-пиннинг WS
 x25519-dalek  = { version = "2", features = ["static_secrets"] }
 hkdf          = "0.12"
 rand          = "0.8"

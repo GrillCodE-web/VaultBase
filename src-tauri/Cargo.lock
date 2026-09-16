@@ -6366,9 +6366,12 @@ dependencies = [
  "log",
  "native-tls",
  "rand 0.8.5",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
  "utf-8",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -6627,6 +6630,7 @@ dependencies = [
  "rand 0.8.5",
  "regex",
  "rusqlite",
+ "rustls",
  "sentry",
  "serde",
  "serde_json",
@@ -6648,6 +6652,7 @@ dependencies = [
  "ureq 2.12.1",
  "urlencoding",
  "uuid",
+ "webpki-roots 0.26.11",
  "x25519-dalek",
  "zeroize",
 ]

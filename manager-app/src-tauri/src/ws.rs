@@ -11,13 +11,16 @@
 //! nonce в auth. Legacy без челленджа тоже поддержан (таймаут 5с → auth без nonce).
 
 use std::io;
+use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
-use tungstenite::{connect, Message};
+use tungstenite::client::IntoClientRequest;
+use tungstenite::stream::MaybeTlsStream;
+use tungstenite::{client_tls_with_config, connect, Connector, Message, WebSocket};
 
 use crate::state::{AppState, DbState};
 
@@ -52,6 +55,24 @@ fn ws_url_from(base: &str) -> String {
     } else {
         format!("wss://{b}/ws")
     }
+}
+
+/// 7rn: connect с SPKI-пиннингом для боевого wss:// (rustls + tls_pins).
+/// Кастомный сервер (self-hosted) — прежний путь tungstenite::connect.
+fn connect_maybe_pinned(url: &str) -> Result<WebSocket<MaybeTlsStream<TcpStream>>, String> {
+    if url != ws_url_from(crate::http::DEFAULT_SERVER_URL) {
+        return connect(url).map(|(s, _)| s).map_err(|e| format!("connect: {e}"));
+    }
+    let cfg = crate::tls_pins::pinned_client_config()
+        .ok_or_else(|| "tls pin config unavailable".to_string())?;
+    let req = url.into_client_request().map_err(|e| format!("ws request: {e}"))?;
+    let host = req.uri().host().ok_or("ws url без host")?.to_string();
+    let port = req.uri().port_u16().unwrap_or(443);
+    let tcp = TcpStream::connect((host.as_str(), port)).map_err(|e| format!("tcp: {e}"))?;
+    let _ = tcp.set_nodelay(true);
+    client_tls_with_config(req, tcp, None, Some(Connector::Rustls(cfg)))
+        .map(|(s, _)| s)
+        .map_err(|e| format!("tls: {e}"))
 }
 
 pub fn start(app: AppHandle) {
@@ -122,7 +143,7 @@ pub fn is_connected() -> bool {
 }
 
 fn connect_and_run(app: &AppHandle, token: &str, url: &str) -> Result<(), String> {
-    let (mut socket, _) = connect(url).map_err(|e| format!("connect: {e}"))?;
+    let mut socket = connect_maybe_pinned(url)?;
 
     // Auth: ждём auth_challenge до 5с; по таймауту — legacy auth без nonce.
     let mut auth_nonce: Option<String> = None;
@@ -134,6 +155,9 @@ fn connect_and_run(app: &AppHandle, token: &str, url: &str) -> Result<(), String
             }
             MaybeTlsStream::NativeTls(tls) => {
                 let _ = tls.get_mut().set_read_timeout(Some(Duration::from_secs(5)));
+            }
+            MaybeTlsStream::Rustls(tls) => {
+                let _ = tls.get_ref().set_read_timeout(Some(Duration::from_secs(5)));
             }
             _ => {}
         }
@@ -162,6 +186,9 @@ fn connect_and_run(app: &AppHandle, token: &str, url: &str) -> Result<(), String
             }
             MaybeTlsStream::NativeTls(tls) => {
                 let _ = tls.get_mut().set_read_timeout(None);
+            }
+            MaybeTlsStream::Rustls(tls) => {
+                let _ = tls.get_ref().set_read_timeout(None);
             }
             _ => {}
         }
