@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { check as checkUpdate } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import {
@@ -51,6 +52,9 @@ function relativeTime(isoStr, t) {
 
 // Key used to remember which version was already downloaded+installed
 const INSTALLED_VER_KEY = 'vaultbase_installed_version'
+
+// Стабильная пустая ссылка до первой загрузки (иначе новый массив на каждый рендер).
+const NO_ITEMS = []
 
 // ─── UpdateCard ────────────────────────────────────────────────
 
@@ -156,21 +160,15 @@ function UpdateCard({ item, onApplyTrack, onIgnore }) {
 export default function Updates() {
   const { toast } = usePremiumToast()
   const { t } = useLang()
+  const queryClient = useQueryClient()
 
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('all')
-  const [refreshing, setRefreshing] = useState(false)
   const [currentVersion, setCurrentVersion] = useState('0.1.0')
   const [updateAvailable, setUpdateAvailable] = useState(null)
   const [downloadState, setDownloadState] = useState('idle') // idle | downloading | ready | installed
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [dismissed, setDismissed] = useState(false)
   const [checking, setChecking] = useState(false)
-
-  // FIX P2-5: Track cancelled state to prevent setState after unmount
-  const cancelledRef = useRef(false)
 
   const TABS = [
     { key: 'all', label: t('upd_tab_all') },
@@ -180,53 +178,40 @@ export default function Updates() {
     { key: 'attention', label: t('upd_tab_attention') },
   ]
 
-  // FIX P2-5: Cleanup cancelled flag on unmount
-  useEffect(() => {
-    return () => {
-      cancelledRef.current = true
-    }
-  }, [])
-
   // ── Load activity feed ──────────────────────────────────────
-  const loadData = useCallback(
-    async (silent = false) => {
-      if (!silent) setLoading(true)
-      setError(null)
-      try {
-        const [logResult, appVerResult] = await Promise.allSettled([
-          invoke('get_activity_log', {
-            filter: { event_type: null, entity_type: 'order', from_date: null, to_date: null },
-            page: 1,
-          }),
-          invoke('get_app_version'),
-        ])
-        // FIX P2-5: Check cancelled flag before updating state
-        if (logResult.status === 'fulfilled' && !cancelledRef.current) {
-          setItems(logResult.value.items ?? [])
-        }
-        if (appVerResult.status === 'fulfilled' && !cancelledRef.current) {
-          setCurrentVersion(appVerResult.value)
-        }
-      } catch (err) {
-        const msg = err?.toString?.() ?? 'Unknown error'
-        if (!cancelledRef.current) {
-          setError(msg)
-          if (!silent) toast(t('upd_load_failed'), 'error')
-        }
-      } finally {
-        if (!cancelledRef.current) {
-          setLoading(false)
-          setRefreshing(false)
-        }
+  // PERF-010: фид и версия приложения через TanStack Query — кэш, дедуп,
+  // отмена устаревших ответов из коробки (заменяет ручной cancelled-флаг).
+  const feedQuery = useQuery({
+    queryKey: ['updates-feed'],
+    queryFn: async () => {
+      const [logResult, appVerResult] = await Promise.allSettled([
+        invoke('get_activity_log', {
+          filter: { event_type: null, entity_type: 'order', from_date: null, to_date: null },
+          page: 1,
+        }),
+        invoke('get_app_version'),
+      ])
+      if (logResult.status === 'rejected') throw logResult.reason
+      return {
+        items: logResult.value.items ?? [],
+        version: appVerResult.status === 'fulfilled' ? appVerResult.value : null,
       }
     },
-    [toast, t]
-  )
+  })
+  const items = feedQuery.data?.items ?? NO_ITEMS
+  const loading = feedQuery.isPending
+  const refreshing = feedQuery.isFetching && !feedQuery.isPending
+  const error = feedQuery.isError ? (feedQuery.error?.toString?.() ?? 'Unknown error') : null
+  // adjust state during render: версия пришла с фидом — берём её
+  if (feedQuery.data?.version && feedQuery.data.version !== currentVersion) {
+    setCurrentVersion(feedQuery.data.version)
+  }
+  const loadData = useCallback(() => feedQuery.refetch(), [feedQuery])
 
+  // Ошибка загрузки фида — один тост (раньше показывался из catch в loadData).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка обновлений
-    loadData()
-  }, [loadData])
+    if (feedQuery.isError) toast(t('upd_load_failed'), 'error')
+  }, [feedQuery.isError, feedQuery.error, toast, t])
 
   // ── Check for app update ────────────────────────────────────
   useEffect(() => {
@@ -299,8 +284,7 @@ export default function Updates() {
   }
 
   const handleRefresh = () => {
-    setRefreshing(true)
-    loadData(true)
+    loadData()
   }
 
   // REDESIGN-05-6: ручная проверка обновления приложения (вне авто-проверки при монтировании)
@@ -323,7 +307,10 @@ export default function Updates() {
     }
   }
   const handleApplyTrack = item => toast(`Track applied for item ${item.id}`, 'success')
-  const handleIgnore = item => setItems(prev => prev.filter(i => i.id !== item.id))
+  const handleIgnore = item =>
+    queryClient.setQueryData(['updates-feed'], prev =>
+      prev ? { ...prev, items: prev.items.filter(i => i.id !== item.id) } : prev
+    )
 
   const filteredItems =
     activeTab === 'all' ? items : items.filter(item => getUpdateType(item) === activeTab)
