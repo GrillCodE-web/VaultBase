@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { handleError } from '../utils/errorHandler.js'
 import { invoke } from '@tauri-apps/api/core'
 import {
@@ -54,19 +55,65 @@ export default function DashboardRedesigned({ onNavigate }) {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
-  const [stats, setStats] = useState(null)
-  const [chart, setChart] = useState([])
-  const [heatmap, setHeatmap] = useState([])
-  const [banks, setBanks] = useState([])
-  const [countries, setCountries] = useState([])
-  const [sources, setSources] = useState([])
-  const [domains, setDomains] = useState([]) // P2-DOMAIN: Domain statistics
-  const [expiring, setExpiring] = useState([])
-  const [recentOrders, setRecentOrders] = useState([])
-  const [binPerf, setBinPerf] = useState([])
+  // PERF-010: данные дашборда через TanStack Query — кеш по (period,from,to),
+  // дедуп одновременных загрузок, background refetch каждые 30с.
+  // Бандл из 10 invoke идёт параллельно, как раньше; rejected-части не роняют
+  // остальные виджеты (allSettled сохранён).
+  const dashQuery = useQuery({
+    queryKey: ['dashboard', period, from || null, to || null],
+    queryFn: async () => {
+      const p = { period, from: from || undefined, to: to || undefined }
+      try {
+        const [s, c, hm, b, co, so, dm, ex, ro, bp] = await Promise.allSettled([
+          invoke('get_dashboard_stats', p),
+          invoke('get_revenue_chart', p),
+          invoke('get_heatmap_data', p),
+          invoke('get_top_banks', p),
+          invoke('get_by_country', p),
+          invoke('get_by_source', p),
+          invoke('get_by_domain', p), // P2-DOMAIN: Domain statistics
+          invoke('get_expiring_cards_dashboard', { days: 30 }),
+          invoke('get_orders', { filter: {}, page: 1, perPage: 10 }),
+          invoke('get_bin_performance'),
+        ])
+        ;[s, c, hm, b, co, so, dm, ex, ro, bp].forEach((r, i) => {
+          if (r.status === 'rejected') console.warn('Dashboard load error [' + i + ']:', r.reason)
+        })
+        return {
+          stats: s.status === 'fulfilled' ? s.value : null,
+          chart: c.status === 'fulfilled' ? c.value : [],
+          heatmap: hm.status === 'fulfilled' ? hm.value : [],
+          banks: b.status === 'fulfilled' ? b.value : [],
+          countries: co.status === 'fulfilled' ? co.value : [],
+          sources: so.status === 'fulfilled' ? so.value : [],
+          domains: dm.status === 'fulfilled' ? dm.value : [],
+          expiring: ex.status === 'fulfilled' ? ex.value : [],
+          recentOrders: ro.status === 'fulfilled' ? (ro.value?.items ?? []) : [],
+          binPerf: bp.status === 'fulfilled' ? bp.value : [],
+        }
+      } catch (e) {
+        handleError(e)
+        throw e
+      }
+    },
+    refetchInterval: 30_000,
+  })
 
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const d = dashQuery.data
+  const stats = d?.stats ?? null
+  const chart = d?.chart ?? []
+  const heatmap = d?.heatmap ?? []
+  const banks = d?.banks ?? []
+  const countries = d?.countries ?? []
+  const sources = d?.sources ?? []
+  const domains = d?.domains ?? []
+  const expiring = d?.expiring ?? []
+  const recentOrders = d?.recentOrders ?? []
+  const binPerf = d?.binPerf ?? []
+
+  const loading = dashQuery.isPending
+  const refreshing = dashQuery.isFetching && !dashQuery.isPending
+
   const [exporting, setExporting] = useState(false)
 
   const [collapsed, setCollapsed] = useState({
@@ -90,75 +137,20 @@ export default function DashboardRedesigned({ onNavigate }) {
     })
   }, [])
 
-  const loadAll = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) setRefreshing(true)
-      const p = { period, from: from || undefined, to: to || undefined }
-      try {
-        const [s, c, hm, b, co, so, dm, ex, ro, bp] = await Promise.allSettled([
-          invoke('get_dashboard_stats', p),
-          invoke('get_revenue_chart', p),
-          invoke('get_heatmap_data', p),
-          invoke('get_top_banks', p),
-          invoke('get_by_country', p),
-          invoke('get_by_source', p),
-          invoke('get_by_domain', p), // P2-DOMAIN: Load domain statistics
-          invoke('get_expiring_cards_dashboard', { days: 30 }),
-          invoke('get_orders', { filter: {}, page: 1, perPage: 10 }),
-          invoke('get_bin_performance'),
-        ])
+  const loadAll = useCallback(() => dashQuery.refetch(), [dashQuery])
 
-        if (s.status === 'fulfilled') {
-          // Smart notification for significant changes
-          if (lastStatsRef.current && s.value) {
-            const prevRevenue = lastStatsRef.current.revenue || 0
-            const currRevenue = s.value.revenue || 0
-            const diff = Math.abs(currRevenue - prevRevenue)
-            if (diff > 100) {
-              toastInfo(`Revenue changed by $${diff.toFixed(2)}`, {
-                groupKey: 'revenue_change',
-              })
-            }
-          }
-          setStats(s.value)
-          lastStatsRef.current = s.value
-        }
-        if (c.status === 'fulfilled') setChart(c.value)
-        if (hm.status === 'fulfilled') setHeatmap(hm.value)
-        if (b.status === 'fulfilled') setBanks(b.value)
-        if (co.status === 'fulfilled') setCountries(co.value)
-        if (so.status === 'fulfilled') setSources(so.value)
-        if (dm.status === 'fulfilled') setDomains(dm.value) // P2-DOMAIN: Set domain stats
-        if (ex.status === 'fulfilled') setExpiring(ex.value)
-        if (ro.status === 'fulfilled') setRecentOrders(ro.value?.items ?? [])
-        if (bp.status === 'fulfilled') setBinPerf(bp.value)
-        ;[s, c, hm, b, co, so, dm, ex, ro, bp].forEach((r, i) => {
-          if (r.status === 'rejected') console.warn('Dashboard load error [' + i + ']:', r.reason)
-        })
-      } catch (e) {
-        handleError(e)
-        // Dashboard load failed
+  // Smart notification: значимое изменение revenue между опросами.
+  useEffect(() => {
+    const s = dashQuery.data?.stats
+    if (!s) return
+    if (lastStatsRef.current) {
+      const diff = Math.abs((s.revenue || 0) - (lastStatsRef.current.revenue || 0))
+      if (diff > 100) {
+        toastInfo(`Revenue changed by $${diff.toFixed(2)}`, { groupKey: 'revenue_change' })
       }
-      setLoading(false)
-      setRefreshing(false)
-    },
-    [period, from, to, toastInfo]
-  )
-
-  // Initial load + period change
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- установка loading-флага перед асинхронной загрузкой
-    setLoading(true)
-    loadAll()
-  }, [loadAll])
-
-  // Auto-refresh every 30s
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (!document.hidden) loadAll(true)
-    }, 30_000)
-    return () => clearInterval(id)
-  }, [loadAll])
+    }
+    lastStatsRef.current = s
+  }, [dashQuery.data, toastInfo])
 
   const handleExport = async () => {
     setExporting(true)
