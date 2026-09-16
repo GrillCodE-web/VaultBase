@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "vaultbase"
 version = "2.12.11"
 description = "VaultBase РІР‚вЂќ Desktop CRM for credit card operations"
@@ -32,7 +32,7 @@ r2d2_sqlite   = "0.24"
 hex           = "0.4"
 serde         = { version = "1", features = ["derive"] }
 serde_json    = "1"
-aes-gcm       = "0.10"
+aes-gcm       = "0.11"
 bcrypt        = "0.15"
 sha2          = "0.10"
 hkdf          = "0.12"   # MGR-004: HKDF-SHA256 Р Т‘Р В»РЎРЏ Р В·Р В°Р С—Р ВµРЎвЂЎР В°РЎвЂљР В°Р Р…Р Р…РЎвЂ№РЎвЂ¦ Р С”Р С•Р Р…Р Р†Р ВµРЎР‚РЎвЂљР С•Р Р† РЎвЂљР ВµР В»Р ВµР СР ВµРЎвЂљРЎР‚Р С‘Р С‘
