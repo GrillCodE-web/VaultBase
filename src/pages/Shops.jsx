@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Download, ExternalLink, Store } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLang } from '../hooks/useLang'
@@ -18,6 +19,9 @@ import { handleError, getErrorMessage } from '../utils/errorHandler.js'
 import { Modal } from '../components/Modal.jsx'
 
 // ─── ShopRiskBadge ────────────────────────────────────────────────────────
+
+// Стабильная пустая ссылка до первой загрузки (иначе новый массив на каждый рендер).
+const NO_ITEMS = []
 
 function ShopRiskBadge({ shopId }) {
   const [risk, setRisk] = useState(null)
@@ -540,31 +544,27 @@ function ShopWikiBlock({ shopId }) {
 // ─── Shop detail panel ────────────────────────────────────────────────────
 
 function ShopDetailPanel({ shopId, onNavigate }) {
-  const [detail, setDetail] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [productModal, setProductModal] = useState(null)
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const d = await invoke('get_shop', { id: shopId })
-      setDetail(d)
-    } catch (e) {
-      const error = handleError(e, 'Shops.loadDetail')
-      toast(getErrorMessage(error), 'error')
-    } finally {
-      setLoading(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shopId]) // toast is stable from useToast hook
+  // PERF-010: карточка магазина через TanStack Query — кэш по shopId.
+  const detailQuery = useQuery({
+    queryKey: ['shop', shopId],
+    queryFn: async () => invoke('get_shop', { id: shopId }),
+  })
+  const detail = detailQuery.data ?? null
+  const loading = detailQuery.isPending
+  const load = useCallback(() => detailQuery.refetch(), [detailQuery])
 
+  // Ошибка загрузки — один тост (раньше показывался из catch в load()).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- асинхронная загрузка магазинов
-    load()
-  }, [load])
+    if (detailQuery.isError) {
+      const error = handleError(detailQuery.error, 'Shops.loadDetail')
+      toast(getErrorMessage(error), 'error')
+    }
+  }, [detailQuery.isError, detailQuery.error, toast])
 
   const handleAddProduct = async payload => {
     await invoke('add_shop_product', { shopId, product: payload })
@@ -822,19 +822,56 @@ function ShopDetailPanel({ shopId, onNavigate }) {
 // ─── Main ShopList ────────────────────────────────────────────────────────
 
 export default function ShopList({ onNavigate }) {
-  const [shops, setShops] = useState([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const search = useDebounce(searchInput, 300)
   const [expanded, setExpanded] = useState(null)
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(new Set())
-  const [winLossMap, setWinLossMap] = useState({})
   const { toast } = usePremiumToast()
   const { confirm } = useConfirm()
   const { t } = useLang()
+
+  // PERF-010: список магазинов через TanStack Query — кэш по (page, search),
+  // дедуп загрузок; keepPreviousData — без мигания при смене страницы.
+  const shopsQuery = useQuery({
+    queryKey: ['shops', page, search],
+    queryFn: async () =>
+      invoke('get_shops', { page, perPage: DEFAULT_PAGE_SIZE, search: search || '' }),
+    placeholderData: keepPreviousData,
+  })
+  const shops = shopsQuery.data?.items ?? NO_ITEMS
+  const total = shopsQuery.data?.total ?? 0
+  const loading = shopsQuery.isPending
+  const load = useCallback(() => shopsQuery.refetch(), [shopsQuery])
+
+  // Ошибка загрузки — один тост (раньше показывался из catch в load()).
+  useEffect(() => {
+    if (shopsQuery.isError) {
+      const error = handleError(shopsQuery.error, 'Shops.load')
+      toast(getErrorMessage(error), 'error')
+    }
+  }, [shopsQuery.isError, shopsQuery.error, toast])
+
+  // Win/loss статистика по магазинам — отдельный запрос, кэш по ключу.
+  const winLossQuery = useQuery({
+    queryKey: ['shop-win-loss'],
+    queryFn: async () => invoke('get_shop_win_loss'),
+  })
+  const winLossMap = useMemo(() => {
+    const m = {}
+    ;(winLossQuery.data ?? []).forEach(r => {
+      m[r.shop_id] = r
+    })
+    return m
+  }, [winLossQuery.data])
+
+  useEffect(() => {
+    if (winLossQuery.isError) {
+      // FIX FE-H05: Log shop win/loss errors instead of silently ignoring
+      console.error('[Shops] Failed to get shop win/loss:', winLossQuery.error)
+    }
+  }, [winLossQuery.isError, winLossQuery.error])
 
   // Virtualization setup - disable when any row is expanded
   const parentRef = useRef(null)
@@ -848,42 +885,6 @@ export default function ShopList({ onNavigate }) {
     estimateSize: () => 60,
     overscan: SHOPS_OVERSCAN,
   })
-
-  const load = useCallback(
-    async (p = page, s = search) => {
-      setLoading(true)
-      try {
-        const r = await invoke('get_shops', {
-          page: p,
-          perPage: DEFAULT_PAGE_SIZE,
-          search: s || '',
-        })
-        setShops(r.items)
-        setTotal(r.total)
-      } catch (e) {
-        const error = handleError(e, 'Shops.load')
-        toast(getErrorMessage(error), 'error')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [page, search, toast]
-  )
-
-  useEffect(() => {
-    load(1, search)
-    // FIX FE-H05: Log shop win/loss errors instead of silently ignoring
-    invoke('get_shop_win_loss')
-      .then(rows => {
-        const m = {}
-        rows.forEach(r => {
-          m[r.shop_id] = r
-        })
-        setWinLossMap(m)
-      })
-      .catch(e => console.error('[Shops] Failed to get shop win/loss:', e))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]) // Reload when debounced search changes
 
   const handleCreate = async form => {
     await invoke('create_shop', { input: form })
@@ -951,7 +952,7 @@ export default function ShopList({ onNavigate }) {
           className="search-box w-[260px]"
           value={searchInput}
           onChange={e => setSearchInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && load(1, searchInput)}
+          onKeyDown={e => e.key === 'Enter' && setPage(1)}
           placeholder={t('shops_search_placeholder')}
         />
 
@@ -1395,7 +1396,6 @@ export default function ShopList({ onNavigate }) {
               onClick={() => {
                 const np = Math.max(1, page - 1)
                 setPage(np)
-                load(np, search)
               }}
               disabled={page === 1}
             >
@@ -1406,7 +1406,6 @@ export default function ShopList({ onNavigate }) {
                 key={p}
                 onClick={() => {
                   setPage(p)
-                  load(p, search)
                 }}
                 className={p === page ? 'btn btn-page-active btn-sm' : 'btn btn-ghost btn-sm'}
               >
@@ -1418,7 +1417,6 @@ export default function ShopList({ onNavigate }) {
               onClick={() => {
                 const np = Math.min(totalPages, page + 1)
                 setPage(np)
-                load(np, search)
               }}
               disabled={page >= totalPages}
             >
