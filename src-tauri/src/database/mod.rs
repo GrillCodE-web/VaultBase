@@ -31,19 +31,19 @@ pub struct Database {
     pub autolock_timeout: Option<Duration>,
 }
 
-include!("_core.rs");
-include!("_cards.rs");
-include!("_analytics.rs");
-include!("_imap.rs");
-include!("_profiles.rs");
-include!("_upanel.rs");
-include!("_shops.rs");
-include!("_orders.rs");
-include!("_chat.rs");
-include!("_stuffer.rs");
-include!("_misc.rs");
-include!("_automation.rs");
-include!("_users.rs");
-include!("_helpers.rs");
-include!("_seed.rs");
-include!("_migrations.rs");
+include!("imp.core.rs");
+include!("imp.cards.rs");
+include!("imp.analytics.rs");
+include!("imp.imap.rs");
+include!("imp.profiles.rs");
+include!("imp.upanel.rs");
+include!("imp.shops.rs");
+include!("imp.orders.rs");
+include!("imp.chat.rs");
+include!("imp.stuffer.rs");
+include!("imp.misc.rs");
+include!("imp.automation.rs");
+include!("imp.users.rs");
+include!("imp.helpers.rs");
+include!("imp.seed.rs");
+include!("imp.migrations.rs");
