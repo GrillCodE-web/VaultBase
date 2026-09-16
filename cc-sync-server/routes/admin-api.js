@@ -4,6 +4,7 @@ const { getDb, hashToken, getServerConfig, setServerConfig } = require('../datab
 const { requireAdmin } = require('../middleware');
 const { deriveActivationKey, normalizeChallenge } = require('./activate');
 const cache = require('../cache');
+const logger = require('../logger');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -171,9 +172,9 @@ router.delete('/versions/:version', (req, res) => {
       fs.unlinkSync(filepath);
     } catch (e) {
       if (e.code === 'ENOENT') {
-        console.warn(`[admin-api] release binary already absent: ${filename}`);
+        logger.warn({ filename }, '[admin-api] release binary already absent');
       } else {
-        console.error(`[admin-api] failed to delete release binary ${filename} (${e.code}): ${e.message}`);
+        logger.error({ filename, code: e.code, err: e.message }, '[admin-api] failed to delete release binary');
       }
     }
   }

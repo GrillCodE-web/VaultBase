@@ -17,6 +17,7 @@
 const express = require('express');
 const { getDb } = require('../database');
 const { requireManagerToken, requireWorkerToken } = require('../middleware');
+const logger = require('../logger');
 
 const MAX_SLICES_PER_ISSUE = 200;
 const MAX_SEALED_LEN = 16 * 1024;
@@ -40,7 +41,7 @@ function audit(action, details) {
       JSON.stringify(details)
     );
   } catch (e) {
-    console.error('[worker-assets] audit insert failed:', e.message);
+    logger.error({ err: e.message }, '[worker-assets] audit insert failed');
   }
 }
 

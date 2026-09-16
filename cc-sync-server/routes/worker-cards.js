@@ -16,6 +16,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { getDb } = require('../database');
+const logger = require('../logger');
 const { requireManagerToken, requireWorkerToken } = require('../middleware');
 
 const MAX_SLICES_PER_ISSUE = 100;
@@ -36,7 +37,7 @@ function audit(action, details) {
       JSON.stringify(details)
     );
   } catch (e) {
-    console.error('[worker-cards] audit insert failed:', e.message);
+    logger.error({ err: e.message }, '[worker-cards] audit insert failed');
   }
 }
 

@@ -8,6 +8,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
 const { requireToken } = require('../middleware');
+const logger = require('../logger');
 
 const BIN_DB_PATH = process.env.BIN_DB || path.join(__dirname, '../bin_cache.db');
 const binDb = new Database(BIN_DB_PATH);
@@ -80,7 +81,7 @@ router.get('/:bin', requireToken, (req, res) => {
       const decrypted = decryptBinData(row.data_enc, row.iv, row.auth_tag);
       return res.json(decrypted);
     } catch (e) {
-      console.error('BIN decryption error:', e.message);
+      logger.error({ err: e.message }, 'BIN decryption error');
       return res.status(500).json({ error: 'decryption_failed' });
     }
   }
@@ -102,7 +103,7 @@ router.post('/', requireToken, (req, res) => {
     ).run(cleanBin, encrypted, iv, authTag, now);
     res.json({ ok: true });
   } catch (e) {
-    console.error('BIN encryption error:', e.message);
+    logger.error({ err: e.message }, 'BIN encryption error');
     res.status(500).end();
   }
 });

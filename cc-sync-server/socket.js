@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const { getDb, hashToken, isKillSwitchOn } = require('./database');
 const { applyCardPush, MAX_CARDS_PER_BATCH } = require('./card-push');
 const { registerViolation, isBanned, makeWindowCounter } = require('./rate-limit');
+const logger = require('./logger');
 
 const activeConnections = new Map();
 const eventLog = [];
@@ -140,7 +141,7 @@ function initSocket(httpServer) {
       try {
         results = applyCardPush(db, socket.groupId, socket.installationId, cards);
       } catch (e) {
-        console.error('[socket] card push transaction failed:', e.message);
+        logger.error({ err: e.message }, '[socket] card push transaction failed');
         socket.emit('error', { message: 'push_failed' });
         return;
       }

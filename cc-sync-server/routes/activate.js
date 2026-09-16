@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { getDb, hashToken, isKillSwitchOn } = require('../database');
+const logger = require('../logger');
 
 const router = express.Router();
 
@@ -121,7 +122,7 @@ router.post('/', activateLimiter, (req, res) => {
       db.prepare('INSERT INTO audit_log (action, details) VALUES (?, ?)')
         .run('worker_key_register', JSON.stringify({ installation_id, source: 'activation' }));
     } catch (e) {
-      console.error('[activate] worker key registration failed:', e.message);
+      logger.error({ err: e.message }, '[activate] worker key registration failed');
     }
   }
 

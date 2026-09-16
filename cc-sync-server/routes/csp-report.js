@@ -2,6 +2,7 @@
 // Репорты только логируются — это телеметрия об ошибках конфигурации CSP,
 // а не действие; ничего не сохраняем в БД.
 const express = require('express');
+const logger = require('../logger');
 const router = express.Router();
 
 const parseReport = express.json({
@@ -17,7 +18,7 @@ router.post('/', parseReport, (req, res) => {
   if (!report || typeof report !== 'object' || Object.keys(report).length === 0) {
     return res.status(400).json({ error: 'invalid_report' });
   }
-  console.warn('[csp-report]', JSON.stringify(report).slice(0, 2000));
+  logger.warn({ report: JSON.stringify(report).slice(0, 2000) }, '[csp-report]');
   // 204 — нечего возвращать; ошибка клиенту тут не нужна.
   res.status(204).end();
 });

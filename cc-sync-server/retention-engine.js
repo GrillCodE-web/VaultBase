@@ -5,6 +5,7 @@
 //   - worker_heartbeat_history — история тиков heartbeat.
 // worker_heartbeats не растёт (одна строка на воркера) и не трогается.
 const { getDb } = require('./database');
+const logger = require('./logger');
 
 const REPORTS_RETENTION_DAYS = Math.max(7, parseInt(process.env.TELEMETRY_RETENTION_DAYS || '45', 10) || 45);
 const HB_HISTORY_RETENTION_DAYS = Math.max(7, parseInt(process.env.HB_HISTORY_RETENTION_DAYS || '30', 10) || 30);
@@ -22,11 +23,11 @@ function tick() {
       .prepare("DELETE FROM worker_heartbeat_history WHERE ts < datetime('now', ?)")
       .run(`-${HB_HISTORY_RETENTION_DAYS} days`);
     if (reports.changes > 0 || hb.changes > 0) {
-      console.log(`[retention] stats_reports -${reports.changes}, hb_history -${hb.changes}`);
+      logger.info({ stats_reports: reports.changes, hb_history: hb.changes }, '[retention] purge done');
     }
     return { reports: reports.changes, hb_history: hb.changes };
   } catch (e) {
-    console.error('[retention] tick failed:', e.message);
+    logger.error({ err: e.message }, '[retention] tick failed');
     return { reports: 0, hb_history: 0 };
   }
 }

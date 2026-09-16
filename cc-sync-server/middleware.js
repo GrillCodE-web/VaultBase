@@ -1,5 +1,6 @@
 const auth = require('./auth');
 const { getDb, hashToken, isKillSwitchOn } = require('./database');
+const logger = require('./logger');
 
 // Shared token authentication for license-token channels.
 //
@@ -75,7 +76,7 @@ function authenticateToken(req, rolePolicy) {
       return { status: 0, installation_id: row.installation_id, role: row.role, token };
     })();
   } catch (e) {
-    console.error('[middleware/authenticateToken] Transaction error:', e);
+    logger.error({ err: e.stack || e.message }, '[middleware/authenticateToken] Transaction error');
     return { status: 500, body: { error: 'database_error' } };
   }
 }
@@ -110,11 +111,11 @@ function requireWorkerToken(req, res, next) {
  */
 function requireAdmin(req, res, next) {
   if (!process.env.ADMIN_PASS) {
-    console.error('CRITICAL: ADMIN_PASS environment variable is not set. Admin API disabled for security.');
+    logger.error('CRITICAL: ADMIN_PASS environment variable is not set. Admin API disabled for security.');
     return res.status(503).json({ error: 'admin_not_configured' });
   }
   if (process.env.ADMIN_PASS.length < 12) {
-    console.error('WARNING: ADMIN_PASS is too short. Use at least 12 characters for security.');
+    logger.error('WARNING: ADMIN_PASS is too short. Use at least 12 characters for security.');
   }
 
   const cookie = auth.readCookie(req, auth.COOKIE_NAME);

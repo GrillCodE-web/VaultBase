@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const path = require('path');
+const logger = require('./logger');
 
 // SEC ETAP-A П.33: шифрование БД сервера в покое.
 // Если задан DB_ENCRYPTION_KEY — используем better-sqlite3-multiple-ciphers
@@ -873,7 +874,7 @@ function closeDb() {
   try {
     db.close();
   } catch (e) {
-    console.error('[database] error closing SQLite handle:', e.message);
+    logger.error({ err: e.message }, '[database] error closing SQLite handle');
   } finally {
     db = null;
   }

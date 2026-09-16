@@ -1,6 +1,7 @@
 const express = require('express');
 const { getDb } = require('../database');
 const cache = require('../cache');
+const logger = require('../logger');
 
 const router = express.Router();
 
@@ -87,7 +88,7 @@ router.post('/validate', (req, res) => {
       files,
     });
   } catch (e) {
-    console.error('[invite/validate] Transaction error:', e);
+    logger.error({ err: e.stack || e.message }, '[invite/validate] Transaction error');
     return res.status(500).json({ error: 'database_error' });
   }
 });

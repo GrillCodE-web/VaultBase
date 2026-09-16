@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { getDb } = require('../database');
+const logger = require('../logger');
 
 const router = express.Router();
 
@@ -134,7 +135,7 @@ router.get('/', (req, res) => {
   } catch (e) {
     // release_files может отсутствовать на старых БД — не роняем апдейтер,
     // просто откатываемся на одиночную платформу из versions ниже.
-    console.error('[update] release_files query failed:', e.message);
+    logger.error({ err: e.message }, '[update] release_files query failed');
   }
 
   for (const r of rows) {

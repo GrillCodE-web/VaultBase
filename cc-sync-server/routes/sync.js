@@ -4,6 +4,7 @@ const { requireToken } = require('../middleware');
 const { applyCardPush, CardCreateForbiddenError, MAX_CARDS_PER_BATCH } = require('../card-push');
 const { sanitizeCourierTag, applyCourierTag } = require('../courier-tags');
 const rateLimit = require('express-rate-limit');
+const logger = require('../logger');
 
 // Max 10 join attempts per IP per 15 minutes (pair codes expire in 15min)
 const joinLimiter = rateLimit({
@@ -110,7 +111,7 @@ router.post('/cards', (req, res) => {
     if (e instanceof CardCreateForbiddenError) {
       return res.status(403).json({ error: 'cards_import_disabled', rejected: e.hashes.length });
     }
-    console.error('[sync/cards] batch transaction failed:', e.message);
+    logger.error({ err: e.message }, '[sync/cards] batch transaction failed');
     return res.status(500).json({ error: 'push_failed' });
   }
 
@@ -148,7 +149,7 @@ router.post('/courier_tag', (req, res) => {
   try {
     applyCourierTag(db, member.group_id, installation_id, row);
   } catch (e) {
-    console.error('[sync/courier_tag] upsert failed:', e.message);
+    logger.error({ err: e.message }, '[sync/courier_tag] upsert failed');
     return res.status(500).json({ error: 'push_failed' });
   }
 

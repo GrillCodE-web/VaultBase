@@ -5,6 +5,7 @@
 // read the payloads. Only timing-based signals (no heartbeat) are detectable
 // here, because timestamps are the only plaintext part of a heartbeat.
 const { getDb } = require('./database');
+const logger = require('./logger');
 
 const OFFLINE_MINUTES = Math.max(1, parseInt(process.env.MANAGER_OFFLINE_MINUTES || '10', 10) || 10);
 
@@ -58,10 +59,10 @@ function tick() {
     }
 
     if (changed && typeof onChange === 'function') {
-      try { onChange(); } catch (e) { console.error('[alerts-engine] onChange failed:', e.message); }
+      try { onChange(); } catch (e) { logger.error({ err: e.message }, '[alerts-engine] onChange failed'); }
     }
   } catch (e) {
-    console.error('[alerts-engine] tick failed:', e.message);
+    logger.error({ err: e.message }, '[alerts-engine] tick failed');
   }
 }
 

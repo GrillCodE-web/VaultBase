@@ -26,6 +26,7 @@
 const express = require('express');
 const crypto = require('node:crypto');
 const { getDb } = require('../database');
+const logger = require('../logger');
 const { requireManagerToken, requireWorkerToken } = require('../middleware');
 
 const MAX_ENVELOPES_PER_SEND = 50;
@@ -59,7 +60,7 @@ function audit(action, details) {
       JSON.stringify(details)
     );
   } catch (e) {
-    console.error('[chat] audit insert failed:', e.message);
+    logger.error({ err: e.message }, '[chat] audit insert failed');
   }
 }
 
@@ -108,7 +109,7 @@ function purgeExpired(db) {
   try {
     db.prepare("DELETE FROM chat_messages WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')").run();
   } catch (e) {
-    console.error('[chat] purge failed:', e.message);
+    logger.error({ err: e.message }, '[chat] purge failed');
   }
 }
 
@@ -117,7 +118,7 @@ function purgeExpiredBlobs(db) {
   try {
     db.prepare("DELETE FROM chat_blobs WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')").run();
   } catch (e) {
-    console.error('[chat] blob purge failed:', e.message);
+    logger.error({ err: e.message }, '[chat] blob purge failed');
   }
 }
 

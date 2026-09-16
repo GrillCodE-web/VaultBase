@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const logger = require('../logger');
 
 function getCatalogDb(readonly = true) {
   const dbPath = path.join(__dirname, '..', 'catalog.db');
@@ -13,7 +14,7 @@ function getCatalogDb(readonly = true) {
     // The file exists but could not be opened: corrupt/truncated DB (SQLITE_NOTADB),
     // wrong permissions, or a write handle requested on a read-only mount. Callers
     // degrade to an empty catalog, so surface the cause here or it is invisible.
-    console.error(`[catalog] cannot open catalog.db (readonly=${readonly}): ${e.message}`);
+    logger.error({ readonly, err: e.message }, '[catalog] cannot open catalog.db');
     return null;
   }
 }
@@ -26,7 +27,7 @@ function closeQuietly(db) {
   try {
     db.close();
   } catch (e) {
-    console.error(`[catalog] failed to close catalog.db handle: ${e.message}`);
+    logger.error({ err: e.message }, '[catalog] failed to close catalog.db handle');
   }
 }
 

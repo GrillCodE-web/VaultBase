@@ -2,6 +2,7 @@ const express = require('express');
 const { getDb } = require('../database');
 const { requireManagerToken } = require('../middleware');
 const { deriveActivationKey, normalizeChallenge } = require('./activate');
+const logger = require('../logger');
 
 const router = express.Router();
 router.use(requireManagerToken);
@@ -17,7 +18,7 @@ function audit(managerIid, action, details) {
       JSON.stringify({ manager: managerIid, ...details })
     );
   } catch (e) {
-    console.error('[manager-api] audit insert failed:', e.message);
+    logger.error({ err: e.message }, '[manager-api] audit insert failed');
   }
 }
 
@@ -37,7 +38,7 @@ function notifyManagers(message) {
   try {
     require('../ws-tauri').broadcastToManagers(message);
   } catch (e) {
-    console.error('[manager-api] notifyManagers failed:', e.message);
+    logger.error({ err: e.message }, '[manager-api] notifyManagers failed');
   }
 }
 

@@ -15,6 +15,7 @@
 const crypto = require('crypto');
 const { getDb, hashToken, isKillSwitchOn, isWsNonceRequired } = require('./database');
 const { applyCardPush, CardCreateForbiddenError, MAX_CARDS_PER_BATCH } = require('./card-push');
+const logger = require('./logger');
 const { registerViolation, isBanned, makeWindowCounter, pruneViolations, _clearViolationsForTest } = require('./rate-limit');
 
 // Map: installation_id → WebSocket
@@ -53,7 +54,7 @@ function touchLastSeen(iid, { force = false } = {}) {
   try {
     getDb().prepare('UPDATE licenses SET last_seen = CURRENT_TIMESTAMP WHERE installation_id = ?').run(iid);
   } catch (e) {
-    console.error('[ws-tauri] last_seen touch failed:', e.message);
+    logger.error({ err: e.message }, '[ws-tauri] last_seen touch failed');
   }
 }
 
@@ -181,7 +182,7 @@ module.exports = function initWsTauri(wss, io) {
         } catch (e) {
           // A failing DB (locked, IO error) must answer the client instead of an
           // uncaught throw that leaves the socket hanging until auth_timeout.
-          console.error('[ws-tauri] auth transaction failed:', e.message);
+          logger.error({ err: e.message }, '[ws-tauri] auth transaction failed');
           send(ws, { type: 'auth_error', error: 'internal_error' });
           ws.close();
           return;
@@ -271,7 +272,7 @@ module.exports = function initWsTauri(wss, io) {
             'SELECT provider, courier_hash, tag, action, updated_by, updated_at FROM sync_courier_tags WHERE group_id = ? ORDER BY updated_at DESC'
           ).all(ws.groupId);
         } catch (e) {
-          console.error('[ws-tauri] full_pull failed:', e.message);
+          logger.error({ err: e.message }, '[ws-tauri] full_pull failed');
           send(ws, { type: 'error', error: 'internal_error' });
           return;
         }
@@ -300,7 +301,7 @@ module.exports = function initWsTauri(wss, io) {
             send(ws, { type: 'error', error: 'cards_import_disabled' });
             return;
           }
-          console.error('[ws-tauri] card push transaction failed:', e.message);
+          logger.error({ err: e.message }, '[ws-tauri] card push transaction failed');
           send(ws, { type: 'error', error: 'push_failed' });
           return;
         }
@@ -327,7 +328,7 @@ module.exports = function initWsTauri(wss, io) {
         try {
           member = db.prepare('SELECT group_id FROM sync_group_members WHERE installation_id = ?').get(ws.installationId);
         } catch (e) {
-          console.error('[ws-tauri] refresh_group failed:', e.message);
+          logger.error({ err: e.message }, '[ws-tauri] refresh_group failed');
           send(ws, { type: 'error', error: 'internal_error' });
           return;
         }
@@ -360,10 +361,10 @@ module.exports = function initWsTauri(wss, io) {
     ws.on('error', (err) => {
       const iid = ws.installationId || 'unauthenticated';
       if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
-        console.warn(`[ws-tauri] client ${iid} dropped connection: ${err.code}`);
+        logger.warn({ iid, code: err.code }, '[ws-tauri] client dropped connection');
         return;
       }
-      console.error(`[ws-tauri] socket error for ${iid}: ${err.message}`);
+      logger.error({ iid, err: err.message }, '[ws-tauri] socket error');
     });
   });
 

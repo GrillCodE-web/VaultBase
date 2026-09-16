@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const auth = require('../auth');
+const logger = require('../logger');
 
 const router = express.Router();
 
@@ -28,17 +29,13 @@ router.get('/login', (req, res) => {
 
 router.post('/login', loginLimiter, express.json(), (req, res) => {
   if (!process.env.ADMIN_PASS) {
-    console.error('CRITICAL: ADMIN_PASS not set; login rejected.');
+    logger.error('CRITICAL: ADMIN_PASS not set; login rejected.');
     return res.status(503).json({ error: 'admin_not_configured' });
   }
 
   const { username, password } = req.body || {};
   if (!auth.credentialsValid(username, password)) {
-    console.warn(JSON.stringify({
-      event: 'admin_login_failed',
-      ip: req.ip,
-      ts: new Date().toISOString(),
-    }));
+    logger.warn({ event: 'admin_login_failed', ip: req.ip });
     return res.status(401).json({ error: 'invalid_credentials' });
   }
 
@@ -46,11 +43,7 @@ router.post('/login', loginLimiter, express.json(), (req, res) => {
   if (!session) return res.status(503).json({ error: 'admin_not_configured' });
 
   auth.setSessionCookie(req, res, session);
-  console.log(JSON.stringify({
-    event: 'admin_login_ok',
-    ip: req.ip,
-    ts: new Date().toISOString(),
-  }));
+  logger.info({ event: 'admin_login_ok', ip: req.ip });
   res.json({ ok: true });
 });
 

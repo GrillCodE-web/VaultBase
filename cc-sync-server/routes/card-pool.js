@@ -27,6 +27,7 @@
 const express = require('express');
 const { getDb } = require('../database');
 const { requireManagerToken, requireWorkerToken } = require('../middleware');
+const logger = require('../logger');
 
 const MAX_POOL_UPLOAD = 100;
 const MAX_RESERVE_PER_CALL = 50;
@@ -53,7 +54,7 @@ function audit(action, details) {
       JSON.stringify(details)
     );
   } catch (e) {
-    console.error('[card-pool] audit insert failed:', e.message);
+    logger.error({ err: e.message }, '[card-pool] audit insert failed');
   }
 }
 
