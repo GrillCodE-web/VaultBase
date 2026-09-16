@@ -123,7 +123,7 @@ pub fn check_usps_tracking(tracking: &str) -> Result<TrackingStatus, String> {
     let encoded_xml = urlencoding::encode(&xml_request);
     let url = crate::constants::TRACKING_USPS_URL.replacen("{}", &encoded_xml, 1);
 
-    let resp = ureq::get(&url)
+    let resp = crate::http_client::get(&url)
         .timeout(std::time::Duration::from_secs(10))
         .call();
 
@@ -272,7 +272,7 @@ pub fn check_ups_tracking(tracking: &str) -> Result<TrackingStatus, String> {
     // FIX CRITICAL: Use constant for UPS tracking URL
     let url = crate::constants::TRACKING_UPS_URL.replacen("{}", tracking, 1);
 
-    let resp = ureq::get(&url)
+    let resp = crate::http_client::get(&url)
         .set("Authorization", &format!("Bearer {}", token))
         .set("transId", "123")
         .set("transactionSrc", "vaultbase")
@@ -301,7 +301,7 @@ fn get_ups_oauth_token(client_id: String, client_secret: String) -> Result<Strin
         encoded_id, encoded_secret
     );
 
-    let resp = ureq::post(url)
+    let resp = crate::http_client::post(url)
         .set("Content-Type", "application/x-www-form-urlencoded")
         .send_string(&body);
 
@@ -476,7 +476,7 @@ pub fn check_fedex_tracking(tracking: &str) -> Result<TrackingStatus, String> {
     });
 
     // FIX CRITICAL: Use constant for FedEx tracking URL
-    let resp = ureq::post(url)
+    let resp = crate::http_client::post(url)
         .set("Authorization", &format!("Bearer {api_key}"))
         .set("client_api_key", &api_key)
         .set("Content-Type", "application/json")

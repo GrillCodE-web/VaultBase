@@ -673,7 +673,7 @@ const HEARTBEAT_TIMEOUT_SECS: u64 = 10;
 /// Активные менеджерские ключи (`GET /api/telemetry/keys` → `{keys:[...]}`).
 /// Сервер принимает ≤8 конвертов — обрезаем список так же.
 fn fetch_manager_keys(token: &str) -> Result<Vec<TelemetryManagerKey>, String> {
-    let resp = ureq::get(&crate::endpoints::endpoint("/api/telemetry/keys"))
+    let resp = crate::http_client::get(&crate::endpoints::endpoint("/api/telemetry/keys"))
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
         .call()
@@ -1020,7 +1020,7 @@ impl TelemetryHeartbeatResult {
 /// wipe повторится на следующем heartbeat.
 fn send_wipe_ack(token: &str, envelopes: &serde_json::Value) {
     let body = serde_json::json!({ "envelopes": envelopes, "wipe_ack": true });
-    let _ = ureq::post(&crate::endpoints::endpoint("/api/telemetry/heartbeat"))
+    let _ = crate::http_client::post(&crate::endpoints::endpoint("/api/telemetry/heartbeat"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .set("X-App-Version", env!("CARGO_PKG_VERSION"))
@@ -1049,7 +1049,7 @@ pub(crate) fn send_heartbeat(db: &mut Database) -> TelemetryHeartbeatResult {
     } else {
         serde_json::json!({ "envelopes": envelopes })
     };
-    let resp = ureq::post(&crate::endpoints::endpoint("/api/telemetry/heartbeat"))
+    let resp = crate::http_client::post(&crate::endpoints::endpoint("/api/telemetry/heartbeat"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .set("X-App-Version", env!("CARGO_PKG_VERSION"))
@@ -1169,7 +1169,7 @@ fn outbox_flush(db: &Database, token: &str, max: usize) -> usize {
     };
     let mut ok_n = 0;
     for (id, body_json) in rows {
-        let resp = ureq::post(&crate::endpoints::endpoint("/api/telemetry/report"))
+        let resp = crate::http_client::post(&crate::endpoints::endpoint("/api/telemetry/report"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
@@ -1200,7 +1200,7 @@ pub(crate) fn send_daily_stats(db: &mut Database, date: &str) -> TelemetryReport
     let payload = build_daily_stats(db, date);
     let envelopes = match seal_for_managers(&keys, &payload) { Ok(e) => e, Err(e) => return fail(&e) };
     let body = serde_json::json!({ "kind": "daily_stats", "date": date, "envelopes": envelopes });
-    let result = match ureq::post(&crate::endpoints::endpoint("/api/telemetry/report"))
+    let result = match crate::http_client::post(&crate::endpoints::endpoint("/api/telemetry/report"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
@@ -1347,7 +1347,7 @@ pub(crate) async fn telemetry_tick(app: tauri::AppHandle, force: Option<bool>) -
 /// GET-запрос к telemetry API с Bearer-токеном; возвращает распарсенный JSON.
 fn telemetry_get(db: &Database, path: &str) -> Result<serde_json::Value, String> {
     let token = worker_token(db)?;
-    ureq::get(&crate::endpoints::endpoint(path))
+    crate::http_client::get(&crate::endpoints::endpoint(path))
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HEARTBEAT_TIMEOUT_SECS))
         .call()

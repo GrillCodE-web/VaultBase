@@ -166,7 +166,7 @@ fn parse_peer_book(db: &Database, body: &Value) -> PeerBook {
 }
 
 fn fetch_peer_book(db: &Database, token: &str) -> Result<PeerBook, String> {
-    let resp = ureq::get(&crate::endpoints::endpoint("/sync/chat/peers"))
+    let resp = crate::http_client::get(&crate::endpoints::endpoint("/sync/chat/peers"))
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()
@@ -242,7 +242,7 @@ fn try_online_send(
     priority: bool,
     attachment: Option<&Value>,
 ) -> Result<(String, Vec<(String, i64)>), SendFail> {
-    let resp = ureq::get(&crate::endpoints::endpoint("/sync/chat/peers"))
+    let resp = crate::http_client::get(&crate::endpoints::endpoint("/sync/chat/peers"))
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()
@@ -303,7 +303,7 @@ fn try_online_send(
             req_body["ttl_hours"] = json!(h);
         }
     }
-    let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/send"))
+    let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/send"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -337,7 +337,7 @@ fn try_online_send(
 /// mgt: состав пользовательской комнаты по её room-ключу (GET /sync/chat/rooms).
 /// Нужен fan-out'у: адресуем строго членам комнаты, а не всей группе.
 fn fetch_room_members(token: &str, room: &str) -> Result<Vec<String>, String> {
-    let resp = ureq::get(&crate::endpoints::endpoint("/sync/chat/rooms"))
+    let resp = crate::http_client::get(&crate::endpoints::endpoint("/sync/chat/rooms"))
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()
@@ -434,7 +434,7 @@ pub(crate) async fn chat_rooms_list() -> Result<Value, String> {
             return Err("database_locked".into());
         }
         let token = auth_token(db)?;
-        let resp = ureq::get(&crate::endpoints::endpoint("/sync/chat/rooms"))
+        let resp = crate::http_client::get(&crate::endpoints::endpoint("/sync/chat/rooms"))
             .set("Authorization", &format!("Bearer {}", token))
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
             .call()
@@ -504,7 +504,7 @@ pub(crate) async fn chat_blob_upload(room: String, path: String) -> Result<Value
             if let Some(h) = ttl {
                 body["ttlHours"] = json!(h);
             }
-            let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/blob/upload"))
+            let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/blob/upload"))
                 .set("Authorization", &format!("Bearer {}", token))
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -552,7 +552,7 @@ pub(crate) async fn chat_blob_fetch(blob_id: String, key: String, nonce: String)
             return Err("database_locked".into());
         }
         let token = auth_token(db)?;
-        let resp = ureq::get(&crate::endpoints::endpoint(&format!("/sync/chat/blob/{blob_id}")))
+        let resp = crate::http_client::get(&crate::endpoints::endpoint(&format!("/sync/chat/blob/{blob_id}")))
             .set("Authorization", &format!("Bearer {}", token))
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
             .call()
@@ -601,7 +601,7 @@ pub(crate) async fn chat_room_create(title: String, members: Vec<String>) -> Res
         }
         let token = auth_token(db)?;
         let body = json!({ "title": title, "members": members }).to_string();
-        let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/rooms"))
+        let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/rooms"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -626,7 +626,7 @@ pub(crate) async fn chat_room_members(
         }
         let token = auth_token(db)?;
         let body = json!({ "room": room, "add": add, "remove": remove }).to_string();
-        let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/rooms/members"))
+        let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/rooms/members"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -651,7 +651,7 @@ pub(crate) async fn chat_pins_list(room: String) -> Result<Value, String> {
             crate::endpoints::endpoint("/sync/chat/pins"),
             urlencoding::encode(&room)
         );
-        let resp = ureq::get(&url)
+        let resp = crate::http_client::get(&url)
             .set("Authorization", &format!("Bearer {}", token))
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
             .call()
@@ -671,7 +671,7 @@ pub(crate) async fn chat_pin_set(room: String, message_id: i64, pinned: bool) ->
         }
         let token = auth_token(db)?;
         let body = json!({ "room": room, "message_id": message_id, "pinned": pinned }).to_string();
-        let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/pins"))
+        let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/pins"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -696,7 +696,7 @@ pub(crate) async fn chat_reactions_list(room: String) -> Result<Value, String> {
             crate::endpoints::endpoint("/sync/chat/reactions"),
             urlencoding::encode(&room)
         );
-        let resp = ureq::get(&url)
+        let resp = crate::http_client::get(&url)
             .set("Authorization", &format!("Bearer {}", token))
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
             .call()
@@ -716,7 +716,7 @@ pub(crate) async fn chat_reaction_set(room: String, message_id: i64, emoji: Stri
         }
         let token = auth_token(db)?;
         let body = json!({ "room": room, "message_id": message_id, "emoji": emoji }).to_string();
-        let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/reactions"))
+        let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/reactions"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -741,7 +741,7 @@ pub(crate) async fn chat_set_label(label: String) -> Result<Value, String> {
         }
         let token = auth_token(db)?;
         let body = json!({ "label": label }).to_string();
-        let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/profile"))
+        let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/profile"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -1070,7 +1070,7 @@ pub(crate) async fn chat_mark_read(app: tauri::AppHandle, ids: Vec<i64>) -> Resu
         if n > 0 && !news_ids.is_empty() {
             if let Ok(token) = crate::commands::telemetry::worker_token(db) {
                 for nid in &news_ids {
-                    let _ = ureq::post(&crate::endpoints::endpoint(&format!("/api/telemetry/news/{}/read", nid)))
+                    let _ = crate::http_client::post(&crate::endpoints::endpoint(&format!("/api/telemetry/news/{}/read", nid)))
                         .set("Authorization", &format!("Bearer {}", token))
                         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
                         .call();
@@ -1119,7 +1119,7 @@ fn send_read_receipts(db: &Database, token: &str, self_iid: &str, refs: Vec<(i64
                     "sealed_data": seal_for_peer(peer, &payload)?,
                 }],
             });
-            let resp = ureq::post(&crate::endpoints::endpoint("/sync/chat/send"))
+            let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/send"))
                 .set("Authorization", &format!("Bearer {}", token))
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -1182,14 +1182,14 @@ pub(crate) async fn chat_delete(app: tauri::AppHandle, msg_id: i64) -> Result<()
                         "sealed_data": sealed,
                     }],
                 });
-                let _ = ureq::post(&crate::endpoints::endpoint("/sync/chat/send"))
+                let _ = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/send"))
                     .set("Authorization", &format!("Bearer {}", token))
                     .set("Content-Type", "application/json")
                     .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
                     .send_string(&req_body.to_string());
             }
             if !server_ids.is_empty() {
-                let _ = ureq::post(&crate::endpoints::endpoint("/sync/chat/delete"))
+                let _ = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/delete"))
                     .set("Authorization", &format!("Bearer {}", token))
                     .set("Content-Type", "application/json")
                     .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -1250,7 +1250,7 @@ pub(crate) async fn chat_edit(app: tauri::AppHandle, msg_id: i64, body: String) 
                         "sealed_data": sealed,
                     }],
                 });
-                let _ = ureq::post(&crate::endpoints::endpoint("/sync/chat/send"))
+                let _ = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/send"))
                     .set("Authorization", &format!("Bearer {}", token))
                     .set("Content-Type", "application/json")
                     .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -1282,7 +1282,7 @@ pub(crate) async fn chat_typing(peer_iid: String) -> Result<(), String> {
         let token = auth_token(db)?;
         let self_iid = crate::license::get_or_create_installation_id(db)?;
         let req_body = json!({ "room": dm_room(&self_iid, &peer_iid), "target_iid": peer_iid });
-        let res = ureq::post(&crate::endpoints::endpoint("/sync/chat/typing"))
+        let res = crate::http_client::post(&crate::endpoints::endpoint("/sync/chat/typing"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(10))
@@ -1387,7 +1387,7 @@ fn fetch_outbox_locked(db: &Database) -> Result<Vec<i64>, String> {
         let enc = since.replace(' ', "%20").replace(':', "%3A");
         url = format!("{url}?updated_since={enc}");
     }
-    let resp = ureq::get(&url)
+    let resp = crate::http_client::get(&url)
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()
@@ -1487,7 +1487,7 @@ fn fetch_locked(db: &mut Database, retried_after_rotation: bool) -> Result<(Valu
         .max(db.chat_max_server_id()?);
 
     let url = format!("{}?since_id={}", crate::endpoints::endpoint("/sync/chat/messages"), since);
-    let resp = ureq::get(&url)
+    let resp = crate::http_client::get(&url)
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()

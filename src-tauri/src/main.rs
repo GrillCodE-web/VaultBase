@@ -9,6 +9,7 @@ mod database;
 mod desktop;
 mod encryption;
 mod endpoints;
+mod http_client;
 mod imap;
 mod license;
 mod logging;  // SPRINT3-DAY2: Structured logging with tracing

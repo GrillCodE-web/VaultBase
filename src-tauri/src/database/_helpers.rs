@@ -26,7 +26,7 @@
     let mut last_err = String::new();
     let mut resp = None;
     for attempt in 0..3u32 {
-        match ureq::get(&url).set("X-Api-Key", api_key).call() {
+        match crate::http_client::get(&url).set("X-Api-Key", api_key).call() {
             Ok(r) => { resp = Some(r); break; }
             Err(ureq::Error::Status(code, _)) if (400..500).contains(&code) && code != 429 => {
                 // 4xx (кроме 429) — ретраить бессмысленно

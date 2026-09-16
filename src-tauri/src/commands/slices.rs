@@ -66,7 +66,7 @@ fn register_key_if_needed(db: &Database, token: &str) -> Result<(), String> {
     }
     let priv_hex = ensure_slice_key(db)?;
     let body = json!({ "pubkey": pubkey_hex(&priv_hex), "label": "worker-slices" });
-    let resp = ureq::post(&crate::endpoints::endpoint("/sync/worker-key/register"))
+    let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/worker-key/register"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -148,7 +148,7 @@ pub(crate) async fn worker_key_register() -> Result<Value, String> {
 /// POST /sync/worker-key/register — регистрация/ротация пубключа.
 fn register_key(priv_hex: &str, token: &str) -> Result<i64, String> {
     let body = json!({ "pubkey": pubkey_hex(priv_hex), "label": "worker-slices" });
-    let resp = ureq::post(&crate::endpoints::endpoint("/sync/worker-key/register"))
+    let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/worker-key/register"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -177,7 +177,7 @@ fn fetch_locked(db: &mut Database) -> Result<Value, String> {
     let token = auth_token(db)?;
     register_key_if_needed(db, &token)?;
 
-    let resp = ureq::get(&crate::endpoints::endpoint("/sync/cards/issued"))
+    let resp = crate::http_client::get(&crate::endpoints::endpoint("/sync/cards/issued"))
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()
@@ -227,7 +227,7 @@ fn fetch_locked(db: &mut Database) -> Result<Value, String> {
 
     if !ack_ids.is_empty() {
         let body = json!({ "ids": ack_ids });
-        let _ = ureq::post(&crate::endpoints::endpoint("/sync/cards/issued/ack"))
+        let _ = crate::http_client::post(&crate::endpoints::endpoint("/sync/cards/issued/ack"))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -288,7 +288,7 @@ const MGR_KEY_ID: &str = "mgr_slice_key_id";
 /// Актуальный X25519-пубключ менеджера + key_id. Кэшируется в config-KV,
 /// обновляется по сети при каждом синке (ключ менеджера может ротироваться).
 fn fetch_manager_key(db: &Database, token: &str) -> Result<(String, i64), String> {
-    match ureq::get(&crate::endpoints::endpoint("/sync/manager-key"))
+    match crate::http_client::get(&crate::endpoints::endpoint("/sync/manager-key"))
         .set("Authorization", &format!("Bearer {}", token))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()
@@ -346,7 +346,7 @@ pub(crate) fn sync_orders(db: &mut Database, token: &str) -> Result<usize, Strin
     }
 
     let body = json!({ "slices": slices });
-    let resp = ureq::post(&crate::endpoints::endpoint("/sync/orders/upload"))
+    let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/orders/upload"))
         .set("Authorization", &format!("Bearer {}", token))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -451,7 +451,7 @@ fn fetch_assets_and_store(kind: &'static str) -> Result<Value, String> {
         let token = auth_token(db)?;
         register_key_if_needed(db, &token)?;
 
-        let resp = ureq::get(&crate::endpoints::endpoint(&format!("/sync/assets/issued?kind={kind}")))
+        let resp = crate::http_client::get(&crate::endpoints::endpoint(&format!("/sync/assets/issued?kind={kind}")))
             .set("Authorization", &format!("Bearer {}", token))
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
             .call()
@@ -505,7 +505,7 @@ fn fetch_assets_and_store(kind: &'static str) -> Result<Value, String> {
 
         if !ack_ids.is_empty() {
             let body = json!({ "ids": ack_ids });
-            let _ = ureq::post(&crate::endpoints::endpoint("/sync/assets/issued/ack"))
+            let _ = crate::http_client::post(&crate::endpoints::endpoint("/sync/assets/issued/ack"))
                 .set("Authorization", &format!("Bearer {}", token))
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -591,7 +591,7 @@ fn fetch_config_shares_and_store() -> Result<Value, String> {
 
         // kind не фильтруем: забираем все pending-конверты разом (stuffer,
         // track17, будущие kind'ы) и диспетчим по полю kind каждого конверта.
-        let resp = ureq::get(&crate::endpoints::endpoint("/sync/config/shares"))
+        let resp = crate::http_client::get(&crate::endpoints::endpoint("/sync/config/shares"))
             .set("Authorization", &format!("Bearer {}", token))
             .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
             .call()
@@ -661,7 +661,7 @@ fn fetch_config_shares_and_store() -> Result<Value, String> {
 
         if !ack_ids.is_empty() {
             let body = json!({ "ids": ack_ids });
-            let _ = ureq::post(&crate::endpoints::endpoint("/sync/config/shares/ack"))
+            let _ = crate::http_client::post(&crate::endpoints::endpoint("/sync/config/shares/ack"))
                 .set("Authorization", &format!("Bearer {}", token))
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))

@@ -165,7 +165,7 @@ pub fn activate(db: &Database, activation_key: &str) -> Result<(), String> {
         activation_key,
     };
 
-    let resp = ureq::post(&activate_url())
+    let resp = crate::http_client::post(&activate_url())
         .set("Content-Type", "application/json")
         .send_json(serde_json::to_value(&body).map_err(|e| e.to_string())?)
         .map_err(|e| match e {
@@ -235,7 +235,7 @@ fn do_verify(db: &Database, token: String) -> Result<LicenseStatus, String> {
     let iid = get_or_create_installation_id(db).unwrap_or_default();
     let body = VerifyRequest { token, installation_id: iid };
 
-    match ureq::post(&verify_url())
+    match crate::http_client::post(&verify_url())
         .set("Content-Type", "application/json")
         .send_json(serde_json::to_value(&body).map_err(|e| e.to_string())?)
     {

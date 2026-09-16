@@ -408,7 +408,7 @@ fn get(url: &str) -> Result<serde_json::Value, String> {
     let mut last_err = String::new();
     for attempt in 0..MAX_RETRIES {
         match read_json(
-            ureq::get(url)
+            crate::http_client::get(url)
                 .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
                 .call(),
         ) {
@@ -429,7 +429,7 @@ fn post_json(url: &str, payload: &serde_json::Value) -> Result<serde_json::Value
     let mut last_err = String::new();
     for attempt in 0..MAX_RETRIES {
         match read_json(
-            ureq::post(url)
+            crate::http_client::post(url)
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
                 .send_string(&body),

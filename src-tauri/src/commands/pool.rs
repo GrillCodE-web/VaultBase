@@ -56,7 +56,7 @@ fn pool_register_key_if_needed(db: &Database, token: &str) -> Result<(), String>
     }
     let priv_hex = ensure_slice_key(db)?;
     let body = serde_json::json!({ "pubkey": crate::commands::slices::pubkey_hex(&priv_hex), "label": "worker-slices" });
-    let resp = ureq::post(&crate::endpoints::endpoint("/sync/worker-key/register"))
+    let resp = crate::http_client::post(&crate::endpoints::endpoint("/sync/worker-key/register"))
         .set("Authorization", &format!("Bearer {token}"))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -100,7 +100,7 @@ fn http_err(context: &str, e: ureq::Error) -> String {
 }
 
 fn post_json(path: &str, token: &str, body: &Value) -> Result<Value, String> {
-    let resp = ureq::post(&crate::endpoints::endpoint(path))
+    let resp = crate::http_client::post(&crate::endpoints::endpoint(path))
         .set("Authorization", &format!("Bearer {token}"))
         .set("Content-Type", "application/json")
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
@@ -110,7 +110,7 @@ fn post_json(path: &str, token: &str, body: &Value) -> Result<Value, String> {
 }
 
 fn get_json(path: &str, token: &str) -> Result<Value, String> {
-    let resp = ureq::get(&crate::endpoints::endpoint(path))
+    let resp = crate::http_client::get(&crate::endpoints::endpoint(path))
         .set("Authorization", &format!("Bearer {token}"))
         .timeout(std::time::Duration::from_secs(HTTP_TIMEOUT_SECS))
         .call()

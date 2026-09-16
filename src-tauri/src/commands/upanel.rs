@@ -76,7 +76,7 @@ fn upanel_get(
 ) -> Result<Value, String> {
     let url = build_query(base_url, path, query);
     read_upanel_json(
-        ureq::get(&url)
+        crate::http_client::get(&url)
             .set("Authorization", &format!("Bearer {}", token))
             .set("Accept", "application/json")
             .timeout(std::time::Duration::from_secs(timeout_secs))
@@ -87,7 +87,7 @@ fn upanel_get(
 fn upanel_post(base_url: &str, token: &str, path: &str, timeout_secs: u64) -> Result<Value, String> {
     let url = build_query(base_url, path, &[]);
     read_upanel_json(
-        ureq::post(&url)
+        crate::http_client::post(&url)
             .set("Authorization", &format!("Bearer {}", token))
             .set("Accept", "application/json")
             .timeout(std::time::Duration::from_secs(timeout_secs))

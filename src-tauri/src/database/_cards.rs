@@ -564,7 +564,7 @@ impl Database {
         }
 
         // 2. Check server-side BIN cache (populated by other users)
-        let server_cached = ureq::get(&crate::endpoints::endpoint(&format!("/api/bin/{}", bin)))
+        let server_cached = crate::http_client::get(&crate::endpoints::endpoint(&format!("/api/bin/{}", bin)))
             .timeout(std::time::Duration::from_secs(4))
             .call()
             .ok()
@@ -604,7 +604,7 @@ impl Database {
                 }
                 // Push to server cache (fire-and-forget)
                 if let Ok(payload) = serde_json::to_string(&serde_json::json!({ "bin": &bin, "data": &info })) {
-                    let _ = ureq::post(&crate::endpoints::endpoint("/api/bin"))
+                    let _ = crate::http_client::post(&crate::endpoints::endpoint("/api/bin"))
                         .set("Content-Type", "application/json")
                         .timeout(std::time::Duration::from_secs(4))
                         .send_string(&payload);

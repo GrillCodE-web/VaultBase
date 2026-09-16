@@ -36,6 +36,20 @@ pub fn ensure_manager_key(
         }
     };
 
+    if let Some(id) = db
+        .get_config("mgr_key_id")
+        .and_then(|v| v.parse::<i64>().ok())
+        .filter(|id| *id > 0)
+    {
+        let verified_at = db
+            .get_config("mgr_key_verified_at")
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(0);
+        if chrono::Utc::now().timestamp() - verified_at < 86_400 {
+            return Ok((secret, public, id));
+        }
+    }
+
     let list = http::request(base, "GET", "/manager/api/keys", Some(token), None)
         .map_err(|e| format!("keys_list: {e}"))?;
     if list.status == 200 {
@@ -48,6 +62,7 @@ pub fn ensure_manager_key(
                 {
                     let id = active.get("id").and_then(|i| i.as_i64()).unwrap_or(0);
                     db.set_config("mgr_key_id", &id.to_string())?;
+                    db.set_config("mgr_key_verified_at", &chrono::Utc::now().timestamp().to_string())?;
                     return Ok((secret, public, id));
                 }
             }
@@ -63,6 +78,7 @@ pub fn ensure_manager_key(
     let parsed: Value = serde_json::from_str(&upload.body).map_err(|e| format!("parse: {e}"))?;
     let id = parsed.get("id").and_then(|i| i.as_i64()).ok_or("key_id_missing")?;
     db.set_config("mgr_key_id", &id.to_string())?;
+    db.set_config("mgr_key_verified_at", &chrono::Utc::now().timestamp().to_string())?;
     Ok((secret, public, id))
 }
 

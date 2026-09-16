@@ -1,6 +1,18 @@
 use crate::db::Database;
+use std::sync::OnceLock;
+use std::time::Duration;
 
 pub const DEFAULT_SERVER_URL: &str = "https://162.0.213.238.sslip.io:8448";
+
+static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+
+fn agent() -> &'static ureq::Agent {
+    AGENT.get_or_init(|| {
+        ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(25))
+            .build()
+    })
+}
 
 pub struct HttpResponse {
     pub status: u16,
@@ -44,11 +56,7 @@ pub fn request(
     let path = if path.starts_with('/') { path.to_string() } else { format!("/{path}") };
     let url = format!("{base}{path}");
 
-    let agent = ureq::AgentBuilder::new()
-        .timeout(std::time::Duration::from_secs(25))
-        .build();
-
-    let mut req = agent.request(method, &url);
+    let mut req = agent().request(method, &url);
     if let Some(token) = bearer {
         req = req.set("Authorization", &format!("Bearer {token}"));
     }

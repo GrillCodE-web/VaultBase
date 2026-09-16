@@ -880,7 +880,7 @@ pub(crate) fn run_tracking_update(handle: &tauri::AppHandle, api_key: &str) {
                 .map(|n| serde_json::json!({ "number": n }))
                 .collect();
 
-            let resp = ureq::post("https://api.17track.net/track/v2.2/gettrackinfo")
+            let resp = crate::http_client::post("https://api.17track.net/track/v2.2/gettrackinfo")
                 .set("17token", api_key)
                 .set("Content-Type", "application/json")
                 // FIX CONFIG: Use constant for tracking request timeout
@@ -972,7 +972,7 @@ pub(crate) fn sync_catalog_from_server(app: &tauri::AppHandle) -> Result<(), Str
     loop {
         let url = format!("{}/api/catalog/items?per_page={}&page={}", base, PER_PAGE, page);
         // FIX CONFIG: Use constant for HTTP request timeout
-        match ureq::get(&url).timeout(std::time::Duration::from_secs(crate::constants::HTTP_REQUEST_TIMEOUT_SECS)).call() {
+        match crate::http_client::get(&url).timeout(std::time::Duration::from_secs(crate::constants::HTTP_REQUEST_TIMEOUT_SECS)).call() {
             Ok(resp) => {
                 match resp.into_json::<serde_json::Value>() {
                     Ok(data) => {
@@ -1020,7 +1020,7 @@ pub(crate) fn sync_catalog_from_server(app: &tauri::AppHandle) -> Result<(), Str
     loop {
         let url = format!("{}/api/catalog/shops?per_page={}&page={}", base, PER_PAGE, page);
         // FIX CONFIG: Use constant for HTTP request timeout
-        match ureq::get(&url).timeout(std::time::Duration::from_secs(crate::constants::HTTP_REQUEST_TIMEOUT_SECS)).call() {
+        match crate::http_client::get(&url).timeout(std::time::Duration::from_secs(crate::constants::HTTP_REQUEST_TIMEOUT_SECS)).call() {
             Ok(resp) => {
                 match resp.into_json::<serde_json::Value>() {
                     Ok(data) => {

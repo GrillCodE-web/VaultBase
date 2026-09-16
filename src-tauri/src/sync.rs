@@ -23,7 +23,7 @@ pub struct SyncClient;
 impl SyncClient {
     /// FIX B11: считаем онлайном только 2xx ответы
     pub fn check_server_online() -> bool {
-        match ureq::get(&format!("{}/", server_url()))
+        match crate::http_client::get(&format!("{}/", server_url()))
             .timeout(std::time::Duration::from_secs(5))
             .call()
         {
@@ -148,7 +148,7 @@ impl SyncClient {
         const BASE_DELAY_MS: u64 = 500;
 
         for attempt in 0..MAX_RETRIES {
-            match ureq::post(&format!("{}/footprint", server_url()))
+            match crate::http_client::post(&format!("{}/footprint", server_url()))
                 .set("Authorization", &format!("Bearer {}", token))
                 .set("Content-Type", "application/json")
                 .timeout(std::time::Duration::from_secs(10))
@@ -233,7 +233,7 @@ impl SyncClient {
 
         let body = serde_json::json!({ "shop_domain": domain, "hashes": hashes });
 
-        let resp = ureq::post(&format!("{}/footprint/check", server_url()))
+        let resp = crate::http_client::post(&format!("{}/footprint/check", server_url()))
             .set("Authorization", &format!("Bearer {}", token))
             .set("Content-Type", "application/json")
             .timeout(std::time::Duration::from_secs(5))
@@ -318,7 +318,7 @@ impl SyncClient {
     }
 
     pub fn check_version() -> Option<(String, String)> {
-        let resp = ureq::get(&format!("{}/version", server_url()))
+        let resp = crate::http_client::get(&format!("{}/version", server_url()))
             .timeout(std::time::Duration::from_secs(5))
             .call()
             .ok()?;
