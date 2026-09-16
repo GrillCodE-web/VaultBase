@@ -1118,6 +1118,7 @@ export const en = {
     'Each profile can have multiple drop addresses. Open the Profiles page, expand a profile row, and manage drops from the detail panel.',
   drops_expand_row: 'Expand row',
   nav_drops_tab: 'Drops tab',
+  drops_loading: 'Geocoding addresses… {done}/{total}',
 
   // Generic show/hide buttons
   btn_show: 'Show',

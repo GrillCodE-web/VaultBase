@@ -30,6 +30,7 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         fetch: 'readonly',
+        AbortSignal: 'readonly',
         FormData: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
